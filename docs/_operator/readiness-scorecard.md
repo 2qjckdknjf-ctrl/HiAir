@@ -8,20 +8,20 @@ Scoring model: 0-100 based on verified code/build/tests/docs state (not historic
 | Area | Score | Explanation | Blockers to next level |
 |---|---:|---|---|
 | Product readiness | 62 | Core screens/flows exist on both mobile platforms; behavior consistency and contract cohesion still incomplete | Unify auth/navigation behavior, close risk semantic drift, remove hardcoded env assumptions |
-| Backend readiness | 82 | FastAPI surface compiles; runtime guardrails enforced; local DB smoke uncovered and resolved real bytes/serialization defects | Collect remote CI evidence and continue contract/privacy hardening |
+| Backend readiness | 86 | FastAPI surface compiles; runtime guardrails enforced; local DB smoke validated; remote backend CI now green with prechecks and smoke flow | Continue contract/privacy hardening and production rollout controls |
 | iOS readiness | 74 | Simulator build succeeds; API base URL now centralized via config/env override | Final ATS/store compliance polish and full device QA matrix |
 | Android readiness | 74 | Debug/release builds pass; API base URL centralized; cleartext policy split; launcher icon placeholder removed | Release endpoint rollout evidence and QA matrix hardening |
 | API/contract readiness | 76 | Auth behavior tightened; risk-level compatibility bridge documented; API-boundary normalization and alias telemetry now implemented | Versioned deprecation/removal rollout and client migration evidence |
 | DB/data readiness | 78 | SQL migrations and repositories exist; local DB smoke confirms privacy export/delete and residual-row assertions; type normalization defects fixed | Remote CI evidence and retention matrix proof |
-| QA readiness | 85 | Checklists/scripts/tests strengthened; false-green fixed; mobile CI added; local Postgres smoke passes in both open and protected modes; retention evidence export now machine-readable | Remote CI evidence for new workflows remains |
-| Security/privacy readiness | 83 | Auth/webhook/runtime guardrails enforced; privacy export/delete validated in DB smoke; ops health/observability endpoints protected by admin token policy | Remote CI evidence and final legal alignment |
+| QA readiness | 89 | Checklists/scripts/tests strengthened; false-green fixed; mobile CI added; local Postgres smoke passes in both open and protected modes; remote CI evidence now captured | Expand device matrix and sustained monitored beta cycle evidence |
+| Security/privacy readiness | 85 | Auth/webhook/runtime guardrails enforced; privacy export/delete validated in DB smoke; ops health/observability endpoints protected by admin token policy and CI-backed checks | Final legal alignment and production controls evidence |
 | Store readiness | 58 | Build artifacts/runbooks exist, Android icon blocker reduced, legal drafts aligned, and metadata packet draft prepared | Final legal signoff, account access, and platform-specific final compliance answers |
 | Ops readiness | 74 | Retention/handover + incident runbooks now documented; retention matrix and JSON evidence artifacts available; ops endpoints protected by admin token policy | Monitored rollout evidence and on-call ownership signoff |
 | Public launch readiness | 44 | Foundation is stronger with mobile CI/security/contract/privacy improvements, but high-impact blockers remain | Close remaining critical/high engineering + legal/compliance + store handoff blockers |
 
 ## Aggregate interpretation
 
-- Closed beta readiness: **91/100** (conditionally reachable after remaining critical/high closures)
+- Closed beta readiness: **93/100** (conditionally reachable after remaining critical/high closures)
 - Store handoff readiness: **40/100** (blocked by engineering + external dependencies)
 - Public launch readiness: **44/100** (not ready)
 

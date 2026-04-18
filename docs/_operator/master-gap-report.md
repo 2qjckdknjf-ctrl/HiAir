@@ -71,4 +71,6 @@ Second stabilization update:
 - Ops depth: improved (incident response runbook published and linked from ops handover checklist).
 - GAP-007: further improved (API-boundary normalization and alias telemetry implemented; deprecation execution now reduced to versioning/removal phase).
 - GAP-021: improved (store metadata packet draft created with screenshot/privacy-label/reviewer-note checklist).
+- GAP-010: closed for current branch evidence scope (backend workflow now passes with compile/tests/prechecks/init/smoke/historical validation sequence).
+- GAP-011: closed for current branch evidence scope (Android CI success and iOS CI success captured on remote runs).
 - GAP-007: further improved (API-boundary normalization and alias telemetry implemented; deprecation execution now reduced to versioning/removal phase).

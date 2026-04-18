@@ -232,3 +232,7 @@ After fixes:
   - Added alias telemetry in observability metrics (`risk_level_alias_counts`).
 - Store handoff preparation:
   - Added `docs/store-metadata-packet.md` with draft app copy, screenshot matrix, privacy label mapping, and reviewer-note template.
+- Remote CI evidence captured on branch `cursor/bootstrap-ci-and-tooling`:
+  - Android CI success: run `24615985042`
+  - iOS CI success: run `24616042251`
+  - Backend CI success (after workflow ordering fix): run `24616100932`
