@@ -63,7 +63,7 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         run: |
-          pytest tests -q
+          python -m pytest tests -q
 
       - name: Security and retention prechecks
         working-directory: backend
