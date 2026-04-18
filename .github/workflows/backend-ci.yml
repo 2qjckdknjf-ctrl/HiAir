@@ -69,11 +69,11 @@ jobs:
         working-directory: backend
         run: |
           python scripts/check_env_security.py --strict
-          python scripts/retention_cleanup.py --dry-run
 
       - name: Initialize schema and run validations
         working-directory: backend
         run: |
           python scripts/init_db.py
+          python scripts/retention_cleanup.py --dry-run
           python scripts/smoke_db_flow.py
           python scripts/validate_risk_historical.py
