@@ -1,0 +1,35 @@
+name: Android CI
+
+on:
+  push:
+    paths:
+      - "mobile/android/**"
+      - ".github/workflows/android-ci.yml"
+  pull_request:
+    paths:
+      - "mobile/android/**"
+      - ".github/workflows/android-ci.yml"
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Build debug and release
+        run: ./gradlew assembleDebug assembleRelease --no-daemon
+
+      - name: Run lint
+        run: ./gradlew lintDebug --no-daemon

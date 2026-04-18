@@ -1,0 +1,39 @@
+name: iOS CI
+
+on:
+  push:
+    paths:
+      - "mobile/ios/**"
+      - ".github/workflows/ios-ci.yml"
+  pull_request:
+    paths:
+      - "mobile/ios/**"
+      - ".github/workflows/ios-ci.yml"
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile/ios
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen
+
+      - name: Build simulator target
+        run: |
+          xcodebuild \
+            -project HiAir.xcodeproj \
+            -scheme HiAir \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            build \
+            CODE_SIGNING_ALLOWED=NO

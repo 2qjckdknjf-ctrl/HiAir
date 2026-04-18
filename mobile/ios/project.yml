@@ -1,0 +1,34 @@
+name: HiAir
+options:
+  minimumXcodeGenVersion: 2.37.0
+  objectVersion: 56
+  bundleIdPrefix: com.hiair
+targets:
+  HiAir:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - HiAir
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
+        SWIFT_VERSION: 5.0
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1.0
+        INFOPLIST_KEY_CFBundleDisplayName: HiAir
+        INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone:
+          - UIInterfaceOrientationPortrait
+      configs:
+        Debug:
+          CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
+          CODE_SIGNING_REQUIRED[sdk=iphoneos*]: NO
+          INFOPLIST_KEY_API_BASE_URL: http://127.0.0.1:8000
+          INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: YES
+        Release:
+          INFOPLIST_KEY_API_BASE_URL: https://api.hiair.app
