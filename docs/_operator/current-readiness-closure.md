@@ -40,3 +40,10 @@ Last updated: 2026-04-18
 - Closed beta: **near go**, pending remaining internal blockers and external access readiness.
 - Store handoff: **not yet go**, pending metadata/legal/account dependencies.
 - Public launch: **no-go** until legal/store/ops closure.
+
+## Phase 6 package status
+
+Added final operator artifacts:
+- `docs/_operator/external-blocker-ledger.md`
+- `docs/_operator/residual-risk-register.md`
+- `docs/_operator/go-no-go-verdict.md`

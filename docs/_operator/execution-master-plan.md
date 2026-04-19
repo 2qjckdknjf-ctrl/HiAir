@@ -232,6 +232,9 @@ Additional stabilization outcome:
 - Ops endpoint access tightened with admin-token policy and preflight/smoke script support.
 - Retention/ops closure advanced with retention matrix, JSON evidence output, and incident runbook.
 
+Phase 6 packaging progress:
+- Added external blocker ledger, residual risk register, and explicit go/no-go verdict artifact.
+
 ## Tracking protocol
 
 For each substage:
