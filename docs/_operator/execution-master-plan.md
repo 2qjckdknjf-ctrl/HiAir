@@ -225,7 +225,7 @@ Progress on item 4:
 - Added DB-backed residual-data assertions to `scripts/smoke_db_flow.py`.
 - Local evidence captured: full smoke run on temporary Postgres now passes with residual-data assertions.
 - Remaining work: capture remote CI run evidence that executes these DB assertions on postgres.
-  - Current blocker: no commits/runs available on active remote branch yet.
+  - Status: remote CI evidence now captured on `cursor/bootstrap-ci-and-tooling` (backend workflow success after ordering fix).
 
 Additional stabilization outcome:
 - DB smoke surfaced and fixed bytes/str robustness defects in auth/subscriptions/privacy code paths.

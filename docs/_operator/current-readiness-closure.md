@@ -22,7 +22,6 @@ Last updated: 2026-04-18
 
 ## Remaining internal blockers
 
-- Remote CI execution evidence for newly added/updated workflow gates.
 - Versioned deprecation/removal execution for `medium` vs `moderate` aliases.
 - Full store metadata packet finalization.
 - Ops on-call owner confirmation and monitored rollout evidence.
@@ -34,7 +33,7 @@ Last updated: 2026-04-18
 - Legal final signoff for privacy policy and terms.
 - Production secrets governance/ownership signoff.
 - Remote CI evidence cannot be produced until branch changes are committed/pushed
-  (current repository state reports no commits yet on active branch).
+  (resolved on current branch: Android/iOS/Backend workflow evidence captured).
 
 ## Interim go/no-go
 
