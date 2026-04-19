@@ -25,3 +25,10 @@ Last updated: 2026-04-19
 1. Close `EXT-001` and `EXT-002` (platform access).
 2. Close `EXT-003` (legal approval and final policy URLs).
 3. Close `EXT-004` and `EXT-005` (ops/store governance and metadata packet finalization).
+
+Tracked in GitHub issues:
+- `EXT-001` -> [#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2)
+- `EXT-002` -> [#3](https://github.com/2qjckdknjf-ctrl/HiAir/issues/3)
+- `EXT-003` -> [#4](https://github.com/2qjckdknjf-ctrl/HiAir/issues/4)
+- `EXT-004` -> [#5](https://github.com/2qjckdknjf-ctrl/HiAir/issues/5)
+- `EXT-005` -> [#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6)
