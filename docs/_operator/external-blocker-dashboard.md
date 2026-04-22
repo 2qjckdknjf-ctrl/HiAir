@@ -1,16 +1,16 @@
 # HiAir External Blocker Dashboard
 
-Last updated: 2026-04-21
+Last updated: 2026-04-22
 
 Live tracking dashboard for release-blocking non-code dependencies.
 
 | ID | Issue | Status | Assignee | Last update (UTC) | Immediate next action |
 |---|---|---|---|---|---|
-| EXT-001 | [#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2) | OPEN | unassigned | 2026-04-21T20:32:29Z | Confirm App Store Connect access and attach evidence in issue thread |
-| EXT-002 | [#3](https://github.com/2qjckdknjf-ctrl/HiAir/issues/3) | OPEN | unassigned | 2026-04-21T20:32:35Z | Confirm Play Console access and attach internal track upload evidence |
-| EXT-003 | [#4](https://github.com/2qjckdknjf-ctrl/HiAir/issues/4) | OPEN | unassigned | 2026-04-21T20:32:44Z | Confirm legal owner and attach signoff artifact + final policy URLs |
-| EXT-004 | [#5](https://github.com/2qjckdknjf-ctrl/HiAir/issues/5) | OPEN | unassigned | 2026-04-21T20:32:54Z | Confirm security/ops owner and attach secrets governance approval |
-| EXT-005 | [#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6) | OPEN | unassigned | 2026-04-21T20:33:00Z | Attach finalized store metadata packet and compliance evidence |
+| EXT-001 | [#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2) | OPEN | unassigned | 2026-04-22T06:04:22Z | Confirm App Store Connect access and attach evidence in issue thread |
+| EXT-002 | [#3](https://github.com/2qjckdknjf-ctrl/HiAir/issues/3) | OPEN | unassigned | 2026-04-22T06:04:24Z | Confirm Play Console access and attach internal track upload evidence |
+| EXT-003 | [#4](https://github.com/2qjckdknjf-ctrl/HiAir/issues/4) | OPEN | unassigned | 2026-04-22T06:04:26Z | Confirm legal owner and attach signoff artifact + final policy URLs |
+| EXT-004 | [#5](https://github.com/2qjckdknjf-ctrl/HiAir/issues/5) | OPEN | unassigned | 2026-04-22T06:04:28Z | Confirm security/ops owner and attach secrets governance approval |
+| EXT-005 | [#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6) | OPEN | unassigned | 2026-04-22T06:04:30Z | Attach finalized store metadata packet and compliance evidence |
 
 ## Execution policy
 
@@ -20,3 +20,11 @@ Live tracking dashboard for release-blocking non-code dependencies.
 - Daily update template: `docs/_operator/daily-external-blocker-template.md`
 - Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`
 - Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-21.md`
+
+## Automation
+
+Refresh from live GitHub issue state:
+
+```bash
+python3 backend/scripts/refresh_external_blocker_dashboard.py
+```
