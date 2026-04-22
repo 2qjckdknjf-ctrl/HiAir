@@ -1,0 +1,79 @@
+name: External Blocker Ops
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  blocker-ops:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run blocker ops pipeline
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 backend/scripts/run_external_blocker_ops.py
+
+      - name: Run closure readiness gate
+        id: closure_gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          python3 backend/scripts/check_external_blocker_closure_readiness.py | tee closure_gate.log
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Run evidence completeness gate
+        id: evidence_gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          python3 backend/scripts/check_external_blocker_evidence_completeness.py | tee evidence_gate.log
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Post daily status to coordination issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CLOSURE_STATUS="PASS"
+          EVIDENCE_STATUS="PASS"
+          if [ "${{ steps.closure_gate.outputs.exit_code }}" != "0" ]; then
+            CLOSURE_STATUS="FAIL"
+          fi
+          if [ "${{ steps.evidence_gate.outputs.exit_code }}" != "0" ]; then
+            EVIDENCE_STATUS="FAIL"
+          fi
+          gh issue comment 7 --repo 2qjckdknjf-ctrl/HiAir --body "$(cat <<EOF
+          Automated External Blocker Ops run completed.
+
+          - closure-readiness gate: ${CLOSURE_STATUS}
+          - evidence-completeness gate: ${EVIDENCE_STATUS}
+
+          Artifacts refreshed:
+          - docs/_operator/daily-external-blocker-update-YYYY-MM-DD.md
+          - docs/_operator/external-blocker-dashboard.md
+          EOF
+          )"
+
+      - name: Fail job when strict gates fail
+        if: ${{ steps.closure_gate.outputs.exit_code != '0' || steps.evidence_gate.outputs.exit_code != '0' }}
+        run: |
+          echo "One or more blocker gates failed."
+          exit 1

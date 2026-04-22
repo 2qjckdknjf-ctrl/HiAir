@@ -31,6 +31,10 @@ python3 backend/scripts/check_external_blocker_closure_readiness.py
 python3 backend/scripts/check_external_blocker_evidence_completeness.py
 ```
 
+Scheduled automation:
+
+- `.github/workflows/external-blocker-ops.yml` runs daily and on manual dispatch.
+
 Manual step-by-step (if needed):
 
 ```bash
