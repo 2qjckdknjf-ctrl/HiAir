@@ -20,6 +20,7 @@ Live tracking dashboard for release-blocking non-code dependencies.
 - Daily update template: `docs/_operator/daily-external-blocker-template.md`
 - Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`
 - Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-22.md`
+- Evidence tracker: `docs/_operator/external-evidence-tracker.md`
 
 ## Automation
 
