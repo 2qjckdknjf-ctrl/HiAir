@@ -28,4 +28,5 @@ Generate daily report + refresh dashboard:
 ```bash
 python3 backend/scripts/generate_daily_external_blocker_update.py
 python3 backend/scripts/refresh_external_blocker_dashboard.py
+python3 backend/scripts/check_external_blocker_escalations.py
 ```
