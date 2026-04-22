@@ -1,6 +1,6 @@
 # HiAir Readiness Scorecard
 
-Last updated: 2026-04-18  
+Last updated: 2026-04-22  
 Scoring model: 0-100 based on verified code/build/tests/docs state (not historical claims only)
 
 ## Scores by area
@@ -15,22 +15,23 @@ Scoring model: 0-100 based on verified code/build/tests/docs state (not historic
 | DB/data readiness | 78 | SQL migrations and repositories exist; local DB smoke confirms privacy export/delete and residual-row assertions; type normalization defects fixed | Remote CI evidence and retention matrix proof |
 | QA readiness | 89 | Checklists/scripts/tests strengthened; false-green fixed; mobile CI added; local Postgres smoke passes in both open and protected modes; remote CI evidence now captured | Expand device matrix and sustained monitored beta cycle evidence |
 | Security/privacy readiness | 85 | Auth/webhook/runtime guardrails enforced; privacy export/delete validated in DB smoke; ops health/observability endpoints protected by admin token policy and CI-backed checks | Final legal alignment and production controls evidence |
-| Store readiness | 58 | Build artifacts/runbooks exist, Android icon blocker reduced, legal drafts aligned, and metadata packet draft prepared | Final legal signoff, account access, and platform-specific final compliance answers |
-| Ops readiness | 74 | Retention/handover + incident runbooks now documented; retention matrix and JSON evidence artifacts available; ops endpoints protected by admin token policy | Monitored rollout evidence and on-call ownership signoff |
+| Store readiness | 62 | Metadata packet and last-mile docs exist; external blocker issues now have owner/date/checklists and baseline evidence links | Final platform upload proofs, legal signoff artifacts, and completed compliance evidence |
+| Ops readiness | 84 | External blocker control loop is automated (daily update, dashboard refresh, escalation checks, closure/evidence gates) with command-center issue tracking | Final external proof artifacts and sustained execution cadence evidence |
 | Public launch readiness | 44 | Foundation is stronger with mobile CI/security/contract/privacy improvements, but high-impact blockers remain | Close remaining critical/high engineering + legal/compliance + store handoff blockers |
 
 ## Aggregate interpretation
 
-- Closed beta readiness: **93/100** (conditionally reachable after remaining critical/high closures)
-- Store handoff readiness: **40/100** (blocked by engineering + external dependencies)
+- Closed beta readiness: **94/100** (conditionally reachable after remaining critical/high closures)
+- Store handoff readiness: **62/100** (blocked by external dependencies and final proof artifacts)
 - Public launch readiness: **44/100** (not ready)
 
 ## External blockers (not engineering-done)
 
-- Apple Developer / App Store Connect access for upload and distribution
-- Google Play Console access for internal/public tracks
-- Legal approval and final wording for privacy policy and terms of service
-- Potential push provider production credentials and secret governance confirmation
+- `EXT-001` App Store Connect access and upload evidence ([#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2))
+- `EXT-002` Google Play Console access and internal track evidence ([#3](https://github.com/2qjckdknjf-ctrl/HiAir/issues/3))
+- `EXT-003` Legal signoff and final policy URLs ([#4](https://github.com/2qjckdknjf-ctrl/HiAir/issues/4))
+- `EXT-004` Secrets governance/ownership approval ([#5](https://github.com/2qjckdknjf-ctrl/HiAir/issues/5))
+- `EXT-005` Final store metadata/compliance packet evidence ([#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6))
 
 ## Score improvement path (next target levels)
 

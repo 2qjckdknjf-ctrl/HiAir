@@ -26,6 +26,7 @@ Last updated: 2026-04-22
 - Full store metadata packet finalization.
 - Ops on-call owner confirmation and monitored rollout evidence.
 - External final-proof attachments are still pending in EXT issues (#2-#6), tracked by closure/evidence gates.
+- Strict automation mode now exists and correctly fails until closure/evidence gates are satisfied.
 
 ## External blockers (cannot be auto-closed in code)
 
