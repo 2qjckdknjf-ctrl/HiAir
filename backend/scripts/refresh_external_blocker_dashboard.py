@@ -84,6 +84,15 @@ def _render_markdown(rows: list[dict[str, object]]) -> str:
             "- Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`",
             f"- Latest daily update: `docs/_operator/{latest_daily_update}`",
             "",
+            "## Automation",
+            "",
+            "Generate daily report + refresh dashboard:",
+            "",
+            "```bash",
+            "python3 backend/scripts/generate_daily_external_blocker_update.py",
+            "python3 backend/scripts/refresh_external_blocker_dashboard.py",
+            "```",
+            "",
         ]
     )
     return "\n".join(lines)

@@ -20,3 +20,12 @@ Live tracking dashboard for release-blocking non-code dependencies.
 - Daily update template: `docs/_operator/daily-external-blocker-template.md`
 - Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`
 - Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-22.md`
+
+## Automation
+
+Generate daily report + refresh dashboard:
+
+```bash
+python3 backend/scripts/generate_daily_external_blocker_update.py
+python3 backend/scripts/refresh_external_blocker_dashboard.py
+```
