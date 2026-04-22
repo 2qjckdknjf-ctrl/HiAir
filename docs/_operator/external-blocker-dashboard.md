@@ -6,11 +6,11 @@ Live tracking dashboard for release-blocking non-code dependencies.
 
 | ID | Issue | Status | Assignee | Target date | Last update (UTC) | Immediate next action |
 |---|---|---|---|---|---|---|
-| EXT-001 | [#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:39:37Z | Confirm App Store Connect access and attach evidence in issue thread |
-| EXT-002 | [#3](https://github.com/2qjckdknjf-ctrl/HiAir/issues/3) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:39:40Z | Confirm Play Console access and attach internal track upload evidence |
-| EXT-003 | [#4](https://github.com/2qjckdknjf-ctrl/HiAir/issues/4) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:39:43Z | Confirm legal owner and attach signoff artifact + final policy URLs |
-| EXT-004 | [#5](https://github.com/2qjckdknjf-ctrl/HiAir/issues/5) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:39:44Z | Confirm security/ops owner and attach secrets governance approval |
-| EXT-005 | [#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:39:46Z | Attach finalized store metadata packet and compliance evidence |
+| EXT-001 | [#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:41:37Z | Confirm App Store Connect access and attach evidence in issue thread |
+| EXT-002 | [#3](https://github.com/2qjckdknjf-ctrl/HiAir/issues/3) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:41:39Z | Confirm Play Console access and attach internal track upload evidence |
+| EXT-003 | [#4](https://github.com/2qjckdknjf-ctrl/HiAir/issues/4) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:41:41Z | Confirm legal owner and attach signoff artifact + final policy URLs |
+| EXT-004 | [#5](https://github.com/2qjckdknjf-ctrl/HiAir/issues/5) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:41:42Z | Confirm security/ops owner and attach secrets governance approval |
+| EXT-005 | [#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6) | OPEN | 2qjckdknjf-ctrl | 2026-04-29 | 2026-04-22T06:41:44Z | Attach finalized store metadata packet and compliance evidence |
 
 ## Execution policy
 
@@ -20,7 +20,6 @@ Live tracking dashboard for release-blocking non-code dependencies.
 - Daily update template: `docs/_operator/daily-external-blocker-template.md`
 - Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`
 - Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-22.md`
-- Evidence tracker: `docs/_operator/external-evidence-tracker.md`
 
 ## Automation
 
