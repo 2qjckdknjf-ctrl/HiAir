@@ -16,9 +16,10 @@
 ## Escalations applied
 
 - Any external blocker without owner/date beyond threshold remains escalated in issue thread and #7.
+- Closure-readiness gate remains NOT_READY until final evidence/signoff checkboxes are completed.
 
 ## Next 24h actions
 
-1. Assign owners for all unassigned blockers.
-2. Set target dates in each blocker issue.
-3. Attach first concrete evidence artifact per blocker.
+1. Assign owners for unresolved items: none
+2. Set target dates for unresolved items: none
+3. Attach final external proof artifacts and complete closure checkboxes in each EXT issue.

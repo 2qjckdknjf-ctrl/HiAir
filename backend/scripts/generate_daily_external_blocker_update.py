@@ -42,6 +42,8 @@ def main() -> int:
     output = OPERATOR_DIR / f"daily-external-blocker-update-{today}.md"
     blockers = [b for b in _load_blockers() if _ext_id(str(b["title"])).startswith("EXT-")]
     blockers.sort(key=lambda item: int(item["number"]))
+    unassigned_ids: list[str] = []
+    unset_date_ids: list[str] = []
 
     lines = [f"# Daily External Blocker Update ({today})", "", "## Snapshot", ""]
     for b in blockers:
@@ -52,6 +54,10 @@ def main() -> int:
         target_date = "unset"
         if milestone and milestone.get("dueOn"):
             target_date = str(milestone["dueOn"]).split("T", 1)[0]
+        else:
+            unset_date_ids.append(ext)
+        if owner == "unassigned":
+            unassigned_ids.append(ext)
         lines.append(f"- {ext} (#{b['number']}): {b['state']} / owner: {owner} / date: {target_date}")
 
     lines.extend(
@@ -65,12 +71,13 @@ def main() -> int:
             "## Escalations applied",
             "",
             "- Any external blocker without owner/date beyond threshold remains escalated in issue thread and #7.",
+            "- Closure-readiness gate remains NOT_READY until final evidence/signoff checkboxes are completed.",
             "",
             "## Next 24h actions",
             "",
-            "1. Assign owners for all unassigned blockers.",
-            "2. Set target dates in each blocker issue.",
-            "3. Attach first concrete evidence artifact per blocker.",
+            f"1. Assign owners for unresolved items: {', '.join(unassigned_ids) if unassigned_ids else 'none'}",
+            f"2. Set target dates for unresolved items: {', '.join(unset_date_ids) if unset_date_ids else 'none'}",
+            "3. Attach final external proof artifacts and complete closure checkboxes in each EXT issue.",
             "",
         ]
     )
