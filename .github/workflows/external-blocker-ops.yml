@@ -33,8 +33,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
+          set -o pipefail
           python3 backend/scripts/check_external_blocker_closure_readiness.py | tee closure_gate.log
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          gate_exit=${PIPESTATUS[0]}
+          echo "exit_code=${gate_exit}" >> "$GITHUB_OUTPUT"
           set -e
 
       - name: Run evidence completeness gate
@@ -43,8 +45,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
+          set -o pipefail
           python3 backend/scripts/check_external_blocker_evidence_completeness.py | tee evidence_gate.log
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          gate_exit=${PIPESTATUS[0]}
+          echo "exit_code=${gate_exit}" >> "$GITHUB_OUTPUT"
           set -e
 
       - name: Post daily status to coordination issue
