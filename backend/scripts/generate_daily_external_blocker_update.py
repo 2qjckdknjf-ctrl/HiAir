@@ -23,7 +23,7 @@ def _load_blockers() -> list[dict[str, object]]:
             "--label",
             "external-blocker",
             "--json",
-            "number,title,state,assignees,updatedAt,url",
+            "number,title,state,assignees,updatedAt,url,milestone",
             "--limit",
             "50",
         ]
@@ -48,8 +48,11 @@ def main() -> int:
         ext = _ext_id(str(b["title"]))
         assignees = b.get("assignees") or []
         owner = "unassigned" if not assignees else assignees[0]["login"]
-        date_state = "unset" if owner == "unassigned" else "set-by-owner"
-        lines.append(f"- {ext} (#{b['number']}): {b['state']} / owner: {owner} / date: {date_state}")
+        milestone = b.get("milestone")
+        target_date = "unset"
+        if milestone and milestone.get("dueOn"):
+            target_date = str(milestone["dueOn"]).split("T", 1)[0]
+        lines.append(f"- {ext} (#{b['number']}): {b['state']} / owner: {owner} / date: {target_date}")
 
     lines.extend(
         [

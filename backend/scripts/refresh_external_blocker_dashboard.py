@@ -33,7 +33,7 @@ def _load_blockers() -> list[dict[str, object]]:
             "--label",
             "external-blocker",
             "--json",
-            "number,title,state,url,assignees,updatedAt",
+            "number,title,state,url,assignees,updatedAt,milestone",
             "--limit",
             "50",
         ]
@@ -56,8 +56,8 @@ def _render_markdown(rows: list[dict[str, object]]) -> str:
         "",
         "Live tracking dashboard for release-blocking non-code dependencies.",
         "",
-        "| ID | Issue | Status | Assignee | Last update (UTC) | Immediate next action |",
-        "|---|---|---|---|---|---|",
+        "| ID | Issue | Status | Assignee | Target date | Last update (UTC) | Immediate next action |",
+        "|---|---|---|---|---|---|---|",
     ]
 
     ext_rows = [row for row in rows if _extract_ext_id(str(row["title"])) != "EXT-UNK"]
@@ -67,9 +67,13 @@ def _render_markdown(rows: list[dict[str, object]]) -> str:
         issue_link = f"[#{row['number']}]({row['url']})"
         assignees = row.get("assignees") or []
         assignee = "unassigned" if not assignees else assignees[0]["login"]
+        milestone = row.get("milestone")
+        target_date = "unset"
+        if milestone and milestone.get("dueOn"):
+            target_date = str(milestone["dueOn"]).split("T", 1)[0]
         next_action = NEXT_ACTIONS.get(ext_id, "Update blocker issue with owner/date and evidence plan")
         lines.append(
-            f"| {ext_id} | {issue_link} | {row['state']} | {assignee} | {row['updatedAt']} | {next_action} |"
+            f"| {ext_id} | {issue_link} | {row['state']} | {assignee} | {target_date} | {row['updatedAt']} | {next_action} |"
         )
 
     lines.extend(

@@ -2,11 +2,11 @@
 
 ## Snapshot
 
-- EXT-001 (#2): OPEN / owner: 2qjckdknjf-ctrl / date: set-by-owner
-- EXT-002 (#3): OPEN / owner: 2qjckdknjf-ctrl / date: set-by-owner
-- EXT-003 (#4): OPEN / owner: 2qjckdknjf-ctrl / date: set-by-owner
-- EXT-004 (#5): OPEN / owner: 2qjckdknjf-ctrl / date: set-by-owner
-- EXT-005 (#6): OPEN / owner: 2qjckdknjf-ctrl / date: set-by-owner
+- EXT-001 (#2): OPEN / owner: 2qjckdknjf-ctrl / date: 2026-04-29
+- EXT-002 (#3): OPEN / owner: 2qjckdknjf-ctrl / date: 2026-04-29
+- EXT-003 (#4): OPEN / owner: 2qjckdknjf-ctrl / date: 2026-04-29
+- EXT-004 (#5): OPEN / owner: 2qjckdknjf-ctrl / date: 2026-04-29
+- EXT-005 (#6): OPEN / owner: 2qjckdknjf-ctrl / date: 2026-04-29
 
 ## Changes since last update
 
