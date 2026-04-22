@@ -25,7 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 backend/scripts/run_external_blocker_ops.py
+          python3 backend/scripts/run_external_blocker_ops.py --notify
 
       - name: Run closure readiness gate
         id: closure_gate

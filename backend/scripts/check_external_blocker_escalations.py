@@ -1,4 +1,5 @@
 import json
+import sys
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -19,6 +20,21 @@ class BlockerIssue:
 
 def _run(cmd: list[str]) -> str:
     return subprocess.check_output(cmd, text=True).strip()
+
+
+def _comment(issue_number: int, body: str) -> None:
+    _run(
+        [
+            "gh",
+            "issue",
+            "comment",
+            str(issue_number),
+            "--repo",
+            REPO,
+            "--body",
+            body,
+        ]
+    )
 
 
 def _load_issues() -> list[BlockerIssue]:
@@ -57,6 +73,7 @@ def _load_issues() -> list[BlockerIssue]:
 
 
 def main() -> int:
+    notify = "--notify" in sys.argv
     now = datetime.now(tz=UTC)
     issues = _load_issues()
     print(f"External blocker escalation check at {now.isoformat()}")
@@ -72,6 +89,21 @@ def main() -> int:
             flags.append("BREACH:stale>72h")
         flag_text = " | " + " ".join(flags) if flags else ""
         print(f"- #{issue.number} {issue.title} | owner={owner_state} | age_h={age_hours:.1f}{flag_text}")
+        if notify and flags and issue.state.upper() == "OPEN":
+            _comment(
+                issue.number,
+                "\n".join(
+                    [
+                        "Automated escalation notice.",
+                        "",
+                        f"- Trigger: {', '.join(flags)}",
+                        f"- Last activity age: {age_hours:.1f}h",
+                        f"- Owner: {owner_state}",
+                        "",
+                        "Please update owner/date and attach latest evidence progress.",
+                    ]
+                ),
+            )
     return 0
 
 

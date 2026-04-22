@@ -26,7 +26,7 @@ Live tracking dashboard for release-blocking non-code dependencies.
 Recommended one-command pipeline:
 
 ```bash
-python3 backend/scripts/run_external_blocker_ops.py
+python3 backend/scripts/run_external_blocker_ops.py --notify
 python3 backend/scripts/check_external_blocker_closure_readiness.py
 python3 backend/scripts/check_external_blocker_evidence_completeness.py
 ```
