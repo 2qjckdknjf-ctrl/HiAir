@@ -45,6 +45,7 @@ Last updated: 2026-04-18
 
 Added final operator artifacts:
 - `docs/_operator/external-blocker-ledger.md`
+- `docs/_operator/external-blocker-dashboard.md`
 - `docs/_operator/residual-risk-register.md`
 - `docs/_operator/go-no-go-verdict.md`
 - `docs/_operator/weekly-execution-snapshot-2026-04-19.md`

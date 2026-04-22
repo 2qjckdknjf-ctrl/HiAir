@@ -16,3 +16,4 @@ This ledger tracks blockers that cannot be closed purely by repository code chan
 
 - Engineering branch and CI readiness is now materially improved and evidence-backed.
 - Remaining blockers in this ledger are organizational/legal/platform-access dependencies.
+- Operational dashboard reference: `docs/_operator/external-blocker-dashboard.md`
