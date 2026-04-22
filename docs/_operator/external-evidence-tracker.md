@@ -17,3 +17,4 @@ This tracker defines the minimum evidence package required to close each externa
 - A blocker can be closed only when all required artifacts are linked in its issue thread.
 - If partial evidence exists, keep issue open and mark missing artifacts explicitly.
 - Automated gate command: `python3 backend/scripts/check_external_blocker_evidence_completeness.py`
+- External proof request packet: `docs/_operator/external-proof-request-packet.md`
