@@ -18,7 +18,9 @@
 
 - Engineering/CI readiness: controlled and evidence-backed.
 - Remaining NO-GO reasons are external dependencies and legal/store governance items.
-- Immediate execution focus: evidence artifact attachment per EXT issue and closure before milestone due date.
+- Owner/date control complete for EXT-001..EXT-005.
+- Baseline repository artifacts are now linked in all EXT issue threads (#2-#6).
+- Immediate execution focus: final external proof artifacts and formal signoffs before milestone due date.
 
 ## Next 24-72h priorities
 
