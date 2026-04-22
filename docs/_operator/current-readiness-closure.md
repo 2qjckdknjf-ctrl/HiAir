@@ -51,3 +51,4 @@ Added final operator artifacts:
 - `docs/_operator/residual-risk-register.md`
 - `docs/_operator/go-no-go-verdict.md`
 - `docs/_operator/weekly-execution-snapshot-2026-04-19.md`
+- `docs/_operator/weekly-execution-snapshot-2026-04-22.md`
