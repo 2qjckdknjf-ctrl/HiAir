@@ -1,5 +1,7 @@
 import json
 import subprocess
+import sys
+from pathlib import Path
 
 
 REPO = "2qjckdknjf-ctrl/HiAir"
@@ -50,10 +52,27 @@ def _latest_evidence_form_comment(issue_number: int) -> str | None:
     return None
 
 
+def _write_json_report(path: Path, rows: list[dict[str, object]], all_complete: bool) -> None:
+    report = {
+        "gate": "evidence-completeness",
+        "all_complete": all_complete,
+        "rows": rows,
+    }
+    path.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding="utf-8")
+
+
 def main() -> int:
+    json_output: Path | None = None
+    if "--json-output" in sys.argv:
+        idx = sys.argv.index("--json-output")
+        try:
+            json_output = Path(sys.argv[idx + 1])
+        except IndexError:
+            raise SystemExit("--json-output requires a file path")
     issues = sorted(_list_ext_issues(), key=lambda i: int(i["number"]))
     print("External blocker evidence completeness")
     all_complete = True
+    rows: list[dict[str, object]] = []
     for issue in issues:
         number = int(issue["number"])
         ext_id = str(issue["title"]).split(":", 1)[0]
@@ -61,12 +80,35 @@ def main() -> int:
         if form is None:
             print(f"- #{number} {ext_id}: MISSING_FORM")
             all_complete = False
+            rows.append(
+                {
+                    "issue_number": number,
+                    "ext_id": ext_id,
+                    "status": "MISSING_FORM",
+                }
+            )
             continue
         if "[ADD]" in form:
             print(f"- #{number} {ext_id}: INCOMPLETE (placeholders remain)")
             all_complete = False
+            rows.append(
+                {
+                    "issue_number": number,
+                    "ext_id": ext_id,
+                    "status": "INCOMPLETE",
+                }
+            )
         else:
             print(f"- #{number} {ext_id}: COMPLETE")
+            rows.append(
+                {
+                    "issue_number": number,
+                    "ext_id": ext_id,
+                    "status": "COMPLETE",
+                }
+            )
+    if json_output is not None:
+        _write_json_report(json_output, rows, all_complete)
     if not all_complete:
         print("Evidence package is incomplete for at least one external blocker.")
         return 1

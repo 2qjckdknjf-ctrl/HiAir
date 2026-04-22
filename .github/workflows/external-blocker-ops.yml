@@ -34,7 +34,7 @@ jobs:
         run: |
           set +e
           set -o pipefail
-          python3 backend/scripts/check_external_blocker_closure_readiness.py | tee closure_gate.log
+          python3 backend/scripts/check_external_blocker_closure_readiness.py --json-output closure_gate.json | tee closure_gate.log
           gate_exit=${PIPESTATUS[0]}
           echo "exit_code=${gate_exit}" >> "$GITHUB_OUTPUT"
           set -e
@@ -46,7 +46,7 @@ jobs:
         run: |
           set +e
           set -o pipefail
-          python3 backend/scripts/check_external_blocker_evidence_completeness.py | tee evidence_gate.log
+          python3 backend/scripts/check_external_blocker_evidence_completeness.py --json-output evidence_gate.json | tee evidence_gate.log
           gate_exit=${PIPESTATUS[0]}
           echo "exit_code=${gate_exit}" >> "$GITHUB_OUTPUT"
           set -e
@@ -64,11 +64,32 @@ jobs:
           if [ "${{ steps.evidence_gate.outputs.exit_code }}" != "0" ]; then
             EVIDENCE_STATUS="FAIL"
           fi
+          DETAILS="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          closure = json.loads(Path("closure_gate.json").read_text(encoding="utf-8"))
+          evidence = json.loads(Path("evidence_gate.json").read_text(encoding="utf-8"))
+
+          lines = ["Detailed gate snapshot:"]
+          lines.append("- closure-readiness rows:")
+          for row in closure.get("rows", []):
+            lines.append(
+              f"  - #{row['issue_number']}: {row['readiness']} ({row['checkboxes_done']}/{row['checkboxes_total']})"
+            )
+          lines.append("- evidence-completeness rows:")
+          for row in evidence.get("rows", []):
+            lines.append(f"  - #{row['issue_number']} {row['ext_id']}: {row['status']}")
+          print("\n".join(lines))
+          PY
+          )"
           gh issue comment 7 --repo 2qjckdknjf-ctrl/HiAir --body "$(cat <<EOF
           Automated External Blocker Ops run completed.
 
           - closure-readiness gate: ${CLOSURE_STATUS}
           - evidence-completeness gate: ${EVIDENCE_STATUS}
+
+          ${DETAILS}
 
           Artifacts refreshed:
           - docs/_operator/daily-external-blocker-update-YYYY-MM-DD.md
