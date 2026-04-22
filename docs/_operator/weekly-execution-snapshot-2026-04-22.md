@@ -21,6 +21,9 @@
 - Owner/date control complete for EXT-001..EXT-005.
 - Baseline repository artifacts are now linked in all EXT issue threads (#2-#6).
 - Immediate execution focus: final external proof artifacts and formal signoffs before milestone due date.
+- Automated gate status:
+  - closure-readiness: NOT_READY (#2-#6)
+  - evidence-completeness: INCOMPLETE (#2-#6)
 
 ## Next 24-72h priorities
 

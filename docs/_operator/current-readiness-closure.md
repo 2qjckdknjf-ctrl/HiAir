@@ -1,6 +1,6 @@
 # HiAir Current Readiness Closure (Interim)
 
-Last updated: 2026-04-21
+Last updated: 2026-04-22
 
 ## What is now evidence-verified
 
@@ -25,6 +25,7 @@ Last updated: 2026-04-21
 - Versioned deprecation/removal execution for `medium` vs `moderate` aliases.
 - Full store metadata packet finalization.
 - Ops on-call owner confirmation and monitored rollout evidence.
+- External final-proof attachments are still pending in EXT issues (#2-#6), tracked by closure/evidence gates.
 
 ## External blockers (cannot be auto-closed in code)
 

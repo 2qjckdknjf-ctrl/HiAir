@@ -1,6 +1,6 @@
 # HiAir Go/No-Go Verdict
 
-Last updated: 2026-04-19
+Last updated: 2026-04-22
 
 ## Verdict by track
 
@@ -25,6 +25,11 @@ Last updated: 2026-04-19
 1. Close `EXT-001` and `EXT-002` (platform access).
 2. Close `EXT-003` (legal approval and final policy URLs).
 3. Close `EXT-004` and `EXT-005` (ops/store governance and metadata packet finalization).
+
+Current control gates:
+- closure-readiness gate: `python3 backend/scripts/check_external_blocker_closure_readiness.py`
+- evidence-completeness gate: `python3 backend/scripts/check_external_blocker_evidence_completeness.py`
+- Current state: both gates fail until final external proof artifacts are attached in EXT issue threads.
 
 Tracked in GitHub issues:
 - `EXT-001` -> [#2](https://github.com/2qjckdknjf-ctrl/HiAir/issues/2)
