@@ -17,3 +17,5 @@ Live tracking dashboard for release-blocking non-code dependencies.
 - Treat all rows as release blockers until issue is closed with evidence.
 - Daily cadence: review issue updates, enforce owner assignment, and move stale blockers.
 - Escalation trigger: any blocker without owner or target date for >48h.
+- Daily update template: `docs/_operator/daily-external-blocker-template.md`
+- Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`
