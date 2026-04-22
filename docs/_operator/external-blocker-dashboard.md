@@ -27,6 +27,7 @@ Recommended one-command pipeline:
 
 ```bash
 python3 backend/scripts/run_external_blocker_ops.py
+python3 backend/scripts/check_external_blocker_closure_readiness.py
 ```
 
 Manual step-by-step (if needed):
@@ -35,4 +36,5 @@ Manual step-by-step (if needed):
 python3 backend/scripts/generate_daily_external_blocker_update.py
 python3 backend/scripts/refresh_external_blocker_dashboard.py
 python3 backend/scripts/check_external_blocker_escalations.py
+python3 backend/scripts/check_external_blocker_closure_readiness.py
 ```
