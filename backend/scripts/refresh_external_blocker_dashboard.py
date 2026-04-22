@@ -94,6 +94,8 @@ def _render_markdown(rows: list[dict[str, object]]) -> str:
             "",
             "```bash",
             "python3 backend/scripts/run_external_blocker_ops.py",
+            "python3 backend/scripts/check_external_blocker_closure_readiness.py",
+            "python3 backend/scripts/check_external_blocker_evidence_completeness.py",
             "```",
             "",
             "Manual step-by-step (if needed):",
@@ -102,6 +104,8 @@ def _render_markdown(rows: list[dict[str, object]]) -> str:
             "python3 backend/scripts/generate_daily_external_blocker_update.py",
             "python3 backend/scripts/refresh_external_blocker_dashboard.py",
             "python3 backend/scripts/check_external_blocker_escalations.py",
+            "python3 backend/scripts/check_external_blocker_closure_readiness.py",
+            "python3 backend/scripts/check_external_blocker_evidence_completeness.py",
             "```",
             "",
         ]
