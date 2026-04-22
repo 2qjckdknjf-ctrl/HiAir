@@ -19,12 +19,4 @@ Live tracking dashboard for release-blocking non-code dependencies.
 - Escalation trigger: any blocker without owner or target date for >48h.
 - Daily update template: `docs/_operator/daily-external-blocker-template.md`
 - Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`
-- Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-21.md`
-
-## Automation
-
-Refresh from live GitHub issue state:
-
-```bash
-python3 backend/scripts/refresh_external_blocker_dashboard.py
-```
+- Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-22.md`

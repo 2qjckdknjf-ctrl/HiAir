@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO = "2qjckdknjf-ctrl/HiAir"
 OUTPUT_PATH = Path(__file__).resolve().parents[2] / "docs" / "_operator" / "external-blocker-dashboard.md"
+OPERATOR_DIR = OUTPUT_PATH.parent
 
 NEXT_ACTIONS = {
     "EXT-001": "Confirm App Store Connect access and attach evidence in issue thread",
@@ -47,6 +48,7 @@ def _extract_ext_id(title: str) -> str:
 
 def _render_markdown(rows: list[dict[str, object]]) -> str:
     ts = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    latest_daily_update = _latest_daily_update_doc()
     lines = [
         "# HiAir External Blocker Dashboard",
         "",
@@ -80,11 +82,18 @@ def _render_markdown(rows: list[dict[str, object]]) -> str:
             "- Escalation trigger: any blocker without owner or target date for >48h.",
             "- Daily update template: `docs/_operator/daily-external-blocker-template.md`",
             "- Escalation matrix: `docs/_operator/external-blocker-escalation-matrix.md`",
-            "- Latest daily update: `docs/_operator/daily-external-blocker-update-2026-04-21.md`",
+            f"- Latest daily update: `docs/_operator/{latest_daily_update}`",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+def _latest_daily_update_doc() -> str:
+    candidates = sorted(OPERATOR_DIR.glob("daily-external-blocker-update-*.md"))
+    if not candidates:
+        return "daily-external-blocker-template.md"
+    return candidates[-1].name
 
 
 def main() -> int:
