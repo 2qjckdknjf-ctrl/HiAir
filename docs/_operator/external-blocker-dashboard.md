@@ -23,9 +23,16 @@ Live tracking dashboard for release-blocking non-code dependencies.
 
 ## Automation
 
-Generate daily report + refresh dashboard:
+Recommended one-command pipeline:
+
+```bash
+python3 backend/scripts/run_external_blocker_ops.py
+```
+
+Manual step-by-step (if needed):
 
 ```bash
 python3 backend/scripts/generate_daily_external_blocker_update.py
 python3 backend/scripts/refresh_external_blocker_dashboard.py
+python3 backend/scripts/check_external_blocker_escalations.py
 ```
