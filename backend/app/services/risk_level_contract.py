@@ -1,13 +1,23 @@
+from app.core.settings import settings
 from app.models.air import DayPlanResponse, RiskAssessmentResult, RiskLevel
 from app.services.observability import record_risk_level_alias
 
 
 def normalize_legacy_level(level: str) -> str:
+    normalized, _ = normalize_legacy_level_with_meta(level)
+    return normalized
+
+
+def normalize_legacy_level_with_meta(level: str) -> tuple[str, bool]:
     normalized = level.strip().lower()
     if normalized == "moderate":
+        if settings.risk_level_alias_mode == "enforce":
+            raise ValueError(
+                "Legacy risk alias mapping moderate->medium is disabled in enforce mode."
+            )
         record_risk_level_alias(domain="legacy", source_level="moderate", normalized_level="medium")
-        return "medium"
-    return normalized
+        return "medium", True
+    return normalized, False
 
 
 def normalize_air_risk(risk: RiskAssessmentResult) -> RiskAssessmentResult:

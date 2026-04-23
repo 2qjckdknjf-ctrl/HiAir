@@ -4,6 +4,9 @@ Last updated: 2026-04-18
 
 Use this file as the single packet for App Store Connect and Google Play metadata preparation.
 
+Automation gate:
+- `python3 backend/scripts/check_store_metadata_packet.py` fails if unchecked checklist items or unresolved placeholders remain.
+
 ## 1) Core identity
 
 - App name: `HiAir`

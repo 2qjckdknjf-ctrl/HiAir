@@ -29,6 +29,7 @@ Recommended one-command pipeline:
 python3 backend/scripts/run_external_blocker_ops.py --notify
 python3 backend/scripts/check_external_blocker_closure_readiness.py
 python3 backend/scripts/check_external_blocker_evidence_completeness.py
+python3 backend/scripts/check_store_metadata_packet.py
 ```
 
 Scheduled automation:
@@ -43,4 +44,5 @@ python3 backend/scripts/refresh_external_blocker_dashboard.py
 python3 backend/scripts/check_external_blocker_escalations.py
 python3 backend/scripts/check_external_blocker_closure_readiness.py
 python3 backend/scripts/check_external_blocker_evidence_completeness.py
+python3 backend/scripts/check_store_metadata_packet.py
 ```
