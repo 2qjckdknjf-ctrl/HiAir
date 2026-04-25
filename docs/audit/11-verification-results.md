@@ -43,6 +43,14 @@ Snapshot date: 2026-04-25
 | Phase 5 backend smoke | `cd backend && PYTHON_BIN=../.venv/bin/python ./scripts/run_local_beta_smoke.sh` | DB runtime path passed | migrations/init, `smoke_db_flow`, retention dry-run, env strict, historical risk all DONE | DONE |
 | Phase 5 API health/preflight | temporary `uvicorn` on `127.0.0.1:8000`; `beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token "$NOTIFICATION_ADMIN_TOKEN"` | Passed | health returned `status=ok`; preflight printed all `[OK]` and `Preflight passed.` | DONE |
 | Phase 5 backend tests | `cd backend && ../.venv/bin/python -m pytest -q` | `30 passed` | Local pytest output | DONE |
+| Phase 6 RC1 Postgres readiness | `pg_isready -h localhost -p 5432` | Accepting connections | Local manual PostgreSQL runtime is available | DONE |
+| Phase 6 RC1 backend tests | `cd backend && ../.venv/bin/python -m pytest -q` | `30 passed` | Local pytest output | DONE |
+| Phase 6 RC1 backend smoke | `cd backend && PYTHON_BIN=../.venv/bin/python ./scripts/run_local_beta_smoke.sh` | Passed | migrations/init, smoke_db_flow, retention dry-run, env strict, historical risk validation all DONE | DONE |
+| Phase 6 RC1 API health/preflight | temporary `uvicorn`; `beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token "$NOTIFICATION_ADMIN_TOKEN"` | Passed | health returned `status=ok`; preflight printed all `[OK]` and `Preflight passed.` | DONE |
+| Phase 6 RC1 iOS simulator | `cd mobile/ios && xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Debug -sdk iphonesimulator build CODE_SIGNING_ALLOWED=NO` | Passed | `** BUILD SUCCEEDED **` | DONE |
+| Phase 6 RC1 Android clean build/lint/bundle | `cd mobile/android && ./gradlew clean assembleDebug assembleRelease bundleRelease lint` | Passed | `BUILD SUCCESSFUL` | DONE |
+| Phase 6 RC1 release manifest | `python3 mobile/scripts/generate_release_manifest.py --strict` | Partial | Android AAB/APK and iOS archive found; iOS IPA missing | PARTIAL |
+| Phase 6 RC1 version check | searched backend/iOS/Android version fields | Found backend `0.1.0`, iOS `com.hiair.app` `0.1.0` build `1`, Android `com.hiair` `0.1.0` code `1` | DONE |
 
 ## Not verified
 
