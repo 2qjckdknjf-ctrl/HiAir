@@ -12,8 +12,8 @@ Automation gate:
 - App name: `HiAir`
 - Subtitle/short description (draft): `Heat & Air Wellness Companion`
 - Category candidates: `Health & Fitness`, `Weather`
-- Support URL: `[TBD]`
-- Privacy policy URL: `[TBD - final legal URL]`
+- Support URL: `BLOCKED_EXTERNAL - final public support URL required before store submission`
+- Privacy policy URL: `LEGAL_SIGNOFF_REQUIRED - final public privacy URL required before store submission`
 
 ## 2) Marketing descriptions
 
@@ -69,9 +69,9 @@ HiAir is a wellness support tool and does not provide medical diagnosis.
 - This app provides wellness guidance based on environmental risk indicators.
 - No medical diagnosis or treatment claims are made.
 - Demo account / test credentials:
-  - email: `[TBD]`
-  - password: `[TBD]`
-- Backend environment for review: `[TBD]`
+  - email: `BLOCKED_EXTERNAL - create in staging before review upload`
+  - password: `BLOCKED_EXTERNAL - store securely in App Store/Play reviewer notes only`
+- Backend environment for review: `BLOCKED_EXTERNAL - staging API URL required before upload`
 
 ## 6) Finalization checklist
 

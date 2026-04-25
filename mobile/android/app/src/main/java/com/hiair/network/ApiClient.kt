@@ -179,16 +179,6 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
-    fun fetchAiSummary(hours: Int = 24): String {
-        val endpoint = "$baseUrl/api/observability/ai-summary?hours=$hours"
-        return request("GET", endpoint, null)
-    }
-
-    fun fetchAiSummaryDetailed(hours: Int = 24): String {
-        val endpoint = "$baseUrl/api/observability/ai-summary-detailed?hours=$hours"
-        return requestStrict("GET", endpoint, null)
-    }
-
     fun registerDeviceToken(
         userId: String,
         platform: String,

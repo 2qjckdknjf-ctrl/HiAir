@@ -330,50 +330,6 @@ final class APIClient {
         }
     }
 
-    func fetchAISummary(hours: Int = 24) async throws -> AIApiSummaryResponse {
-        var components = URLComponents(
-            url: baseURL.appending(path: "/api/observability/ai-summary"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [URLQueryItem(name: "hours", value: String(hours))]
-        guard let url = components?.url else {
-            throw APIError.invalidURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
-        }
-        return try JSONDecoder().decode(AIApiSummaryResponse.self, from: data)
-    }
-
-    func fetchAISummaryDetailed(hours: Int = 24) async throws -> AIApiSummaryDetailedResponse {
-        var components = URLComponents(
-            url: baseURL.appending(path: "/api/observability/ai-summary-detailed"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [URLQueryItem(name: "hours", value: String(hours))]
-        guard let url = components?.url else {
-            throw APIError.invalidURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
-        }
-        return try JSONDecoder().decode(AIApiSummaryDetailedResponse.self, from: data)
-    }
-
     func registerDeviceToken(
         userId: String,
         platform: String,

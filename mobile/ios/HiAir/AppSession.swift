@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 final class AppSession: ObservableObject {
-    private enum Keys {
+    enum Keys {
         static let onboardingCompleted = "session.onboardingCompleted"
         static let userId = "session.userId"
         static let accessToken = "session.accessToken"
@@ -29,7 +29,12 @@ final class AppSession: ObservableObject {
         let defaults = UserDefaults.standard
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
         userId = defaults.string(forKey: Keys.userId) ?? ""
-        accessToken = defaults.string(forKey: Keys.accessToken) ?? ""
+        let legacyAccessToken = defaults.string(forKey: Keys.accessToken) ?? ""
+        accessToken = KeychainStore.read(Keys.accessToken) ?? legacyAccessToken
+        if !legacyAccessToken.isEmpty {
+            KeychainStore.write(legacyAccessToken, account: Keys.accessToken)
+            defaults.removeObject(forKey: Keys.accessToken)
+        }
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
         persona = defaults.string(forKey: Keys.persona) ?? "adult"
         sensitivity = defaults.string(forKey: Keys.sensitivity) ?? "medium"
@@ -50,7 +55,12 @@ final class AppSession: ObservableObject {
         let defaults = UserDefaults.standard
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(userId, forKey: Keys.userId)
-        defaults.set(accessToken, forKey: Keys.accessToken)
+        if accessToken.isEmpty {
+            KeychainStore.delete(Keys.accessToken)
+        } else {
+            KeychainStore.write(accessToken, account: Keys.accessToken)
+        }
+        defaults.removeObject(forKey: Keys.accessToken)
         defaults.set(profileId, forKey: Keys.profileId)
         defaults.set(persona, forKey: Keys.persona)
         defaults.set(sensitivity, forKey: Keys.sensitivity)
