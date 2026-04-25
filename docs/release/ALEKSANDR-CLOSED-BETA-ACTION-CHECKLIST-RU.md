@@ -120,8 +120,8 @@ mobile/android/app/build/outputs/bundle/release/app-release.aab
 | ---- | ----- | -------- |
 | Backend smoke | no | `run_local_beta_smoke.sh` output |
 | API preflight | no | `Preflight passed.` output |
-| iOS archive | no | `mobile/ios/build/HiAir.xcarchive` |
-| iOS IPA | no | `mobile/ios/build/HiAir.ipa` |
+| iOS archive | yes | `mobile/ios/build/HiAir.xcarchive` |
+| iOS IPA | yes | `mobile/ios/build/HiAir.ipa` |
 | TestFlight internal | no | App Store Connect/TestFlight screenshot |
 | Android AAB | no | `mobile/android/app/build/outputs/bundle/release/app-release.aab` |
 | Google Play Internal | no | Play Console internal release screenshot |

@@ -22,7 +22,7 @@ RC label: `closed-beta-rc1`
 | ----------------- | --------------- | ------ |
 | simulator build | `cd mobile/ios && xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Debug -sdk iphonesimulator build CODE_SIGNING_ALLOWED=NO` | GO |
 | archive | `mobile/ios/build/HiAir.xcarchive` | GO |
-| IPA | `mobile/ios/build/HiAir.ipa` | BLOCKED_EXTERNAL |
+| IPA | `mobile/ios/build/HiAir.ipa` | GO |
 | export options template | `mobile/ios/ExportOptions.plist.template` | GO |
 | export options example | `mobile/ios/ExportOptions.plist.example` | GO |
 | TestFlight packet | `docs/release/TESTFLIGHT-BETA-LAUNCH-PACKET.md` | GO |
@@ -58,7 +58,6 @@ RC label: `closed-beta-rc1`
 
 | Artifact | Why missing | Required owner action |
 | -------- | ----------- | --------------------- |
-| iOS IPA | Requires Apple Team ID/signing and export with owner credentials | Create `ExportOptions.plist` from template, archive/export with Apple team, upload to App Store Connect |
 | signed Android upload proof | Local artifact exists, but Play Console signing/upload has not happened | Decide Play App Signing/upload key path, upload AAB to internal testing |
 | live push evidence | APNs/FCM credentials and physical devices are external | Configure Firebase/APNs/FCM and run device push QA |
 | TestFlight build number | Build has not been uploaded to App Store Connect | Upload IPA/archive and capture TestFlight build evidence |

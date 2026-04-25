@@ -16,6 +16,7 @@ mobile/android/local.properties
 mobile/android/.gradle/
 mobile/android/app/build/
 mobile/ios/build/
+mobile/ios/ExportOptions.plist
 mobile/ios/HiAir.xcodeproj.bak/
 mobile/ios/HiAir.xcodeproj/project.xcworkspace/xcuserdata/
 mobile/ios/HiAir.xcodeproj/xcuserdata/

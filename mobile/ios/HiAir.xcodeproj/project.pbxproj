@@ -24,8 +24,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0F6D57398779491CA90F12E0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		030CBAFA89BD721FF0066134 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
+		0F6D57398779491CA90F12E0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		3067FB46BAFE989CA0A16E0E /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		35D1E2C509CFB15ACA399B3D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		4F2A68E1B9C64D2CB285A9B3 /* HiAirV2Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirV2Theme.swift; sourceTree = "<group>"; };
@@ -39,12 +39,14 @@
 		D9D61A692A21F8137C8C9A0A /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 		E5D318EFA32CAF512F14BCAD /* RiskModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskModels.swift; sourceTree = "<group>"; };
 		F189463A81578D7DA02A429B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		FA3E5DB32F9CEF3800F19E37 /* HiAir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HiAir.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		13361C91597A147BE3EB4C64 /* HiAir */ = {
 			isa = PBXGroup;
 			children = (
+				FA3E5DB32F9CEF3800F19E37 /* HiAir.entitlements */,
 				D9D61A692A21F8137C8C9A0A /* AppSession.swift */,
 				9BD707A08B6657EF85395B26 /* HiAirApp.swift */,
 				0F6D57398779491CA90F12E0 /* KeychainStore.swift */,
@@ -181,6 +183,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -210,6 +213,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = NO;
 				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = NO;
+				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

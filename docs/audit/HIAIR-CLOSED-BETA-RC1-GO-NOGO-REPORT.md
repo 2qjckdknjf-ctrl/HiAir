@@ -13,7 +13,7 @@
 - Closed Beta verdict: NEAR-GO.
 - Public Launch verdict: NO-GO.
 
-RC1 has the backend technical gate closed locally: PostgreSQL runtime, migrations/init, DB smoke, retention dry-run, API health, API preflight, and backend tests are GO. iOS simulator and Android clean release/AAB builds are GO. The remaining blockers are owner/account/manual gates: Apple/TestFlight upload, Google Play Internal release, Firebase/APNs/FCM live push, legal/store approvals, ops ownership, and real-device QA.
+RC1 has the backend technical gate closed locally: PostgreSQL runtime, migrations/init, DB smoke, retention dry-run, API health, API preflight, and backend tests are GO. iOS simulator, iOS archive, iOS IPA export, and Android clean release/AAB builds are GO. The remaining blockers are owner/account/manual gates: TestFlight upload, Google Play Internal release, Firebase/APNs/FCM live push, legal/store approvals, ops ownership, and real-device QA.
 
 ## 2. Green Gates
 
@@ -25,6 +25,7 @@ RC1 has the backend technical gate closed locally: PostgreSQL runtime, migration
 | API preflight | health returned `status=ok`; `beta_preflight.py` printed `Preflight passed.` | GO |
 | iOS simulator | `xcodebuild ... iphonesimulator ... CODE_SIGNING_ALLOWED=NO` returned `** BUILD SUCCEEDED **` | GO |
 | iOS archive | `mobile/ios/build/HiAir.xcarchive` exists | GO |
+| iOS IPA | `mobile/ios/build/HiAir.ipa` exists after export | GO |
 | Android release | clean Gradle build/lint returned `BUILD SUCCESSFUL` | GO |
 | Android AAB | `mobile/android/app/build/outputs/bundle/release/app-release.aab` exists | GO |
 | Push code | iOS/Android builds pass with push registration code included | GO |
@@ -34,7 +35,6 @@ RC1 has the backend technical gate closed locally: PostgreSQL runtime, migration
 
 | Gate | Why not GO | Required action |
 | ---- | ---------- | --------------- |
-| iOS IPA export | archive/template exist, but Apple signing and Team ID are external | owner exports IPA with Apple Developer signing |
 | Android signing/upload | AAB exists, but Play App Signing/upload proof is external | owner uploads AAB to Play Internal and records signing evidence |
 | Store metadata | packets exist, but portal values/URLs are owner/legal decisions | owner completes App Store/Play metadata using approved URLs |
 | Real-device QA readiness | QA packet exists, but devices have not executed it | run iOS and Android physical-device QA packet |
@@ -74,7 +74,7 @@ RC1 has the backend technical gate closed locally: PostgreSQL runtime, migration
 | simulator build | `** BUILD SUCCEEDED **` | GO |
 | archive | `mobile/ios/build/HiAir.xcarchive` | GO |
 | export options template | `mobile/ios/ExportOptions.plist.template` | GO |
-| IPA | `mobile/ios/build/HiAir.ipa` missing | BLOCKED_EXTERNAL |
+| IPA | `mobile/ios/build/HiAir.ipa` exists | GO |
 | TestFlight | no App Store Connect upload evidence | BLOCKED_EXTERNAL |
 
 ## 7. Android RC1 Evidence
@@ -122,7 +122,7 @@ RC1 has the backend technical gate closed locally: PostgreSQL runtime, migration
 | API preflight | GO | API health and preflight passed |
 | iOS simulator | GO | simulator build succeeded |
 | iOS archive | GO | `.xcarchive` exists |
-| iOS IPA | BLOCKED_EXTERNAL | requires Apple signing/export |
+| iOS IPA | GO | IPA exported at `mobile/ios/build/HiAir.ipa` |
 | TestFlight | BLOCKED_EXTERNAL | requires App Store Connect upload and tester group |
 | Android release | GO | clean release build/lint succeeded |
 | Android AAB | GO | AAB exists |
@@ -142,8 +142,8 @@ RC1 has the backend technical gate closed locally: PostgreSQL runtime, migration
 2. Подтверди backend: запусти `pg_isready -h localhost -p 5432`, затем `cd backend && PYTHON_BIN=../.venv/bin/python ./scripts/run_local_beta_smoke.sh`.
 3. Открой Apple Developer, проверь membership, создай/подтверди Bundle ID `com.hiair.app` и включи Push Notifications.
 4. Открой App Store Connect, создай app record HiAir, заполни SKU, support URL, privacy URL и beta contact.
-5. В Xcode выбери Apple Team, собери archive/export IPA по `docs/release/IOS-TESTFLIGHT-RC1-UPLOAD-STEPS.md`.
-6. Загрузи iOS build в TestFlight, создай internal testing group и добавь тестеров.
+5. Загрузи iOS build из `mobile/ios/build/HiAir.ipa` в TestFlight через Xcode Organizer или Transporter.
+6. В App Store Connect создай internal testing group и добавь тестеров.
 7. Открой Google Play Console, создай приложение с package `com.hiair`, выбери Play App Signing и загрузи `mobile/android/app/build/outputs/bundle/release/app-release.aab`.
 8. Заполни Play Data Safety, content rating и privacy policy URL только после legal/product approval.
 9. Открой Firebase, создай проект, добавь Android `com.hiair` и iOS `com.hiair.app`, настрой APNs/FCM без коммита секретов.
