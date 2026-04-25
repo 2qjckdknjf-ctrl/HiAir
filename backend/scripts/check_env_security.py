@@ -85,7 +85,7 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
 
     admin_token = env.get("NOTIFICATION_ADMIN_TOKEN", "")
     if not admin_token:
-        checks.append(CheckResult("WARN", "NOTIFICATION_ADMIN_TOKEN is empty. Admin endpoints are unprotected for ops workflows."))
+        checks.append(CheckResult("WARN", "NOTIFICATION_ADMIN_TOKEN is empty. Protected environments fail closed for ops endpoints."))
     elif len(admin_token) < 16:
         checks.append(CheckResult("WARN", "NOTIFICATION_ADMIN_TOKEN should be at least 16 chars."))
     else:

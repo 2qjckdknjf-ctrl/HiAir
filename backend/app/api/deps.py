@@ -1,7 +1,7 @@
 from fastapi import Header, HTTPException
 from psycopg import Error as PsycopgError
 
-from app.core.settings import settings
+from app.core.settings import _is_protected_env, settings
 from app.services.security import decode_access_token
 import app.services.user_repository as user_repository
 
@@ -36,6 +36,8 @@ def get_current_user_id(
 
 def require_ops_admin_token(x_admin_token: str | None = Header(default=None)) -> bool:
     if not settings.notification_admin_token:
+        if _is_protected_env(settings.app_env):
+            raise HTTPException(status_code=503, detail="Notification admin token is not configured")
         return True
     if x_admin_token != settings.notification_admin_token:
         raise HTTPException(status_code=403, detail="Forbidden")

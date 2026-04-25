@@ -314,118 +314,33 @@ final class SettingsViewModel: ObservableObject {
         if requestVersion != nil && isLatestAiSummaryRequest(version) {
             loading = true
         }
-        do {
-            let detailed = try await apiClient.fetchAISummaryDetailed(hours: aiSummaryHours)
-            guard isLatestAiSummaryRequest(version) else { return }
-            let summary = detailed.summary
-            let fallbackPct = summary.fallbackRatePct ?? 0
-            let guardrailPct = summary.guardrailBlockRatePct ?? 0
-            let fallbackPctText = String(format: "%.1f", fallbackPct)
-            let guardrailPctText = String(format: "%.1f", guardrailPct)
-            aiSummaryText = "\(aiSummaryHours)h \(l("settings.ai_events")): \(summary.total), \(l("settings.ai_fallback")): \(summary.fallbackCount) (\(fallbackPctText)%), \(l("settings.ai_guardrail_blocks")): \(summary.guardrailBlockCount) (\(guardrailPctText)%)"
-            if let lastPoint = detailed.trend.last {
-                aiTrendText = "\(l("settings.ai_latest_hour")) \(lastPoint.hour): \(l("settings.metric.total")) \(lastPoint.total), \(l("settings.metric.fallback").lowercased()) \(lastPoint.fallbackCount), \(l("settings.ai_blocks_short")) \(lastPoint.guardrailBlockCount)"
-            } else {
-                aiTrendText = l("settings.ai_no_trend")
-            }
-            aiTrendPoints = detailed.trend.map { $0.total }
-            aiTrendFallbackPoints = detailed.trend.map { $0.fallbackCount }
-            aiTrendGuardrailPoints = detailed.trend.map { $0.guardrailBlockCount }
-            aiTrendTimeoutPoints = detailed.trend.map { $0.timeoutCount ?? 0 }
-            aiTrendNetworkPoints = detailed.trend.map { $0.networkCount ?? 0 }
-            aiTrendServerPoints = detailed.trend.map { $0.serverCount ?? 0 }
-            aiTrendErrorPoints = zip(aiTrendTimeoutPoints, zip(aiTrendNetworkPoints, aiTrendServerPoints)).map { timeout, pair in
-                timeout + pair.0 + pair.1
-            }
-            aiTrendStartLabel = detailed.trend.first.map { hourLabel($0.hour) } ?? "-"
-            aiTrendEndLabel = detailed.trend.last.map { hourLabel($0.hour) } ?? "-"
-            aiLastUpdatedLabel = aiTrendEndLabel
-            aiTrendGraphText = buildAsciiSparkline(points: currentAiTrendPoints)
-            aiRangeText = rangeText(for: currentAiTrendPoints)
-            let promptLine = detailed.breakdown.byPromptVersion.first.map {
-                "\(l("settings.ai_top_prompt")): \($0.promptVersion) (\(l("settings.metric.total").lowercased()) \($0.total))"
-            } ?? "\(l("settings.ai_top_prompt")): -"
-            let modelLine = detailed.breakdown.byModelName.first.map {
-                "\(l("settings.ai_top_model")): \($0.modelName) (\(l("settings.metric.total").lowercased()) \($0.total))"
-            } ?? "\(l("settings.ai_top_model")): -"
-            let errorCounts = detailed.breakdown.byErrorType
-                .filter { $0.total > 0 }
-            aiBreakdownText = "\(promptLine)\n\(modelLine)"
-            aiTimeoutCount = summary.timeoutCount ?? 0
-            aiNetworkCount = summary.networkCount ?? 0
-            aiServerCount = summary.serverCount ?? 0
-            aiErrorBreakdown = Array(errorCounts)
-            statusText = l("settings.ai_loaded")
-            loading = false
-            aiRequestInFlight = false
-            aiRequestTimedOut = false
-            aiInlineErrorCode = nil
-            aiInlineActionCode = nil
-            aiTimeoutTask?.cancel()
-        } catch {
-            guard isLatestAiSummaryRequest(version) else { return }
-            if aiRequestTimedOut {
-                return
-            }
-            let errorCode: String
-            let actionCode: String
-            if let apiError = error as? APIError {
-                switch apiError {
-                case .server(let statusCode):
-                    if statusCode >= 500 {
-                        errorCode = "server"
-                        actionCode = "retry_later"
-                    } else {
-                        errorCode = "failed"
-                        actionCode = "retry_now"
-                    }
-                default:
-                    errorCode = "failed"
-                    actionCode = "retry_now"
-                }
-            } else if let urlError = error as? URLError {
-                switch urlError.code {
-                case .timedOut:
-                    errorCode = "timeout"
-                    actionCode = "retry_now"
-                case .notConnectedToInternet, .networkConnectionLost, .cannotFindHost, .cannotConnectToHost:
-                    errorCode = "network"
-                    actionCode = "retry_now"
-                default:
-                    errorCode = "failed"
-                    actionCode = "retry_now"
-                }
-            } else {
-                errorCode = "failed"
-                actionCode = "retry_now"
-            }
-            aiSummaryText = l("settings.ai_failed")
-            aiTrendText = "-"
-            aiTrendGraphText = "-"
-            aiTrendPoints = []
-            aiTrendFallbackPoints = []
-            aiTrendGuardrailPoints = []
-            aiTrendErrorPoints = []
-            aiTrendTimeoutPoints = []
-            aiTrendNetworkPoints = []
-            aiTrendServerPoints = []
-            aiRangeText = "-"
-            aiTrendStartLabel = "-"
-            aiTrendEndLabel = "-"
-            aiLastUpdatedLabel = "-"
-            aiBreakdownText = "-"
-            aiTimeoutCount = 0
-            aiNetworkCount = 0
-            aiServerCount = 0
-            aiErrorBreakdown = []
-            statusText = l("settings.ai_request_failed")
-            loading = false
-            aiRequestInFlight = false
-            aiRequestTimedOut = (errorCode == "timeout")
-            aiInlineErrorCode = errorCode
-            aiInlineActionCode = actionCode
-            aiTimeoutTask?.cancel()
-        }
+        guard isLatestAiSummaryRequest(version) else { return }
+        aiSummaryText = l("settings.ai_unavailable")
+        aiTrendText = "-"
+        aiTrendGraphText = "-"
+        aiTrendPoints = []
+        aiTrendFallbackPoints = []
+        aiTrendGuardrailPoints = []
+        aiTrendErrorPoints = []
+        aiTrendTimeoutPoints = []
+        aiTrendNetworkPoints = []
+        aiTrendServerPoints = []
+        aiRangeText = "-"
+        aiTrendStartLabel = "-"
+        aiTrendEndLabel = "-"
+        aiLastUpdatedLabel = "-"
+        aiBreakdownText = "-"
+        aiTimeoutCount = 0
+        aiNetworkCount = 0
+        aiServerCount = 0
+        aiErrorBreakdown = []
+        statusText = l("settings.ai_unavailable")
+        loading = false
+        aiRequestInFlight = false
+        aiRequestTimedOut = false
+        aiInlineErrorCode = nil
+        aiInlineActionCode = nil
+        aiTimeoutTask?.cancel()
     }
 
     func scheduleAISummaryRefresh(force: Bool = false) {
@@ -629,91 +544,6 @@ struct SettingsView: View {
                 }
                 .disabled(viewModel.loading)
                 .tint(HiAirV2Theme.accentStart)
-                .v2Card()
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(session.l("settings.ai_observability"))
-                        .font(.headline)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                    Picker(session.l("settings.window"), selection: $viewModel.aiSummaryHours) {
-                        Text(session.l("settings.window_24h")).tag(24)
-                        Text(session.l("settings.window_72h")).tag(72)
-                    }
-                    .pickerStyle(.segmented)
-                    Button(viewModel.loading ? session.l("settings.loading_ai_metrics") : session.l("settings.load_ai_summary")) {
-                        Task { await viewModel.loadAISummary() }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(viewModel.loading)
-                    .tint(HiAirV2Theme.accentStart)
-                    Text(viewModel.aiSummaryText)
-                        .font(.footnote)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
-                    Text(viewModel.aiTrendText)
-                        .font(.footnote)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
-                    DisclosureGroup(session.l("settings.advanced_controls")) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Picker(session.l("settings.metric"), selection: $viewModel.aiChartMetric) {
-                                ForEach(SettingsViewModel.AIChartMetric.allCases) { metric in
-                                    Text(session.l(metric.title)).tag(metric)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            Picker(session.l("settings.mode"), selection: $viewModel.aiChartMode) {
-                                ForEach(SettingsViewModel.AIChartMode.allCases) { mode in
-                                    Text(session.l(mode.title)).tag(mode)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            Text(viewModel.aiTrendGraphText)
-                                .font(.system(.footnote, design: .monospaced))
-                                .foregroundStyle(HiAirV2Theme.accentStart)
-                            Text("\(session.l("settings.range")): \(viewModel.aiRangeText)")
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Text("\(session.l("settings.axis")): \(viewModel.aiTrendStartLabel) -> \(viewModel.aiTrendEndLabel)")
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Text("\(session.l("settings.request_status")): \(viewModel.aiRequestInFlight ? session.l("settings.request_loading") : (viewModel.aiRequestTimedOut ? session.l("settings.request_timeout") : session.l("settings.request_idle")))")
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Text("\(session.l("settings.last_updated")): \(viewModel.aiLastUpdatedLabel)")
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            if let errorCode = viewModel.aiInlineErrorCode {
-                                let errorTextKey: String = {
-                                    switch errorCode {
-                                    case "timeout": return "settings.ai_timeout_inline"
-                                    case "network": return "settings.ai_network_inline"
-                                    case "server": return "settings.ai_server_inline"
-                                    default: return "settings.ai_request_failed_inline"
-                                    }
-                                }()
-                                let actionCode = viewModel.aiInlineActionCode ?? "retry_now"
-                                Text(session.l(errorTextKey))
-                                    .font(.footnote)
-                                    .foregroundStyle(.red)
-                                Button(session.l(actionCode == "retry_later" ? "settings.ai_retry_later" : "settings.ai_retry_now")) {
-                                    viewModel.scheduleAISummaryRefresh(force: true)
-                                }
-                                .buttonStyle(.bordered)
-                                .disabled(actionCode == "retry_later")
-                            }
-                            AITrendMiniChart(points: viewModel.currentAiTrendPoints, mode: viewModel.aiChartMode)
-                                .frame(height: 74)
-                            Text(viewModel.aiBreakdownText)
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Text("\(session.l("settings.ai_error_counts")): \(session.l("settings.ai_error_type.timeout")) \(viewModel.aiTimeoutCount), \(session.l("settings.ai_error_type.network")) \(viewModel.aiNetworkCount), \(session.l("settings.ai_error_type.server")) \(viewModel.aiServerCount)")
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Text(aiErrorBreakdownLine())
-                                .font(.footnote)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                        }
-                    }
-                }
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {

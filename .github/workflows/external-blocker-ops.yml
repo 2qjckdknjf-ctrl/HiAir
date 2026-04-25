@@ -51,6 +51,16 @@ jobs:
           echo "exit_code=${gate_exit}" >> "$GITHUB_OUTPUT"
           set -e
 
+      - name: Run store metadata packet gate
+        id: metadata_gate
+        run: |
+          set +e
+          set -o pipefail
+          python3 backend/scripts/check_store_metadata_packet.py --json-output metadata_gate.json | tee metadata_gate.log
+          gate_exit=${PIPESTATUS[0]}
+          echo "exit_code=${gate_exit}" >> "$GITHUB_OUTPUT"
+          set -e
+
       - name: Post daily status to coordination issue
         if: always()
         env:
@@ -58,11 +68,15 @@ jobs:
         run: |
           CLOSURE_STATUS="PASS"
           EVIDENCE_STATUS="PASS"
+          METADATA_STATUS="PASS"
           if [ "${{ steps.closure_gate.outputs.exit_code }}" != "0" ]; then
             CLOSURE_STATUS="FAIL"
           fi
           if [ "${{ steps.evidence_gate.outputs.exit_code }}" != "0" ]; then
             EVIDENCE_STATUS="FAIL"
+          fi
+          if [ "${{ steps.metadata_gate.outputs.exit_code }}" != "0" ]; then
+            METADATA_STATUS="FAIL"
           fi
           DETAILS="$(python3 - <<'PY'
           import json
@@ -70,6 +84,7 @@ jobs:
 
           closure = json.loads(Path("closure_gate.json").read_text(encoding="utf-8"))
           evidence = json.loads(Path("evidence_gate.json").read_text(encoding="utf-8"))
+          metadata = json.loads(Path("metadata_gate.json").read_text(encoding="utf-8"))
 
           lines = ["Detailed gate snapshot:"]
           lines.append("- closure-readiness rows:")
@@ -80,6 +95,11 @@ jobs:
           lines.append("- evidence-completeness rows:")
           for row in evidence.get("rows", []):
             lines.append(f"  - #{row['issue_number']} {row['ext_id']}: {row['status']}")
+          lines.append("- store-metadata-packet rows:")
+          for row in metadata.get("rows", []):
+            lines.append(f"  - L{row['line']} {row['type']}: {row['text']}")
+          if not metadata.get("rows"):
+            lines.append("  - no unresolved packet items")
           print("\n".join(lines))
           PY
           )"
@@ -88,6 +108,7 @@ jobs:
 
           - closure-readiness gate: ${CLOSURE_STATUS}
           - evidence-completeness gate: ${EVIDENCE_STATUS}
+          - store-metadata-packet gate: ${METADATA_STATUS}
 
           ${DETAILS}
 
@@ -98,7 +119,7 @@ jobs:
           )"
 
       - name: Fail job when strict gates fail
-        if: ${{ steps.closure_gate.outputs.exit_code != '0' || steps.evidence_gate.outputs.exit_code != '0' }}
+        if: ${{ steps.closure_gate.outputs.exit_code != '0' || steps.evidence_gate.outputs.exit_code != '0' || steps.metadata_gate.outputs.exit_code != '0' }}
         run: |
           echo "One or more blocker gates failed."
           exit 1

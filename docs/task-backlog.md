@@ -107,6 +107,8 @@
 
 - [x] Подготовлен beta readiness checklist.
 - [x] Подготовлен QA checklist по сценариям.
+- [x] Внедрена versioned deprecation-политика для risk alias (`medium`/`moderate`) с `warn/enforce` режимами и migration headers.
+- [x] Добавлен автоматический gate `check_store_metadata_packet.py` для контроля полноты store packet (чекбоксы + placeholders).
 - [ ] Закрытая бета (TestFlight + Google Play Internal Test).
 - [ ] QA по устройствам/версиям ОС (по чеклисту).
 - [ ] Privacy/ToS финализация (drafts готовы, требуется legal review).

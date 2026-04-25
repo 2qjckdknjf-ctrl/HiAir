@@ -395,161 +395,31 @@ class SettingsViewModel(
 
     fun loadAiSummary(requestId: Int? = null) {
         val activeRequestId = requestId ?: beginAiSummaryRequest()
-        state = state.copy(loading = true)
-        try {
-            val json = JSONObject(apiClient.fetchAiSummaryDetailed(hours = state.aiSummaryHours))
-            val summary = json.getJSONObject("summary")
-            val trend = json.getJSONArray("trend")
-            val breakdown = json.getJSONObject("breakdown")
-            val byPromptVersion = breakdown.getJSONArray("by_prompt_version")
-            val byModelName = breakdown.getJSONArray("by_model_name")
-            val byErrorType = breakdown.optJSONArray("by_error_type")
-            val fallbackRate = summary.optDouble("fallback_rate_pct", 0.0)
-            val guardrailRate = summary.optDouble("guardrail_block_rate_pct", 0.0)
-            val timeoutCount = summary.optInt("timeout_count", 0)
-            val networkCount = summary.optInt("network_count", 0)
-            val serverCount = summary.optInt("server_count", 0)
-            val trendText = if (trend.length() > 0) {
-                val last = trend.getJSONObject(trend.length() - 1)
-                "${l("settings.ai_latest_hour")} ${last.optString("hour")}: total ${last.optInt("total", 0)}, fallback ${last.optInt("fallback_count", 0)}, blocks ${last.optInt("guardrail_block_count", 0)}"
-            } else {
-                l("settings.ai_no_trend")
-            }
-            val trendStartLabel = if (trend.length() > 0) hourLabel(trend.getJSONObject(0).optString("hour")) else "-"
-            val trendEndLabel = if (trend.length() > 0) hourLabel(trend.getJSONObject(trend.length() - 1).optString("hour")) else "-"
-            val trendPoints = buildList {
-                for (i in 0 until trend.length()) {
-                    add(trend.getJSONObject(i).optInt("total", 0))
-                }
-            }
-            val fallbackPoints = buildList {
-                for (i in 0 until trend.length()) {
-                    add(trend.getJSONObject(i).optInt("fallback_count", 0))
-                }
-            }
-            val guardrailPoints = buildList {
-                for (i in 0 until trend.length()) {
-                    add(trend.getJSONObject(i).optInt("guardrail_block_count", 0))
-                }
-            }
-            val timeoutPoints = buildList {
-                for (i in 0 until trend.length()) {
-                    add(trend.getJSONObject(i).optInt("timeout_count", 0))
-                }
-            }
-            val networkPoints = buildList {
-                for (i in 0 until trend.length()) {
-                    add(trend.getJSONObject(i).optInt("network_count", 0))
-                }
-            }
-            val serverPoints = buildList {
-                for (i in 0 until trend.length()) {
-                    add(trend.getJSONObject(i).optInt("server_count", 0))
-                }
-            }
-            val errorPoints = buildList {
-                for (i in timeoutPoints.indices) {
-                    add(timeoutPoints[i] + networkPoints.getOrElse(i) { 0 } + serverPoints.getOrElse(i) { 0 })
-                }
-            }
-            val selectedMetric = state.aiChartMetric
-            val trendGraphText = when (selectedMetric) {
-                "fallback" -> if (fallbackPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(fallbackPoints)
-                "guardrail" -> if (guardrailPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(guardrailPoints)
-                "errors" -> if (errorPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(errorPoints)
-                "timeout" -> if (timeoutPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(timeoutPoints)
-                "network" -> if (networkPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(networkPoints)
-                "server" -> if (serverPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(serverPoints)
-                else -> if (trendPoints.isEmpty()) l("settings.ai_no_trend") else buildAsciiSparkline(trendPoints)
-            }
-            val topPrompt = if (byPromptVersion.length() > 0) {
-                val item = byPromptVersion.getJSONObject(0)
-                "${l("settings.ai_top_prompt")}: ${item.optString("prompt_version")} (total ${item.optInt("total", 0)})"
-            } else {
-                l("settings.ai_no_prompt_breakdown")
-            }
-            val topModel = if (byModelName.length() > 0) {
-                val item = byModelName.getJSONObject(0)
-                "${l("settings.ai_top_model")}: ${item.optString("model_name")} (total ${item.optInt("total", 0)})"
-            } else {
-                l("settings.ai_no_model_breakdown")
-            }
-            val errorBreakdown = if (byErrorType != null && byErrorType.length() > 0) {
-                buildList {
-                    for (i in 0 until byErrorType.length()) {
-                        val item = byErrorType.getJSONObject(i)
-                        val kind = item.optString("error_type", "other")
-                        val count = item.optInt("total", 0)
-                        if (count > 0) {
-                            val key = when (kind) {
-                                "timeout", "network", "server", "other" -> "settings.ai_error_type.$kind"
-                                else -> "settings.ai_error_type.other"
-                            }
-                            add("${l(key)} $count")
-                        }
-                    }
-                }.joinToString(", ").ifBlank { "-" }
-            } else {
-                "-"
-            }
-            val errorSummary = "${l("settings.ai_error_counts")}: t:$timeoutCount, n:$networkCount, s:$serverCount"
-            if (activeRequestId != currentAiSummaryRequestId()) {
-                return
-            }
-            state = state.copy(
-                loading = false,
-                aiRequestInFlight = false,
-                aiRequestTimedOut = false,
-                aiInlineErrorText = "",
-                aiInlineActionText = "",
-                aiInlineActionType = "",
-                aiLastUpdatedLabel = trendEndLabel,
-                aiSummaryText = "${state.aiSummaryHours}h ${l("settings.ai_events")}: ${summary.optInt("total", 0)}, ${l("settings.ai_fallback")}: ${summary.optInt("fallback_count", 0)} (${String.format("%.1f", fallbackRate)}%), ${l("settings.ai_guardrail_blocks")}: ${summary.optInt("guardrail_block_count", 0)} (${String.format("%.1f", guardrailRate)}%)",
-                aiTrendText = trendText,
-                aiTrendGraphText = trendGraphText,
-                aiTrendPoints = trendPoints,
-                aiTrendFallbackPoints = fallbackPoints,
-                aiTrendGuardrailPoints = guardrailPoints,
-                aiTrendErrorPoints = errorPoints,
-                aiTrendTimeoutPoints = timeoutPoints,
-                aiTrendNetworkPoints = networkPoints,
-                aiTrendServerPoints = serverPoints,
-                aiTrendStartLabel = trendStartLabel,
-                aiTrendEndLabel = trendEndLabel,
-                aiBreakdownText = "$topPrompt\n$topModel\n$errorSummary\n${l("settings.ai_error_counts")}: $errorBreakdown",
-                statusText = l("settings.ai_loaded")
-            )
-        } catch (ex: Exception) {
-            if (activeRequestId != currentAiSummaryRequestId()) {
-                return
-            }
-            if (state.aiRequestTimedOut) {
-                return
-            }
-            val (inlineErrorText, inlineActionText, inlineActionType) = classifyAiError(ex)
-            state = state.copy(
-                loading = false,
-                aiRequestInFlight = false,
-                aiRequestTimedOut = false,
-                aiSummaryText = l("settings.ai_load_failed_inline"),
-                aiTrendText = "-",
-                aiTrendGraphText = "-",
-                aiTrendPoints = emptyList(),
-                aiTrendFallbackPoints = emptyList(),
-                aiTrendGuardrailPoints = emptyList(),
-                aiTrendErrorPoints = emptyList(),
-                aiTrendTimeoutPoints = emptyList(),
-                aiTrendNetworkPoints = emptyList(),
-                aiTrendServerPoints = emptyList(),
-                aiTrendStartLabel = "-",
-                aiTrendEndLabel = "-",
-                aiLastUpdatedLabel = "-",
-                aiInlineErrorText = inlineErrorText,
-                aiInlineActionText = inlineActionText,
-                aiInlineActionType = inlineActionType,
-                aiBreakdownText = "-",
-                statusText = l("settings.ai_failed")
-            )
+        if (activeRequestId != currentAiSummaryRequestId()) {
+            return
         }
+        state = state.copy(
+            loading = false,
+            aiRequestInFlight = false,
+            aiRequestTimedOut = false,
+            aiSummaryText = l("settings.ai_mobile_unavailable"),
+            aiTrendText = "-",
+            aiTrendGraphText = "-",
+            aiTrendPoints = emptyList(),
+            aiTrendFallbackPoints = emptyList(),
+            aiTrendGuardrailPoints = emptyList(),
+            aiTrendErrorPoints = emptyList(),
+            aiTrendTimeoutPoints = emptyList(),
+            aiTrendNetworkPoints = emptyList(),
+            aiTrendServerPoints = emptyList(),
+            aiTrendStartLabel = "-",
+            aiTrendEndLabel = "-",
+            aiLastUpdatedLabel = "-",
+            aiInlineErrorText = "",
+            aiInlineActionText = "",
+            aiInlineActionType = "",
+            aiBreakdownText = "-",
+            statusText = l("settings.ai_mobile_unavailable")
+        )
     }
 }

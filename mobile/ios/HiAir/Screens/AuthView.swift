@@ -39,6 +39,7 @@ final class AuthViewModel: ObservableObject {
             }
             session.userId = response.userId
             session.accessToken = response.accessToken
+            PushRegistrationService.shared.requestAuthorizationAndRegister()
             statusText = session.l("auth.ok")
         } catch {
             statusText = session.l("auth.fail")

@@ -218,7 +218,8 @@ Drive HiAir from partial readiness to:
 Progress on item 3:
 - Implemented compatibility bridge for `medium` and `moderate` in key backend/mobile paths.
 - Added API-boundary normalization + alias telemetry.
-- Remaining work: publish versioned deprecation/removal timeline and migrate clients.
+- Added versioned alias policy controls (`compat|warn|enforce`) and migration headers on legacy endpoints.
+- Remaining work: collect client migration evidence, then switch to `enforce` mode by release policy.
 
 Progress on item 4:
 - Expanded privacy export/delete repository logic for extended AI/risk/alerts tables.
@@ -231,6 +232,7 @@ Additional stabilization outcome:
 - DB smoke surfaced and fixed bytes/str robustness defects in auth/subscriptions/privacy code paths.
 - Ops endpoint access tightened with admin-token policy and preflight/smoke script support.
 - Retention/ops closure advanced with retention matrix, JSON evidence output, and incident runbook.
+- Store metadata completeness is now machine-gated via `check_store_metadata_packet.py` (unchecked items/placeholders fail strict ops mode).
 
 Phase 6 packaging progress:
 - Added external blocker ledger, residual risk register, and explicit go/no-go verdict artifact.

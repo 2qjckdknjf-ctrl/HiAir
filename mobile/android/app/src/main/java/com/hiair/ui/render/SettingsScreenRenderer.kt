@@ -1,13 +1,7 @@
 package com.hiair.ui.render
 
 import android.graphics.Color
-import android.os.Handler
-import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
-import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.AdapterView
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -60,99 +54,8 @@ internal object SettingsScreenRenderer {
         )
         personaSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, personaLabels)
         val subscriptionSpinner = Spinner(activity)
-        val aiWindowInput = EditText(activity).apply { hint = ctx.l("settings.ai_window"); setText("24") }
         val languageLabel = TextView(activity).apply { text = ctx.l("settings.language"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiMetricLabel = TextView(activity).apply { text = ctx.l("settings.ai_metric"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiMetricSpinner = Spinner(activity)
-        val aiMetricOptions = listOf("total", "fallback", "guardrail", "errors", "timeout", "network", "server")
-        val aiMetricLabels = listOf(
-            ctx.l("settings.ai_metric_total"),
-            ctx.l("settings.ai_metric_fallback"),
-            ctx.l("settings.ai_metric_guardrail"),
-            ctx.l("settings.ai_metric_errors"),
-            ctx.l("settings.ai_metric_timeout"),
-            ctx.l("settings.ai_metric_network"),
-            ctx.l("settings.ai_metric_server")
-        )
-        aiMetricSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, aiMetricLabels)
-        val aiModeLabel = TextView(activity).apply { text = ctx.l("settings.ai_mode"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiModeSpinner = Spinner(activity)
-        val aiModeOptions = listOf("bars", "line")
-        val aiModeLabels = listOf(ctx.l("settings.ai_mode_bars"), ctx.l("settings.ai_mode_line"))
-        aiModeSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, aiModeLabels)
-        val aiSummaryText = TextView(activity).apply { text = ctx.l("settings.ai_summary"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiTrendText = TextView(activity).apply { text = ctx.l("settings.ai_trend"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiGraphText = TextView(activity).apply { text = ctx.l("settings.ai_graph"); textSize = 14f; setTextColor(Color.parseColor("#7BCBFF")) }
-        val aiRangeText = TextView(activity).apply { text = "${ctx.l("settings.ai_range")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiAxisText = TextView(activity).apply { text = "${ctx.l("settings.ai_axis")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiRequestStatusText = TextView(activity).apply { text = "${ctx.l("settings.ai_request_status")}: ${ctx.l("settings.ai_request_idle")}"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiLastUpdatedText = TextView(activity).apply { text = "${ctx.l("settings.ai_last_updated")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiInlineErrorText = TextView(activity).apply { text = ""; textSize = 13f; setTextColor(Color.parseColor("#FF9AA2")) }
-        val aiTrendChart = AITrendChartView(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                V2Ui.dp(activity, 72)
-            )
-        }
-        val aiBreakdownText = TextView(activity).apply { text = ctx.l("settings.ai_breakdown"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
         val statusText = TextView(activity).apply { text = ctx.l("settings.load_save"); textSize = 16f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiRetryButton = V2Ui.secondaryButton(activity, ctx.l("settings.ai_retry_now"))
-        val mainHandler = Handler(Looper.getMainLooper())
-        var aiRefreshRunnable: Runnable? = null
-        var aiTimeoutRunnable: Runnable? = null
-
-        fun applyAiState(state: com.hiair.ui.settings.SettingsState) {
-            aiSummaryText.text = state.aiSummaryText
-            aiTrendText.text = state.aiTrendText
-            aiGraphText.text = state.aiTrendGraphText
-            val chartPoints = chartPointsForMetric(state, state.aiChartMetric)
-            aiTrendChart.setChartMode(state.aiChartMode)
-            aiTrendChart.setTrendPoints(chartPoints)
-            aiRangeText.text = "${ctx.l("settings.ai_range")}: ${rangeText(chartPoints)}"
-            aiAxisText.text = "${ctx.l("settings.ai_axis")}: ${state.aiTrendStartLabel} -> ${state.aiTrendEndLabel}"
-            val statusLabel = when {
-                state.aiRequestInFlight -> ctx.l("settings.ai_request_loading")
-                state.aiRequestTimedOut -> ctx.l("settings.ai_request_timeout")
-                else -> ctx.l("settings.ai_request_idle")
-            }
-            aiRequestStatusText.text = "${ctx.l("settings.ai_request_status")}: $statusLabel"
-            aiLastUpdatedText.text = "${ctx.l("settings.ai_last_updated")}: ${state.aiLastUpdatedLabel}"
-            aiInlineErrorText.text = state.aiInlineErrorText
-            aiRetryButton.text = if (state.aiInlineActionText.isBlank()) ctx.l("settings.ai_retry_now") else state.aiInlineActionText
-            aiRetryButton.isEnabled = state.aiInlineActionType != "retry_later"
-            aiRetryButton.alpha = if (aiRetryButton.isEnabled) 1f else 0.65f
-            aiRetryButton.visibility = if (state.aiInlineErrorText.isNotBlank() || state.aiRequestTimedOut) android.view.View.VISIBLE else android.view.View.GONE
-            aiBreakdownText.text = state.aiBreakdownText
-        }
-
-        fun requestAiRefreshDebounced(delayMs: Long = 500L) {
-            aiRefreshRunnable?.let(mainHandler::removeCallbacks)
-            aiRefreshRunnable = Runnable {
-                statusText.text = ctx.l("common.loading")
-                val requestId = rootShell.settingsViewModel.beginAiSummaryRequest()
-                aiRequestStatusText.text = "${ctx.l("settings.ai_request_status")}: ${ctx.l("settings.ai_request_loading")}"
-                aiTimeoutRunnable?.let(mainHandler::removeCallbacks)
-                aiTimeoutRunnable = Runnable {
-                    rootShell.settingsViewModel.markAiSummaryTimeout(requestId)
-                    applyAiState(rootShell.settingsViewModel.state)
-                }
-                mainHandler.postDelayed(aiTimeoutRunnable!!, 8000L)
-                Thread {
-                    rootShell.settingsViewModel.loadAiSummary(requestId = requestId)
-                    val state = rootShell.settingsViewModel.state
-                    activity.runOnUiThread {
-                        if (requestId != rootShell.settingsViewModel.currentAiSummaryRequestId()) {
-                            return@runOnUiThread
-                        }
-                        aiTimeoutRunnable?.let(mainHandler::removeCallbacks)
-                        applyAiState(state)
-                        statusText.text = state.statusText
-                    }
-                }.start()
-            }
-            mainHandler.postDelayed(aiRefreshRunnable!!, delayMs)
-        }
-        aiRetryButton.setOnClickListener { requestAiRefreshDebounced(delayMs = 0L) }
 
         val signupButton = V2Ui.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
             setOnClickListener {
@@ -303,43 +206,6 @@ internal object SettingsScreenRenderer {
                 statusText.text = ctx.l("settings.logged_out")
             }
         }
-        val loadAiSummaryButton = V2Ui.secondaryButton(activity, ctx.l("settings.load_ai_summary")).apply {
-            setOnClickListener {
-                val windowHours = aiWindowInput.text.toString().toIntOrNull() ?: 24
-                rootShell.settingsViewModel.setAiSummaryHours(windowHours)
-                requestAiRefreshDebounced(delayMs = 0L)
-            }
-        }
-
-        aiMetricSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                val metric = aiMetricOptions[position.coerceIn(0, aiMetricOptions.lastIndex)]
-                rootShell.settingsViewModel.setAiChartMetric(metric)
-                val state = rootShell.settingsViewModel.state
-                val chartPoints = chartPointsForMetric(state, metric)
-                aiGraphText.text = state.aiTrendGraphText
-                aiTrendChart.setTrendPoints(chartPoints)
-                aiRangeText.text = "${ctx.l("settings.ai_range")}: ${rangeText(chartPoints)}"
-                if (state.aiTrendPoints.isEmpty()) {
-                    requestAiRefreshDebounced()
-                }
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
-        aiModeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                val mode = aiModeOptions[position.coerceIn(0, aiModeOptions.lastIndex)]
-                rootShell.settingsViewModel.setAiChartMode(mode)
-                aiTrendChart.setChartMode(mode)
-                if (rootShell.settingsViewModel.state.aiTrendPoints.isEmpty()) {
-                    requestAiRefreshDebounced()
-                }
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
-
         val authRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(signupButton)
@@ -371,28 +237,6 @@ internal object SettingsScreenRenderer {
         if (statusText.text.isNullOrBlank() || statusText.text == ctx.l("settings.load_save")) {
             statusText.text = "${ctx.l("settings.load_save")} Subscription=${state.subscriptionStatus}"
         }
-        aiSummaryText.text = state.aiSummaryText
-        aiTrendText.text = state.aiTrendText
-        aiGraphText.text = state.aiTrendGraphText
-        applyAiState(state)
-        aiWindowInput.setText(state.aiSummaryHours.toString())
-        val metricIndex = aiMetricOptions.indexOf(state.aiChartMetric)
-        if (metricIndex >= 0) aiMetricSpinner.setSelection(metricIndex, false)
-        val modeIndex = aiModeOptions.indexOf(state.aiChartMode)
-        if (modeIndex >= 0) aiModeSpinner.setSelection(modeIndex, false)
-        aiWindowInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable?) {
-                val parsed = s?.toString()?.toIntOrNull() ?: return
-                val normalized = if (parsed <= 24) 24 else 72
-                if (normalized != rootShell.settingsViewModel.state.aiSummaryHours) {
-                    rootShell.settingsViewModel.setAiSummaryHours(normalized)
-                    requestAiRefreshDebounced()
-                }
-            }
-        })
-
         val accountCard = V2Ui.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))
             addView(emailInput)
@@ -435,46 +279,6 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(subscriptionCard)
 
-        val advancedAiContainer = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE
-            addView(aiMetricLabel)
-            addView(aiMetricSpinner)
-            addView(aiModeLabel)
-            addView(aiModeSpinner)
-            addView(aiGraphText)
-            addView(aiRangeText)
-            addView(aiAxisText)
-            addView(aiRequestStatusText)
-            addView(aiLastUpdatedText)
-            addView(aiInlineErrorText)
-            addView(aiRetryButton)
-            addView(aiTrendChart)
-            addView(aiBreakdownText)
-        }
-        val advancedAiToggle = V2Ui.secondaryButton(activity, ctx.l("settings.advanced_controls")).apply {
-            setOnClickListener {
-                val expanded = advancedAiContainer.visibility == View.VISIBLE
-                advancedAiContainer.visibility = if (expanded) View.GONE else View.VISIBLE
-                text = if (expanded) {
-                    ctx.l("settings.advanced_controls")
-                } else {
-                    ctx.l("settings.advanced_controls_hide")
-                }
-            }
-        }
-
-        val aiCard = V2Ui.cardContainer(activity).apply {
-            addView(sectionTitle("settings.ai_observability"))
-            addView(aiWindowInput)
-            addView(aiSummaryText)
-            addView(aiTrendText)
-            addView(advancedAiToggle)
-            addView(advancedAiContainer)
-            addView(loadAiSummaryButton)
-        }
-        bodyContainer.addView(aiCard)
-
         bodyContainer.addView(V2Ui.primaryButton(activity, ctx.l("settings.sync_now")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
@@ -500,24 +304,5 @@ internal object SettingsScreenRenderer {
                 }.start()
             }
         })
-    }
-
-    private fun chartPointsForMetric(state: com.hiair.ui.settings.SettingsState, metric: String): List<Int> {
-        return when (metric) {
-            "fallback" -> state.aiTrendFallbackPoints
-            "guardrail" -> state.aiTrendGuardrailPoints
-            "errors" -> state.aiTrendErrorPoints
-            "timeout" -> state.aiTrendTimeoutPoints
-            "network" -> state.aiTrendNetworkPoints
-            "server" -> state.aiTrendServerPoints
-            else -> state.aiTrendPoints
-        }
-    }
-
-    private fun rangeText(points: List<Int>): String {
-        if (points.isEmpty()) return "-"
-        val min = points.minOrNull() ?: 0
-        val max = points.maxOrNull() ?: 0
-        return "$min-$max"
     }
 }

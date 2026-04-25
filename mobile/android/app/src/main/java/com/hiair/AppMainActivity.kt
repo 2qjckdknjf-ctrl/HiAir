@@ -20,6 +20,7 @@ import com.hiair.ui.theme.V2Ui
 class AppMainActivity : AppCompatActivity() {
     private val rootShell = RootShellViewModel()
     private lateinit var sessionStore: SessionStore
+    private lateinit var pushTokenRegistrar: PushTokenRegistrar
     private lateinit var titleView: TextView
     private lateinit var bodyContainer: LinearLayout
     private lateinit var screenRenderer: MainScreenRenderer
@@ -31,6 +32,7 @@ class AppMainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
+        pushTokenRegistrar = PushTokenRegistrar(this)
         restoreSession()
 
         val root = LinearLayout(this).apply {
@@ -116,17 +118,29 @@ class AppMainActivity : AppCompatActivity() {
         rootShell.settingsViewModel.setEmail(stored.email)
         rootShell.settingsViewModel.setUserId(stored.userId)
         rootShell.settingsViewModel.setAccessToken(stored.accessToken)
+        pushTokenRegistrar.registerIfTokenAvailable(stored)
     }
 
     private fun persistSession() {
         val state = rootShell.settingsViewModel.state
-        sessionStore.save(
-            StoredSession(
-                email = state.email,
-                userId = state.userId,
-                accessToken = state.accessToken
-            )
+        val session = StoredSession(
+            email = state.email,
+            userId = state.userId,
+            accessToken = state.accessToken
         )
+        sessionStore.save(session)
+        pushTokenRegistrar.requestPermissionAndRegister(session)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PushTokenRegistrar.REQUEST_POST_NOTIFICATIONS) {
+            pushTokenRegistrar.registerIfTokenAvailable(sessionStore.load())
+        }
     }
 
     private fun renderCurrentScreen() {
@@ -134,9 +148,9 @@ class AppMainActivity : AppCompatActivity() {
         syncNavLabels()
         syncNavSelection()
         when (rootShell.state.currentScreen) {
-            AppScreen.DASHBOARD -> screenRenderer.renderDashboard()
-            AppScreen.PLANNER -> screenRenderer.renderPlanner()
-            AppScreen.SYMPTOMS -> screenRenderer.renderSymptoms()
+            AppScreen.DASHBOARD -> if (rootShell.isAuthenticated()) screenRenderer.renderDashboard() else screenRenderer.renderSettings()
+            AppScreen.PLANNER -> if (rootShell.isAuthenticated()) screenRenderer.renderPlanner() else screenRenderer.renderSettings()
+            AppScreen.SYMPTOMS -> if (rootShell.isAuthenticated()) screenRenderer.renderSymptoms() else screenRenderer.renderSettings()
             AppScreen.SETTINGS -> screenRenderer.renderSettings()
         }
     }
