@@ -3,7 +3,7 @@ import SwiftUI
 
 @MainActor
 final class OnboardingLocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    @Published var statusText = "-"
+    @Published var statusKey = "-"
 
     private let manager = CLLocationManager()
     private var onUpdate: ((CLLocationCoordinate2D) -> Void)?
@@ -18,36 +18,36 @@ final class OnboardingLocationManager: NSObject, ObservableObject, CLLocationMan
         self.onUpdate = onUpdate
         switch manager.authorizationStatus {
         case .notDetermined:
-            statusText = "Requesting location permission..."
+            statusKey = "onboarding.location_permission_requesting"
             manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
-            statusText = "Updating location..."
+            statusKey = "onboarding.location_updating"
             manager.requestLocation()
         case .denied, .restricted:
-            statusText = "Location permission is disabled."
+            statusKey = "onboarding.location_permission_disabled"
         @unknown default:
-            statusText = "Location permission is unavailable."
+            statusKey = "onboarding.location_permission_unavailable"
         }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         if manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse {
-            statusText = "Updating location..."
+            statusKey = "onboarding.location_updating"
             manager.requestLocation()
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let coordinate = locations.last?.coordinate else {
-            statusText = "Location unavailable."
+            statusKey = "onboarding.location_unavailable"
             return
         }
         onUpdate?(coordinate)
-        statusText = "Location updated."
+        statusKey = "onboarding.location_updated"
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        statusText = "Location update failed."
+        statusKey = "onboarding.location_update_failed"
     }
 }
 
@@ -69,19 +69,19 @@ struct OnboardingView: View {
                 .bold()
 
             Picker(session.l("onboarding.persona"), selection: $persona) {
-                Text(session.preferredLanguage == "en" ? "Adult" : "Взрослый").tag("adult")
-                Text(session.preferredLanguage == "en" ? "Child" : "Ребенок").tag("child")
-                Text(session.preferredLanguage == "en" ? "Elderly" : "Пожилой").tag("elderly")
-                Text(session.preferredLanguage == "en" ? "Asthma" : "Астма").tag("asthma")
-                Text(session.preferredLanguage == "en" ? "Allergy" : "Аллергия").tag("allergy")
-                Text(session.preferredLanguage == "en" ? "Runner" : "Бегун").tag("runner")
+                Text(session.l("settings.persona_adult")).tag("adult")
+                Text(session.l("settings.persona_child")).tag("child")
+                Text(session.l("settings.persona_elderly")).tag("elderly")
+                Text(session.l("settings.persona_asthma")).tag("asthma")
+                Text(session.l("settings.persona_allergy")).tag("allergy")
+                Text(session.l("settings.persona_runner")).tag("runner")
             }
             .pickerStyle(.menu)
 
             Picker(session.l("onboarding.sensitivity"), selection: $sensitivity) {
-                Text(session.preferredLanguage == "en" ? "Low" : "Низкая").tag("low")
-                Text(session.preferredLanguage == "en" ? "Medium" : "Средняя").tag("medium")
-                Text(session.preferredLanguage == "en" ? "High" : "Высокая").tag("high")
+                Text(session.l("onboarding.sensitivity_low")).tag("low")
+                Text(session.l("onboarding.sensitivity_medium")).tag("medium")
+                Text(session.l("onboarding.sensitivity_high")).tag("high")
             }
             .pickerStyle(.segmented)
 
@@ -116,9 +116,9 @@ struct OnboardingView: View {
             latText = String(session.latitude)
             lonText = String(session.longitude)
         }
-        .onChange(of: locationManager.statusText) { value in
+        .onChange(of: locationManager.statusKey) { value in
             if value != "-" {
-                statusText = value
+                statusText = session.l(value)
             }
         }
     }

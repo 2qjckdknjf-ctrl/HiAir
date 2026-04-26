@@ -89,11 +89,6 @@ class DashboardViewModel(
     }
 }
 
-fun DashboardState.dailyActionsText(): String {
-    if (actions.isEmpty()) return "No actions available."
-    return actions.joinToString(separator = "\n") { action -> "• $action" }
-}
-
 fun DashboardState.dailyActionsText(language: String): String {
     if (actions.isEmpty()) return AndroidL10n.t("dashboard.no_actions", language)
     return actions.joinToString(separator = "\n") { action -> "• $action" }

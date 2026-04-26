@@ -50,7 +50,8 @@ internal object SymptomsScreenRenderer {
                     val settings = rootShell.settingsViewModel.state
                     rootShell.symptomLogViewModel.submit(
                         userId = settings.userId,
-                        accessToken = settings.accessToken.ifBlank { null }
+                        accessToken = settings.accessToken.ifBlank { null },
+                        language = settings.preferredLanguage
                     )
                     val state = rootShell.symptomLogViewModel.state
                     activity.runOnUiThread { stateText.text = state.statusText }
@@ -97,7 +98,8 @@ internal object SymptomsScreenRenderer {
             ctx.rootShell.symptomLogViewModel.quickLog(
                 userId = settings.userId,
                 accessToken = settings.accessToken.ifBlank { null },
-                symptomType = symptomType
+                symptomType = symptomType,
+                language = settings.preferredLanguage
             )
             val state = ctx.rootShell.symptomLogViewModel.state
             activity.runOnUiThread { stateText.text = state.statusText }
