@@ -288,35 +288,6 @@ class ApiClient(private val baseUrl: String) {
         return try {
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            stream.bufferedReader().readText()
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun requestStrict(
-        method: String,
-        endpoint: String,
-        body: String?,
-        headers: Map<String, String> = emptyMap()
-    ): String {
-        val connection = URL(endpoint).openConnection() as HttpURLConnection
-        connection.requestMethod = method
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-        headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
-        if (method == "POST" || method == "PUT") {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            if (body != null) {
-                connection.outputStream.use { output ->
-                    output.write(body.toByteArray())
-                }
-            }
-        }
-        return try {
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val payload = stream?.bufferedReader()?.readText() ?: ""
             if (code !in 200..299) {
                 throw ApiHttpException(code, "HTTP $code for $endpoint")
