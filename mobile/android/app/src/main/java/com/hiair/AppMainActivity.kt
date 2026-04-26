@@ -118,7 +118,10 @@ class AppMainActivity : AppCompatActivity() {
         rootShell.settingsViewModel.setEmail(stored.email)
         rootShell.settingsViewModel.setUserId(stored.userId)
         rootShell.settingsViewModel.setAccessToken(stored.accessToken)
-        pushTokenRegistrar.registerIfTokenAvailable(stored)
+        rootShell.settingsViewModel.setProfileId(stored.profileId)
+        rootShell.settingsViewModel.setPreferredLanguage(stored.preferredLanguage)
+        rootShell.symptomLogViewModel.updateProfileId(stored.profileId)
+        pushTokenRegistrar.registerIfTokenAvailable(stored, stored.profileId.ifBlank { null })
     }
 
     private fun persistSession() {
@@ -126,10 +129,12 @@ class AppMainActivity : AppCompatActivity() {
         val session = StoredSession(
             email = state.email,
             userId = state.userId,
-            accessToken = state.accessToken
+            accessToken = state.accessToken,
+            profileId = state.profileId,
+            preferredLanguage = state.preferredLanguage
         )
         sessionStore.save(session)
-        pushTokenRegistrar.requestPermissionAndRegister(session)
+        pushTokenRegistrar.requestPermissionAndRegister(session, state.profileId.ifBlank { null })
     }
 
     override fun onRequestPermissionsResult(
@@ -139,7 +144,8 @@ class AppMainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PushTokenRegistrar.REQUEST_POST_NOTIFICATIONS) {
-            pushTokenRegistrar.registerIfTokenAvailable(sessionStore.load())
+            val session = sessionStore.load()
+            pushTokenRegistrar.registerIfTokenAvailable(session, session.profileId.ifBlank { null })
         }
     }
 

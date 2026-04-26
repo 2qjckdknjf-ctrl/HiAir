@@ -82,6 +82,28 @@ final class APIClient {
         return try JSONDecoder().decode(AuthResponse.self, from: data)
     }
 
+    func createProfile(
+        _ payload: ProfileCreateRequest,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> ProfileResponse {
+        let url = baseURL.appending(path: "/api/profiles")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(ProfileResponse.self, from: data)
+    }
+
     func fetchMockEnvironment(lat: Double, lon: Double) async throws -> EnvironmentSnapshot {
         var components = URLComponents(
             url: baseURL.appending(path: "/api/environment/snapshot"),
@@ -440,5 +462,38 @@ final class APIClient {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
+    }
+
+    func exportPrivacyData(userId: String, accessToken: String? = nil) async throws -> Data {
+        let url = baseURL.appending(path: "/api/privacy/export")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return data
+    }
+
+    func deleteAccount(userId: String, accessToken: String? = nil) async throws {
+        let url = baseURL.appending(path: "/api/privacy/delete-account")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(["confirmation": "DELETE"])
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
     }
 }

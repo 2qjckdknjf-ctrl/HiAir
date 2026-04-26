@@ -24,7 +24,9 @@ internal object PlannerScreenRenderer {
                 stateText.text = ctx.l("common.loading")
                 Thread {
                     val settings = rootShell.settingsViewModel.state
-                    val profileId = rootShell.symptomLogViewModel.state.profileId
+                    val profileId = settings.profileId.ifBlank {
+                        rootShell.symptomLogViewModel.state.profileId
+                    }
                     if (profileId.isBlank()) {
                         activity.runOnUiThread { stateText.text = ctx.l("planner.profile_required") }
                         return@Thread
@@ -32,7 +34,8 @@ internal object PlannerScreenRenderer {
                     rootShell.plannerViewModel.refresh(
                         userId = settings.userId,
                         accessToken = settings.accessToken.ifBlank { null },
-                        profileId = profileId
+                        profileId = profileId,
+                        language = settings.preferredLanguage
                     )
                     val state = rootShell.plannerViewModel.state
                     activity.runOnUiThread {

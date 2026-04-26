@@ -1,12 +1,18 @@
 package com.hiair.ui.render
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.LocationManager
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.hiair.ui.theme.V2Ui
 
 internal object SettingsScreenRenderer {
@@ -25,10 +31,14 @@ internal object SettingsScreenRenderer {
         val passwordInput = EditText(activity).apply { hint = ctx.l("settings.password") }
         val userIdInput = EditText(activity).apply { hint = ctx.l("settings.user_id") }
         val tokenInput = EditText(activity).apply { hint = ctx.l("settings.token") }
+        val profileIdInput = EditText(activity).apply { hint = ctx.l("settings.profile_id") }
+        val pushTokenInput = EditText(activity).apply { hint = ctx.l("settings.push_device_token") }
         val pushAlertsBox = CheckBox(activity).apply { text = ctx.l("settings.push"); isChecked = true }
         val profileAlertingBox = CheckBox(activity).apply { text = ctx.l("settings.profile_alerting"); isChecked = true }
         val quietStartInput = EditText(activity).apply { hint = ctx.l("settings.quiet_start"); setText("22") }
         val quietEndInput = EditText(activity).apply { hint = ctx.l("settings.quiet_end"); setText("7") }
+        val homeLatInput = EditText(activity).apply { hint = ctx.l("settings.home_lat"); setText("41.39") }
+        val homeLonInput = EditText(activity).apply { hint = ctx.l("settings.home_lon"); setText("2.17") }
         val thresholdSpinner = Spinner(activity)
         val thresholdOptions = listOf("medium", "high", "very_high")
         val thresholdLabels = listOf(
@@ -53,6 +63,14 @@ internal object SettingsScreenRenderer {
             ctx.l("settings.persona_worker")
         )
         personaSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, personaLabels)
+        val sensitivitySpinner = Spinner(activity)
+        val sensitivityOptions = listOf("low", "medium", "high")
+        val sensitivityLabels = listOf(
+            ctx.l("settings.sensitivity_low"),
+            ctx.l("settings.sensitivity_medium"),
+            ctx.l("settings.sensitivity_high")
+        )
+        sensitivitySpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sensitivityLabels)
         val subscriptionSpinner = Spinner(activity)
         val languageLabel = TextView(activity).apply { text = ctx.l("settings.language"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
         val statusText = TextView(activity).apply { text = ctx.l("settings.load_save"); textSize = 16f; setTextColor(Color.parseColor("#A6B6D2")) }
@@ -68,6 +86,7 @@ internal object SettingsScreenRenderer {
                     activity.runOnUiThread {
                         userIdInput.setText(state.userId)
                         tokenInput.setText(state.accessToken)
+                        profileIdInput.setText(state.profileId)
                         persistSession()
                         statusText.text = state.statusText
                     }
@@ -85,6 +104,7 @@ internal object SettingsScreenRenderer {
                     activity.runOnUiThread {
                         userIdInput.setText(state.userId)
                         tokenInput.setText(state.accessToken)
+                        profileIdInput.setText(state.profileId)
                         persistSession()
                         statusText.text = state.statusText
                     }
@@ -156,6 +176,81 @@ internal object SettingsScreenRenderer {
                 }.start()
             }
         }
+        val createProfileButton = V2Ui.secondaryButton(activity, ctx.l("settings.create_profile")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                val selectedPersonaIndex = personaSpinner.selectedItemPosition.coerceIn(0, personaOptions.lastIndex)
+                val selectedSensitivityIndex = sensitivitySpinner.selectedItemPosition.coerceIn(0, sensitivityOptions.lastIndex)
+                rootShell.settingsViewModel.setDefaultPersona(personaOptions[selectedPersonaIndex])
+                rootShell.settingsViewModel.setSensitivityLevel(sensitivityOptions[selectedSensitivityIndex])
+                rootShell.settingsViewModel.setHomeLat(homeLatInput.text.toString().toDoubleOrNull() ?: 41.39)
+                rootShell.settingsViewModel.setHomeLon(homeLonInput.text.toString().toDoubleOrNull() ?: 2.17)
+                Thread {
+                    rootShell.settingsViewModel.createProfile()
+                    val state = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        profileIdInput.setText(state.profileId)
+                        ctx.rootShell.symptomLogViewModel.updateProfileId(state.profileId)
+                        persistSession()
+                        statusText.text = state.statusText
+                    }
+                }.start()
+            }
+        }
+        val registerPushButton = V2Ui.secondaryButton(activity, ctx.l("settings.register_push_device")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                rootShell.settingsViewModel.setProfileId(profileIdInput.text.toString())
+                rootShell.settingsViewModel.setPushDeviceToken(pushTokenInput.text.toString())
+                Thread {
+                    rootShell.settingsViewModel.registerPushDeviceToken()
+                    val state = rootShell.settingsViewModel.state
+                    activity.runOnUiThread { statusText.text = state.statusText }
+                }.start()
+            }
+        }
+        val useCurrentLocationButton = V2Ui.secondaryButton(activity, ctx.l("settings.use_current_location")).apply {
+            setOnClickListener {
+                val fineGranted = ContextCompat.checkSelfPermission(
+                    activity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+                val coarseGranted = ContextCompat.checkSelfPermission(
+                    activity,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!fineGranted && !coarseGranted) {
+                    ActivityCompat.requestPermissions(
+                        activity,
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ),
+                        REQUEST_LOCATION
+                    )
+                    statusText.text = ctx.l("settings.location_permission_requested")
+                    return@setOnClickListener
+                }
+                val locationManager = activity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+                val location = providers.firstNotNullOfOrNull { provider ->
+                    runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
+                }
+                if (location == null) {
+                    statusText.text = ctx.l("settings.location_unavailable")
+                    return@setOnClickListener
+                }
+                homeLatInput.setText("%.5f".format(location.latitude))
+                homeLonInput.setText("%.5f".format(location.longitude))
+                rootShell.settingsViewModel.setHomeLat(location.latitude)
+                rootShell.settingsViewModel.setHomeLon(location.longitude)
+                statusText.text = ctx.l("settings.location_updated")
+            }
+        }
         val loadSubscriptionButton = V2Ui.secondaryButton(activity, ctx.l("settings.load_subscription")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
@@ -206,6 +301,36 @@ internal object SettingsScreenRenderer {
                 statusText.text = ctx.l("settings.logged_out")
             }
         }
+        val exportPrivacyButton = V2Ui.secondaryButton(activity, ctx.l("settings.export_privacy_data")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                Thread {
+                    rootShell.settingsViewModel.exportPrivacyData()
+                    val state = rootShell.settingsViewModel.state
+                    activity.runOnUiThread { statusText.text = state.statusText }
+                }.start()
+            }
+        }
+        val deleteAccountButton = V2Ui.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                Thread {
+                    rootShell.settingsViewModel.deleteAccount()
+                    val state = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        clearSession()
+                        userIdInput.setText("")
+                        tokenInput.setText("")
+                        profileIdInput.setText("")
+                        statusText.text = state.statusText
+                    }
+                }.start()
+            }
+        }
         val authRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(signupButton)
@@ -217,6 +342,8 @@ internal object SettingsScreenRenderer {
         val state = rootShell.settingsViewModel.state
         userIdInput.setText(state.userId)
         tokenInput.setText(state.accessToken)
+        profileIdInput.setText(state.profileId)
+        pushTokenInput.setText(state.pushDeviceToken)
         emailInput.setText(state.email)
         pushAlertsBox.isChecked = state.pushAlertsEnabled
         profileAlertingBox.isChecked = state.profileBasedAlerting
@@ -226,6 +353,10 @@ internal object SettingsScreenRenderer {
         if (thresholdIndex >= 0) thresholdSpinner.setSelection(thresholdIndex)
         val personaIndex = personaOptions.indexOf(state.defaultPersona)
         if (personaIndex >= 0) personaSpinner.setSelection(personaIndex)
+        val sensitivityIndex = sensitivityOptions.indexOf(state.sensitivityLevel)
+        if (sensitivityIndex >= 0) sensitivitySpinner.setSelection(sensitivityIndex)
+        homeLatInput.setText(state.homeLat.toString())
+        homeLonInput.setText(state.homeLon.toString())
         val langIndex = languageOptions.indexOf(state.preferredLanguage)
         if (langIndex >= 0) languageSpinner.setSelection(langIndex)
         if (state.subscriptionPlans.isNotEmpty()) {
@@ -244,7 +375,10 @@ internal object SettingsScreenRenderer {
             addView(authRow)
             addView(userIdInput)
             addView(tokenInput)
+            addView(profileIdInput)
             addView(statusText)
+            addView(exportPrivacyButton)
+            addView(deleteAccountButton)
             addView(logoutButton)
         }
         bodyContainer.addView(accountCard)
@@ -252,6 +386,8 @@ internal object SettingsScreenRenderer {
         val notificationsCard = V2Ui.cardContainer(activity).apply {
             addView(sectionTitle("settings.notifications"))
             addView(pushAlertsBox)
+            addView(pushTokenInput)
+            addView(registerPushButton)
             addView(profileAlertingBox)
             addView(quietStartInput)
             addView(quietEndInput)
@@ -264,6 +400,11 @@ internal object SettingsScreenRenderer {
         val defaultsCard = V2Ui.cardContainer(activity).apply {
             addView(sectionTitle("settings.profile_defaults"))
             addView(personaSpinner)
+            addView(sensitivitySpinner)
+            addView(homeLatInput)
+            addView(homeLonInput)
+            addView(useCurrentLocationButton)
+            addView(createProfileButton)
             addView(languageLabel)
             addView(languageSpinner)
         }
@@ -305,4 +446,6 @@ internal object SettingsScreenRenderer {
             }
         })
     }
+
+    private const val REQUEST_LOCATION = 4108
 }

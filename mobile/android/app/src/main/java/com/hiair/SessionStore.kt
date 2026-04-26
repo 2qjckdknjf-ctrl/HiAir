@@ -14,7 +14,9 @@ import javax.crypto.spec.GCMParameterSpec
 data class StoredSession(
     val email: String,
     val userId: String,
-    val accessToken: String
+    val accessToken: String,
+    val profileId: String = "",
+    val preferredLanguage: String = "ru"
 )
 
 class SessionStore(context: Context) {
@@ -31,6 +33,8 @@ class SessionStore(context: Context) {
             email = prefs.getString("email", "") ?: "",
             userId = prefs.getString("user_id", "") ?: "",
             accessToken = readAccessToken(),
+            profileId = prefs.getString("profile_id", "") ?: "",
+            preferredLanguage = prefs.getString("preferred_language", "ru") ?: "ru",
         )
     }
 
@@ -38,6 +42,8 @@ class SessionStore(context: Context) {
         prefs.edit()
             .putString("email", session.email)
             .putString("user_id", session.userId)
+            .putString("profile_id", session.profileId)
+            .putString("preferred_language", session.preferredLanguage)
             .remove("access_token")
             .apply()
         saveAccessToken(session.accessToken)

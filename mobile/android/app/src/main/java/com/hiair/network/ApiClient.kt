@@ -35,6 +35,24 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, json)
     }
 
+    fun createProfile(
+        userId: String,
+        accessToken: String? = null,
+        personaType: String,
+        sensitivityLevel: String,
+        homeLat: Double,
+        homeLon: Double
+    ): String {
+        val endpoint = "$baseUrl/api/profiles"
+        val json = JSONObject().apply {
+            put("persona_type", personaType)
+            put("sensitivity_level", sensitivityLevel)
+            put("home_lat", homeLat)
+            put("home_lon", homeLon)
+        }.toString()
+        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun fetchDailyPlanner(
         persona: String = "adult",
         lat: Double = 41.39,
@@ -222,6 +240,19 @@ class ApiClient(private val baseUrl: String) {
     fun cancelSubscription(userId: String, accessToken: String? = null): String {
         val endpoint = "$baseUrl/api/subscriptions/cancel"
         return request("POST", endpoint, "{}", authHeaders(userId, accessToken))
+    }
+
+    fun exportPrivacyData(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/privacy/export"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun deleteAccount(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/privacy/delete-account"
+        val json = JSONObject().apply {
+            put("confirmation", "DELETE")
+        }.toString()
+        return request("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
     private fun request(

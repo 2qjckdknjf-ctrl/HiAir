@@ -8,6 +8,8 @@ final class DashboardViewModel: ObservableObject {
     @Published var headline = "-"
     @Published var actions: [String] = []
     @Published var nearestSafeWindow = "-"
+    @Published var environmentSummary = "-"
+    @Published var dataSource = "-"
 
     private let apiClient = APIClient.live()
 
@@ -25,6 +27,8 @@ final class DashboardViewModel: ObservableObject {
             explanation = HiAirL10n.t("planner.profile_required", lang: language)
             actions = []
             nearestSafeWindow = "-"
+            environmentSummary = "-"
+            dataSource = "-"
             return
         }
         do {
@@ -37,6 +41,8 @@ final class DashboardViewModel: ObservableObject {
             explanation = result.explanation
             headline = result.recommendation.headline
             actions = result.recommendation.actions
+            environmentSummary = "\(Int(result.environmental.temperature.rounded()))C • AQI \(result.environmental.aqi)"
+            dataSource = result.environmental.source.uppercased()
             if let firstWindow = result.risk.safeWindows.first {
                 nearestSafeWindow = "\(firstWindow.type): \(firstWindow.start) -> \(firstWindow.end)"
             } else {
@@ -48,6 +54,8 @@ final class DashboardViewModel: ObservableObject {
             explanation = language == "en" ? "Current risk request failed." : "Запрос текущего риска завершился ошибкой."
             actions = []
             nearestSafeWindow = "-"
+            environmentSummary = "-"
+            dataSource = "-"
         }
     }
 }
@@ -55,8 +63,6 @@ final class DashboardViewModel: ObservableObject {
 struct DashboardView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DashboardViewModel()
-    @State private var weatherPhase = 0
-    private let weatherTicker = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
 
     private var riskScore: Int {
         switch viewModel.riskLevel.lowercased() {
@@ -79,22 +85,6 @@ struct DashboardView: View {
         case "moderate", "medium": return .yellow
         case "high", "very_high": return .orange
         default: return .secondary
-        }
-    }
-
-    private var weatherTitle: String {
-        switch weatherPhase {
-        case 0: return "Sunny 26C"
-        case 1: return "Heatwave 33C"
-        default: return "Windy 22C"
-        }
-    }
-
-    private var moodTitle: String {
-        switch weatherPhase {
-        case 0: return "Calm"
-        case 1: return "Stressed"
-        default: return "Energized"
         }
     }
 
@@ -139,8 +129,8 @@ struct DashboardView: View {
                                 .fill(
                                     RadialGradient(
                                         colors: [
-                                            weatherPhase == 0 ? .mint : (weatherPhase == 1 ? .orange : .cyan),
-                                            weatherPhase == 0 ? .cyan : (weatherPhase == 1 ? .pink : .indigo)
+                                            riskColor.opacity(0.8),
+                                            riskColor.opacity(0.35)
                                         ],
                                         center: .center,
                                         startRadius: 4,
@@ -149,15 +139,13 @@ struct DashboardView: View {
                                 )
                                 .frame(width: 70, height: 70)
                                 .blur(radius: 0.5)
-                                .shadow(color: .cyan.opacity(0.4), radius: 12, x: 0, y: 6)
-                                .animation(.easeInOut(duration: 1.2), value: weatherPhase)
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(weatherTitle)
+                            Text(viewModel.environmentSummary)
                                 .font(.headline)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
-                            Text("Mood: \(moodTitle)")
+                            Text("\(session.l("dashboard.source")): \(viewModel.dataSource)")
                                 .font(.subheadline)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text(session.l("dashboard.auto_updates"))
@@ -241,9 +229,6 @@ struct DashboardView: View {
             .padding(16)
         }
         .v2PageBackground()
-        .onReceive(weatherTicker) { _ in
-            weatherPhase = (weatherPhase + 1) % 3
-        }
         .task {
             await viewModel.refresh(
                 userId: session.userId,

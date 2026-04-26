@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id, require_ops_admin_token
@@ -24,6 +26,8 @@ import app.services.notification_dispatcher as notification_dispatcher
 from app.services.notification_providers import refresh_provider_secrets
 import app.services.profile_access as profile_access
 import app.services.notification_repository as notification_repository
+import app.services.settings_repository as settings_repository
+from app.services.localization import normalize_language
 from app.services.secret_store import get_secret, secret_store_health
 from app.services.notification_service import build_notification_text, should_notify
 
@@ -120,10 +124,19 @@ def credentials_rotate(
 @router.post("/preview", response_model=NotificationPreviewResponse)
 def preview_notification(
     payload: NotificationPreviewRequest,
+    language: Annotated[str | None, Query()] = None,
+    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
     user_id: str = Depends(get_current_user_id),
 ) -> NotificationPreviewResponse:
+    preferred_language = language or accept_language
+    if preferred_language is None:
+        try:
+            preferred_language = settings_repository.get_user_settings(user_id).preferred_language
+        except PsycopgError:
+            preferred_language = "ru"
+    normalized_language = normalize_language(preferred_language)
     send = should_notify(payload.risk)
-    text = build_notification_text(payload.risk)
+    text = build_notification_text(payload.risk, language=normalized_language)
     event_id = None
     if payload.profile_id:
         try:

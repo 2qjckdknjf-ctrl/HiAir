@@ -107,6 +107,59 @@ def test_guardrail_blocks_unsafe_text(monkeypatch) -> None:
     assert "диагноз" not in text.lower()
 
 
+def test_llm_instruction_matches_english_language(monkeypatch) -> None:
+    captured: dict[str, dict] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"choices": [{"message": {"content": "High heat risk today. Keep outdoor time short."}}]}
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def post(self, url: str, json: dict, headers: dict) -> FakeResponse:
+            captured["body"] = json
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        ai_explanation_service,
+        "settings",
+        SimpleNamespace(
+            openai_api_key="test-key",
+            openai_model="gpt-4o-mini",
+            openai_base_url="https://api.openai.com/v1/chat/completions",
+            openai_prompt_version="hiair-expl-v1",
+        ),
+    )
+    monkeypatch.setattr(ai_explanation_service, "ensure_prompt_version", lambda **kwargs: None)
+    monkeypatch.setattr(ai_explanation_service, "save_explanation_event", lambda **kwargs: "event-1")
+    monkeypatch.setattr(ai_explanation_service.httpx, "Client", FakeClient)
+
+    text, source = ai_explanation_service.generate_explanation(
+        build_profile(),
+        build_risk(),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+        language="en",
+        risk_assessment_id="assessment-1",
+    )
+
+    user_prompt = captured["body"]["messages"][1]["content"]
+    assert source == "llm"
+    assert text == "High heat risk today. Keep outdoor time short."
+    assert "in English" in user_prompt
+    assert "in Russian" not in user_prompt
+
+
 def test_classify_llm_failure_timeout() -> None:
     request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
     exc = httpx.ReadTimeout("timeout", request=request)

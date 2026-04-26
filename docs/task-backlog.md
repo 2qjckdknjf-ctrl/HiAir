@@ -57,7 +57,7 @@
 - [x] Android dashboard wired на `/environment/snapshot` + `/risk/estimate`.
 - [x] Добавлен endpoint `recommendations/daily` на основе history + symptoms.
 - [x] Добавлен агрегированный endpoint `/dashboard/overview` для мобильного dashboard.
-- [x] iOS/Android dashboard переведен на `/dashboard/overview`.
+- [x] iOS/Android dashboard канонизирован на profile-aware `/air/current-risk`; `/dashboard/overview` оставлен для агрегированного smoke/legacy сценария.
 - [x] Dashboard state расширен daily actions + notification text (iOS/Android).
 - [x] Добавлен planner endpoint и мобильные planner skeleton модели/VM.
 - [x] Добавлен корневой navigation shell для iOS и Android.

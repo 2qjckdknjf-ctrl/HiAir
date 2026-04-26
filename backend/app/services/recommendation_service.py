@@ -1,56 +1,63 @@
-def _risk_actions(risk_level: str) -> tuple[str, list[str]]:
+from app.services.localization import normalize_language, t
+
+
+def _risk_actions(risk_level: str, language: str) -> tuple[str, list[str]]:
+    lang = normalize_language(language)
     if risk_level == "very_high":
         return (
-            "Conditions are very high risk right now.",
+            t(lang, "daily.very_high.summary"),
             [
-                "Avoid outdoor activity unless necessary.",
-                "Keep windows closed during peak pollution hours.",
-                "Hydrate frequently and reduce physical load.",
+                t(lang, "daily.very_high.action1"),
+                t(lang, "daily.very_high.action2"),
+                t(lang, "daily.very_high.action3"),
             ],
         )
     if risk_level == "high":
         return (
-            "Conditions are high risk.",
+            t(lang, "daily.high.summary"),
             [
-                "Limit outdoor time and avoid peak heat hours.",
-                "Use shorter outdoor intervals with breaks.",
-                "Prefer indoor ventilation when air quality improves.",
+                t(lang, "daily.high.action1"),
+                t(lang, "daily.high.action2"),
+                t(lang, "daily.high.action3"),
             ],
         )
-    if risk_level == "medium":
+    if risk_level in ("medium", "moderate"):
         return (
-            "Conditions are moderate risk.",
+            t(lang, "daily.medium.summary"),
             [
-                "Plan activities during safer windows.",
-                "Monitor symptoms and stop activity if they worsen.",
+                t(lang, "daily.medium.action1"),
+                t(lang, "daily.medium.action2"),
             ],
         )
     return (
-        "Conditions are low risk.",
+        t(lang, "daily.low.summary"),
         [
-            "Normal activity is generally acceptable.",
-            "Maintain hydration and routine precautions.",
+            t(lang, "daily.low.action1"),
+            t(lang, "daily.low.action2"),
         ],
     )
 
 
-def _symptom_actions(symptom_stats: dict[str, int]) -> list[str]:
+def _symptom_actions(symptom_stats: dict[str, int], language: str) -> list[str]:
+    lang = normalize_language(language)
     actions: list[str] = []
     if symptom_stats["wheeze_count"] >= 1:
-        actions.append("Wheezing logged recently; reduce exertion and monitor breathing.")
+        actions.append(t(lang, "daily.symptom.wheeze"))
     if symptom_stats["cough_count"] >= 2:
-        actions.append("Repeated cough events detected; prioritize cleaner-air periods.")
+        actions.append(t(lang, "daily.symptom.cough"))
     if symptom_stats["fatigue_count"] >= 2:
-        actions.append("Fatigue trend detected; shorten workouts and increase recovery.")
+        actions.append(t(lang, "daily.symptom.fatigue"))
     if symptom_stats["headache_count"] >= 2:
-        actions.append("Headache trend detected; reduce sun exposure and stay hydrated.")
+        actions.append(t(lang, "daily.symptom.headache"))
     return actions
 
 
 def build_daily_recommendation(
     risk_level: str,
     symptom_stats: dict[str, int],
+    language: str = "ru",
 ) -> tuple[str, list[str]]:
-    summary, actions = _risk_actions(risk_level)
-    actions.extend(_symptom_actions(symptom_stats))
+    lang = normalize_language(language)
+    summary, actions = _risk_actions(risk_level, lang)
+    actions.extend(_symptom_actions(symptom_stats, lang))
     return summary, actions

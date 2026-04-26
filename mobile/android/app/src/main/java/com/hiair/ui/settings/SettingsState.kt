@@ -15,6 +15,8 @@ data class SettingsState(
     val password: String = "",
     val userId: String = "",
     val accessToken: String = "",
+    val profileId: String = "",
+    val pushDeviceToken: String = "",
     val pushAlertsEnabled: Boolean = true,
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
@@ -22,6 +24,9 @@ data class SettingsState(
     val profileBasedAlerting: Boolean = true,
     val preferredLanguage: String = "ru",
     val defaultPersona: String = "adult",
+    val sensitivityLevel: String = "medium",
+    val homeLat: Double = 41.39,
+    val homeLon: Double = 2.17,
     val subscriptionPlans: List<Pair<String, String>> = emptyList(),
     val selectedPlanId: String = "basic_monthly",
     val subscriptionStatus: String = "inactive",
@@ -75,6 +80,14 @@ class SettingsViewModel(
         state = state.copy(accessToken = value)
     }
 
+    fun setProfileId(value: String) {
+        state = state.copy(profileId = value.trim())
+    }
+
+    fun setPushDeviceToken(value: String) {
+        state = state.copy(pushDeviceToken = value.trim())
+    }
+
     fun setSelectedPlanId(value: String) {
         state = state.copy(selectedPlanId = value)
     }
@@ -122,6 +135,22 @@ class SettingsViewModel(
 
     fun setDefaultPersona(value: String) {
         state = state.copy(defaultPersona = value)
+    }
+
+    fun setSensitivityLevel(value: String) {
+        val normalized = when (value) {
+            "low", "high" -> value
+            else -> "medium"
+        }
+        state = state.copy(sensitivityLevel = normalized)
+    }
+
+    fun setHomeLat(value: Double) {
+        state = state.copy(homeLat = value.coerceIn(-90.0, 90.0))
+    }
+
+    fun setHomeLon(value: Double) {
+        state = state.copy(homeLon = value.coerceIn(-180.0, 180.0))
     }
 
     fun setPreferredLanguage(value: String) {
@@ -247,6 +276,57 @@ class SettingsViewModel(
             )
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.login_failed"))
+        }
+    }
+
+    fun createProfile() {
+        if (state.userId.isBlank() || state.accessToken.isBlank()) {
+            state = state.copy(statusText = l("settings.auth_required"))
+            return
+        }
+        state = state.copy(loading = true)
+        try {
+            val json = JSONObject(
+                apiClient.createProfile(
+                    userId = state.userId,
+                    accessToken = state.accessToken,
+                    personaType = state.defaultPersona,
+                    sensitivityLevel = state.sensitivityLevel,
+                    homeLat = state.homeLat,
+                    homeLon = state.homeLon
+                )
+            )
+            state = state.copy(
+                loading = false,
+                profileId = json.getString("id"),
+                statusText = l("settings.profile_created")
+            )
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.profile_create_failed"))
+        }
+    }
+
+    fun registerPushDeviceToken() {
+        if (state.userId.isBlank() || state.accessToken.isBlank()) {
+            state = state.copy(statusText = l("settings.auth_required"))
+            return
+        }
+        if (state.pushDeviceToken.isBlank()) {
+            state = state.copy(statusText = l("settings.push_token_required"))
+            return
+        }
+        state = state.copy(loading = true)
+        try {
+            apiClient.registerDeviceToken(
+                userId = state.userId,
+                platform = "android",
+                deviceToken = state.pushDeviceToken,
+                profileId = state.profileId.ifBlank { null },
+                accessToken = state.accessToken
+            )
+            state = state.copy(loading = false, statusText = l("settings.push_registered"))
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.push_register_failed"))
         }
     }
 
@@ -390,6 +470,40 @@ class SettingsViewModel(
             )
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.subscription_cancel_failed"))
+        }
+    }
+
+    fun exportPrivacyData() {
+        if (state.userId.isBlank()) {
+            state = state.copy(statusText = l("settings.user_id_required"))
+            return
+        }
+        state = state.copy(loading = true)
+        try {
+            val raw = apiClient.exportPrivacyData(state.userId, state.accessToken)
+            state = state.copy(loading = false, statusText = "${l("settings.privacy_exported")} ${raw.length} bytes")
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.privacy_export_failed"))
+        }
+    }
+
+    fun deleteAccount() {
+        if (state.userId.isBlank()) {
+            state = state.copy(statusText = l("settings.user_id_required"))
+            return
+        }
+        state = state.copy(loading = true)
+        try {
+            apiClient.deleteAccount(state.userId, state.accessToken)
+            state = state.copy(
+                loading = false,
+                userId = "",
+                accessToken = "",
+                profileId = "",
+                statusText = l("settings.account_deleted")
+            )
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))
         }
     }
 

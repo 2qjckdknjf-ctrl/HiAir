@@ -19,6 +19,7 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: 0.1.0
         INFOPLIST_KEY_CFBundleDisplayName: HiAir
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: HiAir uses your location to personalize heat and air-quality risk recommendations.
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIRequiresFullScreen: YES

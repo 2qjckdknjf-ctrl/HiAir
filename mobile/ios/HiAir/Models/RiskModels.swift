@@ -401,6 +401,38 @@ struct AuthResponse: Codable {
     }
 }
 
+struct ProfileCreateRequest: Codable {
+    let personaType: String
+    let sensitivityLevel: String
+    let homeLat: Double
+    let homeLon: Double
+
+    enum CodingKeys: String, CodingKey {
+        case personaType = "persona_type"
+        case sensitivityLevel = "sensitivity_level"
+        case homeLat = "home_lat"
+        case homeLon = "home_lon"
+    }
+}
+
+struct ProfileResponse: Codable {
+    let id: String
+    let userId: String
+    let personaType: String
+    let sensitivityLevel: String
+    let homeLat: Double
+    let homeLon: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case personaType = "persona_type"
+        case sensitivityLevel = "sensitivity_level"
+        case homeLat = "home_lat"
+        case homeLon = "home_lon"
+    }
+}
+
 struct SubscriptionPlan: Codable {
     let planId: String
     let name: String

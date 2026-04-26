@@ -2,6 +2,7 @@ package com.hiair.ui.planner
 
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
+import com.hiair.ui.i18n.AndroidL10n
 import org.json.JSONObject
 
 data class PlannerState(
@@ -17,7 +18,7 @@ class DailyPlannerViewModel(
     var state: PlannerState = PlannerState()
         private set
 
-    fun refresh(userId: String, accessToken: String?, profileId: String) {
+    fun refresh(userId: String, accessToken: String?, profileId: String, language: String = "ru") {
         state = state.copy(loading = true)
         try {
             val raw = apiClient.fetchAirDayPlan(
@@ -44,14 +45,14 @@ class DailyPlannerViewModel(
             }
             state = state.copy(
                 loading = false,
-                statusText = "Loaded ${hourly.length()} planner slots.",
+                statusText = AndroidL10n.t("planner.loaded_slots", language).replace("{count}", hourly.length().toString()),
                 safeWindows = safeWindowItems,
                 hourly = hourlyItems
             )
         } catch (_: Exception) {
             state = state.copy(
                 loading = false,
-                statusText = "Failed to load planner.",
+                statusText = AndroidL10n.t("planner.failed", language),
                 safeWindows = emptyList(),
                 hourly = emptyList()
             )

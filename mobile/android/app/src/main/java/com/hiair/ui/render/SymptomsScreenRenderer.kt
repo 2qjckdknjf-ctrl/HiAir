@@ -16,7 +16,10 @@ internal object SymptomsScreenRenderer {
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.symptoms")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f })
-        val profileInput = EditText(activity).apply { hint = ctx.l("symptoms.profile_id") }
+        val profileInput = EditText(activity).apply {
+            hint = ctx.l("symptoms.profile_id")
+            setText(rootShell.symptomLogViewModel.state.profileId)
+        }
         val coughBox = CheckBox(activity).apply { text = ctx.l("symptoms.cough") }
         val wheezeBox = CheckBox(activity).apply { text = ctx.l("symptoms.wheeze") }
         val headacheBox = CheckBox(activity).apply { text = ctx.l("symptoms.headache") }

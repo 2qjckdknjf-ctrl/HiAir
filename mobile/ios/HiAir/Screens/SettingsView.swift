@@ -48,6 +48,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var quietHoursStart = 22
     @Published var quietHoursEnd = 7
     @Published var profileBasedAlerting = true
+    @Published var pushRegistrationStatus = "-"
     @Published var selectedPersona = "adult"
     @Published var preferredLanguage = "ru"
     @Published var plans: [SubscriptionPlan] = []
@@ -207,6 +208,18 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    func registerPushDevice() {
+        guard !userId.isEmpty, !accessToken.isEmpty else {
+            statusText = l("settings.user_id_required")
+            pushRegistrationStatus = l("settings.push_registration_missing_auth")
+            return
+        }
+        PushRegistrationService.shared.requestAuthorizationAndRegister()
+        let rawStatus = PushRegistrationService.shared.lastRegistrationStatus()
+        pushRegistrationStatus = "\(l("settings.push_registration_requested")) \(rawStatus)"
+        statusText = l("settings.push_registration_requested")
+    }
+
     func loadPlans() async {
         loading = true
         defer { loading = false }
@@ -279,6 +292,37 @@ final class SettingsViewModel: ObservableObject {
             statusText = l("settings.subscription_canceled")
         } catch {
             statusText = l("settings.subscription_cancel_failed")
+        }
+    }
+
+    func exportPrivacyData() async {
+        guard !userId.isEmpty else {
+            statusText = l("settings.user_id_required")
+            return
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            let data = try await apiClient.exportPrivacyData(userId: userId, accessToken: accessToken)
+            statusText = "\(l("settings.privacy_exported")) \(data.count) bytes"
+        } catch {
+            statusText = l("settings.privacy_export_failed")
+        }
+    }
+
+    func deleteAccount(session: AppSession) async {
+        guard !userId.isEmpty else {
+            statusText = l("settings.user_id_required")
+            return
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            try await apiClient.deleteAccount(userId: userId, accessToken: accessToken)
+            statusText = l("settings.account_deleted")
+            session.logout()
+        } catch {
+            statusText = l("settings.account_delete_failed")
         }
     }
 
@@ -449,6 +493,11 @@ struct SettingsView: View {
                         .font(.headline)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Toggle(session.l("settings.push"), isOn: $viewModel.pushAlertsEnabled)
+                        .onChange(of: viewModel.pushAlertsEnabled) { enabled in
+                            if enabled {
+                                viewModel.registerPushDevice()
+                            }
+                        }
                     Toggle(session.l("settings.profile_alerting"), isOn: $viewModel.profileBasedAlerting)
                     Picker(session.l("settings.alert_threshold"), selection: $viewModel.riskThreshold) {
                         Text(session.l("settings.threshold_medium")).tag("medium")
@@ -500,6 +549,9 @@ struct SettingsView: View {
                                 await viewModel.save()
                                 session.persona = viewModel.selectedPersona
                                 session.preferredLanguage = viewModel.preferredLanguage
+                                if viewModel.pushAlertsEnabled {
+                                    viewModel.registerPushDevice()
+                                }
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -507,6 +559,13 @@ struct SettingsView: View {
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
                     Text(viewModel.statusText)
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("settings.register_push_device")) {
+                        viewModel.registerPushDevice()
+                    }
+                    .buttonStyle(.bordered)
+                    Text(viewModel.pushRegistrationStatus)
                         .font(.footnote)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
@@ -562,6 +621,15 @@ struct SettingsView: View {
                         viewModel.statusText = session.l("settings.logged_out")
                     }
                     .foregroundStyle(.red)
+                    Button(session.l("settings.export_privacy_data")) {
+                        Task { await viewModel.exportPrivacyData() }
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("settings.delete_account")) {
+                        Task { await viewModel.deleteAccount(session: session) }
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundStyle(.red)
                 }
                 .v2Card()
 
@@ -570,6 +638,9 @@ struct SettingsView: View {
                         await viewModel.save()
                         session.persona = viewModel.selectedPersona
                         session.preferredLanguage = viewModel.preferredLanguage
+                        if viewModel.pushAlertsEnabled {
+                            viewModel.registerPushDevice()
+                        }
                     }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
@@ -610,6 +681,9 @@ struct SettingsView: View {
             if viewModel.aiTrendPoints.isEmpty {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
+        }
+        .onChange(of: viewModel.preferredLanguage) { newLanguage in
+            session.preferredLanguage = newLanguage
         }
     }
 
