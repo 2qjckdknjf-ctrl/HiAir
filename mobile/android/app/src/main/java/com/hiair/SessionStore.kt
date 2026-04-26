@@ -22,6 +22,7 @@ data class StoredSession(
 class SessionStore(context: Context) {
     private val prefs = context.getSharedPreferences("hiair_session", Context.MODE_PRIVATE)
     private val securePrefs = context.getSharedPreferences("hiair_secure_session", Context.MODE_PRIVATE)
+    private val pushPrefs = context.getSharedPreferences("hiair_push", Context.MODE_PRIVATE)
 
     fun load(): StoredSession {
         val legacyToken = prefs.getString("access_token", "") ?: ""
@@ -52,6 +53,7 @@ class SessionStore(context: Context) {
     fun clear() {
         prefs.edit().clear().apply()
         securePrefs.edit().clear().apply()
+        pushPrefs.edit().clear().apply()
     }
 
     private fun readAccessToken(): String {

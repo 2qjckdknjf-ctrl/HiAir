@@ -8,7 +8,7 @@ RC label: `closed-beta-rc1`
 | ----------------- | --------------- | ------ |
 | PostgreSQL local runtime | `LC_ALL=C pg_ctl -D ~/.hiair/postgres-data -l ~/.hiair/postgres.log start` | GO |
 | PostgreSQL readiness | `pg_isready -h localhost -p 5432` | GO |
-| pytest | `cd backend && ../.venv/bin/python -m pytest -q` -> `30 passed` | GO |
+| pytest | `cd backend && ../.venv/bin/python -m pytest -q` -> `36 passed` (Phase 21; count may drift) | GO |
 | smoke | `cd backend && PYTHON_BIN=../.venv/bin/python ./scripts/run_local_beta_smoke.sh` | GO |
 | migrations/init | smoke helper reported `Database schema initialized (5 migrations).` | GO |
 | retention dry-run | smoke helper reported retention cleanup completed | GO |

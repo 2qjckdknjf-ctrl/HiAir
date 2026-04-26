@@ -1,5 +1,7 @@
 # Firebase / APNs / FCM Setup
 
+**Do not commit:** `google-services.json`, `GoogleService-Info.plist` (environment-specific), APNs `.p8` private keys, FCM service account JSON with send permissions, or any production API keys. Store only in a private secret manager or local files excluded by `.gitignore`.
+
 Status: BLOCKED_EXTERNAL until the owner provides Firebase access, APNs credentials, app identifiers, and physical-device QA evidence.
 
 ## 1. Firebase Project

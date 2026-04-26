@@ -25,3 +25,12 @@ Phase 2 moved bearer token storage out of plain shared preferences.
 - NEEDS_MANUAL_QA: verify logout clears token on physical iOS/Android devices.
 - NEEDS_MANUAL_QA: verify app reinstall/update migration path.
 - RISK: consider biometric/key invalidation policy only if product requires stronger local auth.
+
+## Delta (2026-04-26)
+
+- Push flows log **diagnostic messages only** (no bearer tokens in logs). iOS uses **OSLog**; Android uses **`HiAirPush`** (`android.util.Log`).
+- Android FCM registration token is still expected in private prefs `hiair_push` **only when** a future FCM integration writes it; until then push upload is skipped by design.
+
+## Delta (2026-04-26 Phase 20)
+
+- **Logout clears push local state:** iOS removes `UserDefaults` key `push.lastRegistrationStatus`; Android `SessionStore.clear()` also clears `hiair_push` prefs so cached FCM token does not survive logout.

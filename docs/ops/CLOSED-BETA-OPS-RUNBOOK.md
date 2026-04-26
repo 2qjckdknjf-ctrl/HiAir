@@ -2,6 +2,8 @@
 
 Status: READY_FOR_OWNER
 
+Delta 2026-04-26: backend + mobile **compile/smoke/preflight** evidence recorded under `docs/audit/18-execution-ledger.md`. Ops ownership rows below remain **BLOCKED_EXTERNAL** until named humans and WAF/rate-limit evidence exist.
+
 ## Ownership
 
 - Beta owner: BLOCKED_EXTERNAL: owner assignment required

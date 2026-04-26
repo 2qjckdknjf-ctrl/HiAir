@@ -49,6 +49,7 @@ final class AppSession: ObservableObject {
         accessToken = ""
         profileId = ""
         selectedTab = 0
+        UserDefaults.standard.removeObject(forKey: PushRegistrationService.lastStatusKey)
     }
 
     private func persist() {

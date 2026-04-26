@@ -58,6 +58,14 @@ Status: FIXED
 
 Policy: `docs/api/MOBILE-OBSERVABILITY-ACCESS-POLICY.md`
 
+## Push device token
+
+- `POST /api/notifications/device-token` accepts JSON `platform`, `device_token`, optional `profile_id`.
+- Auth: **Bearer JWT** via `get_current_user_id`. **No** notification admin token for this route.
+- iOS/Android clients use the single path documented in `docs/notifications/PUSH-READINESS-STATUS.md`.
+
+Status: DONE (Phase 18 verification)
+
 ## Fixes applied
 
 - iOS Xcode project now includes the theme source required by screens using current UI components.

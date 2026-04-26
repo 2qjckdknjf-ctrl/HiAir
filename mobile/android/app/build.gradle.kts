@@ -5,6 +5,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val googleServicesJson = file("google-services.json")
+val firebaseEnabled = googleServicesJson.exists()
+
 android {
     namespace = "com.hiair"
     compileSdk = 34
@@ -15,6 +18,15 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("boolean", "FIREBASE_CONFIGURED", if (firebaseEnabled) "true" else "false")
+    }
+
+    sourceSets {
+        getByName("main") {
+            if (firebaseEnabled) {
+                java.srcDir("src/firebase/java")
+            }
+        }
     }
 
     buildTypes {
@@ -110,4 +122,12 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("com.google.android.material:material:1.13.0")
+    if (firebaseEnabled) {
+        implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
+        implementation("com.google.firebase:firebase-messaging-ktx")
+    }
+}
+
+if (firebaseEnabled) {
+    apply(plugin = "com.google.gms.google-services")
 }

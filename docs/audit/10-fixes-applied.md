@@ -19,6 +19,23 @@
 | `docs/notifications/PUSH-REGISTRATION-IMPLEMENTATION.md` | Push implementation status undocumented | Added platform implementation notes and external blockers | Documentation review | DONE |
 | `docs/security/MOBILE-TOKEN-STORAGE-HARDENING.md` | Mobile token hardening status undocumented | Added iOS/Android storage details and QA caveats | Documentation review | DONE |
 | `docs/audit/*` | Required audit reports missing | Added audit report package | Files created | DONE |
+| `mobile/ios/HiAir/PushRegistrationService.swift` | Push path lacked operator-visible diagnostics | Added `OSLog` messages for permission, upload attempt, success, failure | iOS `xcodebuild` simulator build | DONE |
+| `mobile/android/.../PushTokenRegistrar.kt` | Silent skip when no FCM token / HTTP failures | Added `HiAirPush` `Log` lines; explicit NO-OP message without Firebase | `./gradlew :app:compileDebugKotlin` | DONE |
+| `mobile/scripts/generate_release_manifest.py` | RC policy for IPA not spelled in manifest | Added `--rc` flag + Closed Beta RC footer (IPA `BLOCKED_EXTERNAL` when absent) | `python3 mobile/scripts/generate_release_manifest.py --rc` | DONE |
+| `docs/audit/*`, `docs/notifications/*`, `docs/release/*` (Phase 18) | Delta audit + RC packet requested | Added ledger, deep delta, GO/NO-GO, push readiness/runbook/matrix, RC artifact/upload docs | This audit pass | DONE |
+| `backend/app/services/environment_service.py` | `datetime.utcnow()` deprecation warnings in pytest | Use `datetime.now(UTC)` for mock snapshot | `pytest -q` | DONE |
+| `mobile/ios/HiAir/AppSession.swift` | Push registration status could survive logout | Remove `PushRegistrationService.lastStatusKey` on logout | iOS build | DONE |
+| `mobile/android/.../SessionStore.kt` | Cached FCM token could survive logout | Clear `hiair_push` shared prefs in `clear()` | compileDebugKotlin | DONE |
+| `docs/audit/20-dorabotka-plan.md` | Executable plan requested | Plan + status table | Review | DONE |
+| `.gitignore` | Firebase plist/json could be committed by mistake | Ignore `app/google-services.json` and iOS `GoogleService-Info.plist` | Path check | DONE |
+| `backend/scripts/run_local_beta_smoke.sh` | Preflight skipped without hint | Print optional uvicorn + beta_preflight one-liners | `bash -n` | DONE |
+| `docs/mobile/ANDROID-FCM-LOCAL-INTEGRATION-STEPS.md` | FCM integration undocumented | Owner copy-paste Gradle + prefs contract | Review | DONE |
+| `docs/release/HIAIR-CLOSED-BETA-RC1-ARTIFACTS.md` | Stale `30 passed` in living RC table | `36 passed` + drift note | Review | DONE |
+| `mobile/android/build.gradle.kts` | FCM optional | `google-services` plugin `apply false` | Gradle | DONE |
+| `mobile/android/app/build.gradle.kts` | Conditional Firebase | Plugin + BOM + messaging only if `google-services.json` exists; `BuildConfig.FIREBASE_CONFIGURED` | assembleDebug/Release | DONE |
+| `mobile/android/app/src/firebase/.../FcmFirebaseBootstrap.kt` | No FCM token writer | Cache FCM token to `hiair_push` prefs when Firebase enabled | compile with json (manual) | DONE |
+| `mobile/android/.../FcmTokenRefresher.kt` | Main code cannot import Firebase when disabled | Reflection bridge to bootstrap | assembleDebug without json | DONE |
+| `mobile/android/.../PushTokenRegistrar.kt` | Upload before refresh | Run `FcmTokenRefresher` then read prefs / upload | lintDebug | DONE |
 
 ## Verification notes
 

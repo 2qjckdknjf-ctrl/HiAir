@@ -74,3 +74,10 @@ Status: DONE
 - BLOCKED_EXTERNAL: payment provider credentials if commercial billing is enabled.
 - NEEDS_MANUAL_QA: secure token migration/logout behavior on physical devices.
 - RISK: deployment-layer rate limits/WAF not proven.
+
+## Delta (2026-04-26, Phase 18)
+
+- Push registration diagnostics added: iOS **OSLog** (`push` category) and Android **`HiAirPush`** log tag — improves auditability without changing auth model.
+- `POST /api/notifications/device-token` re-verified: Bearer-only user auth (no admin token).
+- Android remains buildable **without** `google-services.json`; push registration is a documented **NO-OP** until FCM supplies a cached token locally.
+- Remaining risks unchanged: live push credentials, physical-device QA, production secret governance.

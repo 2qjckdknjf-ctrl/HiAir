@@ -1,5 +1,7 @@
 # Store / Legal / Metadata Launch Packet
 
+Delta 2026-04-26: content unchanged; cross-link **`docs/audit/HIAIR-MEGA-CLOSED-BETA-GO-NOGO.md`** for current engineering vs legal gate verdicts.
+
 ## App Store
 
 | Item | Value | Status |

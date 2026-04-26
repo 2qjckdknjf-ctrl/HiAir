@@ -118,14 +118,19 @@ mobile/android/app/build/outputs/bundle/release/app-release.aab
 
 | Gate | Done? | Evidence |
 | ---- | ----- | -------- |
-| Backend smoke | no | `run_local_beta_smoke.sh` output |
-| API preflight | no | `Preflight passed.` output |
+| Backend smoke | yes | Phase 18: `PYTHON_BIN=../.venv/bin/python ./scripts/run_local_beta_smoke.sh` (Postgres + migrations + smoke_db_flow) — см. `docs/audit/18-execution-ledger.md` |
+| API preflight | yes | Phase 18: временный `uvicorn` + `scripts/beta_preflight.py` → `Preflight passed.` |
 | iOS archive | yes | `mobile/ios/build/HiAir.xcarchive` |
-| iOS IPA | yes | `mobile/ios/build/HiAir.ipa` |
+| iOS IPA | partial | `mobile/ios/build/HiAir.ipa` только если выполнен локальный export; иначе **BLOCKED_EXTERNAL** (подпись вне репо) |
 | TestFlight internal | no | App Store Connect/TestFlight screenshot |
-| Android AAB | no | `mobile/android/app/build/outputs/bundle/release/app-release.aab` |
+| Android AAB | yes | Phase 18: `./gradlew … bundleRelease` → `app-release.aab` |
 | Google Play Internal | no | Play Console internal release screenshot |
 | APNs/FCM live push | no | device push screenshot and backend logs |
 | Legal signoff | no | approved privacy/terms/store forms |
 | Ops readiness | no | owner/channel/WAF/rollback evidence |
 | Real-device QA | no | completed `docs/qa/HIAIR-RC1-REAL-DEVICE-QA-PACKET.md` |
+
+### Дополнение Phase 18 (push + манифест)
+
+- Проверь логи: iOS — Console / OSLog category `push`; Android — Logcat tag `HiAirPush` (`token registered` / `NO-OP` без FCM).
+- Манифест артефактов: `python3 mobile/scripts/generate_release_manifest.py --rc` (IPA в манифесте помечается **BLOCKED_EXTERNAL**, если файла нет).

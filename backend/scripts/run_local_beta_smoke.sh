@@ -79,6 +79,8 @@ then
   run_step "API beta preflight" "$PYTHON_BIN" scripts/beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token "${NOTIFICATION_ADMIN_TOKEN:-}"
 else
   status BLOCKED_BY_ENV "API server is not running at http://127.0.0.1:8000; skipping beta_preflight.py"
+  status BLOCKED_BY_ENV "Optional: cd backend && set -a && source .env.local && set +a && ../.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+  status BLOCKED_BY_ENV "Then rerun this script or: ../.venv/bin/python scripts/beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token \"\$NOTIFICATION_ADMIN_TOKEN\""
 fi
 
 exit "$EXIT_CODE"

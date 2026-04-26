@@ -29,7 +29,7 @@ Status: PARTIAL
 
 ## Android FCM note
 
-The current Android implementation is deliberately safe for local builds without Firebase project files. It provides permission strategy and backend upload path for an available token. Live FCM token generation should be enabled after the project owner supplies Firebase config; do not commit real `google-services.json` credentials.
+The current Android implementation is deliberately safe for local builds without Firebase project files. It provides permission strategy and backend upload path for an available token. Live FCM token generation should be enabled after the project owner supplies Firebase config; do not commit real `google-services.json` credentials (paths are **gitignored**; see `docs/mobile/ANDROID-FCM-LOCAL-INTEGRATION-STEPS.md`).
 
 ## Verification
 

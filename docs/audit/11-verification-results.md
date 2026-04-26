@@ -51,6 +51,20 @@ Snapshot date: 2026-04-25
 | Phase 6 RC1 Android clean build/lint/bundle | `cd mobile/android && ./gradlew clean assembleDebug assembleRelease bundleRelease lint` | Passed | `BUILD SUCCESSFUL` | DONE |
 | Phase 6 RC1 release manifest | `python3 mobile/scripts/generate_release_manifest.py --strict` | Passed | Android AAB/APK and iOS archive/IPA found | DONE |
 | Phase 6 RC1 version check | searched backend/iOS/Android version fields | Found backend `0.1.0`, iOS `com.hiair.app` `0.1.0` build `1`, Android `com.hiair` `0.1.0` code `1` | DONE |
+| Phase 18 Postgres | `pg_isready -h localhost -p 5432` | accepting connections | DONE |
+| Phase 18 backend tests | `cd backend && ../.venv/bin/python -m pytest -q` | `36 passed` | DONE |
+| Phase 18 backend smoke | `PYTHON_BIN=../.venv/bin/python ./scripts/run_local_beta_smoke.sh` | DB smoke path OK; preflight skipped when API down, then API+preflight run separately | DONE |
+| Phase 18 API preflight | `uvicorn` + `scripts/beta_preflight.py` | `Preflight passed.` | DONE |
+| Phase 18 iOS simulator | `xcodebuild … Debug … iphonesimulator … CODE_SIGNING_ALLOWED=NO` | `** BUILD SUCCEEDED **` | DONE |
+| Phase 18 Android full gate | `./gradlew clean assembleDebug assembleRelease bundleRelease lint` | `BUILD SUCCESSFUL` | DONE |
+| Phase 18 manifest RC | `python3 mobile/scripts/generate_release_manifest.py --rc` | manifest written; strict mandatory set documented | DONE |
+| Phase 20 pytest | `cd backend && ../.venv/bin/python -m pytest -q` | `36 passed` (post `datetime.now(UTC)` mock fix) | DONE |
+| Phase 20 Android compile | `./gradlew :app:compileDebugKotlin` | `BUILD SUCCESSFUL` | DONE |
+| Phase 20 iOS simulator | `xcodebuild … iphonesimulator …` | `** BUILD SUCCEEDED **` | DONE |
+| Phase 21 smoke script | `bash -n backend/scripts/run_local_beta_smoke.sh` | exit 0 | DONE |
+| Phase 21 Android assembleDebug | `./gradlew :app:assembleDebug` | success | DONE |
+| Phase 22 Android | `./gradlew :app:assembleDebug :app:lintDebug` | `BUILD SUCCESSFUL` | DONE |
+| Phase 22 Android release | `./gradlew :app:assembleRelease :app:bundleRelease` | success (no local `google-services.json`) | DONE |
 
 ## Not verified
 

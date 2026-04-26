@@ -19,6 +19,7 @@ This folder contains native client code skeletons for:
   - iOS `TabView` root
   - Android root shell state/view models
 - Device token registration client methods added (`/api/notifications/device-token`).
+- Optional FCM (local only): see `docs/mobile/ANDROID-FCM-LOCAL-INTEGRATION-STEPS.md` — `google-services.json` is gitignored.
 - Android Gradle project skeleton added in `android/`.
 - iOS XcodeGen project spec added in `ios/project.yml`.
 - Android `MainActivity` now includes interactive screen shell:

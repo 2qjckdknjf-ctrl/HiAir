@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 
@@ -8,7 +8,7 @@ from app.models.risk import EnvironmentSnapshot
 
 def build_mock_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
     # Deterministic mock profile for local development.
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     base_temp = 24 + (now.hour % 10)
     return EnvironmentSnapshot(
         temperature_c=float(base_temp),

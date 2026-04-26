@@ -29,6 +29,10 @@ RC label: `closed-beta-rc1`
 | versionCode | `1` | GO |
 | Source file | `mobile/android/app/build.gradle.kts` | GO |
 
+## Engineering test count (informational)
+
+- Backend pytest count can drift as tests are added; Phase 18 evidence shows **`36 passed`** (do not confuse with older `30 passed` snapshots in legacy RC1 docs).
+
 ## Before the Next Upload
 
 - Keep RC1 as `closed-beta-rc1` unless the owner intentionally creates `closed-beta-rc2`.
