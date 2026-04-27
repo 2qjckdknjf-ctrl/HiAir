@@ -13,6 +13,8 @@
 2. Sign in so Keychain holds bearer token.
 3. Open Settings → trigger notification permission (or fresh install flow).
 4. Accept permission; confirm Xcode/device logs show `Push: token upload attempted` then `Push: token registered with backend`.
+5. Foreground banners: `UNUserNotificationCenter` delegate is set in `HiAirAppDelegate` (`willPresent` logs and requests banner/list/sound/badge on iOS 14+).
+6. Simulator: expect `didFailToRegisterForRemoteNotifications` log and `apns_register_failed` status — normal without APNs environment.
 5. On backend DB, confirm device token row for user (or use privacy export if permitted).
 6. Trigger a notification dispatch path appropriate to your env (`stub` vs `live`) and verify delivery attempt records (`/api/notifications/delivery-attempts` with admin token for ops review).
 

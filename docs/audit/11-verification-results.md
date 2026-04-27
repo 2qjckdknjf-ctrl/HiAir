@@ -65,6 +65,10 @@ Snapshot date: 2026-04-25
 | Phase 21 Android assembleDebug | `./gradlew :app:assembleDebug` | success | DONE |
 | Phase 22 Android | `./gradlew :app:assembleDebug :app:lintDebug` | `BUILD SUCCESSFUL` | DONE |
 | Phase 22 Android release | `./gradlew :app:assembleRelease :app:bundleRelease` | success (no local `google-services.json`) | DONE |
+| Phase 23 Android | `./gradlew clean :app:assembleDebug :app:lintDebug` | success | DONE |
+| Phase 23 iOS simulator | `xcodebuild … iphonesimulator …` | `** BUILD SUCCEEDED **` | DONE |
+| Phase 24 Android | `./gradlew clean :app:assembleDebug` + release/bundle/lint | `BUILD SUCCESSFUL` | DONE |
+| Phase 24 merged manifest | grep `MESSAGING_EVENT` in merged debug manifest | absent without local `google-services.json` | DONE |
 
 ## Not verified
 

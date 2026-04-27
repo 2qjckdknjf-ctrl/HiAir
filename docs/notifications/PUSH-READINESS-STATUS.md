@@ -12,7 +12,7 @@ Last verified: **2026-04-26** (local gates on engineer machine).
 | iOS simulator | **GO** build | APNs device token may be absent or unusable for push — expected |
 | Android registration code | **GO** (compile + logic) | `POST_NOTIFICATIONS` on API 33+; **NO-OP** when no cached FCM token; `HiAirPush` log lines |
 | Android without `google-services.json` | **GO** | No Google Services Gradle plugin; build does not require Firebase files |
-| Android live FCM token | **NEAR-GO** (owner env) | With **local** gitignored `app/google-services.json`, Gradle enables `FcmFirebaseBootstrap` + token cache; delivery still **BLOCKED_EXTERNAL** until Firebase/backend live config |
+| Android live FCM token | **NEAR-GO** (owner env) | With **local** gitignored `app/google-services.json`, Gradle enables FCM deps, `FcmFirebaseBootstrap`, **`HiAirFirebaseMessagingService`** (merged via `src/firebase/AndroidManifest.xml`); delivery still **BLOCKED_EXTERNAL** until backend live provider + device proof |
 | Push E2E (delivery) | **BLOCKED_EXTERNAL** | APNs/FCM credentials + physical devices |
 
 ## Contract (single upload endpoint)

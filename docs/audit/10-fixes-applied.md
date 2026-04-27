@@ -36,6 +36,16 @@
 | `mobile/android/app/src/firebase/.../FcmFirebaseBootstrap.kt` | No FCM token writer | Cache FCM token to `hiair_push` prefs when Firebase enabled | compile with json (manual) | DONE |
 | `mobile/android/.../FcmTokenRefresher.kt` | Main code cannot import Firebase when disabled | Reflection bridge to bootstrap | assembleDebug without json | DONE |
 | `mobile/android/.../PushTokenRegistrar.kt` | Upload before refresh | Run `FcmTokenRefresher` then read prefs / upload | lintDebug | DONE |
+| `mobile/android/.../HiAirFirebaseMessagingService.kt` | FCM token rotation | `onNewToken` writes prefs; manifest stanza documented for local-only | clean assembleDebug | DONE |
+| `mobile/ios/HiAir/PushRegistrationService.swift` | Foreground push / simulator diagnostics | `UNUserNotificationCenterDelegate`, `didFailToRegister…` | xcodebuild simulator | DONE |
+| `docs/mobile/ANDROID-FCM-LOCAL-INTEGRATION-STEPS.md` | Service registration | Document `<service>` for MESSAGING_EVENT | Review | DONE |
+| `docs/notifications/PUSH-E2E-RUNBOOK.md` | iOS delegate | Note foreground + simulator failure path | Review | DONE |
+| `mobile/android/app/src/firebase/AndroidManifest.xml` | FCM service not in merged manifest | Overlay manifest merged when `google-services.json` exists | Gradle + merged_manifest grep (no JSON) | DONE |
+| `mobile/android/app/build.gradle.kts` | `manifest.srcDir` API missing | Use `manifest.srcFile("src/firebase/AndroidManifest.xml")` | assembleDebug | DONE |
+| `backend/scripts/run_backend_gate.py` | Gate без pytest / без .env.local | pytest + `--env-file` default + `--admin-token` + `--skip-pytest` | script review | DONE |
+| `backend/README.md` | Gate docs stale | Document flags + CI parity | Review | DONE |
+| `docs/qa/ENGINEERING-PRE-DEVICE-GATE-COMMANDS.md` | Pre-device QA commands scattered | Single copy-paste runbook | Review | DONE |
+| `docs/task-backlog.md` | Next step order | Engineer gates before uploads | Review | DONE |
 
 ## Verification notes
 

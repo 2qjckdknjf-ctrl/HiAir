@@ -31,3 +31,29 @@
 | 3 | `FcmFirebaseBootstrap` + `FcmTokenRefresher` + вызов из `PushTokenRegistrar` | DONE |
 | 4 | `assembleDebug`, `lintDebug`, `assembleRelease`/`bundleRelease` без JSON | DONE |
 | 5 | Док `ANDROID-FCM-LOCAL-INTEGRATION-STEPS.md` | DONE |
+
+## Phase 23 (FCM service + iOS foreground)
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | `HiAirFirebaseMessagingService` (`onNewToken` / `onMessageReceived`) | DONE |
+| 2 | Док: ~~ручной~~ `<service>` → автоматический merge (см. Phase 24) | DONE |
+| 3 | iOS: `UNUserNotificationCenter` delegate + `didFailToRegister…` | DONE |
+| 4 | Сборки Android clean + iOS xcodebuild | DONE |
+
+## Phase 24 (FCM manifest merge — доделка)
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | `src/firebase/AndroidManifest.xml` с `<service MESSAGING_EVENT>` | DONE |
+| 2 | `app/build.gradle.kts`: `manifest.srcFile(...)` при `firebaseEnabled` | DONE |
+| 3 | Док: убрана ручная вставка в `main` manifest | DONE |
+| 4 | `assembleDebug` / `assembleRelease` / `bundleRelease` / `lintDebug` без JSON | DONE |
+
+## Phase 25 (оркестратор backend + pre-QA командник)
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | `run_backend_gate.py`: pytest, `--env-file` (`.env.local` приоритет), `--admin-token`, `--skip-pytest` | DONE |
+| 2 | `backend/README.md`: описание флагов и preflight | DONE |
+| 3 | `docs/qa/ENGINEERING-PRE-DEVICE-GATE-COMMANDS.md` | DONE |

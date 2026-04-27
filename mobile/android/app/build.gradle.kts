@@ -25,6 +25,8 @@ android {
         getByName("main") {
             if (firebaseEnabled) {
                 java.srcDir("src/firebase/java")
+                // Additional manifest merged with src/main/AndroidManifest.xml (AGP manifest merger).
+                manifest.srcFile("src/firebase/AndroidManifest.xml")
             }
         }
     }
