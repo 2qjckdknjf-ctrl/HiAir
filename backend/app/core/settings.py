@@ -64,6 +64,8 @@ class Settings:
     vault_kv_mount: str = os.getenv("VAULT_KV_MOUNT", "secret")
     vault_kv_path: str = os.getenv("VAULT_KV_PATH", "hiair")
     app_env: str = os.getenv("APP_ENV", "development")
+    risk_level_alias_mode: str = os.getenv("RISK_LEVEL_ALIAS_MODE", "warn").strip().lower()
+    risk_level_alias_sunset_date: str = os.getenv("RISK_LEVEL_ALIAS_SUNSET_DATE", "2026-06-30").strip()
 
 
 settings = Settings()
@@ -74,6 +76,8 @@ def _is_protected_env(env_name: str) -> bool:
 
 
 def validate_runtime_settings(current: Settings) -> None:
+    if current.risk_level_alias_mode not in {"compat", "warn", "enforce"}:
+        raise RuntimeError("RISK_LEVEL_ALIAS_MODE must be one of: compat, warn, enforce.")
     if _is_protected_env(current.app_env):
         if not current.jwt_secret or current.jwt_secret == "dev-only-change-me":
             raise RuntimeError("JWT_SECRET must be explicitly configured in protected environments.")

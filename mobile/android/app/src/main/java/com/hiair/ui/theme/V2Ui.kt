@@ -1,7 +1,5 @@
 package com.hiair.ui.theme
 
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
@@ -109,43 +107,6 @@ object V2Ui {
             )
             params.topMargin = dp(context, 6)
             layoutParams = params
-        }
-    }
-
-    fun startWeatherAnimation(context: Context, orb: View, title: TextView, mood: TextView) {
-        val states = listOf(
-            Triple("Sunny 26C", "Mood: Calm", intArrayOf(Color.parseColor("#52E0B0"), Color.parseColor("#64B8FF"))),
-            Triple("Heatwave 33C", "Mood: Stressed", intArrayOf(Color.parseColor("#FFA05C"), Color.parseColor("#FF6A73"))),
-            Triple("Windy 22C", "Mood: Energized", intArrayOf(Color.parseColor("#6FC5FF"), Color.parseColor("#9C91FF")))
-        )
-        var index = 0
-        ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 2200L
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener { animator ->
-                val progress = animator.animatedFraction
-                if (progress > 0.98f) {
-                    index = (index + 1) % states.size
-                    val state = states[index]
-                    title.text = state.first
-                    mood.text = state.second
-                    orb.background = GradientDrawable().apply {
-                        shape = GradientDrawable.OVAL
-                        colors = state.third
-                        gradientType = GradientDrawable.RADIAL_GRADIENT
-                        gradientRadius = dp(context, 48).toFloat()
-                    }
-                }
-                orb.scaleX = 0.96f + (progress * 0.08f)
-                orb.scaleY = 0.96f + (progress * 0.08f)
-                val alpha = ArgbEvaluator().evaluate(
-                    progress,
-                    Color.parseColor("#66FFFFFF"),
-                    Color.parseColor("#99FFFFFF")
-                ) as Int
-                orb.background?.alpha = Color.alpha(alpha)
-            }
-            start()
         }
     }
 }

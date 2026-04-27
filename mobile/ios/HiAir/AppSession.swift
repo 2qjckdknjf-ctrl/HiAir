@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 final class AppSession: ObservableObject {
-    private enum Keys {
+    enum Keys {
         static let onboardingCompleted = "session.onboardingCompleted"
         static let userId = "session.userId"
         static let accessToken = "session.accessToken"
@@ -29,7 +29,12 @@ final class AppSession: ObservableObject {
         let defaults = UserDefaults.standard
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
         userId = defaults.string(forKey: Keys.userId) ?? ""
-        accessToken = defaults.string(forKey: Keys.accessToken) ?? ""
+        let legacyAccessToken = defaults.string(forKey: Keys.accessToken) ?? ""
+        accessToken = KeychainStore.read(Keys.accessToken) ?? legacyAccessToken
+        if !legacyAccessToken.isEmpty {
+            KeychainStore.write(legacyAccessToken, account: Keys.accessToken)
+            defaults.removeObject(forKey: Keys.accessToken)
+        }
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
         persona = defaults.string(forKey: Keys.persona) ?? "adult"
         sensitivity = defaults.string(forKey: Keys.sensitivity) ?? "medium"
@@ -44,13 +49,19 @@ final class AppSession: ObservableObject {
         accessToken = ""
         profileId = ""
         selectedTab = 0
+        UserDefaults.standard.removeObject(forKey: PushRegistrationService.lastStatusKey)
     }
 
     private func persist() {
         let defaults = UserDefaults.standard
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(userId, forKey: Keys.userId)
-        defaults.set(accessToken, forKey: Keys.accessToken)
+        if accessToken.isEmpty {
+            KeychainStore.delete(Keys.accessToken)
+        } else {
+            KeychainStore.write(accessToken, account: Keys.accessToken)
+        }
+        defaults.removeObject(forKey: Keys.accessToken)
         defaults.set(profileId, forKey: Keys.profileId)
         defaults.set(persona, forKey: Keys.persona)
         defaults.set(sensitivity, forKey: Keys.sensitivity)
@@ -88,8 +99,22 @@ enum HiAirL10n {
             "onboarding.sensitivity": "Чувствительность",
             "onboarding.latitude": "Широта",
             "onboarding.longitude": "Долгота",
-            "onboarding.profile_id": "Profile ID (необязательно)",
+            "onboarding.use_current_location": "Использовать текущую геолокацию",
+            "onboarding.location_permission_requesting": "Запрашиваем разрешение геолокации...",
+            "onboarding.location_updating": "Обновляем геолокацию...",
+            "onboarding.location_permission_disabled": "Разрешение геолокации отключено.",
+            "onboarding.location_permission_unavailable": "Разрешение геолокации недоступно.",
+            "onboarding.location_unavailable": "Геолокация недоступна.",
+            "onboarding.location_updated": "Геолокация обновлена.",
+            "onboarding.location_update_failed": "Не удалось обновить геолокацию.",
+            "onboarding.sensitivity_low": "Низкая",
+            "onboarding.sensitivity_medium": "Средняя",
+            "onboarding.sensitivity_high": "Высокая",
             "onboarding.continue": "Продолжить",
+            "onboarding.creating_profile": "Создаём профиль...",
+            "onboarding.auth_required": "Сначала войдите в аккаунт.",
+            "onboarding.profile_created": "Профиль создан.",
+            "onboarding.profile_create_failed": "Не удалось создать профиль.",
             "dashboard.title": "Ежедневный воздушный интеллект",
             "common.city_updated": "Barcelona • Обновлено 2 мин назад",
             "dashboard.subtitle": "Риск, алерты и AI-инсайты в одном месте.",
@@ -104,6 +129,7 @@ enum HiAirL10n {
             "dashboard.no_actions": "Нет доступных действий.",
             "dashboard.safe_window": "Безопасное окно",
             "dashboard.safe_windows": "Безопасные окна",
+            "dashboard.source": "Источник",
             "dashboard.auto_updates": "Автообновление по прогнозу",
             "dashboard.do_now": "Сделать сейчас",
             "dashboard.action_1": "Избегайте активности с 10:00 до 15:00",
@@ -119,7 +145,7 @@ enum HiAirL10n {
             "planner.hourly_risk": "Риск по часам",
             "planner.hourly": "Почасово",
             "planner.refresh": "Обновить план",
-            "planner.apply": "Применить план",
+            "planner.apply": "Показать на главной",
             "planner.loading": "Загрузка...",
             "planner.profile_required": "Нужен Profile ID.",
             "planner.failed": "Не удалось загрузить план.",
@@ -141,10 +167,15 @@ enum HiAirL10n {
             "symptoms.save_failed": "Не удалось сохранить симптомы.",
             "symptoms.quick_saved": "Быстрый симптом сохранён.",
             "symptoms.quick_failed": "Не удалось сохранить быстрый симптом.",
+            "title.settings": "Настройки",
             "settings.ai_observability": "AI наблюдаемость",
+            "settings.ai_unavailable": "AI наблюдаемость недоступна в мобильном beta-клиенте.",
             "settings.subtitle": "Управляйте уведомлениями, подпиской и AI-наблюдаемостью.",
             "settings.notifications": "Уведомления",
             "settings.push": "Включить push-уведомления",
+            "settings.register_push_device": "Зарегистрировать устройство для push",
+            "settings.push_registration_requested": "Запрошено разрешение и регистрация push.",
+            "settings.push_registration_missing_auth": "Для регистрации push нужен вход в аккаунт.",
             "settings.profile_alerting": "Алерты с учетом профиля",
             "settings.alert_threshold": "Порог алерта",
             "settings.threshold_medium": "Средний",
@@ -171,6 +202,12 @@ enum HiAirL10n {
             "settings.saving": "Сохраняем...",
             "settings.subscription": "Подписка",
             "settings.security_privacy": "Безопасность и приватность",
+            "settings.export_privacy_data": "Экспортировать мои данные",
+            "settings.delete_account": "Удалить аккаунт",
+            "settings.privacy_exported": "Экспорт данных получен:",
+            "settings.privacy_export_failed": "Не удалось экспортировать данные.",
+            "settings.account_deleted": "Аккаунт удалён.",
+            "settings.account_delete_failed": "Не удалось удалить аккаунт.",
             "settings.plan": "План",
             "settings.status": "Статус",
             "settings.sync_now": "Сохранить настройки и синхронизировать",
@@ -266,8 +303,22 @@ enum HiAirL10n {
             "onboarding.sensitivity": "Sensitivity",
             "onboarding.latitude": "Latitude",
             "onboarding.longitude": "Longitude",
-            "onboarding.profile_id": "Profile ID (optional)",
+            "onboarding.use_current_location": "Use current location",
+            "onboarding.location_permission_requesting": "Requesting location permission...",
+            "onboarding.location_updating": "Updating location...",
+            "onboarding.location_permission_disabled": "Location permission is disabled.",
+            "onboarding.location_permission_unavailable": "Location permission is unavailable.",
+            "onboarding.location_unavailable": "Location unavailable.",
+            "onboarding.location_updated": "Location updated.",
+            "onboarding.location_update_failed": "Location update failed.",
+            "onboarding.sensitivity_low": "Low",
+            "onboarding.sensitivity_medium": "Medium",
+            "onboarding.sensitivity_high": "High",
             "onboarding.continue": "Continue",
+            "onboarding.creating_profile": "Creating profile...",
+            "onboarding.auth_required": "Sign in first.",
+            "onboarding.profile_created": "Profile created.",
+            "onboarding.profile_create_failed": "Failed to create profile.",
             "dashboard.title": "Daily Air Intelligence",
             "common.city_updated": "Barcelona • Updated 2 min ago",
             "dashboard.subtitle": "Live risk, alerts and AI insights in one place.",
@@ -282,6 +333,7 @@ enum HiAirL10n {
             "dashboard.no_actions": "No actions available.",
             "dashboard.safe_window": "Safe window",
             "dashboard.safe_windows": "Safe windows",
+            "dashboard.source": "Source",
             "dashboard.auto_updates": "Auto-updates by forecast",
             "dashboard.do_now": "Do this now",
             "dashboard.action_1": "Avoid direct sun from 10:00 to 15:00",
@@ -297,7 +349,7 @@ enum HiAirL10n {
             "planner.hourly_risk": "Hourly risk",
             "planner.hourly": "Hour-by-hour",
             "planner.refresh": "Refresh planner",
-            "planner.apply": "Apply this plan",
+            "planner.apply": "Show on dashboard",
             "planner.loading": "Loading...",
             "planner.profile_required": "Profile ID is required.",
             "planner.failed": "Failed to load planner.",
@@ -319,10 +371,15 @@ enum HiAirL10n {
             "symptoms.save_failed": "Failed to save symptoms.",
             "symptoms.quick_saved": "Quick symptom saved.",
             "symptoms.quick_failed": "Failed to save quick symptom.",
+            "title.settings": "Settings",
             "settings.ai_observability": "AI Observability",
+            "settings.ai_unavailable": "AI observability is unavailable in the mobile beta client.",
             "settings.subtitle": "Manage notifications, subscriptions and AI observability.",
             "settings.notifications": "Notifications",
             "settings.push": "Enable push alerts",
+            "settings.register_push_device": "Register device for push",
+            "settings.push_registration_requested": "Push permission and registration requested.",
+            "settings.push_registration_missing_auth": "Sign in before registering push.",
             "settings.profile_alerting": "Profile-based alerting",
             "settings.alert_threshold": "Alert threshold",
             "settings.threshold_medium": "Medium",
@@ -349,6 +406,12 @@ enum HiAirL10n {
             "settings.saving": "Saving...",
             "settings.subscription": "Subscription",
             "settings.security_privacy": "Security & Privacy",
+            "settings.export_privacy_data": "Export my data",
+            "settings.delete_account": "Delete account",
+            "settings.privacy_exported": "Privacy export received:",
+            "settings.privacy_export_failed": "Failed to export data.",
+            "settings.account_deleted": "Account deleted.",
+            "settings.account_delete_failed": "Failed to delete account.",
             "settings.plan": "Plan",
             "settings.status": "Status",
             "settings.sync_now": "Save settings & sync",

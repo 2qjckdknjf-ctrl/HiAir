@@ -23,6 +23,12 @@ def main() -> int:
         action="store_true",
         help="Fail if mandatory artifacts are missing (Android AAB and iOS xcarchive).",
     )
+    parser.add_argument(
+        "--rc",
+        action="store_true",
+        help="Closed Beta RC manifest: same mandatory set as --strict (AAB + xcarchive). "
+        "iOS IPA is never mandatory; missing IPA is documented as BLOCKED_EXTERNAL in the manifest.",
+    )
     args = parser.parse_args()
 
     mobile_root = Path(__file__).resolve().parents[1]
@@ -39,7 +45,8 @@ def main() -> int:
 
     artifacts = [_artifact_info(label, path) for label, path in candidates]
     manifest_path = docs_dir / "release-artifacts-manifest.md"
-    manifest_path.write_text(_render_manifest(artifacts), encoding="utf-8")
+    closed_beta_rc = bool(args.rc)
+    manifest_path.write_text(_render_manifest(artifacts, closed_beta_rc=closed_beta_rc), encoding="utf-8")
 
     for item in artifacts:
         if item.exists:
@@ -48,7 +55,7 @@ def main() -> int:
             print(f"[MISSING] {item.label}: {item.path}")
     print(f"Manifest written: {manifest_path}")
 
-    if args.strict:
+    if args.strict or args.rc:
         mandatory = {
             "Android AAB": False,
             "iOS xcarchive": False,
@@ -58,7 +65,8 @@ def main() -> int:
                 mandatory[item.label] = True
         missing = [name for name, ok in mandatory.items() if not ok]
         if missing:
-            print(f"Strict mode failed. Missing mandatory artifacts: {', '.join(missing)}")
+            mode = "RC" if args.rc else "Strict"
+            print(f"{mode} mode failed. Missing mandatory artifacts: {', '.join(missing)}")
             return 1
 
     return 0
@@ -99,7 +107,7 @@ def _dir_size(path: Path) -> int:
     return sum(p.stat().st_size for p in path.rglob("*") if p.is_file())
 
 
-def _render_manifest(artifacts: list[ArtifactInfo]) -> str:
+def _render_manifest(artifacts: list[ArtifactInfo], *, closed_beta_rc: bool = False) -> str:
     now = datetime.now(tz=UTC).isoformat()
     lines = [
         "# HiAir Release Artifacts Manifest",
@@ -109,6 +117,7 @@ def _render_manifest(artifacts: list[ArtifactInfo]) -> str:
         "| Artifact | Exists | Path | Size (bytes) | SHA256 |",
         "|---|---|---|---:|---|",
     ]
+    ipa_row = next((a for a in artifacts if a.label == "iOS IPA"), None)
     for item in artifacts:
         exists = "yes" if item.exists else "no"
         size = str(item.size_bytes) if item.size_bytes is not None else "-"
@@ -118,6 +127,21 @@ def _render_manifest(artifacts: list[ArtifactInfo]) -> str:
         )
     lines.append("")
     lines.append("Use this file as upload evidence for TestFlight/Internal Test.")
+    if closed_beta_rc or ipa_row is not None:
+        lines.append("")
+        lines.append("## Closed Beta RC policy")
+        if ipa_row is not None and ipa_row.exists:
+            lines.append("- iOS IPA: present (export completed outside repo with signing credentials).")
+        elif ipa_row is not None:
+            lines.append(
+                "- iOS IPA: **BLOCKED_EXTERNAL** — IPA is produced only via signed `xcodebuild -exportArchive` "
+                "with Apple Developer credentials; do not commit signing keys or store passwords."
+            )
+        if closed_beta_rc:
+            lines.append(
+                "- `--rc` mode: mandatory artifacts are Android AAB + iOS xcarchive only (same gate as `--strict`). "
+                "Missing IPA does not fail the generator."
+            )
     return "\n".join(lines)
 
 

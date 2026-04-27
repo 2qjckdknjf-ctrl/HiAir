@@ -55,25 +55,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Compile backend
+      - name: Backend gate (compile, pytest, env, DB, smoke, validation)
         working-directory: backend
         run: |
-          python -m compileall app scripts
-
-      - name: Run backend tests
-        working-directory: backend
-        run: |
-          python -m pytest tests -q
-
-      - name: Security and retention prechecks
-        working-directory: backend
-        run: |
-          python scripts/check_env_security.py --strict
-
-      - name: Initialize schema and run validations
-        working-directory: backend
-        run: |
-          python scripts/init_db.py
-          python scripts/retention_cleanup.py --dry-run
-          python scripts/smoke_db_flow.py
-          python scripts/validate_risk_historical.py
+          python scripts/run_backend_gate.py

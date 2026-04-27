@@ -22,8 +22,8 @@ Last updated: 2026-04-22
 
 ## Remaining internal blockers
 
-- Versioned deprecation/removal execution for `medium` vs `moderate` aliases.
-- Full store metadata packet finalization.
+- Client migration evidence for `medium`/`moderate` alias policy (`warn` mode now implemented; enforce cutover pending).
+- Full store metadata packet finalization (now gate-controlled by `backend/scripts/check_store_metadata_packet.py`).
 - Ops on-call owner confirmation and monitored rollout evidence.
 - External final-proof attachments are still pending in EXT issues (#2-#6), tracked by closure/evidence gates.
 - Strict automation mode now exists and correctly fails until closure/evidence gates are satisfied.

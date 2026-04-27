@@ -11,38 +11,48 @@
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
 		1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F189463A81578D7DA02A429B /* AuthView.swift */; };
+		2C8B45D81F9A4E17A93B6012 /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F2A68E1B9C64D2CB285A9B3 /* HiAirV2Theme.swift */; };
+		36AF17D0C62E4B5B8E7C3D2A /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6D57398779491CA90F12E0 /* KeychainStore.swift */; };
 		3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */; };
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
 		543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833EA8341D4356991598891 /* RootTabView.swift */; };
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
 		BA5EEFEA16CA6962363CB004 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3067FB46BAFE989CA0A16E0E /* DashboardView.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
+		F4763E5C72F64F7AA68C9D31 /* PushRegistrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D9E15F7E0B4A8BB7812F44 /* PushRegistrationService.swift */; };
 		FD5992A72A475C761562967F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C556E4BD33D299DF71C4B0E6 /* APIClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		030CBAFA89BD721FF0066134 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
+		0F6D57398779491CA90F12E0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		3067FB46BAFE989CA0A16E0E /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		35D1E2C509CFB15ACA399B3D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		4F2A68E1B9C64D2CB285A9B3 /* HiAirV2Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirV2Theme.swift; sourceTree = "<group>"; };
 		5D79B00DF93EE905C5824D90 /* HiAir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HiAir.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8833EA8341D4356991598891 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		9BD707A08B6657EF85395B26 /* HiAirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirApp.swift; sourceTree = "<group>"; };
+		B8D9E15F7E0B4A8BB7812F44 /* PushRegistrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushRegistrationService.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPlannerView.swift; sourceTree = "<group>"; };
 		D9D61A692A21F8137C8C9A0A /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 		E5D318EFA32CAF512F14BCAD /* RiskModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskModels.swift; sourceTree = "<group>"; };
 		F189463A81578D7DA02A429B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		FA3E5DB32F9CEF3800F19E37 /* HiAir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HiAir.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		13361C91597A147BE3EB4C64 /* HiAir */ = {
 			isa = PBXGroup;
 			children = (
+				FA3E5DB32F9CEF3800F19E37 /* HiAir.entitlements */,
 				D9D61A692A21F8137C8C9A0A /* AppSession.swift */,
 				9BD707A08B6657EF85395B26 /* HiAirApp.swift */,
+				0F6D57398779491CA90F12E0 /* KeychainStore.swift */,
 				CCCC2230FAE0D5FAC8C9C4DB /* Models */,
 				D6817796DBAD8BF3B3C5061A /* Networking */,
+				B8D9E15F7E0B4A8BB7812F44 /* PushRegistrationService.swift */,
 				F54A7392756BC05965EECA7B /* Screens */,
 			);
 			path = HiAir;
@@ -86,6 +96,7 @@
 				F189463A81578D7DA02A429B /* AuthView.swift */,
 				D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */,
 				3067FB46BAFE989CA0A16E0E /* DashboardView.swift */,
+				4F2A68E1B9C64D2CB285A9B3 /* HiAirV2Theme.swift */,
 				C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */,
 				8833EA8341D4356991598891 /* RootTabView.swift */,
 				35D1E2C509CFB15ACA399B3D /* SettingsView.swift */,
@@ -153,12 +164,15 @@
 				1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */,
 				3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */,
 				BA5EEFEA16CA6962363CB004 /* DashboardView.swift in Sources */,
+				2C8B45D81F9A4E17A93B6012 /* HiAirV2Theme.swift in Sources */,
 				079F1318A8584B1939E4E3FE /* HiAirApp.swift in Sources */,
 				109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */,
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,
 				495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */,
+				36AF17D0C62E4B5B8E7C3D2A /* KeychainStore.swift in Sources */,
+				F4763E5C72F64F7AA68C9D31 /* PushRegistrationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -169,12 +183,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to personalize heat and air-quality risk recommendations.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -198,12 +214,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = NO;
 				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = NO;
+				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to personalize heat and air-quality risk recommendations.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;

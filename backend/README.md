@@ -35,13 +35,13 @@ Generate secure secrets and paste them into `.env`:
 - `GET http://127.0.0.1:8000/api/risk/thresholds`
 - `POST http://127.0.0.1:8000/api/auth/signup`
 - `POST http://127.0.0.1:8000/api/auth/login`
-- `POST http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
-- `GET http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
+- `POST http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>`)
+- `GET http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>`)
 - `GET http://127.0.0.1:8000/api/privacy/export` (requires auth)
 - `POST http://127.0.0.1:8000/api/privacy/delete-account` (requires auth + confirmation)
 - `POST http://127.0.0.1:8000/api/symptoms/log` (requires auth; `profile_id` ownership is validated)
-- `GET http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
-- `PUT http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
+- `GET http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>`)
+- `PUT http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>`)
 - `GET http://127.0.0.1:8000/api/risk/history?profile_id=<id>` (requires auth; ownership validated)
 - `GET http://127.0.0.1:8000/api/recommendations/daily?profile_id=<id>` (requires auth + active subscription)
 - `GET http://127.0.0.1:8000/api/air/current-risk?profileId=<id>` (requires auth)
@@ -83,7 +83,7 @@ Retry controls:
 
 Secret rotation controls:
 - `NOTIFICATION_SECRET_ROTATION_DAYS` (default `30`)
-- `NOTIFICATION_ADMIN_TOKEN` (required for rotation event endpoint)
+- `NOTIFICATION_ADMIN_TOKEN` (required for protected staging/production ops endpoints)
 
 Secret source controls:
 - `SECRET_SOURCE=env|file|http|vault`
@@ -140,12 +140,14 @@ Initial schema is in:
 
 - `backend/sql/001_init.sql`
 - `backend/sql/002_subscription_and_access_hardening.sql`
+- `backend/sql/003_ai_mvp_architecture.sql`
+- `backend/sql/004_ai_observability.sql`
+- `backend/sql/005_i18n_preferred_language.sql`
 
-Apply manually for now:
+Apply manually only when you need step-by-step control:
 
 ```bash
-psql "$DATABASE_URL" -f sql/001_init.sql
-psql "$DATABASE_URL" -f sql/002_subscription_and_access_hardening.sql
+for file in sql/*.sql; do psql "$DATABASE_URL" -f "$file"; done
 ```
 
 Or run bootstrap script:
@@ -176,11 +178,17 @@ From `backend/`:
 .venv/bin/python scripts/retention_cleanup.py --dry-run
 ```
 
-One-command backend gate (without HTTP preflight):
+One-command backend gate (compile + **pytest** + strict env + DB scripts + smoke; HTTP preflight optional):
 
 ```bash
+# same order as `.github/workflows/backend-ci.yml` + optional preflight
 .venv/bin/python scripts/run_backend_gate.py
+
+# with running API (NOTIFICATION_ADMIN_TOKEN in shell env)
+.venv/bin/python scripts/run_backend_gate.py --base-url http://127.0.0.1:8000
 ```
+
+`--env-file` defaults to `.env.local` when present, otherwise `.env`. Use `--skip-pytest` or `--skip-smoke` only for narrow debugging.
 
 Apply retention cleanup (non-dry-run):
 

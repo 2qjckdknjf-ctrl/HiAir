@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
@@ -8,7 +10,9 @@ import app.services.notification_service as notification_service
 import app.services.profile_access as profile_access
 import app.services.recommendation_service as recommendation_service
 import app.services.risk_repository as risk_repository
+import app.services.settings_repository as settings_repository
 from app.services.environment_service import build_mock_snapshot
+from app.services.localization import normalize_language
 from app.services.risk_engine import estimate_risk
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -16,12 +20,22 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
 def dashboard_overview(
-    profile_id: str | None = Query(default=None),
-    persona: str = Query(default="adult"),
-    lat: float = Query(default=41.39, ge=-90, le=90),
-    lon: float = Query(default=2.17, ge=-180, le=180),
+    profile_id: Annotated[str | None, Query()] = None,
+    persona: Annotated[str, Query()] = "adult",
+    lat: Annotated[float, Query(ge=-90, le=90)] = 41.39,
+    lon: Annotated[float, Query(ge=-180, le=180)] = 2.17,
+    language: Annotated[str | None, Query()] = None,
+    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
     user_id: str = Depends(get_current_user_id),
 ) -> DashboardOverviewResponse:
+    preferred_language = language or accept_language
+    if preferred_language is None:
+        try:
+            preferred_language = settings_repository.get_user_settings(user_id).preferred_language
+        except PsycopgError as exc:
+            raise HTTPException(status_code=503, detail="Database unavailable") from exc
+    normalized_language = normalize_language(preferred_language)
+
     if profile_id:
         try:
             if not profile_access.profile_exists(profile_id):
@@ -73,9 +87,10 @@ def dashboard_overview(
     daily_summary, daily_actions = recommendation_service.build_daily_recommendation(
         risk_level=risk.level,
         symptom_stats=symptom_stats,
+        language=normalized_language,
     )
     should_notify = notification_service.should_notify(risk)
-    notification_text = notification_service.build_notification_text(risk)
+    notification_text = notification_service.build_notification_text(risk, language=normalized_language)
 
     return DashboardOverviewResponse(
         profile_id=profile_id,

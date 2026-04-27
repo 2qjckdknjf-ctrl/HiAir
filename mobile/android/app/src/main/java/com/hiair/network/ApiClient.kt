@@ -35,6 +35,24 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, json)
     }
 
+    fun createProfile(
+        userId: String,
+        accessToken: String? = null,
+        personaType: String,
+        sensitivityLevel: String,
+        homeLat: Double,
+        homeLon: Double
+    ): String {
+        val endpoint = "$baseUrl/api/profiles"
+        val json = JSONObject().apply {
+            put("persona_type", personaType)
+            put("sensitivity_level", sensitivityLevel)
+            put("home_lat", homeLat)
+            put("home_lon", homeLon)
+        }.toString()
+        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun fetchDailyPlanner(
         persona: String = "adult",
         lat: Double = 41.39,
@@ -179,16 +197,6 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
-    fun fetchAiSummary(hours: Int = 24): String {
-        val endpoint = "$baseUrl/api/observability/ai-summary?hours=$hours"
-        return request("GET", endpoint, null)
-    }
-
-    fun fetchAiSummaryDetailed(hours: Int = 24): String {
-        val endpoint = "$baseUrl/api/observability/ai-summary-detailed?hours=$hours"
-        return requestStrict("GET", endpoint, null)
-    }
-
     fun registerDeviceToken(
         userId: String,
         platform: String,
@@ -234,6 +242,19 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, "{}", authHeaders(userId, accessToken))
     }
 
+    fun exportPrivacyData(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/privacy/export"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun deleteAccount(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/privacy/delete-account"
+        val json = JSONObject().apply {
+            put("confirmation", "DELETE")
+        }.toString()
+        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     private fun request(
         method: String,
         endpoint: String,
@@ -264,35 +285,6 @@ class ApiClient(private val baseUrl: String) {
             }
         }
 
-        return try {
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            stream.bufferedReader().readText()
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun requestStrict(
-        method: String,
-        endpoint: String,
-        body: String?,
-        headers: Map<String, String> = emptyMap()
-    ): String {
-        val connection = URL(endpoint).openConnection() as HttpURLConnection
-        connection.requestMethod = method
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-        headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
-        if (method == "POST" || method == "PUT") {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            if (body != null) {
-                connection.outputStream.use { output ->
-                    output.write(body.toByteArray())
-                }
-            }
-        }
         return try {
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream

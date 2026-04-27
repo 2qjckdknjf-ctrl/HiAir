@@ -4,6 +4,7 @@ import com.hiair.models.SymptomInput
 import com.hiair.models.SymptomLogRequest
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
+import com.hiair.ui.i18n.AndroidL10n
 import org.json.JSONObject
 
 data class SymptomLogState(
@@ -48,9 +49,9 @@ class SymptomLogViewModel(
         state = state.copy(quickIntensity = value.coerceIn(1, 5))
     }
 
-    fun submit(userId: String, accessToken: String?) {
+    fun submit(userId: String, accessToken: String?, language: String = "ru") {
         if (state.profileId.isBlank()) {
-            state = state.copy(statusText = "Profile ID is required.")
+            state = state.copy(statusText = AndroidL10n.t("planner.profile_required", language))
             return
         }
         state = state.copy(loading = true)
@@ -72,19 +73,19 @@ class SymptomLogViewModel(
             val json = JSONObject(response)
             state = state.copy(
                 loading = false,
-                statusText = "Saved at ${json.getString("timestamp_utc")}"
+                statusText = "${AndroidL10n.t("symptoms.saved_at", language)} ${json.getString("timestamp_utc")}"
             )
         } catch (_: Exception) {
             state = state.copy(
                 loading = false,
-                statusText = "Failed to save symptoms."
+                statusText = AndroidL10n.t("symptoms.save_failed", language)
             )
         }
     }
 
-    fun quickLog(userId: String, accessToken: String?, symptomType: String) {
+    fun quickLog(userId: String, accessToken: String?, symptomType: String, language: String = "ru") {
         if (state.profileId.isBlank()) {
-            state = state.copy(statusText = "Profile ID is required.")
+            state = state.copy(statusText = AndroidL10n.t("planner.profile_required", language))
             return
         }
         state = state.copy(loading = true)
@@ -96,9 +97,9 @@ class SymptomLogViewModel(
                 symptomType = symptomType,
                 intensity = state.quickIntensity
             )
-            state = state.copy(loading = false, statusText = "Quick symptom saved.")
+            state = state.copy(loading = false, statusText = AndroidL10n.t("symptoms.quick_saved", language))
         } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = "Failed to save quick symptom.")
+            state = state.copy(loading = false, statusText = AndroidL10n.t("symptoms.quick_failed", language))
         }
     }
 }

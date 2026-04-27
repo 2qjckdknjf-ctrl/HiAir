@@ -62,7 +62,7 @@ def generate_explanation(
         "You are a wellness assistant for heat and air quality context. "
         "Use only provided facts. No medical claims."
     )
-    user_instruction = "Generate one short plain-language explanation in Russian. Keep tone calm, actionable, and personal."
+    user_instruction = t(lang, "expl.user_instruction")
     try:
         ensure_prompt_version(
             prompt_key=PROMPT_KEY,

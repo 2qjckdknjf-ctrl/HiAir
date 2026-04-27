@@ -57,7 +57,7 @@
 - [x] Android dashboard wired на `/environment/snapshot` + `/risk/estimate`.
 - [x] Добавлен endpoint `recommendations/daily` на основе history + symptoms.
 - [x] Добавлен агрегированный endpoint `/dashboard/overview` для мобильного dashboard.
-- [x] iOS/Android dashboard переведен на `/dashboard/overview`.
+- [x] iOS/Android dashboard канонизирован на profile-aware `/air/current-risk`; `/dashboard/overview` оставлен для агрегированного smoke/legacy сценария.
 - [x] Dashboard state расширен daily actions + notification text (iOS/Android).
 - [x] Добавлен planner endpoint и мобильные planner skeleton модели/VM.
 - [x] Добавлен корневой navigation shell для iOS и Android.
@@ -107,6 +107,8 @@
 
 - [x] Подготовлен beta readiness checklist.
 - [x] Подготовлен QA checklist по сценариям.
+- [x] Внедрена versioned deprecation-политика для risk alias (`medium`/`moderate`) с `warn/enforce` режимами и migration headers.
+- [x] Добавлен автоматический gate `check_store_metadata_packet.py` для контроля полноты store packet (чекбоксы + placeholders).
 - [ ] Закрытая бета (TestFlight + Google Play Internal Test).
 - [ ] QA по устройствам/версиям ОС (по чеклисту).
 - [ ] Privacy/ToS финализация (drafts готовы, требуется legal review).
@@ -114,5 +116,6 @@
 
 ## Следующий исполняемый шаг
 
-1. Загрузить готовые артефакты в TestFlight/Internal Test (нужны доступы Apple/Google).
-2. Выполнить `docs/qa-checklist.md` на iOS/Android и зафиксировать баги по шаблону.
+1. Инженерные гейты перед девайсом: `docs/qa/ENGINEERING-PRE-DEVICE-GATE-COMMANDS.md` + `backend/scripts/run_backend_gate.py`.
+2. Загрузить готовые артефакты в TestFlight/Internal Test (нужны доступы Apple/Google).
+3. Выполнить `docs/qa-checklist.md` на iOS/Android и зафиксировать баги по шаблону.

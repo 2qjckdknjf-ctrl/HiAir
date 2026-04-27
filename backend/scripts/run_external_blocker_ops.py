@@ -31,6 +31,9 @@ def main() -> int:
         evidence_rc = _run("check_external_blocker_evidence_completeness.py", allow_failure=True)
         if evidence_rc != 0:
             strict_failures.append(("check_external_blocker_evidence_completeness.py", evidence_rc))
+        metadata_rc = _run("check_store_metadata_packet.py", allow_failure=True)
+        if metadata_rc != 0:
+            strict_failures.append(("check_store_metadata_packet.py", metadata_rc))
     if strict_failures:
         print("[FAIL] External blocker ops strict gates failed:")
         for script_name, return_code in strict_failures:
