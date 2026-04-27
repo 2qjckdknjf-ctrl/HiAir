@@ -54,6 +54,7 @@
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 1 | `run_backend_gate.py`: pytest, `--env-file` (`.env.local` приоритет), `--admin-token`, `--skip-pytest` | DONE |
+| 1 | `run_backend_gate.py`: pytest, `--env-file` (`.env.local` приоритет), `--admin-token`, `--skip-pytest`, `load_dotenv` | DONE |
 | 2 | `backend/README.md`: описание флагов и preflight | DONE |
 | 3 | `docs/qa/ENGINEERING-PRE-DEVICE-GATE-COMMANDS.md` | DONE |
+| 4 | CI: `.github/workflows/backend-ci.yml` → один шаг `run_backend_gate.py` | DONE |

@@ -42,7 +42,7 @@
 | `docs/notifications/PUSH-E2E-RUNBOOK.md` | iOS delegate | Note foreground + simulator failure path | Review | DONE |
 | `mobile/android/app/src/firebase/AndroidManifest.xml` | FCM service not in merged manifest | Overlay manifest merged when `google-services.json` exists | Gradle + merged_manifest grep (no JSON) | DONE |
 | `mobile/android/app/build.gradle.kts` | `manifest.srcDir` API missing | Use `manifest.srcFile("src/firebase/AndroidManifest.xml")` | assembleDebug | DONE |
-| `backend/scripts/run_backend_gate.py` | Gate без pytest / без .env.local | pytest + `--env-file` default + `--admin-token` + `--skip-pytest` | script review | DONE |
+| `backend/scripts/run_backend_gate.py` | Gate без pytest / без .env.local | pytest + `--env-file` default + `--admin-token` + `--skip-pytest` + `load_dotenv` для дочерних шагов | `run_backend_gate.py` exit 0 | DONE |
 | `backend/README.md` | Gate docs stale | Document flags + CI parity | Review | DONE |
 | `docs/qa/ENGINEERING-PRE-DEVICE-GATE-COMMANDS.md` | Pre-device QA commands scattered | Single copy-paste runbook | Review | DONE |
 | `docs/task-backlog.md` | Next step order | Engineer gates before uploads | Review | DONE |

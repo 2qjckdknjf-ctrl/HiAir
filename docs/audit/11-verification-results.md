@@ -69,6 +69,7 @@ Snapshot date: 2026-04-25
 | Phase 23 iOS simulator | `xcodebuild … iphonesimulator …` | `** BUILD SUCCEEDED **` | DONE |
 | Phase 24 Android | `./gradlew clean :app:assembleDebug` + release/bundle/lint | `BUILD SUCCESSFUL` | DONE |
 | Phase 24 merged manifest | grep `MESSAGING_EVENT` in merged debug manifest | absent without local `google-services.json` | DONE |
+| Phase 25 backend gate | `cd backend && ../.venv/bin/python scripts/run_backend_gate.py` | `Backend gate passed.` | DONE |
 
 ## Not verified
 

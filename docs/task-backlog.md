@@ -116,5 +116,6 @@
 
 ## Следующий исполняемый шаг
 
-1. Загрузить готовые артефакты в TestFlight/Internal Test (нужны доступы Apple/Google).
-2. Выполнить `docs/qa-checklist.md` на iOS/Android и зафиксировать баги по шаблону.
+1. Инженерные гейты перед девайсом: `docs/qa/ENGINEERING-PRE-DEVICE-GATE-COMMANDS.md` + `backend/scripts/run_backend_gate.py`.
+2. Загрузить готовые артефакты в TestFlight/Internal Test (нужны доступы Apple/Google).
+3. Выполнить `docs/qa-checklist.md` на iOS/Android и зафиксировать баги по шаблону.

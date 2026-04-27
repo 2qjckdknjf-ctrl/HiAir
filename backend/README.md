@@ -178,11 +178,17 @@ From `backend/`:
 .venv/bin/python scripts/retention_cleanup.py --dry-run
 ```
 
-One-command backend gate (without HTTP preflight):
+One-command backend gate (compile + **pytest** + strict env + DB scripts + smoke; HTTP preflight optional):
 
 ```bash
+# same order as `.github/workflows/backend-ci.yml` + optional preflight
 .venv/bin/python scripts/run_backend_gate.py
+
+# with running API (NOTIFICATION_ADMIN_TOKEN in shell env)
+.venv/bin/python scripts/run_backend_gate.py --base-url http://127.0.0.1:8000
 ```
+
+`--env-file` defaults to `.env.local` when present, otherwise `.env`. Use `--skip-pytest` or `--skip-smoke` only for narrow debugging.
 
 Apply retention cleanup (non-dry-run):
 
