@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -47,6 +48,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var riskThreshold = "high"
     @Published var quietHoursStart = 22
     @Published var quietHoursEnd = 7
+    @Published var morningBriefingEnabled = false
+    @Published var morningBriefingTime = "07:30"
     @Published var profileBasedAlerting = true
     @Published var selectedPersona = "adult"
     @Published var preferredLanguage = "ru"
@@ -174,6 +177,9 @@ final class SettingsViewModel: ObservableObject {
             quietHoursEnd = response.quietHoursEnd
             profileBasedAlerting = response.profileBasedAlerting
             preferredLanguage = response.preferredLanguage
+            let briefing = try await apiClient.fetchBriefingSchedule(userId: userId, accessToken: accessToken)
+            morningBriefingEnabled = briefing.enabled
+            morningBriefingTime = briefing.localTime
             statusText = l("settings.loaded")
         } catch {
             statusText = l("settings.load_failed")
@@ -199,6 +205,11 @@ final class SettingsViewModel: ObservableObject {
                     profileBasedAlerting: profileBasedAlerting,
                     preferredLanguage: preferredLanguage
                 ),
+                accessToken: accessToken
+            )
+            _ = try await apiClient.updateBriefingSchedule(
+                userId: userId,
+                payload: BriefingScheduleUpdateRequest(localTime: morningBriefingTime, enabled: morningBriefingEnabled),
                 accessToken: accessToken
             )
             statusText = l("settings.saved")
@@ -510,6 +521,37 @@ private struct AITrendMiniChart: View {
     }
 }
 
+private struct TokenSwatchRow: View {
+    let title: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(color)
+                .frame(width: 14, height: 14)
+                .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
+            Text(title)
+                .font(.footnote)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Spacer()
+            Text(colorHex)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+        }
+    }
+
+    private var colorHex: String {
+        let uiColor = UIColor(color)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return String(format: "#%02X%02X%02X", Int(red * 255), Int(green * 255), Int(blue * 255))
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SettingsViewModel()
@@ -529,11 +571,35 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Developer · Design tokens")
+                        .font(.headline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    TokenSwatchRow(title: "Risk low", color: AuroraTokens.ColorPalette.riskLow)
+                    TokenSwatchRow(title: "Risk moderate", color: AuroraTokens.ColorPalette.riskModerate)
+                    TokenSwatchRow(title: "Risk high", color: AuroraTokens.ColorPalette.riskHigh)
+                    TokenSwatchRow(title: "Risk very high", color: AuroraTokens.ColorPalette.riskVeryHigh)
+                    TokenSwatchRow(title: "CTA start", color: AuroraTokens.ColorPalette.ctaStart)
+                    TokenSwatchRow(title: "CTA end", color: AuroraTokens.ColorPalette.ctaEnd)
+                }
+                .v2Card()
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.notifications"))
                         .font(.headline)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Toggle(session.l("settings.push"), isOn: $viewModel.pushAlertsEnabled)
+                    Toggle(session.l("settings.morning_briefing"), isOn: $viewModel.morningBriefingEnabled)
+                    TextField(session.l("settings.morning_briefing_time"), text: $viewModel.morningBriefingTime)
+                        .textFieldStyle(.roundedBorder)
+                    if viewModel.userId.isEmpty {
+                        Text(session.l("settings.briefing_setup_hint"))
+                            .font(.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    Text(session.l("settings.morning_briefing_hint"))
+                        .font(.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                     Toggle(session.l("settings.profile_alerting"), isOn: $viewModel.profileBasedAlerting)
                     Picker(session.l("settings.alert_threshold"), selection: $viewModel.riskThreshold) {
                         Text(session.l("settings.threshold_medium")).tag("medium")

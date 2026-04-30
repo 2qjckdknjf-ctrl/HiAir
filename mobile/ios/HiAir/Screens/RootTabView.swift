@@ -21,14 +21,20 @@ struct RootTabView: View {
                             Label(session.l("tab.planner"), systemImage: "calendar")
                         }
 
-                    SymptomLogView()
+                    InsightsView()
                         .tag(2)
+                        .tabItem {
+                            Label(session.l("tab.insights"), systemImage: "sparkles")
+                        }
+
+                    SymptomLogView()
+                        .tag(3)
                         .tabItem {
                             Label(session.l("tab.symptoms"), systemImage: "heart.text.square")
                         }
 
                     SettingsView()
-                        .tag(3)
+                        .tag(4)
                         .tabItem {
                             Label(session.l("tab.settings"), systemImage: "gearshape")
                         }

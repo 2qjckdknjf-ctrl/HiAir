@@ -75,6 +75,15 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 if subscription and subscription.get("provider_subscription_id")
                 else None
             )
+            cur.execute(
+                """
+                SELECT user_id, local_time, timezone, enabled, last_sent_at, created_at, updated_at
+                FROM briefing_schedule
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            briefing_schedule = cur.fetchone()
 
             cur.execute(
                 """
@@ -105,6 +114,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
             ai_recommendations: list[dict[str, Any]] = []
             alert_events: list[dict[str, Any]] = []
             ai_explanation_events: list[dict[str, Any]] = []
+            personal_correlations: list[dict[str, Any]] = []
             if profile_ids:
                 cur.execute(
                     """
@@ -236,6 +246,26 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 )
                 ai_explanation_events = cur.fetchall()
 
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        profile_id,
+                        factor_a,
+                        factor_b,
+                        coefficient,
+                        p_value,
+                        sample_size,
+                        window_days,
+                        computed_at
+                    FROM personal_correlations
+                    WHERE profile_id = ANY(%s)
+                    ORDER BY computed_at DESC
+                    """,
+                    (profile_ids,),
+                )
+                personal_correlations = cur.fetchall()
+
             subscription_webhook_events: list[dict[str, Any]] = []
             if provider_subscription_id:
                 cur.execute(
@@ -253,6 +283,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "user": _serialize_row(user),
         "settings": _serialize_optional_row(settings),
         "subscription": _serialize_optional_row(subscription),
+        "briefing_schedule": _serialize_optional_row(briefing_schedule),
         "profiles": _serialize_rows(profiles),
         "symptoms": _serialize_rows(symptoms),
         "risk_scores": _serialize_rows(risk_history),
@@ -261,6 +292,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "ai_recommendations": _serialize_rows(ai_recommendations),
         "alert_events": _serialize_rows(alert_events),
         "ai_explanation_events": _serialize_rows(ai_explanation_events),
+        "personal_correlations": _serialize_rows(personal_correlations),
         "device_tokens": _serialize_rows(device_tokens),
         "notification_delivery_attempts": _serialize_rows(delivery_attempts),
         "subscription_webhook_events": _serialize_rows(subscription_webhook_events),

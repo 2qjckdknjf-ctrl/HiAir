@@ -76,6 +76,39 @@ class ApiClient(private val baseUrl: String) {
         return request("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchPersonalPatterns(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+        windowDays: Int = 30,
+        language: String = "ru"
+    ): String {
+        val endpoint = "$baseUrl/api/insights/personal-patterns?profile_id=$profileId&window_days=$windowDays&language=$language"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchBriefingSchedule(
+        userId: String,
+        accessToken: String? = null
+    ): String {
+        val endpoint = "$baseUrl/api/briefings/schedule"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun updateBriefingSchedule(
+        userId: String,
+        accessToken: String? = null,
+        localTime: String,
+        enabled: Boolean
+    ): String {
+        val endpoint = "$baseUrl/api/briefings/schedule"
+        val json = JSONObject().apply {
+            put("local_time", localTime)
+            put("enabled", enabled)
+        }.toString()
+        return request("PUT", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun fetchEnvironmentSnapshotMock(lat: Double, lon: Double): String {
         val endpoint = "$baseUrl/api/environment/snapshot?lat=$lat&lon=$lon&source=mock"
         return request("GET", endpoint, null)

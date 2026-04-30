@@ -208,9 +208,22 @@ def run() -> None:
             "push_alerts_enabled": True,
             "alert_threshold": "high",
             "default_persona": "asthma",
+            "quiet_hours_start": 22,
+            "quiet_hours_end": 7,
+            "profile_based_alerting": True,
+            "preferred_language": "en",
         },
     )
     assert settings_put.status_code == 200, settings_put.text
+
+    briefings_get = client.get("/api/briefings/schedule", headers=auth_headers)
+    assert briefings_get.status_code == 200, briefings_get.text
+    briefings_put = client.put(
+        "/api/briefings/schedule",
+        headers=auth_headers,
+        json={"local_time": "07:30", "enabled": True},
+    )
+    assert briefings_put.status_code == 200, briefings_put.text
 
     token_register = client.post(
         "/api/notifications/device-token",
@@ -266,6 +279,14 @@ def run() -> None:
     )
     assert planner.status_code == 200, planner.text
     assert len(planner.json()["hourly"]) == 12
+
+    personal_patterns = client.get(
+        "/api/insights/personal-patterns",
+        headers=auth_headers,
+        params={"profile_id": profile_id, "window_days": 30, "language": "en"},
+    )
+    assert personal_patterns.status_code == 200, personal_patterns.text
+    assert "items" in personal_patterns.json()
 
     historical_validation = client.get("/api/validation/risk/historical")
     assert historical_validation.status_code == 200, historical_validation.text

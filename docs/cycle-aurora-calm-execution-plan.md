@@ -351,20 +351,20 @@ Exit criteria:
 
 ## Status tracking
 
-| Stage | Status   | Started | Finished | Evidence link |
-|-------|----------|---------|----------|---------------|
-| 0     | pending  |         |          |               |
-| 1     | pending  |         |          |               |
-| 2     | pending  |         |          |               |
-| 3     | pending  |         |          |               |
-| 4     | pending  |         |          |               |
-| 5     | pending  |         |          |               |
-| 6     | pending  |         |          |               |
-| 7     | pending  |         |          |               |
-| 8     | pending  |         |          |               |
-| 9     | pending  |         |          |               |
-| 10    | pending  |         |          |               |
-| 11    | pending  |         |          |               |
-| 12    | pending  |         |          |               |
+| Stage | Status      | Started    | Finished   | Evidence link |
+|-------|-------------|------------|------------|---------------|
+| 0     | done        | 2026-05-01 | 2026-05-01 | docs bootstrap commit + branch push |
+| 1     | done        | 2026-05-01 | 2026-05-01 | iOS/Android token files + green builds |
+| 2     | done        | 2026-05-01 | 2026-05-01 | atmospheric particles landed both clients |
+| 3     | done        | 2026-05-01 | 2026-05-01 | risk-reactive globe anchor + cadence mapping |
+| 4     | done        | 2026-05-01 | 2026-05-01 | dashboard rebuilt (Aurora Calm hierarchy) |
+| 5     | done        | 2026-05-01 | 2026-05-01 | planner heat-strip + key events on both clients |
+| 6     | done        | 2026-05-01 | 2026-05-01 | symptoms pill UX + sleep selector + streak hint |
+| 7     | partial     | 2026-05-01 |            | correlations SQL/API/engine landed; follow-up tests/docs pending |
+| 8     | partial     | 2026-05-01 |            | insights tab live on iOS/Android; snapshot matrix pending |
+| 9     | partial     | 2026-05-01 |            | briefing SQL/service/API/script landed; dispatch dry-run blocked by local DB/env |
+| 10    | partial     | 2026-05-01 |            | settings toggle/time wired iOS+Android; device push proof pending |
+| 11    | partial     | 2026-05-01 |            | insights/settings empty+loading+error states polished; QA parity sweep pending |
+| 12    | blocked     | 2026-05-01 |            | full gate blocked locally (missing DB/JWT env + fastapi/pytest in system python) |
 
 This table is updated after each stage gate.

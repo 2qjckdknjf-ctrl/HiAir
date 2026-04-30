@@ -1,6 +1,5 @@
 package com.hiair.ui.theme
 
-import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
@@ -10,6 +9,8 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.design.TimeOfDayBackground
+import com.hiair.ui.design.Tokens
 
 object V2Ui {
     fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
@@ -34,7 +35,12 @@ object V2Ui {
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(context, 14), dp(context, 14), dp(context, 14), dp(context, 14))
-            background = cardBackground(context, "#132848", strokeHex = "#2E4B76", radiusDp = 18)
+            background = cardBackground(
+                context,
+                fillHex = colorHex(TimeOfDayBackground.surfacePrimary()),
+                strokeHex = "#2E4B76",
+                radiusDp = Tokens.RadiusDp.lg
+            )
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -48,7 +54,7 @@ object V2Ui {
         return TextView(context).apply {
             this.text = text
             textSize = 18f
-            setTextColor(Color.parseColor("#EAF1FB"))
+            setTextColor(Tokens.Text.primary)
         }
     }
 
@@ -56,7 +62,7 @@ object V2Ui {
         return TextView(context).apply {
             this.text = text
             textSize = 14f
-            setTextColor(Color.parseColor("#A6B6D2"))
+            setTextColor(Tokens.Text.secondary)
         }
     }
 
@@ -64,7 +70,7 @@ object V2Ui {
         return Button(context).apply {
             text = label
             textSize = 11f
-            setTextColor(Color.parseColor("#64D7FF"))
+            setTextColor(Tokens.Cta.start)
             minHeight = dp(context, 38)
             background = cardBackground(context, "#1B3A62", strokeHex = "#325888", radiusDp = 13)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -84,9 +90,9 @@ object V2Ui {
             minHeight = dp(context, 48)
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.parseColor("#59D8FF"), Color.parseColor("#9A8CFF"))
+                intArrayOf(Tokens.Cta.start, Tokens.Cta.end)
             ).apply {
-                cornerRadius = dp(context, 16).toFloat()
+                cornerRadius = dp(context, Tokens.RadiusDp.md).toFloat()
             }
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -100,9 +106,14 @@ object V2Ui {
     fun secondaryButton(context: Context, label: String): Button {
         return Button(context).apply {
             text = label
-            setTextColor(Color.parseColor("#DCE8FA"))
+            setTextColor(Tokens.Text.primary)
             minHeight = dp(context, 44)
-            background = cardBackground(context, "#20385D", strokeHex = "#355987", radiusDp = 13)
+            background = cardBackground(
+                context,
+                fillHex = colorHex(TimeOfDayBackground.surfaceSecondary()),
+                strokeHex = "#355987",
+                radiusDp = 13
+            )
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -112,40 +123,34 @@ object V2Ui {
         }
     }
 
-    fun startWeatherAnimation(context: Context, orb: View, title: TextView, mood: TextView) {
-        val states = listOf(
-            Triple("Sunny 26C", "Mood: Calm", intArrayOf(Color.parseColor("#52E0B0"), Color.parseColor("#64B8FF"))),
-            Triple("Heatwave 33C", "Mood: Stressed", intArrayOf(Color.parseColor("#FFA05C"), Color.parseColor("#FF6A73"))),
-            Triple("Windy 22C", "Mood: Energized", intArrayOf(Color.parseColor("#6FC5FF"), Color.parseColor("#9C91FF")))
-        )
-        var index = 0
+    fun applyRiskGlobeStyle(context: Context, orb: View, riskLevel: String, glowStrength: Float) {
+        val primary = Tokens.RiskAccent.forLevel(riskLevel)
+        val secondary = Color.parseColor("#66C7FF")
+        orb.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = intArrayOf(primary, secondary)
+            gradientType = GradientDrawable.RADIAL_GRADIENT
+            gradientRadius = dp(context, 48).toFloat()
+            alpha = (120 + glowStrength * 100).toInt().coerceIn(120, 230)
+        }
+        orb.elevation = dp(context, 12).toFloat() * glowStrength
+    }
+
+    fun startRiskGlobeAnimation(context: Context, orb: View, currentRiskLevel: () -> String) {
         ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 2200L
+            duration = 2800L
             repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
             addUpdateListener { animator ->
                 val progress = animator.animatedFraction
-                if (progress > 0.98f) {
-                    index = (index + 1) % states.size
-                    val state = states[index]
-                    title.text = state.first
-                    mood.text = state.second
-                    orb.background = GradientDrawable().apply {
-                        shape = GradientDrawable.OVAL
-                        colors = state.third
-                        gradientType = GradientDrawable.RADIAL_GRADIENT
-                        gradientRadius = dp(context, 48).toFloat()
-                    }
-                }
-                orb.scaleX = 0.96f + (progress * 0.08f)
-                orb.scaleY = 0.96f + (progress * 0.08f)
-                val alpha = ArgbEvaluator().evaluate(
-                    progress,
-                    Color.parseColor("#66FFFFFF"),
-                    Color.parseColor("#99FFFFFF")
-                ) as Int
-                orb.background?.alpha = Color.alpha(alpha)
+                val scale = 0.96f + progress * 0.08f
+                orb.scaleX = scale
+                orb.scaleY = scale
+                applyRiskGlobeStyle(context, orb, currentRiskLevel(), glowStrength = 0.6f + progress * 0.4f)
             }
             start()
         }
     }
+
+    private fun colorHex(colorInt: Int): String = String.format("#%08X", colorInt)
 }

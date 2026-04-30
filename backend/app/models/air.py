@@ -177,3 +177,19 @@ class SymptomHistoryItem(BaseModel):
 class SymptomHistoryResponse(BaseModel):
     profileId: str
     items: list[SymptomHistoryItem]
+
+
+class PersonalPatternInsight(BaseModel):
+    factorA: str
+    factorB: str
+    coefficient: float
+    pValue: float
+    sampleSize: int
+    humanReadableText: str
+
+
+class PersonalPatternsResponse(BaseModel):
+    profileId: str
+    windowDays: int
+    generatedAt: str
+    items: list[PersonalPatternInsight]

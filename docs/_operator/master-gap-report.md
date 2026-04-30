@@ -89,15 +89,15 @@ Second stabilization update:
 ### New surfaces tracked
 | Item                              | Owner   | Status   |
 |-----------------------------------|---------|----------|
-| Personal correlations table       | backend | planned  |
-| Insights API + AI explanation     | backend | planned  |
-| Insights tab UI (iOS + Android)   | mobile  | planned  |
-| Briefing schedule table           | backend | planned  |
-| Briefing dispatch worker          | backend | planned  |
-| Briefing settings UI              | mobile  | planned  |
-| Aurora Calm v2 design tokens      | mobile  | planned  |
-| Atmospheric layer + globe         | mobile  | planned  |
-| Privacy export coverage extension | backend | planned  |
+| Personal correlations table       | backend | in_progress |
+| Insights API + AI explanation     | backend | in_progress |
+| Insights tab UI (iOS + Android)   | mobile  | in_progress |
+| Briefing schedule table           | backend | in_progress |
+| Briefing dispatch worker          | backend | partial |
+| Briefing settings UI              | mobile  | in_progress |
+| Aurora Calm v2 design tokens      | mobile  | done |
+| Atmospheric layer + globe         | mobile  | done |
+| Privacy export coverage extension | backend | in_progress |
 ### Cycle exit will close
 - Documentation drift: design system now has a code-level SoT and on-platform
   tokens, removing the "no canonical design tokens" gap.

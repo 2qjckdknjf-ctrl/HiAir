@@ -11,10 +11,16 @@
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
 		1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F189463A81578D7DA02A429B /* AuthView.swift */; };
+		2B3C4D5E6F708192A3B4C5D6 /* AtmosphericParticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F708192A3B4C5D7 /* AtmosphericParticles.swift */; };
+		2B3C4D5E6F708192A3B4C5D8 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F708192A3B4C5D9 /* InsightsView.swift */; };
 		3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */; };
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
 		543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833EA8341D4356991598891 /* RootTabView.swift */; };
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
+		5A4B1C2D3E4F5061728394A1 /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B1C2D3E4F5061728394A2 /* HiAirV2Theme.swift */; };
+		5A4B1C2D3E4F5061728394A3 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B1C2D3E4F5061728394A4 /* Tokens.swift */; };
+		5A4B1C2D3E4F5061728394A5 /* TimeOfDayBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B1C2D3E4F5061728394A6 /* TimeOfDayBackground.swift */; };
+		5A4B1C2D3E4F5061728394A7 /* RiskAccentColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B1C2D3E4F5061728394A8 /* RiskAccentColor.swift */; };
 		BA5EEFEA16CA6962363CB004 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3067FB46BAFE989CA0A16E0E /* DashboardView.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		FD5992A72A475C761562967F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C556E4BD33D299DF71C4B0E6 /* APIClient.swift */; };
@@ -22,8 +28,14 @@
 
 /* Begin PBXFileReference section */
 		030CBAFA89BD721FF0066134 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F708192A3B4C5D7 /* AtmosphericParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphericParticles.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F708192A3B4C5D9 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		3067FB46BAFE989CA0A16E0E /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		35D1E2C509CFB15ACA399B3D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		5A4B1C2D3E4F5061728394A2 /* HiAirV2Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirV2Theme.swift; sourceTree = "<group>"; };
+		5A4B1C2D3E4F5061728394A4 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		5A4B1C2D3E4F5061728394A6 /* TimeOfDayBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDayBackground.swift; sourceTree = "<group>"; };
+		5A4B1C2D3E4F5061728394A8 /* RiskAccentColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskAccentColor.swift; sourceTree = "<group>"; };
 		5D79B00DF93EE905C5824D90 /* HiAir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HiAir.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8833EA8341D4356991598891 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		9BD707A08B6657EF85395B26 /* HiAirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirApp.swift; sourceTree = "<group>"; };
@@ -41,6 +53,7 @@
 			children = (
 				D9D61A692A21F8137C8C9A0A /* AppSession.swift */,
 				9BD707A08B6657EF85395B26 /* HiAirApp.swift */,
+				5A4B1C2D3E4F5061728394A9 /* DesignSystem */,
 				CCCC2230FAE0D5FAC8C9C4DB /* Models */,
 				D6817796DBAD8BF3B3C5061A /* Networking */,
 				F54A7392756BC05965EECA7B /* Screens */,
@@ -54,6 +67,16 @@
 				13361C91597A147BE3EB4C64 /* HiAir */,
 				D3EF8B731996E2DD6D0E88F5 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		5A4B1C2D3E4F5061728394A9 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				5A4B1C2D3E4F5061728394A4 /* Tokens.swift */,
+				5A4B1C2D3E4F5061728394A6 /* TimeOfDayBackground.swift */,
+				5A4B1C2D3E4F5061728394A8 /* RiskAccentColor.swift */,
+			);
+			path = DesignSystem;
 			sourceTree = "<group>";
 		};
 		CCCC2230FAE0D5FAC8C9C4DB /* Models */ = {
@@ -84,8 +107,11 @@
 			isa = PBXGroup;
 			children = (
 				F189463A81578D7DA02A429B /* AuthView.swift */,
+				2B3C4D5E6F708192A3B4C5D7 /* AtmosphericParticles.swift */,
 				D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */,
 				3067FB46BAFE989CA0A16E0E /* DashboardView.swift */,
+				5A4B1C2D3E4F5061728394A2 /* HiAirV2Theme.swift */,
+				2B3C4D5E6F708192A3B4C5D9 /* InsightsView.swift */,
 				C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */,
 				8833EA8341D4356991598891 /* RootTabView.swift */,
 				35D1E2C509CFB15ACA399B3D /* SettingsView.swift */,
@@ -151,10 +177,16 @@
 				FD5992A72A475C761562967F /* APIClient.swift in Sources */,
 				EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */,
 				1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */,
+				2B3C4D5E6F708192A3B4C5D6 /* AtmosphericParticles.swift in Sources */,
+				2B3C4D5E6F708192A3B4C5D8 /* InsightsView.swift in Sources */,
 				3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */,
 				BA5EEFEA16CA6962363CB004 /* DashboardView.swift in Sources */,
+				5A4B1C2D3E4F5061728394A1 /* HiAirV2Theme.swift in Sources */,
 				079F1318A8584B1939E4E3FE /* HiAirApp.swift in Sources */,
 				109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */,
+				5A4B1C2D3E4F5061728394A3 /* Tokens.swift in Sources */,
+				5A4B1C2D3E4F5061728394A5 /* TimeOfDayBackground.swift in Sources */,
+				5A4B1C2D3E4F5061728394A7 /* RiskAccentColor.swift in Sources */,
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,

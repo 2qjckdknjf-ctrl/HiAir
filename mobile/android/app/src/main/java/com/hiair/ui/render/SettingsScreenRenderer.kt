@@ -13,6 +13,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 
 internal object SettingsScreenRenderer {
@@ -32,6 +33,8 @@ internal object SettingsScreenRenderer {
         val userIdInput = EditText(activity).apply { hint = ctx.l("settings.user_id") }
         val tokenInput = EditText(activity).apply { hint = ctx.l("settings.token") }
         val pushAlertsBox = CheckBox(activity).apply { text = ctx.l("settings.push"); isChecked = true }
+        val morningBriefingBox = CheckBox(activity).apply { text = ctx.l("settings.morning_briefing"); isChecked = false }
+        val morningBriefingTimeInput = EditText(activity).apply { hint = ctx.l("settings.morning_briefing_time"); setText("07:30") }
         val profileAlertingBox = CheckBox(activity).apply { text = ctx.l("settings.profile_alerting"); isChecked = true }
         val quietStartInput = EditText(activity).apply { hint = ctx.l("settings.quiet_start"); setText("22") }
         val quietEndInput = EditText(activity).apply { hint = ctx.l("settings.quiet_end"); setText("7") }
@@ -205,6 +208,8 @@ internal object SettingsScreenRenderer {
                         val langIndex = languageOptions.indexOf(state.preferredLanguage)
                         if (langIndex >= 0) languageSpinner.setSelection(langIndex)
                         profileAlertingBox.isChecked = state.profileBasedAlerting
+                        morningBriefingBox.isChecked = state.morningBriefingEnabled
+                        morningBriefingTimeInput.setText(state.morningBriefingTime)
                         quietStartInput.setText(state.quietHoursStart.toString())
                         quietEndInput.setText(state.quietHoursEnd.toString())
                         statusText.text = state.statusText
@@ -225,6 +230,8 @@ internal object SettingsScreenRenderer {
                 val selectedLangIndex = languageSpinner.selectedItemPosition.coerceIn(0, languageOptions.lastIndex)
                 rootShell.settingsViewModel.setPreferredLanguage(languageOptions[selectedLangIndex])
                 rootShell.settingsViewModel.setProfileBasedAlerting(profileAlertingBox.isChecked)
+                rootShell.settingsViewModel.setMorningBriefingEnabled(morningBriefingBox.isChecked)
+                rootShell.settingsViewModel.setMorningBriefingTime(morningBriefingTimeInput.text.toString())
                 rootShell.settingsViewModel.setQuietHoursStart(quietStartInput.text.toString().toIntOrNull() ?: 22)
                 rootShell.settingsViewModel.setQuietHoursEnd(quietEndInput.text.toString().toIntOrNull() ?: 7)
                 Thread {
@@ -354,6 +361,8 @@ internal object SettingsScreenRenderer {
         emailInput.setText(state.email)
         pushAlertsBox.isChecked = state.pushAlertsEnabled
         profileAlertingBox.isChecked = state.profileBasedAlerting
+        morningBriefingBox.isChecked = state.morningBriefingEnabled
+        morningBriefingTimeInput.setText(state.morningBriefingTime)
         quietStartInput.setText(state.quietHoursStart.toString())
         quietEndInput.setText(state.quietHoursEnd.toString())
         val thresholdIndex = thresholdOptions.indexOf(state.alertThreshold)
@@ -408,6 +417,12 @@ internal object SettingsScreenRenderer {
         val notificationsCard = V2Ui.cardContainer(activity).apply {
             addView(sectionTitle("settings.notifications"))
             addView(pushAlertsBox)
+            addView(morningBriefingBox)
+            addView(morningBriefingTimeInput)
+            if (state.userId.isBlank()) {
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.briefing_setup_hint")))
+            }
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.morning_briefing_hint")))
             addView(profileAlertingBox)
             addView(quietStartInput)
             addView(quietEndInput)
@@ -475,6 +490,38 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(aiCard)
 
+        fun swatchRow(label: String, color: Int): LinearLayout {
+            val dot = View(activity).apply {
+                layoutParams = LinearLayout.LayoutParams(V2Ui.dp(activity, 14), V2Ui.dp(activity, 14)).apply {
+                    rightMargin = V2Ui.dp(activity, 8)
+                }
+                background = V2Ui.cardBackground(
+                    activity,
+                    fillHex = String.format("#%08X", color),
+                    strokeHex = "#40FFFFFF",
+                    radiusDp = 999
+                )
+            }
+            val text = V2Ui.styledSecondaryText(activity, label).apply { textSize = 13f }
+            return LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(dot)
+                addView(text)
+            }
+        }
+
+        val tokenCard = V2Ui.cardContainer(activity).apply {
+            addView(sectionTitle("settings.advanced_controls"))
+            addView(V2Ui.styledSecondaryText(activity, "Developer · Design tokens"))
+            addView(swatchRow("Risk low", Tokens.RiskAccent.low))
+            addView(swatchRow("Risk moderate", Tokens.RiskAccent.moderate))
+            addView(swatchRow("Risk high", Tokens.RiskAccent.high))
+            addView(swatchRow("Risk very high", Tokens.RiskAccent.veryHigh))
+            addView(swatchRow("CTA start", Tokens.Cta.start))
+            addView(swatchRow("CTA end", Tokens.Cta.end))
+        }
+        bodyContainer.addView(tokenCard)
+
         bodyContainer.addView(V2Ui.primaryButton(activity, ctx.l("settings.sync_now")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
@@ -488,6 +535,8 @@ internal object SettingsScreenRenderer {
                 val selectedLangIndex = languageSpinner.selectedItemPosition.coerceIn(0, languageOptions.lastIndex)
                 rootShell.settingsViewModel.setPreferredLanguage(languageOptions[selectedLangIndex])
                 rootShell.settingsViewModel.setProfileBasedAlerting(profileAlertingBox.isChecked)
+                rootShell.settingsViewModel.setMorningBriefingEnabled(morningBriefingBox.isChecked)
+                rootShell.settingsViewModel.setMorningBriefingTime(morningBriefingTimeInput.text.toString())
                 rootShell.settingsViewModel.setQuietHoursStart(quietStartInput.text.toString().toIntOrNull() ?: 22)
                 rootShell.settingsViewModel.setQuietHoursEnd(quietEndInput.text.toString().toIntOrNull() ?: 7)
                 Thread {

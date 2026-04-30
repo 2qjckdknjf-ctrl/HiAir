@@ -118,6 +118,30 @@ def _run_authenticated_checks(base_url: str) -> int:
             return 1
         print("[OK] /api/recommendations/daily")
 
+        briefing_get = client.get(f"{base}/api/briefings/schedule", headers=headers)
+        if briefing_get.status_code != 200:
+            print(f"[FAIL] /api/briefings/schedule GET (status={briefing_get.status_code})")
+            return 1
+        briefing_put = client.put(
+            f"{base}/api/briefings/schedule",
+            headers=headers,
+            json={"local_time": "07:30", "enabled": True},
+        )
+        if briefing_put.status_code != 200:
+            print(f"[FAIL] /api/briefings/schedule PUT (status={briefing_put.status_code})")
+            return 1
+        print("[OK] /api/briefings/schedule")
+
+        insights = client.get(
+            f"{base}/api/insights/personal-patterns",
+            headers=headers,
+            params={"profile_id": profile_id, "window_days": 30, "language": "en"},
+        )
+        if insights.status_code != 200:
+            print(f"[FAIL] /api/insights/personal-patterns (status={insights.status_code})")
+            return 1
+        print("[OK] /api/insights/personal-patterns")
+
         privacy_export = client.get(f"{base}/api/privacy/export", headers=headers)
         if privacy_export.status_code != 200:
             print(f"[FAIL] /api/privacy/export (status={privacy_export.status_code})")

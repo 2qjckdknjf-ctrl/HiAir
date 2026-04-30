@@ -28,6 +28,8 @@ class MainScreenRenderer(
 
     fun renderPlanner() = PlannerScreenRenderer.render(ctx)
 
+    fun renderInsights() = InsightsScreenRenderer.render(ctx)
+
     fun renderSymptoms() = SymptomsScreenRenderer.render(ctx)
 
     fun renderSettings() = SettingsScreenRenderer.render(ctx)
