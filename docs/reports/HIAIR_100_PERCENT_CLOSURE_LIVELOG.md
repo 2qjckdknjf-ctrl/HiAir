@@ -140,3 +140,13 @@
   - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local --write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` -> PASS (non-strict), artifact refreshed.
 - Result:
   - Release gate now produces owner-facing closure artifact by default, reducing manual handoff steps.
+
+## 2026-05-01 14:38 (UTC+2) — Owner Plan Stability Fix
+- Stage: remove noisy diff churn from generated owner artifact.
+- Changes:
+  - `scripts/release/check_external_readiness.py`
+    - Removed volatile generated timestamp from owner plan markdown output.
+  - `docs/release/EXTERNAL_OWNER_ACTION_PLAN.md`
+    - Regenerated with stable content format.
+- Verification:
+  - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local --write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` -> PASS (non-strict), stable artifact generation.

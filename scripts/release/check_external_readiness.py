@@ -6,7 +6,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
-from datetime import datetime, UTC
 
 REQUIRED_EXTERNAL_ENV_KEYS = [
     "APPLE_TEAM_ID",
@@ -151,7 +150,6 @@ def write_owner_plan_markdown(
     env_file: Path,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(tz=UTC).isoformat()
     missing_env_names = {
         item.name
         for item in unresolved
@@ -169,7 +167,6 @@ def write_owner_plan_markdown(
     lines: list[str] = [
         "# External Owner Action Plan",
         "",
-        f"- Generated at (UTC): `{timestamp}`",
         f"- Source env file: `{env_file}`",
         "",
         "## Current strict status",
