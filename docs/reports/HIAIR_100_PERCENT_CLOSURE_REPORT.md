@@ -60,7 +60,7 @@
 ## 7. CI/Gate Evidence
 | Command | Result | Notes |
 |---|---|---|
-| `cd backend && ../.venv/bin/python -m pytest tests -q` | PASS | 42 passed |
+| `cd backend && ../.venv/bin/python -m pytest tests -q` | PASS | 46 passed |
 | `cd backend && ./run_gate.sh --skip-db` | PASS | strict env + historical validation PASS |
 | `cd mobile/ios && xcodebuild -list -project HiAir.xcodeproj` | PASS | project/scheme discovery |
 | `cd mobile/ios && xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16' build` | PASS | debug simulator build |
@@ -73,6 +73,7 @@
 | `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local` | FAIL (expected) | owner-only blockers remain |
 | `./scripts/release/hiair_final_gate.sh --strict-external` | FAIL (expected) | external strict step fails on owner-only blockers |
 | `cd backend && ../.venv/bin/python -m pytest tests/test_privacy_export_api.py tests/test_privacy_delete_api.py tests/test_privacy_repository_serialization.py` | PASS | 7 passed |
+| `./scripts/release/hiair_final_gate.sh --strict-external` (rerun after owner-action output enhancement) | FAIL (expected) | still blocked only by external credentials/legal finalization; internal gates stay green |
 
 ## 8. External 100% Closure
 | Item | Status | Evidence | Owner Action |
@@ -140,6 +141,10 @@ Rules enforced:
 ## 13. Commits
 - `9bae3d1` — `chore(release): execute 100 percent closure baseline`
   - Includes risk-contract canonicalization updates, external checker expansion, Data Safety doc, and full closure report package.
+- `2527bce` — `fix(privacy): harden GDPR export coverage and closure tracking`
+  - Added refresh-token lifecycle export coverage, delete/export privacy API regressions, and GDPR closure docs alignment.
+- `4066d31` — `chore(release): add strict-green owner actions to external checker`
+  - Added explicit owner/legal action output for unresolved strict external blockers.
 
 ## 14. Push Status
 - pushed: **yes**

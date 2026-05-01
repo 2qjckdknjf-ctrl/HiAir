@@ -96,3 +96,22 @@
 - Result:
   - Privacy/GDPR technical contour strengthened and covered by targeted regressions.
   - Remaining blockers unchanged and external-only (credentials + legal sign-off/public URLs).
+
+## 2026-05-01 14:30-14:32 (UTC+2) — Strict External Gate Re-run + Owner Actions Proof
+- Stage: final strict re-run after checker UX hardening.
+- Commands and results:
+  - `./scripts/release/hiair_final_gate.sh --strict-external` -> FAIL (expected), external readiness step failed with `MISSING=14, BLOCKED=2`.
+  - Internal engineering checks inside strict gate remained green:
+    - backend tests: `46 passed`
+    - backend strict env check: PASS
+    - backend gate `--skip-db`: PASS
+    - iOS debug/release simulator builds: PASS
+    - Android test/assemble/lint: PASS
+- New strict-check evidence:
+  - External checker now prints explicit owner actions for strict-green:
+    - exact missing env keys
+    - legal status finalization steps
+    - verification command sequence
+- Result:
+  - No internal code regressions detected.
+  - Remaining blockers are still owner/legal/runtime-only.
