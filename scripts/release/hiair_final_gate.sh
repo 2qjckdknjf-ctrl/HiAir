@@ -93,11 +93,12 @@ PY
 }
 
 check_external_readiness() {
+  local owner_plan_path="${ROOT_DIR}/docs/release/EXTERNAL_OWNER_ACTION_PLAN.md"
   if [[ ${STRICT_EXTERNAL} -eq 1 ]]; then
-    python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --strict --env-file "${ROOT_DIR}/backend/.env.local"
+    python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --strict --env-file "${ROOT_DIR}/backend/.env.local" --write-owner-plan "${owner_plan_path}"
     return
   fi
-  python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --env-file "${ROOT_DIR}/backend/.env.local"
+  python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --env-file "${ROOT_DIR}/backend/.env.local" --write-owner-plan "${owner_plan_path}"
 }
 
 echo "HiAir final gate root: ${ROOT_DIR}"

@@ -82,6 +82,7 @@
 | External env template present and secret-safe | DONE | `backend/.env.external.example` | Fill values locally/runtime only |
 | External checker (non-strict + strict) | DONE | `scripts/release/check_external_readiness.py` | None |
 | Owner action plan auto-generation | DONE | `docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` via `--write-owner-plan` | Share generated plan with legal/release owner and execute |
+| Gate-level owner plan refresh | DONE | `scripts/release/hiair_final_gate.sh` external step now writes owner plan automatically | Use `hiair_final_gate.sh` as single command for latest handoff artifact |
 | Strict external mode in final gate | DONE | `scripts/release/hiair_final_gate.sh --strict-external` | None |
 | Real-device QA report artifact | DONE | `docs/release/qa/REAL_DEVICE_QA_REPORT.md` | Replace template rows with real evidence |
 | Apple/Google/APNS/FCM/legal runtime credentials | MISSING | strict checker output | Provide real values in local/runtime env |

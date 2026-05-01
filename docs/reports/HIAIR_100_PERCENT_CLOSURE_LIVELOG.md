@@ -128,3 +128,15 @@
   - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local --write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` -> PASS (non-strict), owner plan file generated.
 - Result:
   - Owner handoff is now one-command reproducible with up-to-date blocker snapshot.
+
+## 2026-05-01 14:37-14:38 (UTC+2) — Final Gate Integration for Owner Plan
+- Stage: integrate owner plan generation into release gate flow.
+- Changes:
+  - `scripts/release/hiair_final_gate.sh`
+    - External readiness step now always passes `--write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md`.
+    - Both non-strict and strict gate runs now refresh the owner action artifact automatically.
+- Verification:
+  - `bash -n scripts/release/hiair_final_gate.sh` -> PASS
+  - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local --write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` -> PASS (non-strict), artifact refreshed.
+- Result:
+  - Release gate now produces owner-facing closure artifact by default, reducing manual handoff steps.
