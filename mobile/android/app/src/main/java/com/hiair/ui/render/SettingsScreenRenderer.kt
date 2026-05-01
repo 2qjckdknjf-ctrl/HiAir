@@ -303,6 +303,7 @@ internal object SettingsScreenRenderer {
             setOnClickListener {
                 rootShell.settingsViewModel.setUserId("")
                 rootShell.settingsViewModel.setAccessToken("")
+                rootShell.settingsViewModel.setRefreshToken("")
                 rootShell.settingsViewModel.setPassword("")
                 clearSession()
                 userIdInput.setText("")

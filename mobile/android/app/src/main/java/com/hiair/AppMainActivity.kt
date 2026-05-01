@@ -14,6 +14,7 @@ import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
+import com.hiair.network.ApiClient
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.theme.V2Ui
 
@@ -34,6 +35,37 @@ class AppMainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
         restoreSession()
+        ApiClient.configureAuth(
+            provider = {
+                val state = rootShell.settingsViewModel.state
+                if (state.userId.isBlank() || state.accessToken.isBlank() || state.refreshToken.isBlank()) {
+                    null
+                } else {
+                    ApiClient.AuthState(
+                        userId = state.userId,
+                        accessToken = state.accessToken,
+                        refreshToken = state.refreshToken
+                    )
+                }
+            },
+            updater = { refreshed ->
+                runOnUiThread {
+                    if (refreshed == null) {
+                        rootShell.settingsViewModel.setUserId("")
+                        rootShell.settingsViewModel.setAccessToken("")
+                        rootShell.settingsViewModel.setRefreshToken("")
+                        rootShell.settingsViewModel.notifySessionExpired()
+                        rootShell.openSettings()
+                    } else {
+                        rootShell.settingsViewModel.setUserId(refreshed.userId)
+                        rootShell.settingsViewModel.setAccessToken(refreshed.accessToken)
+                        rootShell.settingsViewModel.setRefreshToken(refreshed.refreshToken)
+                    }
+                    persistSession()
+                    renderCurrentScreen()
+                }
+            }
+        )
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -116,6 +148,7 @@ class AppMainActivity : AppCompatActivity() {
         rootShell.settingsViewModel.setEmail(stored.email)
         rootShell.settingsViewModel.setUserId(stored.userId)
         rootShell.settingsViewModel.setAccessToken(stored.accessToken)
+        rootShell.settingsViewModel.setRefreshToken(stored.refreshToken)
     }
 
     private fun persistSession() {
@@ -124,7 +157,8 @@ class AppMainActivity : AppCompatActivity() {
             StoredSession(
                 email = state.email,
                 userId = state.userId,
-                accessToken = state.accessToken
+                accessToken = state.accessToken,
+                refreshToken = state.refreshToken
             )
         )
     }

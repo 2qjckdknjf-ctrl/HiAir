@@ -39,6 +39,8 @@ final class AuthViewModel: ObservableObject {
             }
             session.userId = response.userId
             session.accessToken = response.accessToken
+            session.refreshToken = response.refreshToken ?? ""
+            session.authNotice = ""
             statusText = session.l("auth.ok")
         } catch {
             statusText = session.l("auth.fail")
@@ -92,6 +94,14 @@ struct AuthView: View {
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
                 .disabled(viewModel.loading)
+
+                if !session.authNotice.isEmpty {
+                    Text(session.authNotice)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(AuroraTokens.ColorPalette.riskHigh)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                }
 
                 Text(viewModel.statusText)
                     .font(AuroraTokens.Typography.caption)

@@ -65,6 +65,9 @@ class Settings:
     vault_kv_mount: str = os.getenv("VAULT_KV_MOUNT", "secret")
     vault_kv_path: str = os.getenv("VAULT_KV_PATH", "hiair")
     app_env: str = os.getenv("APP_ENV", "development")
+    allow_insecure_local_dev: bool = (
+        os.getenv("HIAIR_ALLOW_INSECURE_LOCAL_DEV", "false").strip().lower() == "true"
+    )
 
 
 settings = Settings()
@@ -80,3 +83,5 @@ def validate_runtime_settings(current: Settings) -> None:
             raise RuntimeError("JWT_SECRET must be explicitly configured in protected environments.")
         if current.allow_legacy_user_header_auth:
             raise RuntimeError("Legacy X-User-Id auth must be disabled in protected environments.")
+        if current.allow_insecure_local_dev:
+            raise RuntimeError("HIAIR_ALLOW_INSECURE_LOCAL_DEV must be disabled in protected environments.")

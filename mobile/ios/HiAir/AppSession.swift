@@ -6,6 +6,7 @@ final class AppSession: ObservableObject {
         static let onboardingCompleted = "session.onboardingCompleted"
         static let userId = "session.userId"
         static let accessToken = "session.accessToken"
+        static let refreshToken = "session.refreshToken"
         static let profileId = "session.profileId"
         static let persona = "session.persona"
         static let sensitivity = "session.sensitivity"
@@ -17,6 +18,8 @@ final class AppSession: ObservableObject {
     @Published var onboardingCompleted = false { didSet { persist() } }
     @Published var userId = "" { didSet { persist() } }
     @Published var accessToken = "" { didSet { persist() } }
+    @Published var refreshToken = "" { didSet { persist() } }
+    @Published var authNotice = ""
     @Published var profileId = "" { didSet { persist() } }
     @Published var persona = "adult" { didSet { persist() } }
     @Published var sensitivity = "medium" { didSet { persist() } }
@@ -30,20 +33,53 @@ final class AppSession: ObservableObject {
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
         userId = defaults.string(forKey: Keys.userId) ?? ""
         accessToken = defaults.string(forKey: Keys.accessToken) ?? ""
+        refreshToken = defaults.string(forKey: Keys.refreshToken) ?? ""
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
         persona = defaults.string(forKey: Keys.persona) ?? "adult"
         sensitivity = defaults.string(forKey: Keys.sensitivity) ?? "medium"
         preferredLanguage = defaults.string(forKey: Keys.preferredLanguage) ?? "ru"
         latitude = defaults.object(forKey: Keys.latitude) as? Double ?? 41.39
         longitude = defaults.object(forKey: Keys.longitude) as? Double ?? 2.17
+        APIClient.setAuthInvalidatedHandler { [weak self] in
+            Task { @MainActor in
+                self?.expireSessionAfterAuthFailure()
+            }
+        }
+        if userId.isEmpty || accessToken.isEmpty || refreshToken.isEmpty {
+            APIClient.setAuthState(nil)
+        } else {
+            APIClient.setAuthState(
+                APIClient.AuthState(
+                    userId: userId,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken
+                )
+            )
+        }
     }
 
     func logout() {
         onboardingCompleted = false
         userId = ""
         accessToken = ""
+        refreshToken = ""
+        authNotice = ""
         profileId = ""
         selectedTab = 0
+        APIClient.setAuthState(nil)
+    }
+
+    func expireSessionAfterAuthFailure() {
+        guard !(userId.isEmpty && accessToken.isEmpty) else {
+            return
+        }
+        userId = ""
+        accessToken = ""
+        refreshToken = ""
+        profileId = ""
+        selectedTab = 0
+        authNotice = l("auth.session_expired")
+        APIClient.setAuthState(nil)
     }
 
     private func persist() {
@@ -51,12 +87,24 @@ final class AppSession: ObservableObject {
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(userId, forKey: Keys.userId)
         defaults.set(accessToken, forKey: Keys.accessToken)
+        defaults.set(refreshToken, forKey: Keys.refreshToken)
         defaults.set(profileId, forKey: Keys.profileId)
         defaults.set(persona, forKey: Keys.persona)
         defaults.set(sensitivity, forKey: Keys.sensitivity)
         defaults.set(preferredLanguage, forKey: Keys.preferredLanguage)
         defaults.set(latitude, forKey: Keys.latitude)
         defaults.set(longitude, forKey: Keys.longitude)
+        if userId.isEmpty || accessToken.isEmpty || refreshToken.isEmpty {
+            APIClient.setAuthState(nil)
+        } else {
+            APIClient.setAuthState(
+                APIClient.AuthState(
+                    userId: userId,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken
+                )
+            )
+        }
     }
 }
 
@@ -89,6 +137,7 @@ enum HiAirL10n {
             "auth.logging_in": "Входим...",
             "auth.enter_email": "Введите email.",
             "auth.password_short": "Пароль должен быть не короче 12 символов.",
+            "auth.session_expired": "Сессия истекла. Войдите снова.",
             "auth.ok": "Авторизация успешна.",
             "auth.fail": "Ошибка авторизации.",
             "onboarding.title": "Онбординг HiAir",
@@ -285,6 +334,7 @@ enum HiAirL10n {
             "auth.logging_in": "Logging in...",
             "auth.enter_email": "Enter email.",
             "auth.password_short": "Password must be at least 12 characters.",
+            "auth.session_expired": "Session expired. Please sign in again.",
             "auth.ok": "Authenticated.",
             "auth.fail": "Auth failed.",
             "onboarding.title": "HiAir Onboarding",

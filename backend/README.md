@@ -86,6 +86,7 @@ Retry controls:
 Auth token controls:
 - `ACCESS_TOKEN_TTL_MINUTES` (default `120`)
 - `REFRESH_TOKEN_TTL_DAYS` (default `30`)
+- `HIAIR_ALLOW_INSECURE_LOCAL_DEV` (default `false`, must stay `false` in staging/production)
 
 Secret rotation controls:
 - `NOTIFICATION_SECRET_ROTATION_DAYS` (default `30`)

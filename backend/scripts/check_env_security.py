@@ -60,6 +60,9 @@ def _load_env(env_file: str) -> dict[str, str]:
 
 def _run_checks(env: dict[str, str]) -> list[CheckResult]:
     checks: list[CheckResult] = []
+    app_env = env.get("APP_ENV", "development").strip().lower()
+    protected_env = app_env in {"production", "staging"}
+    allow_insecure_local_dev = env.get("HIAIR_ALLOW_INSECURE_LOCAL_DEV", "false").strip().lower() == "true"
 
     jwt_secret = env.get("JWT_SECRET", "")
     if not jwt_secret:
@@ -85,11 +88,17 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
 
     admin_token = env.get("NOTIFICATION_ADMIN_TOKEN", "")
     if not admin_token:
-        checks.append(CheckResult("WARN", "NOTIFICATION_ADMIN_TOKEN is empty. Admin endpoints are unprotected for ops workflows."))
+        if protected_env and not allow_insecure_local_dev:
+            checks.append(CheckResult("ERROR", "NOTIFICATION_ADMIN_TOKEN is empty in protected environment."))
+        else:
+            checks.append(CheckResult("WARN", "NOTIFICATION_ADMIN_TOKEN is empty. Admin endpoints may be unavailable."))
     elif len(admin_token) < 16:
         checks.append(CheckResult("WARN", "NOTIFICATION_ADMIN_TOKEN should be at least 16 chars."))
     else:
         checks.append(CheckResult("OK", "NOTIFICATION_ADMIN_TOKEN is present."))
+
+    if protected_env and allow_insecure_local_dev:
+        checks.append(CheckResult("ERROR", "HIAIR_ALLOW_INSECURE_LOCAL_DEV must be false in protected environments."))
 
     subscription_provider = env.get("SUBSCRIPTION_PROVIDER", "stub").strip().lower()
     if subscription_provider not in ("stub", "stripe"):

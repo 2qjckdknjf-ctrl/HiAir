@@ -5,7 +5,8 @@ import android.content.Context
 data class StoredSession(
     val email: String,
     val userId: String,
-    val accessToken: String
+    val accessToken: String,
+    val refreshToken: String
 )
 
 class SessionStore(context: Context) {
@@ -16,6 +17,7 @@ class SessionStore(context: Context) {
             email = prefs.getString("email", "") ?: "",
             userId = prefs.getString("user_id", "") ?: "",
             accessToken = prefs.getString("access_token", "") ?: "",
+            refreshToken = prefs.getString("refresh_token", "") ?: "",
         )
     }
 
@@ -24,6 +26,7 @@ class SessionStore(context: Context) {
             .putString("email", session.email)
             .putString("user_id", session.userId)
             .putString("access_token", session.accessToken)
+            .putString("refresh_token", session.refreshToken)
             .apply()
     }
 

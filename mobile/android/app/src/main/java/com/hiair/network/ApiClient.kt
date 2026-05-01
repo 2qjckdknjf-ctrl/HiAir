@@ -9,6 +9,33 @@ import org.json.JSONObject
 class ApiHttpException(val statusCode: Int, message: String) : RuntimeException(message)
 
 class ApiClient(private val baseUrl: String) {
+    data class AuthState(
+        val userId: String,
+        val accessToken: String,
+        val refreshToken: String
+    )
+
+    companion object {
+        @Volatile
+        private var authProvider: (() -> AuthState?)? = null
+        @Volatile
+        private var authUpdater: ((AuthState?) -> Unit)? = null
+
+        fun configureAuth(
+            provider: (() -> AuthState?)?,
+            updater: ((AuthState?) -> Unit)?
+        ) {
+            authProvider = provider
+            authUpdater = updater
+        }
+
+        private fun currentAuthState(): AuthState? = authProvider?.invoke()
+
+        private fun updateAuthState(state: AuthState?) {
+            authUpdater?.invoke(state)
+        }
+    }
+
     @Suppress("UNUSED_PARAMETER")
     private fun authHeaders(userId: String, accessToken: String?): Map<String, String> {
         if (!accessToken.isNullOrBlank()) {
@@ -273,37 +300,14 @@ class ApiClient(private val baseUrl: String) {
         body: String?,
         headers: Map<String, String> = emptyMap()
     ): String {
-        val connection = URL(endpoint).openConnection() as HttpURLConnection
-        connection.requestMethod = method
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-        headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
-        if (method == "POST") {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            if (body != null) {
-                connection.outputStream.use { output ->
-                    output.write(body.toByteArray())
-                }
-            }
-        }
-        if (method == "PUT") {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            if (body != null) {
-                connection.outputStream.use { output ->
-                    output.write(body.toByteArray())
-                }
-            }
-        }
-
-        return try {
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            stream.bufferedReader().readText()
-        } finally {
-            connection.disconnect()
-        }
+        val (_, payload) = executeRequest(
+            method = method,
+            endpoint = endpoint,
+            body = body,
+            headers = headers,
+            allowRefresh = true
+        )
+        return payload
     }
 
     private fun requestStrict(
@@ -312,6 +316,26 @@ class ApiClient(private val baseUrl: String) {
         body: String?,
         headers: Map<String, String> = emptyMap()
     ): String {
+        val (code, payload) = executeRequest(
+            method = method,
+            endpoint = endpoint,
+            body = body,
+            headers = headers,
+            allowRefresh = true
+        )
+        if (code !in 200..299) {
+            throw ApiHttpException(code, "HTTP $code for $endpoint")
+        }
+        return payload
+    }
+
+    private fun executeRequest(
+        method: String,
+        endpoint: String,
+        body: String?,
+        headers: Map<String, String>,
+        allowRefresh: Boolean
+    ): Pair<Int, String> {
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         connection.requestMethod = method
         connection.connectTimeout = 10_000
@@ -326,16 +350,66 @@ class ApiClient(private val baseUrl: String) {
                 }
             }
         }
-        return try {
-            val code = connection.responseCode
+        val code: Int
+        val payload: String
+        try {
+            code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val payload = stream?.bufferedReader()?.readText() ?: ""
-            if (code !in 200..299) {
-                throw ApiHttpException(code, "HTTP $code for $endpoint")
-            }
-            payload
+            payload = stream?.bufferedReader()?.readText() ?: ""
         } finally {
             connection.disconnect()
+        }
+
+        if (allowRefresh && code == 401 && headers.containsKey("Authorization") && refreshAccessToken()) {
+            val refreshedHeaders = headers.toMutableMap()
+            val refreshedToken = currentAuthState()?.accessToken.orEmpty()
+            if (refreshedToken.isNotBlank()) {
+                refreshedHeaders["Authorization"] = "Bearer $refreshedToken"
+            }
+            return executeRequest(
+                method = method,
+                endpoint = endpoint,
+                body = body,
+                headers = refreshedHeaders,
+                allowRefresh = false
+            )
+        }
+        return code to payload
+    }
+
+    private fun refreshAccessToken(): Boolean {
+        val state = currentAuthState() ?: return false
+        if (state.refreshToken.isBlank()) {
+            updateAuthState(null)
+            return false
+        }
+        return try {
+            val endpoint = "$baseUrl/api/auth/refresh"
+            val body = JSONObject().apply {
+                put("refresh_token", state.refreshToken)
+            }.toString()
+            val (code, payload) = executeRequest(
+                method = "POST",
+                endpoint = endpoint,
+                body = body,
+                headers = emptyMap(),
+                allowRefresh = false
+            )
+            if (code !in 200..299) {
+                updateAuthState(null)
+                return false
+            }
+            val json = JSONObject(payload)
+            val nextState = AuthState(
+                userId = json.optString("user_id", state.userId),
+                accessToken = json.getString("access_token"),
+                refreshToken = json.optString("refresh_token", state.refreshToken)
+            )
+            updateAuthState(nextState)
+            true
+        } catch (_: Exception) {
+            updateAuthState(null)
+            false
         }
     }
 }

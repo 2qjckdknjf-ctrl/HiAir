@@ -15,6 +15,7 @@ data class SettingsState(
     val password: String = "",
     val userId: String = "",
     val accessToken: String = "",
+    val refreshToken: String = "",
     val pushAlertsEnabled: Boolean = true,
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
@@ -75,6 +76,14 @@ class SettingsViewModel(
 
     fun setAccessToken(value: String) {
         state = state.copy(accessToken = value)
+    }
+
+    fun setRefreshToken(value: String) {
+        state = state.copy(refreshToken = value)
+    }
+
+    fun notifySessionExpired() {
+        state = state.copy(statusText = l("settings.auth_expired"))
     }
 
     fun setSelectedPlanId(value: String) {
@@ -223,7 +232,7 @@ class SettingsViewModel(
     }
 
     fun signup() {
-        if (state.email.isBlank() || state.password.length < 8) {
+        if (state.email.isBlank() || state.password.length < 12) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             return
         }
@@ -234,6 +243,7 @@ class SettingsViewModel(
                 loading = false,
                 userId = json.getString("user_id"),
                 accessToken = json.getString("access_token"),
+                refreshToken = json.optString("refresh_token", ""),
                 statusText = l("settings.signed_up")
             )
         } catch (_: Exception) {
@@ -242,7 +252,7 @@ class SettingsViewModel(
     }
 
     fun login() {
-        if (state.email.isBlank() || state.password.length < 8) {
+        if (state.email.isBlank() || state.password.length < 12) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             return
         }
@@ -253,6 +263,7 @@ class SettingsViewModel(
                 loading = false,
                 userId = json.getString("user_id"),
                 accessToken = json.getString("access_token"),
+                refreshToken = json.optString("refresh_token", ""),
                 statusText = l("settings.logged_in")
             )
         } catch (_: Exception) {

@@ -7,6 +7,16 @@ enum APIError: Error {
 }
 
 final class APIClient {
+    struct AuthState {
+        let userId: String
+        let accessToken: String
+        let refreshToken: String
+    }
+
+    private static let authStateLock = NSLock()
+    private static var authState: AuthState?
+    private static var authInvalidatedHandler: (() -> Void)?
+
     private let baseURL: URL
     private let session: URLSession
 
@@ -19,21 +29,69 @@ final class APIClient {
         APIClient(baseURL: resolveBaseURL(), session: session)
     }
 
+    static func setAuthState(_ state: AuthState?) {
+        authStateLock.lock()
+        defer { authStateLock.unlock() }
+        authState = state
+    }
+
+    static func setAuthInvalidatedHandler(_ handler: (() -> Void)?) {
+        authStateLock.lock()
+        defer { authStateLock.unlock() }
+        authInvalidatedHandler = handler
+    }
+
+    private static func getAuthState() -> AuthState? {
+        authStateLock.lock()
+        defer { authStateLock.unlock() }
+        return authState
+    }
+
+    private static func clearAuthStateAndNotify() {
+        authStateLock.lock()
+        authState = nil
+        let handler = authInvalidatedHandler
+        authStateLock.unlock()
+        handler?()
+    }
+
     private static func resolveBaseURL() -> URL {
+        #if DEBUG
         let defaultBaseURL = "http://127.0.0.1:8000"
+        #else
+        let defaultBaseURL = "https://api.hiair.app"
+        #endif
         let fromEnv = ProcessInfo.processInfo.environment["HIAIR_API_BASE_URL"]?.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
-        if let fromEnv, !fromEnv.isEmpty, let url = URL(string: fromEnv) {
+        if let fromEnv,
+           !fromEnv.isEmpty,
+           let url = validatedBaseURL(fromEnv) {
             return url
         }
 
         let fromPlist = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        if let fromPlist, !fromPlist.isEmpty, let url = URL(string: fromPlist) {
+        if let fromPlist,
+           !fromPlist.isEmpty,
+           let url = validatedBaseURL(fromPlist) {
             return url
         }
 
         return URL(string: defaultBaseURL)!
+    }
+
+    private static func validatedBaseURL(_ raw: String) -> URL? {
+        guard let url = URL(string: raw) else {
+            return nil
+        }
+        if url.scheme?.lowercased() == "https" {
+            return url
+        }
+        #if DEBUG
+        return url
+        #else
+        return nil
+        #endif
     }
 
     private func applyAuthHeaders(
@@ -41,11 +99,77 @@ final class APIClient {
         accessToken: String? = nil,
         userId: String? = nil
     ) {
+        if let state = Self.getAuthState(), !state.accessToken.isEmpty {
+            if let userId, !userId.isEmpty, userId != state.userId {
+                // fall through to explicit token for mismatched session.
+            } else {
+                request.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
+                return
+            }
+        }
         if let accessToken, !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             return
         }
         _ = userId
+    }
+
+    private func sendRequest(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        return (data, httpResponse)
+    }
+
+    private func sendRequestWithAutoRefresh(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, httpResponse) = try await sendRequest(request)
+        guard httpResponse.statusCode == 401 else {
+            return (data, httpResponse)
+        }
+        let refreshed = try await refreshAccessToken()
+        guard refreshed else {
+            Self.clearAuthStateAndNotify()
+            return (data, httpResponse)
+        }
+        var retriedRequest = request
+        if let state = Self.getAuthState(), !state.accessToken.isEmpty {
+            retriedRequest.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        return try await sendRequest(retriedRequest)
+    }
+
+    private func refreshAccessToken() async throws -> Bool {
+        guard let state = Self.getAuthState(),
+              !state.refreshToken.isEmpty
+        else {
+            return false
+        }
+        let url = baseURL.appending(path: "/api/auth/refresh")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        struct RefreshPayload: Codable {
+            let refreshToken: String
+
+            enum CodingKeys: String, CodingKey {
+                case refreshToken = "refresh_token"
+            }
+        }
+        request.httpBody = try JSONEncoder().encode(RefreshPayload(refreshToken: state.refreshToken))
+        let (data, response) = try await sendRequest(request)
+        guard (200...299).contains(response.statusCode) else {
+            Self.clearAuthStateAndNotify()
+            return false
+        }
+        let auth = try JSONDecoder().decode(AuthResponse.self, from: data)
+        let nextState = AuthState(
+            userId: auth.userId,
+            accessToken: auth.accessToken,
+            refreshToken: auth.refreshToken ?? state.refreshToken
+        )
+        Self.setAuthState(nextState)
+        return true
     }
 
     func signup(email: String, password: String) async throws -> AuthResponse {
@@ -153,10 +277,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -180,10 +301,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -207,10 +325,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -240,10 +355,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -259,10 +371,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -281,10 +390,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -303,10 +409,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -351,10 +454,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -373,10 +473,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -395,10 +492,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (_, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -476,10 +570,7 @@ final class APIClient {
             Payload(platform: platform, deviceToken: deviceToken, profileId: profileId)
         )
 
-        let (_, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -506,10 +597,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -531,10 +619,7 @@ final class APIClient {
             ActivateSubscriptionRequest(planId: planId, useTrial: useTrial)
         )
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -550,10 +635,7 @@ final class APIClient {
         request.httpMethod = "POST"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
