@@ -222,6 +222,19 @@ class ApiClient(private val baseUrl: String) {
         return request("PUT", endpoint, json, authHeaders(userId, accessToken))
     }
 
+    fun fetchPrivacyExport(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/privacy/export"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun deleteAccount(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/privacy/delete-account"
+        val json = JSONObject().apply {
+            put("confirmation", "DELETE")
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun createQuickSymptom(
         userId: String,
         accessToken: String? = null,

@@ -9,6 +9,7 @@ from app.models.air import (
     UserProfileContext,
 )
 from app.services.localization import normalize_language, t
+from app.services.risk_level_contract import normalize_air_level_value
 import app.services.air_repository as air_repository
 import app.services.settings_repository as settings_repository
 
@@ -18,7 +19,7 @@ def _severity_from_risk_level(level: str) -> AlertSeverity:
         return AlertSeverity.CRITICAL_NON_MEDICAL
     if level == "high":
         return AlertSeverity.HIGH
-    if level in ("moderate", "medium"):
+    if level == "moderate":
         return AlertSeverity.MEDIUM
     return AlertSeverity.LOW
 
@@ -62,12 +63,12 @@ def evaluate_alert(
         )
 
     latest = air_repository.get_latest_risk_assessment(profile.profile_id)
-    latest_level = latest["overall_risk"] if latest else "low"
-    current_level = risk.overallRisk.value
+    latest_level = normalize_air_level_value(latest["overall_risk"]) if latest else "low"
+    current_level = normalize_air_level_value(risk.overallRisk.value)
     alert_type = AlertType.RISK_INCREASE if current_level != latest_level else AlertType.CAUTION_FOR_PROFILE
     severity = _severity_from_risk_level(current_level)
 
-    if current_level == latest_level and current_level in ("low", "moderate", "medium"):
+    if current_level == latest_level and current_level in ("low", "moderate"):
         return AlertDecision(
             shouldSend=False,
             alertType=None,

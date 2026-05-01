@@ -91,6 +91,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiNetworkCount = 0
     @Published var aiServerCount = 0
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
+    @Published var privacyExportSummary = "-"
     @Published var statusText = "-"
     @Published var loading = false
 
@@ -215,6 +216,44 @@ final class SettingsViewModel: ObservableObject {
             statusText = l("settings.saved")
         } catch {
             statusText = l("settings.save_failed")
+        }
+    }
+
+    func exportPrivacyData() async {
+        guard !userId.isEmpty else {
+            statusText = l("settings.user_id_required")
+            return
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            let payload = try await apiClient.fetchPrivacyExport(userId: userId, accessToken: accessToken)
+            let data = payload["data"] as? [String: Any]
+            let sectionCount = data?.keys.count ?? 0
+            privacyExportSummary = "\(l("settings.privacy_export_ready")): \(sectionCount)"
+            statusText = l("settings.privacy_export_done")
+        } catch {
+            statusText = l("settings.privacy_export_failed")
+        }
+    }
+
+    func deleteAccount() async -> Bool {
+        guard !userId.isEmpty else {
+            statusText = l("settings.user_id_required")
+            return false
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            try await apiClient.deleteAccount(userId: userId, accessToken: accessToken)
+            statusText = l("settings.account_deleted")
+            userId = ""
+            accessToken = ""
+            privacyExportSummary = "-"
+            return true
+        } catch {
+            statusText = l("settings.account_delete_failed")
+            return false
         }
     }
 
@@ -790,12 +829,32 @@ struct SettingsView: View {
                         .textFieldStyle(.roundedBorder)
                     SecureField(session.l("settings.token"), text: $viewModel.accessToken)
                         .textFieldStyle(.roundedBorder)
+                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.privacy_export")) {
+                        Task { await viewModel.exportPrivacyData() }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.loading)
+                    Text(viewModel.privacyExportSummary)
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.delete_account")) {
+                        Task {
+                            let deleted = await viewModel.deleteAccount()
+                            if deleted {
+                                session.logout()
+                            }
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.loading)
+                    .foregroundStyle(.red)
                     Button(session.l("settings.log_out")) {
                         session.logout()
                         viewModel.userId = ""
                         viewModel.accessToken = ""
                         viewModel.subscriptionStatus = "inactive"
                         viewModel.statusText = session.l("settings.logged_out")
+                        viewModel.privacyExportSummary = "-"
                     }
                     .foregroundStyle(.red)
                 }

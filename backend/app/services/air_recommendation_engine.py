@@ -20,7 +20,7 @@ def generate_recommendation(
             t(lang, "rec.high.action2"),
             t(lang, "rec.high.action3"),
         ]
-    elif risk.overallRisk in (RiskLevel.MODERATE, RiskLevel.MEDIUM):
+    elif risk.overallRisk == RiskLevel.MODERATE:
         headline = t(lang, "rec.moderate.headline")
         summary = t(lang, "rec.moderate.summary")
         actions = [

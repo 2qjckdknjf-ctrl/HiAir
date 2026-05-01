@@ -112,3 +112,59 @@
   - iOS debug/release no-sign builds pass;
   - Android test/assemble/lint pass;
   - release config and secret baseline checks pass.
+
+## 2026-05-01 04:50-04:54
+- Closed remaining mobile privacy parity gap:
+  - iOS: added `/api/privacy/export` and `/api/privacy/delete-account` client calls and Settings actions.
+  - Android: added `/api/privacy/export` and `/api/privacy/delete-account` client calls and Settings actions.
+  - Added RU/EN localization keys for export/delete statuses.
+- Re-ran full release gate:
+  - `scripts/release/hiair_final_gate.sh` -> PASS.
+- Updated readiness artifacts:
+  - `docs/reports/HIAIR_MOBILE_API_PARITY_MATRIX.md` (privacy endpoints -> DONE),
+  - `docs/08_KNOWN_GAPS.md` (removed privacy UI partial gap),
+  - `docs/reports/HIAIR_FINAL_HARDENING_REPORT.md` (scores and status adjusted).
+
+## 2026-05-01 04:59-05:03
+- Closed remaining backend P1 risk-contract gap:
+  - removed air-domain `RiskLevel.MEDIUM` alias in `backend/app/models/air.py`;
+  - removed API/briefing response-time alias normalization;
+  - introduced boundary-only legacy mapping (`medium` -> `moderate`) in alert compatibility path.
+- Updated tests for canonicalized contract:
+  - backend suite now `42 passed`.
+- Re-ran full release gate:
+  - `scripts/release/hiair_final_gate.sh` -> PASS.
+- Updated readiness docs:
+  - `docs/08_KNOWN_GAPS.md` P1 -> none,
+  - `docs/reports/HIAIR_MOBILE_API_PARITY_MATRIX.md` notes updated,
+  - `docs/reports/HIAIR_FINAL_HARDENING_REPORT.md` backend/internal readiness set to 100 with external blockers isolated.
+
+## 2026-05-01 05:08-05:11
+- Added external-closure automation and owner workflow:
+  - new script `scripts/release/check_external_readiness.py` for Apple/Google/push/legal/QA artifact checks;
+  - integrated optional strict mode into final gate: `scripts/release/hiair_final_gate.sh --strict-external`;
+  - added owner runbook `docs/release/EXTERNAL_100_CHECKLIST.md`.
+- Updated release/readiness docs with strict command path and external closure workflow:
+  - `docs/05_RELEASE_READINESS.md`,
+  - `docs/reports/HIAIR_FINAL_HARDENING_REPORT.md`.
+- Validation:
+  - `scripts/release/hiair_final_gate.sh` -> PASS (external check in non-strict informational mode).
+  - `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local` -> FAIL with 15 missing external items (expected until owners provide credentials/artifacts).
+
+## 2026-05-01 09:44-09:52
+- Implemented requested External 100% closure expansion:
+  - upgraded `scripts/release/check_external_readiness.py` to validate A/B/C/D blocks with `DONE/MISSING/BLOCKED`;
+  - added public URL validation for legal links;
+  - added readability checks for APNS/FCM file paths;
+  - added legal finalization blocking checks from `docs/06_PRIVACY_LEGAL_STATUS.md`.
+- Created real-device QA evidence template:
+  - `docs/release/qa/REAL_DEVICE_QA_REPORT.md` with required columns and critical flows.
+- Updated external artifacts:
+  - `backend/.env.external.example` (blank keys only, no secrets),
+  - `docs/release/EXTERNAL_100_CHECKLIST.md` (emergency disclaimer step included),
+  - `docs/06_PRIVACY_LEGAL_STATUS.md` (explicit Privacy Policy/Terms status fields).
+- Revalidated commands:
+  - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local` -> PASS (non-strict, informational), summary `MISSING=14, BLOCKED=2, DONE=10`.
+  - `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local` -> FAIL (expected), summary `MISSING=14, BLOCKED=2, DONE=10`.
+  - `scripts/release/hiair_final_gate.sh --strict-external` -> FAIL (expected only at external readiness step), engineering checks remain green.
+- Updated `docs/reports/HIAIR_FINAL_HARDENING_REPORT.md` with new section `External 100% Closure`, owner actions, exact verification commands, and updated evidence counts.

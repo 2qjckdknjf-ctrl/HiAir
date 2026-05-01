@@ -4,8 +4,7 @@
 - None currently open from automated engineering checks in this run.
 
 ## P1 (important before wider beta)
-- Mobile privacy export/delete UI exposure is partial; backend endpoints exist.
-- Risk-level canonicalization still carries `medium`/`moderate` compatibility alias complexity.
+- None currently open from automated engineering checks in this run.
 
 ## External Blockers
 - APNs production keys and FCM production credentials.

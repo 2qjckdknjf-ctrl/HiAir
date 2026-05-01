@@ -50,6 +50,7 @@ data class SettingsState(
     val aiInlineActionType: String = "",
     val aiLastUpdatedLabel: String = "-",
     val aiBreakdownText: String = "-",
+    val privacyExportSummary: String = "-",
     val loading: Boolean = false,
     val statusText: String = "-"
 )
@@ -326,6 +327,50 @@ class SettingsViewModel(
             state = state.copy(loading = false, statusText = l("settings.saved"))
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.save_failed"))
+        }
+    }
+
+    fun exportPrivacyData() {
+        if (state.userId.isBlank()) {
+            state = state.copy(statusText = l("settings.user_id_required"))
+            return
+        }
+        state = state.copy(loading = true)
+        try {
+            val json = JSONObject(apiClient.fetchPrivacyExport(state.userId, state.accessToken))
+            val sectionCount = json.optJSONObject("data")?.length() ?: 0
+            state = state.copy(
+                loading = false,
+                privacyExportSummary = "${l("settings.privacy_export_ready")}: $sectionCount",
+                statusText = l("settings.privacy_export_done")
+            )
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.privacy_export_failed"))
+        }
+    }
+
+    fun deleteAccount(): Boolean {
+        if (state.userId.isBlank()) {
+            state = state.copy(statusText = l("settings.user_id_required"))
+            return false
+        }
+        state = state.copy(loading = true)
+        return try {
+            apiClient.deleteAccount(state.userId, state.accessToken)
+            state = state.copy(
+                loading = false,
+                email = "",
+                password = "",
+                userId = "",
+                accessToken = "",
+                refreshToken = "",
+                privacyExportSummary = "-",
+                statusText = l("settings.account_deleted")
+            )
+            true
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))
+            false
         }
     }
 

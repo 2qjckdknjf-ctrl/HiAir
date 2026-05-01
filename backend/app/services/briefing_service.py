@@ -12,7 +12,6 @@ import app.services.briefing_repository as briefing_repository
 import app.services.notification_dispatcher as notification_dispatcher
 import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
-from app.services.risk_level_contract import normalize_air_risk, normalize_day_plan
 
 
 def get_due_briefings(now_utc: datetime | None = None) -> list[dict[str, str]]:
@@ -40,8 +39,8 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
 
     user_settings = settings_repository.get_user_settings(user_id)
     environment = air_environment_service.load_environment(profile, force_live=False)
-    risk = normalize_air_risk(air_risk_engine.evaluate_risk(profile, environment))
-    plan = normalize_day_plan(air_risk_engine.build_day_plan(profile, environment))
+    risk = air_risk_engine.evaluate_risk(profile, environment)
+    plan = air_risk_engine.build_day_plan(profile, environment)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=user_settings.preferred_language)
     explanation, _ = ai_explanation_service.generate_explanation(
         profile=profile,

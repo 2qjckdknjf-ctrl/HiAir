@@ -3,6 +3,21 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FAILED=0
+STRICT_EXTERNAL=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --strict-external)
+      STRICT_EXTERNAL=1
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: $0 [--strict-external]"
+      exit 2
+      ;;
+  esac
+done
 
 run_step() {
   local title="$1"
@@ -77,11 +92,20 @@ if violations:
 PY
 }
 
+check_external_readiness() {
+  if [[ ${STRICT_EXTERNAL} -eq 1 ]]; then
+    python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --strict --env-file "${ROOT_DIR}/backend/.env.local"
+    return
+  fi
+  python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --env-file "${ROOT_DIR}/backend/.env.local"
+}
+
 echo "HiAir final gate root: ${ROOT_DIR}"
 
 run_step "Android release config verification" check_android_release_config
 run_step "iOS release config verification" check_ios_release_config
 run_step "Repository secret baseline scan" check_repo_secret_baseline
+run_step "External readiness checklist" check_external_readiness
 
 if command -v python3 >/dev/null 2>&1 && [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
   run_step "Backend full test suite" bash -lc "cd '${ROOT_DIR}/backend' && ../.venv/bin/python -m pytest tests -q"

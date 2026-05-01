@@ -133,16 +133,16 @@ def test_alert_high_risk_returns_high_severity(monkeypatch) -> None:
     assert decision.severity == AlertSeverity.HIGH
 
 
-def test_recommendation_accepts_medium_alias() -> None:
+def test_recommendation_supports_moderate_level() -> None:
     card = generate_recommendation(
         build_profile(ProfileType.ADULT_DEFAULT),
-        build_risk(RiskLevel.MEDIUM),
+        build_risk(RiskLevel.MODERATE),
         language="en",
     )
     assert "safer" in card.headline.lower() or "conditions" in card.summary.lower()
 
 
-def test_alert_medium_alias_maps_to_medium_severity(monkeypatch) -> None:
+def test_alert_legacy_medium_history_maps_to_medium_severity(monkeypatch) -> None:
     def fake_settings(_: str) -> UserSettingsResponse:
         return UserSettingsResponse(
             user_id="user-1",
@@ -158,7 +158,7 @@ def test_alert_medium_alias_maps_to_medium_severity(monkeypatch) -> None:
     monkeypatch.setattr("app.services.alert_orchestrator.settings_repository.get_user_settings", fake_settings)
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.get_latest_risk_assessment",
-        lambda _: {"overall_risk": "low"},
+        lambda _: {"overall_risk": "medium"},
     )
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
@@ -171,8 +171,9 @@ def test_alert_medium_alias_maps_to_medium_severity(monkeypatch) -> None:
 
     decision = evaluate_alert(
         build_profile(ProfileType.ADULT_DEFAULT),
-        build_risk(RiskLevel.MEDIUM),
+        build_risk(RiskLevel.MODERATE),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
     )
-    assert decision.shouldSend is True
-    assert decision.severity == AlertSeverity.MEDIUM
+    assert decision.shouldSend is False
+    assert decision.reason == "no_material_change"
+    assert decision.severity is None

@@ -461,6 +461,37 @@ final class APIClient {
         return try JSONDecoder().decode(UserSettingsResponse.self, from: data)
     }
 
+    func fetchPrivacyExport(userId: String, accessToken: String? = nil) async throws -> [String: Any] {
+        let url = baseURL.appending(path: "/api/privacy/export")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        let raw = try JSONSerialization.jsonObject(with: data, options: [])
+        guard let payload = raw as? [String: Any] else {
+            throw APIError.invalidResponse
+        }
+        return payload
+    }
+
+    func deleteAccount(userId: String, accessToken: String? = nil) async throws {
+        let url = baseURL.appending(path: "/api/privacy/delete-account")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(["confirmation": "DELETE"])
+
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
     func updateUserSettings(
         userId: String,
         payload: UserSettingsUpdateRequest,

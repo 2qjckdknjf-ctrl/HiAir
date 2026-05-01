@@ -311,6 +311,49 @@ internal object SettingsScreenRenderer {
                 statusText.text = ctx.l("settings.logged_out")
             }
         }
+        val privacyExportSummary = V2Ui.styledSecondaryText(
+            activity,
+            rootShell.settingsViewModel.state.privacyExportSummary
+        ).apply {
+            textSize = 13f
+        }
+        val exportPrivacyButton = V2Ui.secondaryButton(activity, ctx.l("settings.privacy_export")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                Thread {
+                    rootShell.settingsViewModel.exportPrivacyData()
+                    val updated = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        privacyExportSummary.text = updated.privacyExportSummary
+                        statusText.text = updated.statusText
+                    }
+                }.start()
+            }
+        }
+        val deleteAccountButton = V2Ui.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                Thread {
+                    val deleted = rootShell.settingsViewModel.deleteAccount()
+                    val updated = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        if (deleted) {
+                            clearSession()
+                            emailInput.setText("")
+                            passwordInput.setText("")
+                            userIdInput.setText("")
+                            tokenInput.setText("")
+                        }
+                        privacyExportSummary.text = updated.privacyExportSummary
+                        statusText.text = updated.statusText
+                    }
+                }.start()
+            }
+        }
         val loadAiSummaryButton = V2Ui.secondaryButton(activity, ctx.l("settings.load_ai_summary")).apply {
             setOnClickListener {
                 val windowHours = aiWindowInput.text.toString().toIntOrNull() ?: 24
@@ -410,6 +453,9 @@ internal object SettingsScreenRenderer {
             addView(authRow)
             addView(userIdInput)
             addView(tokenInput)
+            addView(exportPrivacyButton)
+            addView(privacyExportSummary)
+            addView(deleteAccountButton)
             addView(statusText)
             addView(logoutButton)
         }

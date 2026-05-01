@@ -23,4 +23,4 @@
 ## Contract Notes
 - Protected endpoints require bearer auth.
 - Legacy `X-User-Id` path is disabled by default and blocked in protected env.
-- Risk level aliases still exist in codebase (`medium`/`moderate`) via compatibility layer; canonicalization tracking remains active.
+- Air-domain risk levels are canonicalized to `low/moderate/high/very_high`; legacy `medium` is normalized only at compatibility boundaries.
