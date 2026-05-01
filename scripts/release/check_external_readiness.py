@@ -7,6 +7,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
+REQUIRED_EXTERNAL_ENV_KEYS = [
+    "APPLE_TEAM_ID",
+    "APP_STORE_CONNECT_APP_ID",
+    "APP_REVIEW_TEST_EMAIL",
+    "APP_REVIEW_TEST_PASSWORD",
+    "GOOGLE_PLAY_PACKAGE_NAME",
+    "PLAY_REVIEW_TEST_EMAIL",
+    "PLAY_REVIEW_TEST_PASSWORD",
+    "APNS_KEY_ID",
+    "APNS_TEAM_ID",
+    "APNS_KEY_PATH",
+    "FCM_PROJECT_ID",
+    "FCM_SERVICE_ACCOUNT_JSON",
+    "LEGAL_PRIVACY_POLICY_URL",
+    "LEGAL_TERMS_URL",
+]
+
 
 @dataclass
 class CheckResult:
@@ -79,6 +96,51 @@ def check_public_url(name: str, file_values: dict[str, str]) -> CheckResult:
     if host in blocked_hosts or host.endswith(".local"):
         return CheckResult(name=name, status="MISSING", detail=f"{name} must not point to local/private host")
     return CheckResult(name=name, status="DONE", detail=f"{name} is a valid public URL")
+
+
+def print_owner_actions(
+    unresolved: list[CheckResult],
+    file_values: dict[str, str],
+    env_file: Path,
+) -> None:
+    missing_env_names = {
+        item.name
+        for item in unresolved
+        if item.status == "MISSING" and item.name in REQUIRED_EXTERNAL_ENV_KEYS
+    }
+    needs_legal_finalization = any(
+        item.name
+        in {
+            "LEGAL_PRIVACY_POLICY_STATUS_FINALIZATION",
+            "LEGAL_TERMS_STATUS_FINALIZATION",
+        }
+        for item in unresolved
+    )
+
+    print("\nOwner actions to reach strict green:")
+    print("- Fill runtime/local env values (do not commit secrets):")
+    if missing_env_names:
+        for key in REQUIRED_EXTERNAL_ENV_KEYS:
+            if key in missing_env_names:
+                current = env_lookup(key, file_values)
+                suffix = "  # currently empty/placeholder" if is_placeholder(current) else ""
+                print(f"  - {key}=<value>{suffix}")
+    else:
+        print("  - No missing env keys detected.")
+
+    print(f"- Update values in runtime env or local file: {env_file}")
+    print("- Keep secrets out of git (.env.local, APNS key, FCM JSON, review passwords).")
+
+    if needs_legal_finalization:
+        print("- Legal owner must finalize statuses and publish public URLs:")
+        print("  - docs/06_PRIVACY_LEGAL_STATUS.md -> Privacy Policy status: DONE")
+        print("  - docs/06_PRIVACY_LEGAL_STATUS.md -> Terms status: DONE")
+        print("  - docs/06_PRIVACY_LEGAL_STATUS.md -> Legal: DONE")
+
+    print("- Verify after owner updates:")
+    print("  - python3 scripts/release/check_external_readiness.py --env-file backend/.env.local")
+    print("  - python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local")
+    print("  - scripts/release/hiair_final_gate.sh --strict-external")
 
 
 def check_file_exists(path: Path, name: str) -> CheckResult:
@@ -252,6 +314,7 @@ def main() -> int:
         missing_count = sum(1 for item in unresolved if item.status == "MISSING")
         blocked_count = sum(1 for item in unresolved if item.status == "BLOCKED")
         print(f"\nSummary: MISSING={missing_count}, BLOCKED={blocked_count}, DONE={len(all_results) - len(unresolved)}")
+        print_owner_actions(unresolved=unresolved, file_values=file_values, env_file=env_file)
         return 1 if args.strict else 0
     print("\nSummary: all external items are ready.")
     return 0

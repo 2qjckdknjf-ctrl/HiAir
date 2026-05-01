@@ -2,6 +2,7 @@
 - User prefers autonomous execution with minimal back-and-forth and asks the agent to continue until major tasks are complete.
 - User often prefers Russian for task instructions and progress communication.
 - User values direct, action-oriented progress over extended planning-only responses.
+- User frequently asks for deep end-to-end audits and full hardening/closure rather than partial fixes.
 
 ## Learned Workspace Facts
 - Main project workspace is `/Users/alex/Projects/HIAir`.
