@@ -365,6 +365,6 @@ Exit criteria:
 | 9     | partial     | 2026-05-01 |            | briefing SQL/service/API/script landed; dispatch dry-run blocked by local DB/env |
 | 10    | partial     | 2026-05-01 |            | settings toggle/time wired iOS+Android; device push proof pending |
 | 11    | partial     | 2026-05-01 |            | insights/settings empty+loading+error states polished; QA parity sweep pending |
-| 12    | blocked     | 2026-05-01 |            | full gate blocked locally (missing DB/JWT env + fastapi/pytest in system python) |
+| 12    | partial     | 2026-05-01 |            | pytest 32/32 + iOS/Android builds + `run_backend_gate.py --skip-db` green; DB-backed smoke/manual QA/demo pending |
 
 This table is updated after each stage gate.
