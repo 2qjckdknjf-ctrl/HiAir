@@ -35,7 +35,7 @@
     {
       "name": "demo_video_link_content",
       "status": "NOT_READY",
-      "detail": "has_url=False, has_pending_marker=True"
+      "detail": "has_url=False, has_pending_marker=False"
     }
   ]
 }
