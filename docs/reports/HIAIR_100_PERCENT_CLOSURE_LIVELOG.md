@@ -115,3 +115,16 @@
 - Result:
   - No internal code regressions detected.
   - Remaining blockers are still owner/legal/runtime-only.
+
+## 2026-05-01 14:36-14:37 (UTC+2) — Owner Plan Artifact Automation
+- Stage: next-goal automation to accelerate external closure handoff.
+- Changes:
+  - `scripts/release/check_external_readiness.py`
+    - Added `--write-owner-plan <path>` option to generate a markdown action plan.
+    - Added markdown export with unresolved items table, required env keys, legal finalization steps, and strict verification commands.
+  - Generated artifact:
+    - `docs/release/EXTERNAL_OWNER_ACTION_PLAN.md`
+- Verification:
+  - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local --write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` -> PASS (non-strict), owner plan file generated.
+- Result:
+  - Owner handoff is now one-command reproducible with up-to-date blocker snapshot.

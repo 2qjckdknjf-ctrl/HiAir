@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
+from datetime import datetime, UTC
 
 REQUIRED_EXTERNAL_ENV_KEYS = [
     "APPLE_TEAM_ID",
@@ -143,6 +144,106 @@ def print_owner_actions(
     print("  - scripts/release/hiair_final_gate.sh --strict-external")
 
 
+def write_owner_plan_markdown(
+    output_path: Path,
+    unresolved: list[CheckResult],
+    file_values: dict[str, str],
+    env_file: Path,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(tz=UTC).isoformat()
+    missing_env_names = {
+        item.name
+        for item in unresolved
+        if item.status == "MISSING" and item.name in REQUIRED_EXTERNAL_ENV_KEYS
+    }
+    needs_legal_finalization = any(
+        item.name
+        in {
+            "LEGAL_PRIVACY_POLICY_STATUS_FINALIZATION",
+            "LEGAL_TERMS_STATUS_FINALIZATION",
+        }
+        for item in unresolved
+    )
+
+    lines: list[str] = [
+        "# External Owner Action Plan",
+        "",
+        f"- Generated at (UTC): `{timestamp}`",
+        f"- Source env file: `{env_file}`",
+        "",
+        "## Current strict status",
+    ]
+    if unresolved:
+        missing_count = sum(1 for item in unresolved if item.status == "MISSING")
+        blocked_count = sum(1 for item in unresolved if item.status == "BLOCKED")
+        lines.extend(
+            [
+                f"- `MISSING={missing_count}`",
+                f"- `BLOCKED={blocked_count}`",
+                "",
+                "## Unresolved items",
+                "| Name | Status | Detail |",
+                "|---|---|---|",
+            ]
+        )
+        for item in unresolved:
+            detail = item.detail.replace("|", "\\|")
+            lines.append(f"| `{item.name}` | `{item.status}` | {detail} |")
+    else:
+        lines.extend(["- All external items are ready.", ""])
+
+    lines.extend(
+        [
+            "",
+            "## Required runtime env values",
+        ]
+    )
+    if missing_env_names:
+        for key in REQUIRED_EXTERNAL_ENV_KEYS:
+            if key in missing_env_names:
+                current = env_lookup(key, file_values)
+                suffix = " # currently empty/placeholder" if is_placeholder(current) else ""
+                lines.append(f"- `{key}=<value>`{suffix}")
+    else:
+        lines.append("- No missing env values detected.")
+
+    lines.extend(
+        [
+            "",
+            "## Mandatory legal finalization",
+        ]
+    )
+    if needs_legal_finalization:
+        lines.extend(
+            [
+                "- Set in `docs/06_PRIVACY_LEGAL_STATUS.md`:",
+                "  - `Privacy Policy status: DONE`",
+                "  - `Terms status: DONE`",
+                "  - `Legal: DONE`",
+            ]
+        )
+    else:
+        lines.append("- Legal status markers are already finalized.")
+
+    lines.extend(
+        [
+            "",
+            "## Verification commands",
+            "- `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local`",
+            "- `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local`",
+            "- `scripts/release/hiair_final_gate.sh --strict-external`",
+            "",
+            "## Safety rules",
+            "- Do not commit `.env.local`.",
+            "- Do not commit APNS key files.",
+            "- Do not commit FCM service-account JSON.",
+            "- Do not commit review/test passwords.",
+        ]
+    )
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def check_file_exists(path: Path, name: str) -> CheckResult:
     if not path.exists():
         return CheckResult(name=name, status="MISSING", detail=f"Missing file: {path}")
@@ -166,6 +267,11 @@ def main() -> int:
         "--env-file",
         default="backend/.env.local",
         help="Path to env file with release credentials (default: backend/.env.local).",
+    )
+    parser.add_argument(
+        "--write-owner-plan",
+        default="",
+        help="Optional output path for generated owner action markdown plan.",
     )
     args = parser.parse_args()
 
@@ -310,6 +416,12 @@ def main() -> int:
         print(f"- [{item.status}] {item.name}: {item.detail}")
 
     unresolved = [item for item in all_results if item.status in {"MISSING", "BLOCKED"}]
+    if args.write_owner_plan:
+        owner_plan_path = Path(args.write_owner_plan)
+        if not owner_plan_path.is_absolute():
+            owner_plan_path = root / owner_plan_path
+        write_owner_plan_markdown(owner_plan_path, unresolved, file_values, env_file)
+        print(f"\nOwner plan written: {owner_plan_path}")
     if unresolved:
         missing_count = sum(1 for item in unresolved if item.status == "MISSING")
         blocked_count = sum(1 for item in unresolved if item.status == "BLOCKED")

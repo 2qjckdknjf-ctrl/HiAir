@@ -81,6 +81,7 @@
 | External checklist artifact present | DONE | `docs/release/EXTERNAL_100_CHECKLIST.md` | None |
 | External env template present and secret-safe | DONE | `backend/.env.external.example` | Fill values locally/runtime only |
 | External checker (non-strict + strict) | DONE | `scripts/release/check_external_readiness.py` | None |
+| Owner action plan auto-generation | DONE | `docs/release/EXTERNAL_OWNER_ACTION_PLAN.md` via `--write-owner-plan` | Share generated plan with legal/release owner and execute |
 | Strict external mode in final gate | DONE | `scripts/release/hiair_final_gate.sh --strict-external` | None |
 | Real-device QA report artifact | DONE | `docs/release/qa/REAL_DEVICE_QA_REPORT.md` | Replace template rows with real evidence |
 | Apple/Google/APNS/FCM/legal runtime credentials | MISSING | strict checker output | Provide real values in local/runtime env |
@@ -129,6 +130,8 @@ Rules enforced:
   - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local`
 - External strict:
   - `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local`
+- External owner plan generation:
+  - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local --write-owner-plan docs/release/EXTERNAL_OWNER_ACTION_PLAN.md`
 - Full gate strict external:
   - `scripts/release/hiair_final_gate.sh --strict-external`
 - iOS TestFlight prep build:
