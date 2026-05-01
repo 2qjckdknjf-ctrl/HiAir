@@ -350,7 +350,7 @@ Exit criteria:
 ### Stage 12 audit snapshot (2026-05-01)
 
 1. Full pytest suite green — **DONE**  
-   Evidence: `cd backend && ../.venv/bin/python -m pytest -q` → `32 passed`.
+   Evidence: `cd backend && ../.venv/bin/python -m pytest -q` → `34 passed`.
 2. Backend GitHub Actions workflow green — **DONE**  
    Evidence: PR checks `backend-smoke` passed on merged PRs #9 and #10.
 3. iOS build workflow green — **DONE**  
@@ -360,7 +360,8 @@ Exit criteria:
 5. `scripts/smoke_db_flow.py` covers insights + briefing — **DONE**  
    Evidence: script now exercises `/api/insights/personal-patterns` and `GET/PUT /api/briefings/schedule`.
 6. `scripts/beta_preflight.py` covers insights + briefing — **DONE**  
-   Evidence: preflight now checks `/api/insights/personal-patterns` and `/api/briefings/schedule`.
+   Evidence: preflight now checks `/api/insights/personal-patterns` and `/api/briefings/schedule`; no-DB infrastructure run passes with  
+   `../.venv/bin/python scripts/beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token "$NOTIFICATION_ADMIN_TOKEN" --skip-authenticated-checks`.
 7. Manual QA per updated `docs/qa-checklist.md` — **PARTIAL**  
    Evidence: checklist expanded with Insights/Briefing items; full device run not yet attached.
 8. `docs/_operator/master-gap-report.md` updated with cycle outcome — **PARTIAL**  
@@ -375,6 +376,7 @@ Exit criteria:
 Current local gate status:
 - **DONE**: `backend/run_gate.sh --skip-db` and `backend/scripts/run_backend_gate.py --skip-db`.
 - **BLOCKED**: full `backend/run_gate.sh` (without `--skip-db`) due to unavailable local Postgres.
+- **DONE**: local preflight infrastructure checks against live API with `--skip-authenticated-checks`.
 
 ---
 

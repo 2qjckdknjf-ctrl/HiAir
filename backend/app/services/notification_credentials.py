@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
+from psycopg import Error as PsycopgError
+
 from app.core.settings import settings
 import app.services.notification_repository as notification_repository
 from app.services.secret_store import get_secret
@@ -57,8 +59,14 @@ def credentials_health() -> list[dict[str, str | bool | None]]:
         ),
     ]
 
+    db_available = True
     for provider, configured, key_ref in provider_configs:
-        latest = notification_repository.get_latest_secret_rotation_event(provider=provider)
+        latest = None
+        if db_available:
+            try:
+                latest = notification_repository.get_latest_secret_rotation_event(provider=provider)
+            except PsycopgError:
+                db_available = False
         last_rotated_at = latest["created_at"] if latest else None
         items.append(
             {
@@ -66,7 +74,7 @@ def credentials_health() -> list[dict[str, str | bool | None]]:
                 "configured": configured,
                 "key_ref": key_ref,
                 "last_rotated_at": last_rotated_at,
-                "rotation_overdue": _is_overdue(last_rotated_at) if configured else False,
+                "rotation_overdue": _is_overdue(last_rotated_at) if configured and db_available else False,
             }
         )
     return items

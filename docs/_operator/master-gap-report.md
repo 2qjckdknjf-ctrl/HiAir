@@ -102,6 +102,11 @@ Second stabilization update:
 - **DONE**: CI proofs on merged cycle PRs (backend-smoke, ios-build, android-build).
 - **DONE**: local backend verification without Postgres via `backend/run_gate.sh --skip-db`
   and `backend/scripts/run_backend_gate.py --skip-db`.
+- **DONE**: no-DB preflight infrastructure checks pass against live local API using
+  `scripts/beta_preflight.py --skip-authenticated-checks` (health/ops endpoints).
+- **DONE**: automated privacy-export evidence for new surfaces in test suite
+  (`test_privacy_export_api.py`) asserting `briefing_schedule` and
+  `personal_correlations` payload presence.
 - **BLOCKED**: full DB-backed local smoke/evidence remains blocked on this machine
   (`localhost:5432` refused; Docker not installed), so privacy-export proof for new
   tables still needs a DB-capable environment.

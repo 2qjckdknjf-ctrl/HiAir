@@ -17,6 +17,11 @@ def main() -> int:
         default=os.getenv("NOTIFICATION_ADMIN_TOKEN", ""),
         help="Optional admin token for protected ops endpoints (X-Admin-Token).",
     )
+    parser.add_argument(
+        "--skip-authenticated-checks",
+        action="store_true",
+        help="Skip authenticated endpoint checks (useful when local DB/auth stack is unavailable).",
+    )
     args = parser.parse_args()
 
     checks = [
@@ -53,9 +58,12 @@ def main() -> int:
             print(f"- {path}")
         return 1
 
-    auth_status = _run_authenticated_checks(args.base_url)
-    if auth_status != 0:
-        return auth_status
+    if args.skip_authenticated_checks:
+        print("Skipping authenticated checks (--skip-authenticated-checks).")
+    else:
+        auth_status = _run_authenticated_checks(args.base_url)
+        if auth_status != 0:
+            return auth_status
 
     print("Preflight passed.")
     return 0
