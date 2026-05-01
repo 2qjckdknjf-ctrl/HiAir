@@ -3,6 +3,7 @@ package com.hiair.ui.navigation
 enum class AppScreen {
     DASHBOARD,
     PLANNER,
+    INSIGHTS,
     SYMPTOMS,
     SETTINGS
 }

@@ -55,8 +55,6 @@ final class DashboardViewModel: ObservableObject {
 struct DashboardView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DashboardViewModel()
-    @State private var weatherPhase = 0
-    private let weatherTicker = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
 
     private var riskScore: Int {
         switch viewModel.riskLevel.lowercased() {
@@ -74,100 +72,105 @@ struct DashboardView: View {
     }
 
     private var riskColor: Color {
+        RiskAccentColor.color(for: viewModel.riskLevel)
+    }
+
+    private let weatherTitle = "Sunny 26C"
+    private let moodTitle = "Calm"
+
+    private var pm25Estimate: Double {
         switch viewModel.riskLevel.lowercased() {
-        case "low": return .green
-        case "moderate", "medium": return .yellow
-        case "high", "very_high": return .orange
-        default: return .secondary
+        case "low":
+            return 12
+        case "moderate", "medium":
+            return 32
+        case "high":
+            return 52
+        case "very_high", "very high":
+            return 85
+        default:
+            return 25
         }
     }
 
-    private var weatherTitle: String {
-        switch weatherPhase {
-        case 0: return "Sunny 26C"
-        case 1: return "Heatwave 33C"
-        default: return "Windy 22C"
-        }
+    private var freshnessLabel: String {
+        viewModel.loading ? session.l("dashboard.freshness_stale") : session.l("dashboard.freshness_fresh")
     }
 
-    private var moodTitle: String {
-        switch weatherPhase {
-        case 0: return "Calm"
-        case 1: return "Stressed"
-        default: return "Energized"
+    private var safeWindows: [String] {
+        if viewModel.nearestSafeWindow == "-" || viewModel.nearestSafeWindow.isEmpty {
+            return ["06:00-08:00", "16:30-19:00", "22:00-23:00"]
         }
+        return [viewModel.nearestSafeWindow, "16:30-19:00", "22:00-23:00"]
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(session.l("common.city_updated"))
-                    .font(.caption)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            VStack(alignment: .leading, spacing: AuroraTokens.Spacing.md) {
+                HStack(spacing: AuroraTokens.Spacing.xs) {
+                    Button {
+                        // Placeholder for location picker stage.
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "location.fill")
+                            Text(session.l("dashboard.location"))
+                        }
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(.white.opacity(0.08), in: Capsule())
+                    }
+
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(viewModel.loading ? AuroraTokens.ColorPalette.riskModerate : AuroraTokens.ColorPalette.riskLow)
+                            .frame(width: 6, height: 6)
+                        Text(freshnessLabel)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    Spacer()
+                    Button {
+                        session.selectedTab = 4
+                    } label: {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                    }
+                    .accessibilityLabel(session.l("dashboard.profile_button"))
+                }
 
                 Text(session.l("dashboard.greeting"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
 
                 Text(session.l("dashboard.improving"))
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: AuroraTokens.Spacing.sm) {
                     HStack(spacing: 8) {
                         Text(session.l("dashboard.current_risk_title"))
+                            .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                         Text(viewModel.riskLevel == "-" ? session.l("dashboard.badge_moderate") : viewModel.riskLevel.uppercased())
-                            .font(.caption.bold())
+                            .font(AuroraTokens.Typography.caption.weight(.semibold))
                             .foregroundStyle(riskColor)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(riskColor.opacity(0.18), in: Capsule())
+                            .background(riskColor.opacity(0.2), in: Capsule())
                     }
 
                     Text("\(riskScore)")
-                        .font(.system(size: 56, weight: .bold))
+                        .font(AuroraTokens.Typography.displayXL)
                         .foregroundStyle(HiAirV2Theme.primaryText)
+                        .padding(.top, 8)
 
-                    Text(viewModel.explanation)
-                        .font(.subheadline)
+                    Text(session.l("dashboard.reason_code"))
+                        .font(AuroraTokens.Typography.bodyMD)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
-
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [
-                                            weatherPhase == 0 ? .mint : (weatherPhase == 1 ? .orange : .cyan),
-                                            weatherPhase == 0 ? .cyan : (weatherPhase == 1 ? .pink : .indigo)
-                                        ],
-                                        center: .center,
-                                        startRadius: 4,
-                                        endRadius: 36
-                                    )
-                                )
-                                .frame(width: 70, height: 70)
-                                .blur(radius: 0.5)
-                                .shadow(color: .cyan.opacity(0.4), radius: 12, x: 0, y: 6)
-                                .animation(.easeInOut(duration: 1.2), value: weatherPhase)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(weatherTitle)
-                                .font(.headline)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                            Text("Mood: \(moodTitle)")
-                                .font(.subheadline)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Text(session.l("dashboard.auto_updates"))
-                                .font(.caption)
-                                .foregroundStyle(HiAirV2Theme.secondaryText.opacity(0.8))
-                        }
-                        Spacer()
-                    }
-                    .padding(10)
-                    .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+                        .lineLimit(2)
 
                     ZStack(alignment: .leading) {
                         Capsule().fill(.white.opacity(0.14)).frame(height: 8)
@@ -180,32 +183,42 @@ struct DashboardView: View {
                 }
                 .v2Card()
 
+                HStack(spacing: 12) {
+                    GlobeAnchorView(riskLevel: viewModel.riskLevel, riskColor: riskColor)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(weatherTitle)
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text("Mood: \(moodTitle)")
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Text(session.l("dashboard.auto_updates"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    Spacer()
+                }
+                .padding(10)
+                .v2Card()
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("dashboard.do_now"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
 
                     if viewModel.actions.isEmpty {
                         Group {
-                            Text("• \(session.l("dashboard.action_1"))")
-                            Text("• \(session.l("dashboard.action_2"))")
-                            Text("• \(session.l("dashboard.action_3"))")
+                            actionTile(icon: "drop.fill", text: session.l("dashboard.action_1"))
+                            actionTile(icon: "cup.and.saucer.fill", text: session.l("dashboard.action_2"))
+                            actionTile(icon: "figure.walk", text: session.l("dashboard.action_3"))
                         }
-                        .font(.subheadline)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 9)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
                     } else {
-                        ForEach(viewModel.actions, id: \.self) { action in
-                            Text(action)
-                                .font(.subheadline)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 9)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        ForEach(Array(viewModel.actions.enumerated()), id: \.offset) { index, action in
+                            actionTile(
+                                icon: index == 0 ? "drop.fill" : (index == 1 ? "wind" : "figure.walk"),
+                                text: action
+                            )
                         }
                     }
                 }
@@ -213,13 +226,27 @@ struct DashboardView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(session.l("dashboard.safe_windows"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
-                    Text("• \(viewModel.nearestSafeWindow)")
-                        .font(.subheadline)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(safeWindows, id: \.self) { window in
+                                Text(window)
+                                    .font(AuroraTokens.Typography.caption)
+                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(.white.opacity(0.08), in: Capsule())
+                            }
+                        }
+                    }
                 }
                 .v2Card()
+
+                Text(session.l("dashboard.tomorrow_hint"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                    .padding(.horizontal, 4)
 
                 Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
                     Task {
@@ -234,16 +261,17 @@ struct DashboardView: View {
                 .buttonStyle(V2PrimaryButtonStyle())
 
                 Button(session.l("dashboard.log_symptoms")) {
-                    session.selectedTab = 2
+                    session.selectedTab = 3
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
             }
             .padding(16)
         }
         .v2PageBackground()
-        .onReceive(weatherTicker) { _ in
-            weatherPhase = (weatherPhase + 1) % 3
-        }
+        .overlay(
+            AtmosphericParticles(pm25: pm25Estimate, tint: riskColor)
+                .allowsHitTesting(false)
+        )
         .task {
             await viewModel.refresh(
                 userId: session.userId,
@@ -251,6 +279,75 @@ struct DashboardView: View {
                 profileId: session.profileId.isEmpty ? nil : session.profileId,
                 language: session.preferredLanguage
             )
+        }
+    }
+
+    @ViewBuilder
+    private func actionTile(icon: String, text: String) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(riskColor.opacity(0.18))
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(riskColor)
+                )
+            Text(text)
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.primaryText)
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct GlobeAnchorView: View {
+    let riskLevel: String
+    let riskColor: Color
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [riskColor.opacity(0.85), Color.cyan.opacity(0.32)],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 42
+                    )
+                )
+                .frame(width: 72, height: 72)
+                .shadow(color: riskColor.opacity(pulse ? 0.46 : 0.24), radius: pulse ? 18 : 12, x: 0, y: 6)
+                .overlay(
+                    Circle()
+                        .stroke(.white.opacity(0.18), lineWidth: 1)
+                )
+                .scaleEffect(pulse ? 1.04 : 0.96)
+                .rotationEffect(.degrees(pulse ? 360 : 0))
+                .animation(.easeInOut(duration: pulseDuration).repeatForever(autoreverses: true), value: pulse)
+        }
+        .onAppear {
+            pulse = true
+        }
+    }
+
+    private var pulseDuration: Double {
+        switch riskLevel.lowercased() {
+        case "low":
+            return 4.0
+        case "moderate", "medium":
+            return 2.8
+        case "high":
+            return 2.0
+        case "very_high", "very high":
+            return 1.5
+        default:
+            return 3.0
         }
     }
 }

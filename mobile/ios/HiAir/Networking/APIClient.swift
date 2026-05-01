@@ -217,6 +217,80 @@ final class APIClient {
         return try JSONDecoder().decode(AirDayPlanResponse.self, from: data)
     }
 
+    func fetchPersonalPatterns(
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil,
+        windowDays: Int = 30,
+        language: String = "ru"
+    ) async throws -> PersonalPatternsResponse {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/insights/personal-patterns"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [
+            URLQueryItem(name: "profile_id", value: profileId),
+            URLQueryItem(name: "window_days", value: String(windowDays)),
+            URLQueryItem(name: "language", value: language),
+        ]
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(PersonalPatternsResponse.self, from: data)
+    }
+
+    func fetchBriefingSchedule(
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> BriefingScheduleResponse {
+        let url = baseURL.appending(path: "/api/briefings/schedule")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(BriefingScheduleResponse.self, from: data)
+    }
+
+    func updateBriefingSchedule(
+        userId: String,
+        payload: BriefingScheduleUpdateRequest,
+        accessToken: String? = nil
+    ) async throws -> BriefingScheduleResponse {
+        let url = baseURL.appending(path: "/api/briefings/schedule")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(BriefingScheduleResponse.self, from: data)
+    }
+
     func logSymptom(
         _ payload: SymptomLogRequest,
         userId: String,

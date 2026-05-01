@@ -30,6 +30,10 @@ class RootShellViewModel(
         state = state.copy(currentScreen = AppScreen.SYMPTOMS)
     }
 
+    fun openInsights() {
+        state = state.copy(currentScreen = AppScreen.INSIGHTS)
+    }
+
     fun openSettings() {
         state = state.copy(currentScreen = AppScreen.SETTINGS)
     }

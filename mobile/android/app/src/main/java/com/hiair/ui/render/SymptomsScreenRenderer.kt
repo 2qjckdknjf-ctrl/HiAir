@@ -1,9 +1,10 @@
 package com.hiair.ui.render
 
 import android.graphics.Color
-import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 
 internal object SymptomsScreenRenderer {
@@ -13,14 +14,32 @@ internal object SymptomsScreenRenderer {
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
 
+        var coughSelected = false
+        var wheezeSelected = false
+        var headacheSelected = false
+        var fatigueSelected = false
+
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.symptoms")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f })
+        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.streak")).apply {
+            textSize = 12f
+            setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
+            background = V2Ui.cardBackground(activity, "#1C355A", "#325888", 999)
+        })
         val profileInput = EditText(activity).apply { hint = ctx.l("symptoms.profile_id") }
-        val coughBox = CheckBox(activity).apply { text = ctx.l("symptoms.cough") }
-        val wheezeBox = CheckBox(activity).apply { text = ctx.l("symptoms.wheeze") }
-        val headacheBox = CheckBox(activity).apply { text = ctx.l("symptoms.headache") }
-        val fatigueBox = CheckBox(activity).apply { text = ctx.l("symptoms.fatigue") }
+        val coughPill = symptomPill(activity, "💨 ${ctx.l("symptoms.cough")}") { selected ->
+            coughSelected = selected
+        }
+        val wheezePill = symptomPill(activity, "🫁 ${ctx.l("symptoms.wheeze")}") { selected ->
+            wheezeSelected = selected
+        }
+        val headachePill = symptomPill(activity, "🤕 ${ctx.l("symptoms.headache")}") { selected ->
+            headacheSelected = selected
+        }
+        val fatiguePill = symptomPill(activity, "😮‍💨 ${ctx.l("symptoms.fatigue")}") { selected ->
+            fatigueSelected = selected
+        }
         val sleepInput = EditText(activity).apply { hint = ctx.l("symptoms.sleep_quality"); setText("3") }
         val intensityInput = EditText(activity).apply { hint = ctx.l("symptoms.quick_intensity"); setText("2") }
         val stateText = TextView(activity).apply {
@@ -37,10 +56,10 @@ internal object SymptomsScreenRenderer {
                 rootShell.symptomLogViewModel.updateProfileId(profileInput.text.toString())
                 rootShell.symptomLogViewModel.setQuickIntensity(intensity)
                 rootShell.symptomLogViewModel.updateToggles(
-                    cough = coughBox.isChecked,
-                    wheeze = wheezeBox.isChecked,
-                    headache = headacheBox.isChecked,
-                    fatigue = fatigueBox.isChecked,
+                    cough = coughSelected,
+                    wheeze = wheezeSelected,
+                    headache = headacheSelected,
+                    fatigue = fatigueSelected,
                     sleepQuality = sleep
                 )
                 Thread {
@@ -64,10 +83,16 @@ internal object SymptomsScreenRenderer {
 
         val symptomCard = V2Ui.cardContainer(activity).apply {
             addView(profileInput)
-            addView(coughBox)
-            addView(wheezeBox)
-            addView(headacheBox)
-            addView(fatigueBox)
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(coughPill)
+                addView(wheezePill)
+            })
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(headachePill)
+                addView(fatiguePill)
+            })
             addView(sleepInput)
             addView(intensityInput)
             addView(quickBreathButton)
@@ -76,6 +101,36 @@ internal object SymptomsScreenRenderer {
         }
         bodyContainer.addView(symptomCard)
         bodyContainer.addView(submitButton)
+    }
+
+    private fun symptomPill(
+        activity: android.app.Activity,
+        label: String,
+        onChange: (Boolean) -> Unit
+    ): TextView {
+        var selected = false
+        return TextView(activity).apply {
+            text = label
+            textSize = 13f
+            setTextColor(Tokens.Text.secondary)
+            setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 8), V2Ui.dp(activity, 10), V2Ui.dp(activity, 8))
+            background = V2Ui.cardBackground(activity, "#20385D", "#355987", 999)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = V2Ui.dp(activity, 6)
+                topMargin = V2Ui.dp(activity, 6)
+            }
+            setOnClickListener {
+                selected = !selected
+                onChange(selected)
+                setTextColor(if (selected) Tokens.Text.primary else Tokens.Text.secondary)
+                background = V2Ui.cardBackground(
+                    activity,
+                    if (selected) "#2B5A8A" else "#20385D",
+                    if (selected) "#67C6FF" else "#355987",
+                    999
+                )
+            }
+        }
     }
 
     private fun quickSymptom(

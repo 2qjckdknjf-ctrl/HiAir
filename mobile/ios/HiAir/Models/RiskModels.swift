@@ -264,6 +264,48 @@ struct AirDayPlanResponse: Codable {
     let ventilationWindows: [AirSafeWindow]
 }
 
+struct PersonalPatternInsight: Codable {
+    let factorA: String
+    let factorB: String
+    let coefficient: Double
+    let pValue: Double
+    let sampleSize: Int
+    let humanReadableText: String
+}
+
+struct PersonalPatternsResponse: Codable {
+    let profileId: String
+    let windowDays: Int
+    let generatedAt: String
+    let items: [PersonalPatternInsight]
+}
+
+struct BriefingScheduleResponse: Codable {
+    let userId: String
+    let localTime: String
+    let timezone: String
+    let enabled: Bool
+    let lastSentAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case localTime = "local_time"
+        case timezone
+        case enabled
+        case lastSentAt = "last_sent_at"
+    }
+}
+
+struct BriefingScheduleUpdateRequest: Codable {
+    let localTime: String
+    let enabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case localTime = "local_time"
+        case enabled
+    }
+}
+
 struct AirSymptomCreateRequest: Codable {
     let profileId: String
     let symptomType: String

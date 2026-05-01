@@ -44,6 +44,10 @@ Use this checklist for manual QA of the MVP flow.
   - [ ] default persona
 - [ ] Save persists modified values.
 - [ ] Persona update propagates to session behavior where applicable.
+- [ ] Morning Briefing settings:
+  - [ ] `GET /api/briefings/schedule` is reflected in toggle + time field
+  - [ ] `PUT /api/briefings/schedule` persists toggle + time updates
+  - [ ] unauthenticated state shows setup hint and does not silently save
 - [ ] Subscription section works:
   - [ ] load plans
   - [ ] load my subscription
@@ -79,3 +83,11 @@ Use this checklist for manual QA of the MVP flow.
 - [ ] `GET /api/privacy/export` returns current user data payload.
 - [ ] `POST /api/privacy/delete-account` requires exact `DELETE` confirmation.
 - [ ] Deleted account can no longer login (`/api/auth/login` returns 401).
+
+## J. Insights and briefing additions
+
+- [ ] Insights tab shows explicit loading, empty, and error/retry states.
+- [ ] Insights tab renders server correlation rows when data exists.
+- [ ] `GET /api/insights/personal-patterns` works for the active profile.
+- [ ] `scripts/smoke_db_flow.py` includes insights + briefing endpoint checks.
+- [ ] `scripts/beta_preflight.py` includes insights + briefing endpoint checks.

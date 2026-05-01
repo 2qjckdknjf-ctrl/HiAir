@@ -6,12 +6,14 @@ from uuid import uuid4
 from app.api.auth import router as auth_router
 from app.api.air import router as air_router
 from app.api.alerts import router as alerts_router
+from app.api.briefings import router as briefings_router
 from app.api.dashboard import router as dashboard_router
 from fastapi import FastAPI
 from fastapi import Request
 
 from app.api.environment import router as environment_router
 from app.api.health import router as health_router
+from app.api.insights import router as insights_router
 from app.api.notifications import router as notifications_router
 from app.api.observability import router as observability_router
 from app.api.planner import router as planner_router
@@ -76,6 +78,8 @@ def create_app() -> FastAPI:
     app.include_router(risk_router, prefix="/api")
     app.include_router(air_router, prefix="/api")
     app.include_router(alerts_router, prefix="/api")
+    app.include_router(briefings_router, prefix="/api")
+    app.include_router(insights_router, prefix="/api")
     app.include_router(settings_router, prefix="/api")
     app.include_router(subscriptions_router, prefix="/api")
     app.include_router(symptoms_router, prefix="/api")

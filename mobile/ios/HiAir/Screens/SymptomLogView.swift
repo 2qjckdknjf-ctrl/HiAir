@@ -85,21 +85,51 @@ struct SymptomLogView: View {
                     .font(.subheadline)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
+                Text(session.l("symptoms.streak"))
+                    .font(.caption)
+                    .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.white.opacity(0.08), in: Capsule())
+
                 TextField(session.l("symptoms.profile_id"), text: $profileId)
                     .textFieldStyle(.roundedBorder)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle(session.l("symptoms.cough"), isOn: $viewModel.cough)
-                    Toggle(session.l("symptoms.wheeze"), isOn: $viewModel.wheeze)
-                    Toggle(session.l("symptoms.headache"), isOn: $viewModel.headache)
-                    Toggle(session.l("symptoms.fatigue"), isOn: $viewModel.fatigue)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("symptoms.title"))
+                        .font(.headline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    HStack(spacing: 8) {
+                        symptomPill("💨 \(session.l("symptoms.cough"))", isOn: $viewModel.cough)
+                        symptomPill("🫁 \(session.l("symptoms.wheeze"))", isOn: $viewModel.wheeze)
+                    }
+                    HStack(spacing: 8) {
+                        symptomPill("🤕 \(session.l("symptoms.headache"))", isOn: $viewModel.headache)
+                        symptomPill("😮‍💨 \(session.l("symptoms.fatigue"))", isOn: $viewModel.fatigue)
+                    }
                 }
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .tint(HiAirV2Theme.accentStart)
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Stepper("\(session.l("symptoms.sleep_quality")): \(viewModel.sleepQuality)", value: $viewModel.sleepQuality, in: 1...5)
+                    Text(session.l("symptoms.sleep_quality"))
+                        .font(.subheadline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    HStack(spacing: 8) {
+                        ForEach(1...5, id: \.self) { value in
+                            Button {
+                                viewModel.sleepQuality = value
+                            } label: {
+                                Text("\(value)")
+                                    .font(.footnote.bold())
+                                    .foregroundStyle(viewModel.sleepQuality == value ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
+                                    .frame(width: 34, height: 28)
+                                    .background(
+                                        (viewModel.sleepQuality == value ? HiAirV2Theme.accentStart.opacity(0.35) : Color.white.opacity(0.08)),
+                                        in: Capsule()
+                                    )
+                            }
+                        }
+                    }
                     Stepper("\(session.l("symptoms.quick_intensity")): \(viewModel.quickIntensity)", value: $viewModel.quickIntensity, in: 1...5)
                 }
                 .foregroundStyle(HiAirV2Theme.primaryText)
@@ -159,6 +189,22 @@ struct SymptomLogView: View {
             if profileId.isEmpty {
                 profileId = session.profileId
             }
+        }
+    }
+
+    private func symptomPill(_ label: String, isOn: Binding<Bool>) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(isOn.wrappedValue ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(
+                    (isOn.wrappedValue ? HiAirV2Theme.accentStart.opacity(0.26) : Color.white.opacity(0.08)),
+                    in: Capsule()
+                )
         }
     }
 }

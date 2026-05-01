@@ -74,3 +74,37 @@ Second stabilization update:
 - GAP-010: closed for current branch evidence scope (backend workflow now passes with compile/tests/prechecks/init/smoke/historical validation sequence).
 - GAP-011: closed for current branch evidence scope (Android CI success and iOS CI success captured on remote runs).
 - GAP-007: further improved (API-boundary normalization and alias telemetry implemented; deprecation execution now reduced to versioning/removal phase).
+
+## Cycle: Aurora Calm v2 + Insights (2026-05-01 → ongoing)
+### Cycle invariants (non-regression for new code)
+- **GAP-006 (mobile hardcoded URLs)**: new screens MUST use `BuildConfig.API_BASE_URL`
+  (Android) and `Info.plist API_BASE_URL` (iOS). PRs introducing hardcoded URLs
+  in screen/viewmodel code are rejected.
+- **GAP-007 (risk-level alias)**: new endpoints (`/api/insights/*`,
+  `/api/briefings/*`) return canonical `low/moderate/high/very_high` only.
+  Legacy `medium` is not produced by new code.
+- **GAP-014 (mobile flow asymmetry)**: new screens (Insights tab, Briefing
+  settings) implement identical auth/session/navigation behavior on iOS and
+  Android. Cross-platform parity is verified before stage exit.
+### New surfaces tracked
+| Item                              | Owner   | Status   |
+|-----------------------------------|---------|----------|
+| Personal correlations table       | backend | in_progress |
+| Insights API + AI explanation     | backend | in_progress |
+| Insights tab UI (iOS + Android)   | mobile  | in_progress |
+| Briefing schedule table           | backend | in_progress |
+| Briefing dispatch worker          | backend | partial |
+| Briefing settings UI              | mobile  | in_progress |
+| Aurora Calm v2 design tokens      | mobile  | done |
+| Atmospheric layer + globe         | mobile  | done |
+| Privacy export coverage extension | backend | in_progress |
+### Cycle exit will close
+- Documentation drift: design system now has a code-level SoT and on-platform
+  tokens, removing the "no canonical design tokens" gap.
+- New surfaces enter privacy export and retention matrix from day one (no debt).
+### Cycle exit explicitly does NOT close
+- GAP-001 (legacy header auth removal in production rollout)
+- GAP-005 (final cleartext-off release verification)
+- GAP-013 (older docs full alignment beyond the new cycle's surfaces)
+- Store handoff readiness
+- Public launch readiness

@@ -19,6 +19,8 @@ data class SettingsState(
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
     val quietHoursEnd: Int = 7,
+    val morningBriefingEnabled: Boolean = false,
+    val morningBriefingTime: String = "07:30",
     val profileBasedAlerting: Boolean = true,
     val preferredLanguage: String = "ru",
     val defaultPersona: String = "adult",
@@ -97,6 +99,14 @@ class SettingsViewModel(
 
     fun setProfileBasedAlerting(value: Boolean) {
         state = state.copy(profileBasedAlerting = value)
+    }
+
+    fun setMorningBriefingEnabled(value: Boolean) {
+        state = state.copy(morningBriefingEnabled = value)
+    }
+
+    fun setMorningBriefingTime(value: String) {
+        state = state.copy(morningBriefingTime = value)
     }
 
     fun setAiSummaryHours(value: Int) {
@@ -259,6 +269,7 @@ class SettingsViewModel(
         try {
             val raw = apiClient.fetchUserSettings(state.userId, state.accessToken)
             val json = JSONObject(raw)
+            val briefing = JSONObject(apiClient.fetchBriefingSchedule(state.userId, state.accessToken))
             state = state.copy(
                 loading = false,
                 pushAlertsEnabled = json.getBoolean("push_alerts_enabled"),
@@ -266,6 +277,8 @@ class SettingsViewModel(
                 defaultPersona = json.getString("default_persona"),
                 quietHoursStart = json.optInt("quiet_hours_start", 22),
                 quietHoursEnd = json.optInt("quiet_hours_end", 7),
+                morningBriefingEnabled = briefing.optBoolean("enabled", false),
+                morningBriefingTime = briefing.optString("local_time", "07:30"),
                 profileBasedAlerting = json.optBoolean("profile_based_alerting", true),
                 preferredLanguage = json.optString("preferred_language", "ru"),
                 statusText = l("settings.loaded")
@@ -292,6 +305,12 @@ class SettingsViewModel(
                 profileBasedAlerting = state.profileBasedAlerting,
                 preferredLanguage = state.preferredLanguage,
                 accessToken = state.accessToken
+            )
+            apiClient.updateBriefingSchedule(
+                userId = state.userId,
+                accessToken = state.accessToken,
+                localTime = state.morningBriefingTime,
+                enabled = state.morningBriefingEnabled
             )
             state = state.copy(loading = false, statusText = l("settings.saved"))
         } catch (_: Exception) {

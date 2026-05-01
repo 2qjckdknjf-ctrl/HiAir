@@ -38,9 +38,14 @@ HiAir - мобильный wellness-ассистент по жаре и каче
 - `docs/terms-of-service-draft.md` - черновик Terms of Service.
 - `docs/api-contract-risk-levels.md` - договоренность по risk-level alias и deprecation.
 - `docs/store-metadata-packet.md` - единый пакет store metadata/privacy label.
+- `docs/aurora-calm-design-system.md` - Aurora Calm v2 design system (canonical).
+- `docs/feat-personal-patterns-spec.md` - спека Personal Patterns Insights.
+- `docs/feat-morning-briefing-spec.md` - спека Morning Briefing.
+- `docs/cycle-aurora-calm-execution-plan.md` - пошаговый план цикла Aurora Calm.
 
 ## С чего начинаем сейчас
 
 1. Поддерживаем truth-alignment между docs и фактическим кодом.
 2. Закрываем critical/high gaps из `docs/_operator/master-gap-report.md`.
 3. Ведем фазное доведение до Closed Beta / Store handoff readiness.
+4. Активный цикл: Aurora Calm v2 + Insights — см. `docs/cycle-aurora-calm-execution-plan.md`.
