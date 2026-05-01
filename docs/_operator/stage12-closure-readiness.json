@@ -1,0 +1,41 @@
+{
+  "stage": "stage12-closure",
+  "all_ready": false,
+  "checks": [
+    {
+      "name": "closure_packet_exists",
+      "status": "READY",
+      "detail": "/Users/alex/Projects/HIAir/docs/_operator/stage12-closure-packet.md exists"
+    },
+    {
+      "name": "qa_report_exists",
+      "status": "READY",
+      "detail": "/Users/alex/Projects/HIAir/docs/qa-run-007-report.md exists"
+    },
+    {
+      "name": "demo_link_file_exists",
+      "status": "READY",
+      "detail": "/Users/alex/Projects/HIAir/docs/_operator/stage12-demo-video-link.md exists"
+    },
+    {
+      "name": "evidence_json_exists",
+      "status": "READY",
+      "detail": "/Users/alex/Projects/HIAir/docs/_operator/stage12-evidence-latest.json exists"
+    },
+    {
+      "name": "evidence_json_overall_status",
+      "status": "READY",
+      "detail": "overall_status=DONE"
+    },
+    {
+      "name": "closure_packet_manual_checkboxes",
+      "status": "NOT_READY",
+      "detail": "device_checked=True, demo_checked=False"
+    },
+    {
+      "name": "demo_video_link_content",
+      "status": "NOT_READY",
+      "detail": "has_url=False, has_pending_marker=True"
+    }
+  ]
+}

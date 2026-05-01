@@ -207,6 +207,12 @@ Generate Stage 12 closure packet markdown from the latest JSON evidence:
 .venv/bin/python scripts/generate_stage12_closure_packet.py
 ```
 
+Check Stage 12 closure readiness (expects both manual artifacts completed):
+
+```bash
+.venv/bin/python scripts/check_stage12_closure_readiness.py --json-output ../docs/_operator/stage12-closure-readiness.json
+```
+
 Apply retention cleanup (non-dry-run):
 
 ```bash
