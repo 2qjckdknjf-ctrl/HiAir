@@ -107,6 +107,8 @@ Second stabilization update:
 - **DONE**: automated privacy-export evidence for new surfaces in test suite
   (`test_privacy_export_api.py`) asserting `briefing_schedule` and
   `personal_correlations` payload presence.
+- **DONE**: latest machine-readable Stage 12 evidence snapshot published at
+  `docs/_operator/stage12-evidence-latest.json`.
 - **BLOCKED**: full DB-backed local smoke/evidence remains blocked on this machine
   (`localhost:5432` refused; Docker not installed), so privacy-export proof for new
   tables still needs a DB-capable environment.

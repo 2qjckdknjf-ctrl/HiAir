@@ -1,0 +1,76 @@
+{
+  "collected_at_utc": "2026-05-01T00:44:30.065544+00:00",
+  "git_head": "ce9e10040dddbc3531cb1018f6177c8e12b9ed0c",
+  "counts": {
+    "done": 4,
+    "blocked": 1,
+    "failed": 0,
+    "total": 5
+  },
+  "overall_status": "PARTIAL",
+  "items": [
+    {
+      "name": "pytest_full",
+      "command": [
+        "/Users/alex/Projects/HIAir/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/alex/Projects/HIAir/backend",
+      "status": "DONE",
+      "exit_code": 0,
+      "output_tail": "..................................                                       [100%]\n34 passed in 2.15s"
+    },
+    {
+      "name": "run_backend_gate_skip_db",
+      "command": [
+        "/Users/alex/Projects/HIAir/.venv/bin/python",
+        "scripts/run_backend_gate.py",
+        "--skip-db"
+      ],
+      "cwd": "/Users/alex/Projects/HIAir/backend",
+      "status": "DONE",
+      "exit_code": 0,
+      "output_tail": "[OK] RETENTION_SUBSCRIPTION_WEBHOOK_EVENTS_DAYS=180.\n[OK] RETENTION_SECRET_ROTATION_EVENTS_DAYS=365.\nEnvironment security check passed.\npassed: True\ncases: 4/4\nheatwave_elderly: score=81 level=very_high expected_min=high passed=True\npollution_asthma: score=95 level=very_high expected_min=very_high passed=True\nmild_day_adult: score=14 level=low expected_min=low passed=True\nrunner_moderate_heat: score=47 level=medium expected_min=medium passed=True\n[INFO] Loaded environment from /Users/alex/Projects/HIAir/backend/.env.local\n[INFO] --skip-db enabled: skipping init_db and retention dry-run.\n[INFO] --skip-db implies smoke_db_flow is skipped.\n\n>>> Running: /Users/alex/Projects/HIAir/.venv/bin/python -m compileall app scripts\n\n>>> Running: /Users/alex/Projects/HIAir/.venv/bin/python scripts/check_env_security.py --strict\n\n>>> Running: /Users/alex/Projects/HIAir/.venv/bin/python scripts/validate_risk_historical.py\n\nBackend gate passed."
+    },
+    {
+      "name": "run_backend_gate_full",
+      "command": [
+        "/Users/alex/Projects/HIAir/.venv/bin/python",
+        "scripts/run_backend_gate.py"
+      ],
+      "cwd": "/Users/alex/Projects/HIAir/backend",
+      "status": "BLOCKED",
+      "exit_code": 1,
+      "output_tail": "\n>>> Running: /Users/alex/Projects/HIAir/.venv/bin/python scripts/init_db.py\nCommand failed with exit code 1: /Users/alex/Projects/HIAir/.venv/bin/python scripts/init_db.py\n\nTraceback (most recent call last):\n  File \"/Users/alex/Projects/HIAir/backend/scripts/init_db.py\", line 27, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/alex/Projects/HIAir/backend/scripts/init_db.py\", line 17, in main\n    with connect(settings.database_url) as conn:\n         ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/alex/Projects/HIAir/.venv/lib/python3.14/site-packages/psycopg/connection.py\", line 130, in connect\n    raise new_ex.with_traceback(None)\npsycopg.OperationalError: connection failed: connection to server at \"::1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: '5432', hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n- host: 'localhost', port: '5432', hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?"
+    },
+    {
+      "name": "validate_risk_historical",
+      "command": [
+        "/Users/alex/Projects/HIAir/.venv/bin/python",
+        "scripts/validate_risk_historical.py"
+      ],
+      "cwd": "/Users/alex/Projects/HIAir/backend",
+      "status": "DONE",
+      "exit_code": 0,
+      "output_tail": "passed: True\ncases: 4/4\nheatwave_elderly: score=81 level=very_high expected_min=high passed=True\npollution_asthma: score=95 level=very_high expected_min=very_high passed=True\nmild_day_adult: score=14 level=low expected_min=low passed=True\nrunner_moderate_heat: score=47 level=medium expected_min=medium passed=True"
+    },
+    {
+      "name": "beta_preflight",
+      "command": [
+        "/Users/alex/Projects/HIAir/.venv/bin/python",
+        "scripts/beta_preflight.py",
+        "--base-url",
+        "http://127.0.0.1:8000",
+        "--admin-token",
+        "<redacted>",
+        "--skip-authenticated-checks"
+      ],
+      "cwd": "/Users/alex/Projects/HIAir/backend",
+      "status": "DONE",
+      "exit_code": 0,
+      "output_tail": "[OK] /api/health\n[OK] /api/notifications/provider-health\n[OK] /api/notifications/secret-store-health\n[OK] /api/notifications/credentials-health\n[OK] /api/observability/metrics\n[OK] /api/validation/risk/historical\nSkipping authenticated checks (--skip-authenticated-checks).\nPreflight passed."
+    }
+  ]
+}
