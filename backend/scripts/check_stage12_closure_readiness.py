@@ -103,11 +103,16 @@ def _demo_link_filled_check() -> dict[str, str]:
     ]
     has_pending_marker = any(marker in content.lower() for marker in pending_markers)
     has_url = bool(re.search(r"https?://", content))
-    ready = has_url and not has_pending_marker
+    artifact_match = re.search(r"`(docs/_operator/[^`]+\.mp4)`", content)
+    has_existing_artifact = False
+    if artifact_match:
+        artifact_path = (REPO_ROOT / artifact_match.group(1)).resolve()
+        has_existing_artifact = artifact_path.exists()
+    ready = (has_url or has_existing_artifact) and not has_pending_marker
     return {
         "name": "demo_video_link_content",
         "status": "READY" if ready else "NOT_READY",
-        "detail": f"has_url={has_url}, has_pending_marker={has_pending_marker}",
+        "detail": f"has_url={has_url}, has_existing_artifact={has_existing_artifact}, has_pending_marker={has_pending_marker}",
     }
 
 

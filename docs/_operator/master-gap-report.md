@@ -112,7 +112,8 @@ Second stabilization update:
 - **DONE**: DB-backed local smoke/evidence verified by running full backend gate and
   smoke flow against temporary local Postgres (`127.0.0.1:55432`), including
   privacy export and new insights/briefings endpoints.
-- **MISSING**: manual device QA packet completion and demo video artifact.
+- **PARTIAL**: demo video artifact is now attached; physical-device QA matrix
+  execution remains pending.
 ### Cycle exit will close
 - Documentation drift: design system now has a code-level SoT and on-platform
   tokens, removing the "no canonical design tokens" gap.

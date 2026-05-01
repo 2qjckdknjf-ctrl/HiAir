@@ -371,8 +371,8 @@ Exit criteria:
 10. Privacy export evidence saved on test account with patterns + briefing — **DONE**  
     Evidence: full DB-backed `scripts/smoke_db_flow.py` passed against temporary local Postgres, including
     `/api/privacy/export`, `/api/insights/personal-patterns`, and `/api/briefings/schedule` assertions.
-11. Demo video recorded — **MISSING**  
-    Blocker: manual recording pending; placeholder created at `docs/_operator/stage12-demo-video-link.md`.
+11. Demo video recorded — **DONE**  
+    Evidence: `docs/_operator/stage12-demo-video-link.md` with artifact `docs/_operator/stage12-demo-ios.mp4`.
 
 Current local gate status:
 - **DONE**: `backend/run_gate.sh --skip-db` and `backend/scripts/run_backend_gate.py --skip-db`.
