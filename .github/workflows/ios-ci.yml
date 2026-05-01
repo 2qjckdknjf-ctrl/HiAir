@@ -37,3 +37,14 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             build \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Build release simulator target (no signing)
+        run: |
+          xcodebuild \
+            -project HiAir.xcodeproj \
+            -scheme HiAir \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            build \
+            CODE_SIGNING_ALLOWED=NO

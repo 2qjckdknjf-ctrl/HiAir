@@ -28,8 +28,8 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Build debug and release
-        run: ./gradlew assembleDebug assembleRelease --no-daemon
+      - name: Run unit tests + build debug and release
+        run: ./gradlew test assembleDebug assembleRelease --no-daemon
 
       - name: Run lint
         run: ./gradlew lintDebug --no-daemon
