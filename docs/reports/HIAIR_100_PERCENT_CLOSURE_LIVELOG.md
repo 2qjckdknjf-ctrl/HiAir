@@ -75,3 +75,24 @@
   - Commit hash: `9bae3d1`
   - Push status: SUCCESS
   - Remote branch: `origin/release/hiair-100-percent-closure-20260501-1005`
+
+## 2026-05-01 10:39-10:40 (UTC+2) — Privacy/GDPR Technical Hardening Follow-up
+- Stage: privacy export/delete hardening and regression completion.
+- Changes:
+  - `backend/app/services/privacy_repository.py`
+    - Added `auth_refresh_tokens` section to privacy export payload (`id`, `user_id`, `expires_at`, `revoked_at`, `created_at`).
+  - `backend/tests/test_privacy_export_api.py`
+    - Extended export assertions to include `auth_refresh_tokens`.
+    - Added explicit `404` contract test for user-not-found export path.
+  - `backend/tests/test_privacy_delete_api.py` (new)
+    - Added delete-account regression tests for:
+      - invalid confirmation (`422`)
+      - user-not-found (`404`)
+      - successful deletion (`200`, `{"deleted": true}`)
+- Verification:
+  - `cd backend && ../.venv/bin/python -m pytest tests/test_privacy_export_api.py tests/test_privacy_delete_api.py tests/test_privacy_repository_serialization.py` -> PASS (`7 passed`)
+  - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local` -> PASS (non-strict), `MISSING=14, BLOCKED=2, DONE=12`
+  - `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local` -> FAIL (expected owner/legal blockers), `MISSING=14, BLOCKED=2, DONE=12`
+- Result:
+  - Privacy/GDPR technical contour strengthened and covered by targeted regressions.
+  - Remaining blockers unchanged and external-only (credentials + legal sign-off/public URLs).

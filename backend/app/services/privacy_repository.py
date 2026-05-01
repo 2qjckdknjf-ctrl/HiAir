@@ -106,6 +106,16 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 (user_id,),
             )
             delivery_attempts = cur.fetchall()
+            cur.execute(
+                """
+                SELECT id, user_id, expires_at, revoked_at, created_at
+                FROM auth_refresh_tokens
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            refresh_tokens = cur.fetchall()
 
             symptoms: list[dict[str, Any]] = []
             risk_history: list[dict[str, Any]] = []
@@ -295,6 +305,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "personal_correlations": _serialize_rows(personal_correlations),
         "device_tokens": _serialize_rows(device_tokens),
         "notification_delivery_attempts": _serialize_rows(delivery_attempts),
+        "auth_refresh_tokens": _serialize_rows(refresh_tokens),
         "subscription_webhook_events": _serialize_rows(subscription_webhook_events),
     }
 

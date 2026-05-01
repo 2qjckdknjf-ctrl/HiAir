@@ -19,6 +19,7 @@
 | Store/legal packet | Missing dedicated Data Safety draft artifact | Added `DATA_SAFETY.md` and wired checker coverage | `docs/release/store/DATA_SAFETY.md`, `scripts/release/check_external_readiness.py`, `docs/07_STORE_HANDOFF.md` | external checker + final gate | DONE |
 | External readiness automation | Checker coverage incomplete for required artifacts/QA/legal signals | Extended checker with A/B/C/D checks and strict behavior | `scripts/release/check_external_readiness.py` | strict + non-strict checks | DONE |
 | Real-device QA evidence framework | No structured report template for required flows | Added template with all required columns/critical flows, no fabricated evidence | `docs/release/qa/REAL_DEVICE_QA_REPORT.md` | checker validation | DONE |
+| Privacy API regression completeness | Delete-account endpoint had no dedicated regression tests; export tests did not verify refresh-token section | Added delete API regressions and extended export contract checks, plus included `auth_refresh_tokens` in repository export payload | `backend/app/services/privacy_repository.py`, `backend/tests/test_privacy_export_api.py`, `backend/tests/test_privacy_delete_api.py` | targeted privacy pytest run | DONE |
 | Closure docs package | Missing 100%-closure plan/log/report/gaps pack | Added/updated closure plan, livelog, gaps, and report with evidence | `docs/reports/HIAIR_100_PERCENT_CLOSURE_*.md` | doc consistency review | DONE |
 
 ## 3. Security Closure
@@ -37,6 +38,8 @@
   - Historical validation flow updated and passing with `moderate` expectations.
 - Privacy:
   - Export/delete endpoints remain available and integrated with mobile surfaces.
+  - Export now includes refresh-token lifecycle data (`auth_refresh_tokens`) for user data portability/audit completeness.
+  - Dedicated export/delete API regressions are present and passing.
 - Observability/gate:
   - Backend test suite + skip-db gate + strict env checks PASS.
 
@@ -69,6 +72,7 @@
 | `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local` | PASS (non-strict) | MISSING=14, BLOCKED=2, DONE=12 |
 | `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local` | FAIL (expected) | owner-only blockers remain |
 | `./scripts/release/hiair_final_gate.sh --strict-external` | FAIL (expected) | external strict step fails on owner-only blockers |
+| `cd backend && ../.venv/bin/python -m pytest tests/test_privacy_export_api.py tests/test_privacy_delete_api.py tests/test_privacy_repository_serialization.py` | PASS | 7 passed |
 
 ## 8. External 100% Closure
 | Item | Status | Evidence | Owner Action |
@@ -102,7 +106,7 @@
 ## 11. Final Readiness Score
 - Backend /100: **100**
 - Security /100: **100**
-- Privacy/GDPR /100: **95** (external legal finalization pending)
+- Privacy/GDPR /100: **95** (technical controls are DONE; legal finalization/public URLs remain external blockers)
 - AI/risk /100: **100**
 - iOS /100: **100**
 - Android /100: **100**
@@ -116,6 +120,8 @@ Rules enforced:
 - Public launch is not 100 because strict external gate does not PASS.
 
 ## 12. Next Owner Commands
+- Privacy/GDPR strict-green runbook:
+  - `docs/release/PRIVACY_GDPR_STRICT_GREEN_RUNBOOK.md`
 - Final gate (non-strict external):
   - `scripts/release/hiair_final_gate.sh`
 - External non-strict:

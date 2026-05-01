@@ -159,7 +159,7 @@
 - iOS: 100/100
 - Android: 100/100
 - Security: 100/100
-- Privacy/GDPR: 100/100
+- Privacy/GDPR: 95/100 (technical controls are closed; legal/public-URL finalization is owner-external)
 - CI: 100/100
 - Store readiness: 72/100
 - Closed beta readiness: 92/100
