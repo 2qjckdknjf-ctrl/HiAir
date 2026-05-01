@@ -94,3 +94,12 @@
   - `docs/08_KNOWN_GAPS.md`
 - Added detailed parity artifact:
   - `docs/reports/HIAIR_MOBILE_API_PARITY_MATRIX.md`
+
+## 2026-05-01 04:38-04:40
+- Committed staged hardening work in three phases:
+  1. `5e49e5d` — `fix(security): harden auth/session and admin guardrails`
+  2. `753d0a5` — `test(release): add unified final gate and strengthen CI checks`
+  3. `d5f8683` — `docs(release): add final hardening reports and store handoff package`
+- Pushed branch:
+  - `release/hiair-final-hardening-20260501-0416`
+  - upstream set to `origin/release/hiair-final-hardening-20260501-0416`
