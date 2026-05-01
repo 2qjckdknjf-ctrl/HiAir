@@ -132,7 +132,11 @@ Rules enforced:
   - fill `docs/release/qa/REAL_DEVICE_QA_REPORT.md` with actual device runs and evidence links.
 
 ## 13. Commits
-- Pending in current closure branch (to be filled after commit execution).
+- `9bae3d1` — `chore(release): execute 100 percent closure baseline`
+  - Includes risk-contract canonicalization updates, external checker expansion, Data Safety doc, and full closure report package.
 
 ## 14. Push Status
-- Pending in current closure branch (to be filled after push execution).
+- pushed: **yes**
+- remote: `origin`
+- branch: `release/hiair-100-percent-closure-20260501-1005`
+- note: upstream tracking configured by push command.
