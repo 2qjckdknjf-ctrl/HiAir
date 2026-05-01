@@ -15,6 +15,7 @@ class Settings:
     jwt_secret: str = os.getenv("JWT_SECRET", "dev-only-change-me")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     access_token_ttl_minutes: int = int(os.getenv("ACCESS_TOKEN_TTL_MINUTES", "120"))
+    refresh_token_ttl_days: int = int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
     allow_legacy_user_header_auth: bool = (
         os.getenv("ALLOW_LEGACY_USER_HEADER_AUTH", "false").strip().lower() == "true"
     )

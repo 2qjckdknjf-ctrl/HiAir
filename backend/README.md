@@ -35,6 +35,8 @@ Generate secure secrets and paste them into `.env`:
 - `GET http://127.0.0.1:8000/api/risk/thresholds`
 - `POST http://127.0.0.1:8000/api/auth/signup`
 - `POST http://127.0.0.1:8000/api/auth/login`
+- `POST http://127.0.0.1:8000/api/auth/refresh`
+- `POST http://127.0.0.1:8000/api/auth/logout`
 - `POST http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
 - `GET http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
 - `GET http://127.0.0.1:8000/api/privacy/export` (requires auth)
@@ -80,6 +82,10 @@ Provider adapter mode is controlled by `NOTIFICATIONS_PROVIDER_MODE`:
 Retry controls:
 - `NOTIFICATION_MAX_ATTEMPTS` (default `3`)
 - `NOTIFICATION_RETRY_BACKOFF_MS` (default `300`)
+
+Auth token controls:
+- `ACCESS_TOKEN_TTL_MINUTES` (default `120`)
+- `REFRESH_TOKEN_TTL_DAYS` (default `30`)
 
 Secret rotation controls:
 - `NOTIFICATION_SECRET_ROTATION_DAYS` (default `30`)
