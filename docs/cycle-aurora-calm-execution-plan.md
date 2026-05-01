@@ -347,6 +347,35 @@ Exit criteria:
 - All eleven items checked.
 - Branch ready for review and merge.
 
+### Stage 12 audit snapshot (2026-05-01)
+
+1. Full pytest suite green — **DONE**  
+   Evidence: `cd backend && ../.venv/bin/python -m pytest -q` → `32 passed`.
+2. Backend GitHub Actions workflow green — **DONE**  
+   Evidence: PR checks `backend-smoke` passed on merged PRs #9 and #10.
+3. iOS build workflow green — **DONE**  
+   Evidence: PR checks `ios-build` passed on merged PR #9.
+4. Android build workflow green — **DONE**  
+   Evidence: PR checks `android-build` passed on merged PR #9.
+5. `scripts/smoke_db_flow.py` covers insights + briefing — **DONE**  
+   Evidence: script now exercises `/api/insights/personal-patterns` and `GET/PUT /api/briefings/schedule`.
+6. `scripts/beta_preflight.py` covers insights + briefing — **DONE**  
+   Evidence: preflight now checks `/api/insights/personal-patterns` and `/api/briefings/schedule`.
+7. Manual QA per updated `docs/qa-checklist.md` — **PARTIAL**  
+   Evidence: checklist expanded with Insights/Briefing items; full device run not yet attached.
+8. `docs/_operator/master-gap-report.md` updated with cycle outcome — **PARTIAL**  
+   Evidence: cycle statuses moved from planned to done/in_progress/partial; final closure pass still pending.
+9. `docs/release-notes-aurora-calm.md` written — **DONE**  
+   Evidence: release notes file created and merged.
+10. Privacy export evidence saved on test account with patterns + briefing — **BLOCKED**  
+    Blocker: local Postgres unavailable (`localhost:5432 connection refused`), cannot complete DB-backed proof run locally.
+11. Demo video recorded — **MISSING**  
+    Blocker: manual artifact pending.
+
+Current local gate status:
+- **DONE**: `backend/run_gate.sh --skip-db` and `backend/scripts/run_backend_gate.py --skip-db`.
+- **BLOCKED**: full `backend/run_gate.sh` (without `--skip-db`) due to unavailable local Postgres.
+
 ---
 
 ## Status tracking

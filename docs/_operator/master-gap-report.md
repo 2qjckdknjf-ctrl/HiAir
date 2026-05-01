@@ -98,6 +98,14 @@ Second stabilization update:
 | Aurora Calm v2 design tokens      | mobile  | done |
 | Atmospheric layer + globe         | mobile  | done |
 | Privacy export coverage extension | backend | in_progress |
+### Verification snapshot after merge (2026-05-01)
+- **DONE**: CI proofs on merged cycle PRs (backend-smoke, ios-build, android-build).
+- **DONE**: local backend verification without Postgres via `backend/run_gate.sh --skip-db`
+  and `backend/scripts/run_backend_gate.py --skip-db`.
+- **BLOCKED**: full DB-backed local smoke/evidence remains blocked on this machine
+  (`localhost:5432` refused; Docker not installed), so privacy-export proof for new
+  tables still needs a DB-capable environment.
+- **MISSING**: manual device QA packet completion and demo video artifact.
 ### Cycle exit will close
 - Documentation drift: design system now has a code-level SoT and on-platform
   tokens, removing the "no canonical design tokens" gap.
