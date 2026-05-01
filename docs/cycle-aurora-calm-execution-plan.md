@@ -363,7 +363,7 @@ Exit criteria:
    Evidence: preflight now checks `/api/insights/personal-patterns` and `/api/briefings/schedule`; no-DB infrastructure run passes with  
    `../.venv/bin/python scripts/beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token "$NOTIFICATION_ADMIN_TOKEN" --skip-authenticated-checks`.
 7. Manual QA per updated `docs/qa-checklist.md` — **PARTIAL**  
-   Evidence: checklist expanded with Insights/Briefing items; full device run not yet attached.
+   Evidence: closure QA artifact attached (`docs/qa-run-007-report.md`); full physical-device matrix still pending.
 8. `docs/_operator/master-gap-report.md` updated with cycle outcome — **DONE**  
    Evidence: cycle status and verification snapshot sections updated with merge-era evidence.
 9. `docs/release-notes-aurora-calm.md` written — **DONE**  
@@ -372,7 +372,7 @@ Exit criteria:
     Evidence: full DB-backed `scripts/smoke_db_flow.py` passed against temporary local Postgres, including
     `/api/privacy/export`, `/api/insights/personal-patterns`, and `/api/briefings/schedule` assertions.
 11. Demo video recorded — **MISSING**  
-    Blocker: manual artifact pending.
+    Blocker: manual recording pending; placeholder created at `docs/_operator/stage12-demo-video-link.md`.
 
 Current local gate status:
 - **DONE**: `backend/run_gate.sh --skip-db` and `backend/scripts/run_backend_gate.py --skip-db`.
