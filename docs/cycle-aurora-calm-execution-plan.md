@@ -364,19 +364,20 @@ Exit criteria:
    `../.venv/bin/python scripts/beta_preflight.py --base-url http://127.0.0.1:8000 --admin-token "$NOTIFICATION_ADMIN_TOKEN" --skip-authenticated-checks`.
 7. Manual QA per updated `docs/qa-checklist.md` — **PARTIAL**  
    Evidence: checklist expanded with Insights/Briefing items; full device run not yet attached.
-8. `docs/_operator/master-gap-report.md` updated with cycle outcome — **PARTIAL**  
-   Evidence: cycle statuses moved from planned to done/in_progress/partial; final closure pass still pending.
+8. `docs/_operator/master-gap-report.md` updated with cycle outcome — **DONE**  
+   Evidence: cycle status and verification snapshot sections updated with merge-era evidence.
 9. `docs/release-notes-aurora-calm.md` written — **DONE**  
    Evidence: release notes file created and merged.
-10. Privacy export evidence saved on test account with patterns + briefing — **BLOCKED**  
-    Blocker: local Postgres unavailable (`localhost:5432 connection refused`), cannot complete DB-backed proof run locally.
+10. Privacy export evidence saved on test account with patterns + briefing — **DONE**  
+    Evidence: full DB-backed `scripts/smoke_db_flow.py` passed against temporary local Postgres, including
+    `/api/privacy/export`, `/api/insights/personal-patterns`, and `/api/briefings/schedule` assertions.
 11. Demo video recorded — **MISSING**  
     Blocker: manual artifact pending.
 
 Current local gate status:
 - **DONE**: `backend/run_gate.sh --skip-db` and `backend/scripts/run_backend_gate.py --skip-db`.
-- **BLOCKED**: full `backend/run_gate.sh` (without `--skip-db`) due to unavailable local Postgres.
-- **DONE**: local preflight infrastructure checks against live API with `--skip-authenticated-checks`.
+- **DONE**: full `backend/scripts/run_backend_gate.py` against temporary local Postgres (`127.0.0.1:55432`).
+- **DONE**: full preflight (including authenticated checks) against live API with temporary local Postgres.
 - **DONE**: machine-readable evidence snapshot generated at
   `docs/_operator/stage12-evidence-latest.json` via
   `backend/scripts/collect_stage12_evidence.py`.
@@ -399,6 +400,6 @@ Current local gate status:
 | 9     | partial     | 2026-05-01 |            | briefing SQL/service/API/script landed; dispatch dry-run blocked by local DB/env |
 | 10    | partial     | 2026-05-01 |            | settings toggle/time wired iOS+Android; device push proof pending |
 | 11    | partial     | 2026-05-01 |            | insights/settings empty+loading+error states polished; QA parity sweep pending |
-| 12    | partial     | 2026-05-01 |            | pytest 32/32 + iOS/Android builds + `run_backend_gate.py --skip-db` green; DB-backed smoke/manual QA/demo pending |
+| 12    | partial     | 2026-05-01 |            | machine evidence DONE (full gate + smoke + preflight + CI/builds); remaining manual QA + demo video |
 
 This table is updated after each stage gate.
