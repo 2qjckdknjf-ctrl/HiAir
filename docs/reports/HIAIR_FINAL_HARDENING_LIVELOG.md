@@ -103,3 +103,12 @@
 - Pushed branch:
   - `release/hiair-final-hardening-20260501-0416`
   - upstream set to `origin/release/hiair-final-hardening-20260501-0416`
+
+## 2026-05-01 04:40-04:42
+- Executed final gate once more after documentation commits:
+  - `scripts/release/hiair_final_gate.sh` -> PASS
+- Final gate evidence confirms:
+  - backend tests and security checks pass;
+  - iOS debug/release no-sign builds pass;
+  - Android test/assemble/lint pass;
+  - release config and secret baseline checks pass.
