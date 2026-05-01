@@ -33,9 +33,10 @@ already proven automatically versus what still requires physical manual evidence
 
 - Device QA execution matrix from `docs/qa-checklist.md` must still be run on
   physical devices and attached with screenshots/logs.
-- Demo video artifact is still pending.
+- Demo video artifact is attached at `docs/_operator/stage12-demo-ios.mp4` and
+  referenced from `docs/_operator/stage12-demo-video-link.md`.
 
 ## Status
 
 - Automated/CI-verifiable scope: **DONE**
-- Manual physical-device/video scope: **PENDING**
+- Manual physical-device scope: **PENDING**

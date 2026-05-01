@@ -29,8 +29,8 @@ Git HEAD: `7e582ca77b3d9a39c42ae3c12be649524950a26d`
 
 - [x] Device QA packet attached
   - Artifact: `docs/qa-run-007-report.md`
-- [ ] Demo video attached
-  - Artifact placeholder: `docs/_operator/stage12-demo-video-link.md`
+- [x] Demo video attached
+  - Artifact: `docs/_operator/stage12-demo-video-link.md` and `docs/_operator/stage12-demo-ios.mp4`
 
 ## Reviewer Notes
 

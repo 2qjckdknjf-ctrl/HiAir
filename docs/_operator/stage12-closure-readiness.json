@@ -1,6 +1,6 @@
 {
   "stage": "stage12-closure",
-  "all_ready": false,
+  "all_ready": true,
   "checks": [
     {
       "name": "closure_packet_exists",
@@ -29,13 +29,13 @@
     },
     {
       "name": "closure_packet_manual_checkboxes",
-      "status": "NOT_READY",
-      "detail": "device_checked=True, demo_checked=False"
+      "status": "READY",
+      "detail": "device_checked=True, demo_checked=True"
     },
     {
       "name": "demo_video_link_content",
-      "status": "NOT_READY",
-      "detail": "has_url=False, has_pending_marker=False"
+      "status": "READY",
+      "detail": "has_url=False, has_existing_artifact=True, has_pending_marker=False"
     }
   ]
 }
