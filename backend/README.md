@@ -213,6 +213,12 @@ Check Stage 12 closure readiness (expects both manual artifacts completed):
 .venv/bin/python scripts/check_stage12_closure_readiness.py --json-output ../docs/_operator/stage12-closure-readiness.json
 ```
 
+iOS demo recording helper (requires a healthy bootable Simulator runtime):
+
+```bash
+scripts/record_stage12_demo_ios.sh
+```
+
 Apply retention cleanup (non-dry-run):
 
 ```bash
