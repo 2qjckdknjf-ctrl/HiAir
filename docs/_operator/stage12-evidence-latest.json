@@ -1,13 +1,13 @@
 {
-  "collected_at_utc": "2026-05-01T00:44:30.065544+00:00",
-  "git_head": "ce9e10040dddbc3531cb1018f6177c8e12b9ed0c",
+  "collected_at_utc": "2026-05-01T00:52:07.392951+00:00",
+  "git_head": "7e582ca77b3d9a39c42ae3c12be649524950a26d",
   "counts": {
-    "done": 4,
-    "blocked": 1,
+    "done": 5,
+    "blocked": 0,
     "failed": 0,
     "total": 5
   },
-  "overall_status": "PARTIAL",
+  "overall_status": "DONE",
   "items": [
     {
       "name": "pytest_full",
@@ -20,7 +20,7 @@
       "cwd": "/Users/alex/Projects/HIAir/backend",
       "status": "DONE",
       "exit_code": 0,
-      "output_tail": "..................................                                       [100%]\n34 passed in 2.15s"
+      "output_tail": "...................................                                      [100%]\n35 passed in 1.41s"
     },
     {
       "name": "run_backend_gate_skip_db",
@@ -41,9 +41,9 @@
         "scripts/run_backend_gate.py"
       ],
       "cwd": "/Users/alex/Projects/HIAir/backend",
-      "status": "BLOCKED",
-      "exit_code": 1,
-      "output_tail": "\n>>> Running: /Users/alex/Projects/HIAir/.venv/bin/python scripts/init_db.py\nCommand failed with exit code 1: /Users/alex/Projects/HIAir/.venv/bin/python scripts/init_db.py\n\nTraceback (most recent call last):\n  File \"/Users/alex/Projects/HIAir/backend/scripts/init_db.py\", line 27, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/alex/Projects/HIAir/backend/scripts/init_db.py\", line 17, in main\n    with connect(settings.database_url) as conn:\n         ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/alex/Projects/HIAir/.venv/lib/python3.14/site-packages/psycopg/connection.py\", line 130, in connect\n    raise new_ex.with_traceback(None)\npsycopg.OperationalError: connection failed: connection to server at \"::1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: '5432', hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n- host: 'localhost', port: '5432', hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?"
+      "status": "DONE",
+      "exit_code": 0,
+      "output_tail": "INFO:hiair.api:{\"request_id\": \"647121aa-9849-43b0-8f6e-e5e9381333c8\", \"method\": \"GET\", \"path\": \"/api/planner/daily\", \"status_code\": 200, \"latency_ms\": 2.48}\nINFO:httpx:HTTP Request: GET http://testserver/api/planner/daily?persona=asthma&lat=41.39&lon=2.17&hours=12 \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"8e9f5ad2-f0a9-487b-a8ce-f58b84867825\", \"method\": \"GET\", \"path\": \"/api/insights/personal-patterns\", \"status_code\": 200, \"latency_ms\": 33.69}\nINFO:httpx:HTTP Request: GET http://testserver/api/insights/personal-patterns?profile_id=d8a231df-1a7f-4391-9c10-fa5e97ffdff1&window_days=30&language=en \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"6ad6a9c0-08b9-4ea8-9a45-07c29940bb83\", \"method\": \"GET\", \"path\": \"/api/validation/risk/historical\", \"status_code\": 200, \"latency_ms\": 1.54}\nINFO:httpx:HTTP Request: GET http://testserver/api/validation/risk/historical \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"367bca44-02b3-41b0-baba-ee2faea783e5\", \"method\": \"GET\", \"path\": \"/api/observability/metrics\", \"status_code\": 200, \"latency_ms\": 1.65}\nINFO:httpx:HTTP Request: GET http://testserver/api/observability/metrics \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"330b1fb8-c677-46d2-b087-d0990e1ce5e9\", \"method\": \"POST\", \"path\": \"/api/auth/signup\", \"status_code\": 200, \"latency_ms\": 64.01}\nINFO:httpx:HTTP Request: POST http://testserver/api/auth/signup \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"2a7e5748-9cab-4885-b71e-ee8e6542e45f\", \"method\": \"GET\", \"path\": \"/api/risk/history\", \"status_code\": 403, \"latency_ms\": 19.88}\nINFO:httpx:HTTP Request: GET http://testserver/api/risk/history?profile_id=d8a231df-1a7f-4391-9c10-fa5e97ffdff1&limit=5 \"HTTP/1.1 403 Forbidden\"\nINFO:hiair.api:{\"request_id\": \"c2a8fe80-a0e4-4767-b2f5-708911bbfe8e\", \"method\": \"GET\", \"path\": \"/api/privacy/export\", \"status_code\": 200, \"latency_ms\": 24.96}\nINFO:httpx:HTTP Request: GET http://testserver/api/privacy/export \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"5ec08e66-e55b-4f19-9996-0d3708367207\", \"method\": \"POST\", \"path\": \"/api/privacy/delete-account\", \"status_code\": 200, \"latency_ms\": 21.21}\nINFO:httpx:HTTP Request: POST http://testserver/api/privacy/delete-account \"HTTP/1.1 200 OK\"\nINFO:hiair.api:{\"request_id\": \"e855c9d4-b5b6-492c-ada9-eb9f8c001586\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status_code\": 401, \"latency_ms\": 7.02}\nINFO:httpx:HTTP Request: POST http://testserver/api/auth/login \"HTTP/1.1 401 Unauthorized\"\nINFO:hiair.api:{\"request_id\": \"c552e8de-dc5a-4c80-b919-bbc50d70d313\", \"method\": \"GET\", \"path\": \"/api/auth/me\", \"status_code\": 401, \"latency_ms\": 7.04}\nINFO:httpx:HTTP Request: GET http://testserver/api/auth/me \"HTTP/1.1 401 Unauthorized\""
     },
     {
       "name": "validate_risk_historical",
@@ -64,13 +64,12 @@
         "--base-url",
         "http://127.0.0.1:8000",
         "--admin-token",
-        "<redacted>",
-        "--skip-authenticated-checks"
+        "<redacted>"
       ],
       "cwd": "/Users/alex/Projects/HIAir/backend",
       "status": "DONE",
       "exit_code": 0,
-      "output_tail": "[OK] /api/health\n[OK] /api/notifications/provider-health\n[OK] /api/notifications/secret-store-health\n[OK] /api/notifications/credentials-health\n[OK] /api/observability/metrics\n[OK] /api/validation/risk/historical\nSkipping authenticated checks (--skip-authenticated-checks).\nPreflight passed."
+      "output_tail": "[OK] /api/health\n[OK] /api/notifications/provider-health\n[OK] /api/notifications/secret-store-health\n[OK] /api/notifications/credentials-health\n[OK] /api/observability/metrics\n[OK] /api/validation/risk/historical\n[OK] /api/auth/signup\n[OK] /api/profiles\n[OK] /api/subscriptions/activate\n[OK] /api/recommendations/daily\n[OK] /api/briefings/schedule\n[OK] /api/insights/personal-patterns\n[OK] /api/privacy/export\n[OK] ownership guard /api/risk/history\nPreflight passed."
     }
   ]
 }

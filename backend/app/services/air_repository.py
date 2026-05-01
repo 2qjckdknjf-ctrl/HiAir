@@ -53,23 +53,32 @@ def get_profile_context(profile_id: str) -> UserProfileContext | None:
     if row is None:
         return None
 
-    profile_type = row["profile_type"]
+    profile_type = _as_text(row["profile_type"])
+    persona_type = _as_text(row["persona_type"])
     if not profile_type:
-        profile_type = PERSONA_TO_PROFILE_TYPE.get(row["persona_type"], ProfileType.ADULT_DEFAULT).value
+        profile_type = PERSONA_TO_PROFILE_TYPE.get(persona_type, ProfileType.ADULT_DEFAULT).value
 
     return UserProfileContext(
         profile_id=str(row["id"]),
         user_id=str(row["user_id"]),
         profile_type=ProfileType(profile_type),
-        age_group=row["age_group"] or "adult",
+        age_group=_as_text(row["age_group"]) or "adult",
         heat_sensitivity_level=int(row["heat_sensitivity_level"] or 2),
         respiratory_sensitivity_level=int(row["respiratory_sensitivity_level"] or 2),
-        activity_level=row["activity_level"] or "moderate",
-        location_name=row["location_name"],
-        timezone=row["timezone"] or "UTC",
+        activity_level=_as_text(row["activity_level"]) or "moderate",
+        location_name=_as_text(row["location_name"]),
+        timezone=_as_text(row["timezone"]) or "UTC",
         home_lat=float(row["home_lat"]),
         home_lon=float(row["home_lon"]),
     )
+
+
+def _as_text(value: object | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, (bytes, bytearray)):
+        return value.decode("utf-8")
+    return str(value)
 
 
 def save_environment_snapshot(environment: EnvironmentalInput) -> str:
