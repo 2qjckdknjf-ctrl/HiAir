@@ -201,6 +201,12 @@ Machine-readable Stage 12 evidence snapshot (writes JSON report under
 .venv/bin/python scripts/collect_stage12_evidence.py --base-url http://127.0.0.1:8000 --skip-authenticated-checks
 ```
 
+Generate Stage 12 closure packet markdown from the latest JSON evidence:
+
+```bash
+.venv/bin/python scripts/generate_stage12_closure_packet.py
+```
+
 Apply retention cleanup (non-dry-run):
 
 ```bash
