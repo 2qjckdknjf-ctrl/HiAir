@@ -194,6 +194,13 @@ Shell wrapper (auto-picks `backend/.venv`, then repo-root `.venv`):
 ./run_gate.sh --skip-db
 ```
 
+Machine-readable Stage 12 evidence snapshot (writes JSON report under
+`docs/_operator/`):
+
+```bash
+.venv/bin/python scripts/collect_stage12_evidence.py --base-url http://127.0.0.1:8000 --skip-authenticated-checks
+```
+
 Apply retention cleanup (non-dry-run):
 
 ```bash

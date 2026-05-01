@@ -377,6 +377,9 @@ Current local gate status:
 - **DONE**: `backend/run_gate.sh --skip-db` and `backend/scripts/run_backend_gate.py --skip-db`.
 - **BLOCKED**: full `backend/run_gate.sh` (without `--skip-db`) due to unavailable local Postgres.
 - **DONE**: local preflight infrastructure checks against live API with `--skip-authenticated-checks`.
+- **DONE**: machine-readable evidence snapshot generated at
+  `docs/_operator/stage12-evidence-latest.json` via
+  `backend/scripts/collect_stage12_evidence.py`.
 
 ---
 
