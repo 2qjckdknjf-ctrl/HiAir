@@ -4,6 +4,7 @@ Store handoff packet lives in:
 - `docs/release/store/APP_STORE_HANDOFF.md`
 - `docs/release/store/GOOGLE_PLAY_HANDOFF.md`
 - `docs/release/store/PRIVACY_LABELS.md`
+- `docs/release/store/DATA_SAFETY.md`
 - `docs/release/store/REVIEWER_NOTES.md`
 - `docs/release/store/WELLNESS_DISCLAIMER.md`
 - `docs/release/store/BETA_TESTING_PLAN.md`

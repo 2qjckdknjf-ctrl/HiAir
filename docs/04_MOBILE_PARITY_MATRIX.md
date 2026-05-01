@@ -7,4 +7,4 @@ Current summary:
 - Auth/session parity: DONE (including refresh/forced logout behavior).
 - Dashboard/planner/symptoms/insights parity: DONE.
 - Briefing/settings parity: DONE.
-- Privacy export/delete UI parity: PARTIAL (backend complete, mobile UX exposure incomplete).
+- Privacy export/delete UI parity: DONE.

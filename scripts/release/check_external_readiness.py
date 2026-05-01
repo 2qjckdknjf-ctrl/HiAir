@@ -185,8 +185,10 @@ def main() -> int:
     store_results.append(check_file_exists(root / "docs/release/store/APP_STORE_HANDOFF.md", "STORE_APPLE_METADATA_CHECKLIST"))
     store_results.append(check_file_exists(root / "docs/release/store/GOOGLE_PLAY_HANDOFF.md", "STORE_GOOGLE_METADATA_CHECKLIST"))
     store_results.append(check_file_exists(root / "docs/release/store/PRIVACY_LABELS.md", "STORE_PRIVACY_LABELS_DATA_SAFETY_DRAFT"))
+    store_results.append(check_file_exists(root / "docs/release/store/DATA_SAFETY.md", "STORE_DATA_SAFETY_DRAFT"))
     store_results.append(check_file_exists(root / "docs/release/store/REVIEWER_NOTES.md", "STORE_REVIEWER_NOTES"))
     store_results.append(check_file_exists(root / "docs/release/store/BETA_TESTING_PLAN.md", "STORE_BETA_TESTING_PLAN"))
+    store_results.append(check_file_exists(root / "docs/release/store/SCREENSHOT_CHECKLIST.md", "STORE_SCREENSHOT_CHECKLIST"))
 
     # Legal status markers and disclaimers
     legal_status_doc = root / "docs/06_PRIVACY_LEGAL_STATUS.md"

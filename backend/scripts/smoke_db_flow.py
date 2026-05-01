@@ -271,7 +271,7 @@ def run() -> None:
         params={"profile_id": profile_id, "persona": "asthma", "lat": 41.39, "lon": 2.17},
     )
     assert overview.status_code == 200, overview.text
-    assert overview.json()["risk_level"] in ("low", "medium", "high", "very_high")
+    assert overview.json()["risk_level"] in ("low", "moderate", "high", "very_high")
 
     planner = client.get(
         "/api/planner/daily",

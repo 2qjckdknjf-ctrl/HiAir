@@ -74,7 +74,7 @@ def daily_planner(
     current_start: str | None = None
     previous_hour: str | None = None
     for item in hourly:
-        is_safe = item.level in ("low", "medium")
+        is_safe = item.level in ("low", "moderate")
         if is_safe and current_start is None:
             current_start = item.hour_iso
         if is_safe:

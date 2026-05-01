@@ -1,8 +1,8 @@
 from app.services.risk_level_contract import normalize_air_level_value, normalize_legacy_level
 
 
-def test_normalize_legacy_level_maps_moderate_to_medium() -> None:
-    assert normalize_legacy_level("moderate") == "medium"
+def test_normalize_legacy_level_maps_medium_to_moderate() -> None:
+    assert normalize_legacy_level("medium") == "moderate"
     assert normalize_legacy_level("HIGH") == "high"
 
 

@@ -22,4 +22,5 @@
 
 ## Closure Commands
 - Informational: `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local`
-- Strict closure: `scripts/release/hiair_final_gate.sh --strict-external`
+- Strict external check: `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local`
+- Strict closure gate: `scripts/release/hiair_final_gate.sh --strict-external`
