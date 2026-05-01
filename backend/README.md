@@ -182,6 +182,18 @@ One-command backend gate (without HTTP preflight):
 .venv/bin/python scripts/run_backend_gate.py
 ```
 
+If local PostgreSQL is unavailable, run only non-DB checks:
+
+```bash
+.venv/bin/python scripts/run_backend_gate.py --skip-db
+```
+
+Shell wrapper (auto-picks `backend/.venv`, then repo-root `.venv`):
+
+```bash
+./run_gate.sh --skip-db
+```
+
 Apply retention cleanup (non-dry-run):
 
 ```bash
