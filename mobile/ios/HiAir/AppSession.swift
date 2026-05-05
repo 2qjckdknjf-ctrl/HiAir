@@ -171,8 +171,29 @@ final class AppSession: ObservableObject {
 
 enum HiAirL10n {
     static func t(_ key: String, lang: String) -> String {
-        let language = lang.lowercased().hasPrefix("en") ? "en" : "ru"
-        return strings[language]?[key] ?? strings["ru"]?[key] ?? key
+        let lower = lang.lowercased()
+        let language: String
+        if lower.hasPrefix("fr") {
+            language = "fr"
+        } else if lower.hasPrefix("it") {
+            language = "it"
+        } else if lower.hasPrefix("es") {
+            language = "es"
+        } else if lower.hasPrefix("en") {
+            language = "en"
+        } else {
+            language = "ru"
+        }
+        if let value = localizedOverrides[language]?[key] {
+            return value
+        }
+        if let value = strings[language]?[key] {
+            return value
+        }
+        if let value = strings["en"]?[key] {
+            return value
+        }
+        return strings["ru"]?[key] ?? key
     }
 
     private static let strings: [String: [String: String]] = [
@@ -187,7 +208,7 @@ enum HiAirL10n {
             "insights.count": "инсайтов",
             "insights.loading": "Загружаем персональные паттерны...",
             "insights.retry": "Попробовать снова",
-            "settings.briefing_setup_hint": "Сначала войди в аккаунт, чтобы настроить Morning Briefing.",
+            "settings.briefing_setup_hint": "Сначала войдите в аккаунт, чтобы настроить «Утренний брифинг».",
             "tab.symptoms": "Симптомы",
             "tab.settings": "Настройки",
             "auth.title": "Аккаунт HiAir",
@@ -370,6 +391,9 @@ enum HiAirL10n {
             "settings.language": "Язык",
             "settings.language_ru": "Русский",
             "settings.language_en": "English",
+            "settings.language_es": "Español",
+            "settings.language_it": "Italiano",
+            "settings.language_fr": "Français",
             "settings.window_24h": "24ч",
             "settings.window_72h": "72ч",
             "settings.sync": "Синхронизация",
@@ -408,7 +432,7 @@ enum HiAirL10n {
             "settings.help_title": "Справка",
             "settings.help_open": "Справочник HiAir",
             "settings.ai_guide_open": "ИИ-гид",
-            "settings.onboarding_reopen": "Показать onboarding снова",
+            "settings.onboarding_reopen": "Показать онбординг снова",
             "settings.notifications_off_hint": "Уведомления выключены. Вы можете пропустить важные предупреждения о жаре и воздухе.",
             "settings.privacy_export": "Экспортировать мои данные",
             "settings.privacy_export_ready": "Секций данных",
@@ -466,13 +490,13 @@ enum HiAirL10n {
             "common.close": "Закрыть",
             "guide.title": "Справочник HiAir",
             "guide.what_is_title": "Что такое HiAir",
-            "guide.what_is_body": "HiAir — мобильный wellness-ассистент по жаре и качеству воздуха. Он показывает риск именно для вашего профиля.",
+            "guide.what_is_body": "HiAir — мобильный ассистент по жаре и качеству воздуха. Он показывает риск именно для вашего профиля.",
             "guide.problems_title": "Какие проблемы решает приложение",
             "guide.problems_body": "Помогает выбрать безопасное время для прогулки, спорта и проветривания, а также снизить риск при жаре и загрязнении воздуха.",
             "guide.for_whom_title": "Для кого HiAir полезен",
             "guide.for_whom_body": "Для взрослых, детей, пожилых людей и пользователей с астмой или аллергией, а также для тех, кто много времени проводит на улице.",
             "guide.read_dashboard_title": "Как читать главный экран",
-            "guide.read_dashboard_body": "Сначала смотрите Risk Score, затем safe windows и рекомендации. Это три ключевых блока для решения «что делать сейчас».",
+            "guide.read_dashboard_body": "Сначала смотрите Risk Score, затем безопасные окна и рекомендации. Это три ключевых блока для решения «что делать сейчас».",
             "guide.risk_title": "Что означает Risk Score",
             "guide.risk_body": "Это общая оценка риска на основе жары, влажности и качества воздуха с учётом вашего профиля.",
             "guide.metrics_title": "Что такое AQI, PM2.5, озон, влажность и жара",
@@ -486,7 +510,7 @@ enum HiAirL10n {
             "guide.notifications_title": "Как настроить уведомления",
             "guide.notifications_body": "Включите уведомления, чтобы получать предупреждения о небезопасных условиях заранее.",
             "guide.high_risk_title": "Что делать при высоком риске",
-            "guide.high_risk_body": "Снизьте нагрузку на улице, избегайте пиков жары, проветривайте в safe windows и следуйте рекомендациям приложения.",
+            "guide.high_risk_body": "Снизьте нагрузку на улице, избегайте пиков жары, проветривайте в безопасные окна и следуйте рекомендациям приложения.",
             "guide.not_doctor_title": "Почему HiAir не заменяет врача",
             "guide.not_doctor_body": "HiAir помогает с повседневными решениями, но не ставит диагноз и не заменяет медицинскую помощь.",
             "guide.faq_title": "Частые вопросы",
@@ -496,14 +520,24 @@ enum HiAirL10n {
             "ai_guide.send": "Спросить",
             "ai_guide.clear": "Новый диалог",
             "ai_guide.greeting": "Привет! Я ИИ-гид HiAir. Задайте вопрос, и я дам короткий пошаговый ответ.",
+            "ai_guide.subtitle": "Подскажу шаги и сразу проведу к нужному экрану",
             "ai_guide.language_hint": "Отвечаю на языке приложения:",
             "ai_guide.user_label": "Вы",
             "ai_guide.assistant_label": "HiAir Гид",
             "ai_guide.followup": "Если нужно, задайте уточняющий вопрос — разберем подробнее.",
+            "ai_guide.action.open_dashboard": "Открыть Главную",
+            "ai_guide.action.open_planner": "Открыть План",
+            "ai_guide.action.open_insights": "Открыть Инсайты",
+            "ai_guide.action.open_symptoms": "Открыть Симптомы",
+            "ai_guide.action.open_notifications": "Открыть Настройки",
+            "ai_guide.action.open_account": "Открыть Аккаунт",
+            "ai_guide.action.open_onboarding": "Запустить онбординг",
             "ai_guide.suggestion.onboarding": "Как начать пользоваться приложением?",
             "ai_guide.suggestion.risk": "Как интерпретировать Risk, AQI и PM2.5?",
             "ai_guide.suggestion.safe_windows": "Как использовать безопасные окна?",
             "ai_guide.suggestion.notifications": "Как включить уведомления?",
+            "ai_guide.suggestion.symptoms": "Как вести журнал симптомов?",
+            "ai_guide.suggestion.account": "Как управлять аккаунтом и данными?",
             "ai_guide.intent.onboarding.title": "Как начать работу с HiAir:",
             "ai_guide.intent.onboarding.step1": "Войдите или зарегистрируйтесь на экране аккаунта.",
             "ai_guide.intent.onboarding.step2": "Пройдите онбординг и выберите, для кого используете HiAir.",
@@ -520,17 +554,17 @@ enum HiAirL10n {
             "ai_guide.intent.planner.step3": "Перенесите прогулку, спорт или проветривание на безопасные окна.",
             "ai_guide.intent.planner.step4": "Если условий нет, сократите активность на улице и проверьте обновление позже.",
             "ai_guide.intent.notifications.title": "Как настроить уведомления:",
-            "ai_guide.intent.notifications.step1": "Откройте Settings -> Notifications.",
-            "ai_guide.intent.notifications.step2": "Включите push-уведомления и при необходимости Morning Briefing.",
+            "ai_guide.intent.notifications.step1": "Откройте «Настройки -> Уведомления».",
+            "ai_guide.intent.notifications.step2": "Включите push-уведомления и при необходимости «Утренний брифинг».",
             "ai_guide.intent.notifications.step3": "Выставьте порог алертов и тихие часы под ваш режим дня.",
-            "ai_guide.intent.notifications.step4": "Сохраните настройки и проверьте, что пункт чеклиста отмечен.",
+            "ai_guide.intent.notifications.step4": "Сохраните настройки и убедитесь, что пункт чек-листа отмечен.",
             "ai_guide.intent.symptoms.title": "Как вести журнал симптомов и получать инсайты:",
             "ai_guide.intent.symptoms.step1": "Откройте вкладку «Симптомы» и добавляйте самочувствие регулярно.",
             "ai_guide.intent.symptoms.step2": "Используйте быстрые кнопки, если нет времени на полный ввод.",
             "ai_guide.intent.symptoms.step3": "После накопления данных откройте «Инсайты» для персональных паттернов.",
             "ai_guide.intent.symptoms.step4": "Сравнивайте инсайты с погодой и качеством воздуха при планировании дня.",
             "ai_guide.intent.account.title": "Как управлять аккаунтом, профилем и приватностью:",
-            "ai_guide.intent.account.step1": "В Settings проверьте User ID, язык и профиль по умолчанию.",
+            "ai_guide.intent.account.step1": "В разделе «Настройки» проверьте User ID, язык и профиль по умолчанию.",
             "ai_guide.intent.account.step2": "Для бэкапа используйте «Экспортировать мои данные».",
             "ai_guide.intent.account.step3": "При необходимости можно выйти из аккаунта или удалить его.",
             "ai_guide.intent.account.step4": "После изменений синхронизируйте настройки кнопкой внизу экрана.",
@@ -734,6 +768,9 @@ enum HiAirL10n {
             "settings.language": "Language",
             "settings.language_ru": "Russian",
             "settings.language_en": "English",
+            "settings.language_es": "Spanish",
+            "settings.language_it": "Italian",
+            "settings.language_fr": "French",
             "settings.window_24h": "24h",
             "settings.window_72h": "72h",
             "settings.sync": "Sync",
@@ -859,34 +896,44 @@ enum HiAirL10n {
             "ai_guide.send": "Ask",
             "ai_guide.clear": "New chat",
             "ai_guide.greeting": "Hi! I am your HiAir AI Assistant. Ask a question and I will reply with clear step-by-step actions.",
+            "ai_guide.subtitle": "I can guide you and open the right screen",
             "ai_guide.language_hint": "Answering in app language:",
             "ai_guide.user_label": "You",
             "ai_guide.assistant_label": "HiAir Assistant",
             "ai_guide.followup": "Need more detail? Ask a follow-up and I will break it down further.",
+            "ai_guide.action.open_dashboard": "Open Dashboard",
+            "ai_guide.action.open_planner": "Open Planner",
+            "ai_guide.action.open_insights": "Open Insights",
+            "ai_guide.action.open_symptoms": "Open Symptoms",
+            "ai_guide.action.open_notifications": "Open Settings",
+            "ai_guide.action.open_account": "Open Account",
+            "ai_guide.action.open_onboarding": "Start onboarding",
             "ai_guide.suggestion.onboarding": "How do I start using the app?",
             "ai_guide.suggestion.risk": "How do I interpret Risk, AQI, and PM2.5?",
-            "ai_guide.suggestion.safe_windows": "How to use safe windows?",
-            "ai_guide.suggestion.notifications": "How to enable notifications?",
+            "ai_guide.suggestion.safe_windows": "How do I use safe windows?",
+            "ai_guide.suggestion.notifications": "How do I enable notifications?",
+            "ai_guide.suggestion.symptoms": "How do I log symptoms?",
+            "ai_guide.suggestion.account": "How do I manage my account and data?",
             "ai_guide.intent.onboarding.title": "How to start with HiAir:",
             "ai_guide.intent.onboarding.step1": "Sign in or register on the account screen.",
             "ai_guide.intent.onboarding.step2": "Complete onboarding and select who you use HiAir for.",
             "ai_guide.intent.onboarding.step3": "On Dashboard, review Risk Score and the “Get Started” checklist.",
             "ai_guide.intent.onboarding.step4": "Open Planner and review safe windows for today.",
             "ai_guide.intent.risk.title": "How to read risk metrics:",
-            "ai_guide.intent.risk.step1": "Start with Risk Score - it is your personalized overall risk level.",
+            "ai_guide.intent.risk.step1": "Start with Risk Score - it reflects your personalized overall risk level.",
             "ai_guide.intent.risk.step2": "AQI shows total air pollution burden: higher value means worse air.",
             "ai_guide.intent.risk.step3": "PM2.5 and ozone show factors that often worsen breathing comfort.",
             "ai_guide.intent.risk.step4": "At high risk, follow recommendations and schedule around safe windows.",
-            "ai_guide.intent.planner.title": "How to use forecast and safe windows:",
+            "ai_guide.intent.planner.title": "How to use the forecast and safe windows:",
             "ai_guide.intent.planner.step1": "Open the Planner tab.",
             "ai_guide.intent.planner.step2": "Check hourly risk and identify lower-risk time intervals.",
             "ai_guide.intent.planner.step3": "Move walks, sports, or ventilation to safe windows.",
             "ai_guide.intent.planner.step4": "If no safe interval exists, reduce outdoor load and re-check later.",
             "ai_guide.intent.notifications.title": "How to set up notifications:",
-            "ai_guide.intent.notifications.step1": "Open Settings -> Notifications.",
-            "ai_guide.intent.notifications.step2": "Enable push alerts and optionally Morning Briefing.",
+            "ai_guide.intent.notifications.step1": "Open Settings > Notifications.",
+            "ai_guide.intent.notifications.step2": "Enable push notifications and, if needed, Morning Briefing.",
             "ai_guide.intent.notifications.step3": "Set alert threshold and quiet hours for your daily routine.",
-            "ai_guide.intent.notifications.step4": "Save settings and confirm the checklist item is completed.",
+            "ai_guide.intent.notifications.step4": "Save settings and confirm the checklist item is marked as done.",
             "ai_guide.intent.symptoms.title": "How to log symptoms and use insights:",
             "ai_guide.intent.symptoms.step1": "Open Symptoms tab and track your status regularly.",
             "ai_guide.intent.symptoms.step2": "Use quick buttons when you need fast logging.",
@@ -895,7 +942,7 @@ enum HiAirL10n {
             "ai_guide.intent.account.title": "How to manage account, profile, and privacy:",
             "ai_guide.intent.account.step1": "In Settings, review User ID, language, and default profile.",
             "ai_guide.intent.account.step2": "Use “Export my data” when you need a privacy copy.",
-            "ai_guide.intent.account.step3": "You can log out or delete account when needed.",
+            "ai_guide.intent.account.step3": "You can log out or delete your account when needed.",
             "ai_guide.intent.account.step4": "After changes, sync settings using the button at the bottom.",
             "ai_guide.intent.fallback.title": "Universal plan for any question:",
             "ai_guide.intent.fallback.step1": "Describe your goal in one sentence.",
@@ -903,6 +950,63 @@ enum HiAirL10n {
             "ai_guide.intent.fallback.step3": "I will provide the exact button-by-button path.",
             "ai_guide.intent.fallback.step4": "If something fails, send the error text and I will provide a fix plan.",
         ]
+    ]
+
+    private static let localizedOverrides: [String: [String: String]] = [
+        "es": [
+            "settings.language_ru": "Ruso",
+            "settings.language_en": "Inglés",
+            "settings.language_es": "Español",
+            "settings.language_it": "Italiano",
+            "settings.language_fr": "Francés",
+            "settings.ai_guide_open": "Asistente IA",
+            "ai_guide.title": "Asistente IA de HiAir",
+            "ai_guide.placeholder": "Pregunta cómo usar la app...",
+            "ai_guide.send": "Preguntar",
+            "ai_guide.clear": "Nuevo chat",
+            "ai_guide.greeting": "Hola. Soy tu asistente IA de HiAir. Haz una pregunta y te responderé con pasos claros.",
+            "ai_guide.subtitle": "Puedo guiarte y abrir la pantalla correcta",
+            "ai_guide.language_hint": "Respondo en el idioma de la app:",
+            "ai_guide.user_label": "Tú",
+            "ai_guide.assistant_label": "Asistente HiAir",
+            "ai_guide.followup": "¿Necesitas más detalle? Haz una pregunta adicional y lo detallo paso a paso.",
+        ],
+        "it": [
+            "settings.language_ru": "Russo",
+            "settings.language_en": "Inglese",
+            "settings.language_es": "Spagnolo",
+            "settings.language_it": "Italiano",
+            "settings.language_fr": "Francese",
+            "settings.ai_guide_open": "Assistente IA",
+            "ai_guide.title": "Assistente IA di HiAir",
+            "ai_guide.placeholder": "Chiedi come usare l'app...",
+            "ai_guide.send": "Chiedi",
+            "ai_guide.clear": "Nuova chat",
+            "ai_guide.greeting": "Ciao. Sono il tuo assistente IA di HiAir. Fai una domanda e ti risponderò con passaggi chiari.",
+            "ai_guide.subtitle": "Posso guidarti e aprire la schermata corretta",
+            "ai_guide.language_hint": "Rispondo nella lingua dell'app:",
+            "ai_guide.user_label": "Tu",
+            "ai_guide.assistant_label": "Assistente HiAir",
+            "ai_guide.followup": "Serve più dettaglio? Fai una domanda di follow-up e lo spiego passo passo.",
+        ],
+        "fr": [
+            "settings.language_ru": "Russe",
+            "settings.language_en": "Anglais",
+            "settings.language_es": "Espagnol",
+            "settings.language_it": "Italien",
+            "settings.language_fr": "Français",
+            "settings.ai_guide_open": "Assistant IA",
+            "ai_guide.title": "Assistant IA HiAir",
+            "ai_guide.placeholder": "Pose une question sur l'application...",
+            "ai_guide.send": "Demander",
+            "ai_guide.clear": "Nouveau chat",
+            "ai_guide.greeting": "Bonjour. Je suis ton assistant IA HiAir. Pose une question et je répondrai avec des étapes claires.",
+            "ai_guide.subtitle": "Je peux te guider et ouvrir le bon écran",
+            "ai_guide.language_hint": "Je réponds dans la langue de l'application :",
+            "ai_guide.user_label": "Vous",
+            "ai_guide.assistant_label": "Assistant HiAir",
+            "ai_guide.followup": "Besoin de plus de détails ? Pose une question de suivi et je détaillerai étape par étape.",
+        ],
     ]
 }
 

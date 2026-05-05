@@ -632,8 +632,10 @@ struct SettingsView: View {
                     Picker(session.l("settings.language"), selection: $viewModel.preferredLanguage) {
                         Text(session.l("settings.language_ru")).tag("ru")
                         Text(session.l("settings.language_en")).tag("en")
+                        Text(session.l("settings.language_es")).tag("es")
+                        Text(session.l("settings.language_it")).tag("it")
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                 }
                 .v2Card()
 
@@ -924,6 +926,7 @@ struct SettingsView: View {
 private struct AIGuideAnswer {
     let titleKey: String
     let stepKeys: [String]
+    let quickActions: [AIGuideQuickAction]
 }
 
 private enum AIGuideIntent {
@@ -936,55 +939,132 @@ private enum AIGuideIntent {
     case fallback
 }
 
+private enum AIGuideQuickAction: String {
+    case openDashboard
+    case openPlanner
+    case openInsights
+    case openSymptoms
+    case openNotifications
+    case openAccount
+    case openOnboarding
+
+    var titleKey: String {
+        switch self {
+        case .openDashboard:
+            return "ai_guide.action.open_dashboard"
+        case .openPlanner:
+            return "ai_guide.action.open_planner"
+        case .openInsights:
+            return "ai_guide.action.open_insights"
+        case .openSymptoms:
+            return "ai_guide.action.open_symptoms"
+        case .openNotifications:
+            return "ai_guide.action.open_notifications"
+        case .openAccount:
+            return "ai_guide.action.open_account"
+        case .openOnboarding:
+            return "ai_guide.action.open_onboarding"
+        }
+    }
+}
+
 private enum HiAirAIGuideEngine {
     static func answer(for question: String, lang: String) -> AIGuideAnswer {
-        let normalized = question.lowercased()
+        let normalized = normalizedText(question)
+        let tokens = normalized.split(separator: " ").map(String.init)
         let language = normalizedLanguage(lang)
 
         let onboardingWords = language == "en"
-            ? ["onboarding", "first launch", "first run", "start", "where begin", "how to start", "как начать", "первый запуск"]
-            : ["онбординг", "первый запуск", "с чего начать", "как начать", "старт", "onboarding", "first run"]
+            ? ["onboarding", "first launch", "first run", "start", "where begin", "how to start", "get started", "как начать", "первый запуск"]
+            : ["онбординг", "первый запуск", "с чего начать", "как начать", "старт", "начать", "onboarding", "first run"]
         let riskWords = language == "en"
-            ? ["risk", "aqi", "pm2.5", "ozone", "heat index", "humidity", "риск", "озон"]
-            : ["риск", "aqi", "pm2.5", "озон", "heat index", "влажност", "как читать", "risk"]
+            ? ["risk", "aqi", "pm2.5", "ozone", "heat index", "humidity", "air quality", "риск", "озон"]
+            : ["риск", "aqi", "pm2.5", "озон", "качество воздуха", "heat index", "влажност", "как читать", "risk"]
         let plannerWords = language == "en"
-            ? ["planner", "safe window", "hourly", "forecast", "walk", "sport", "план", "безопасн"]
-            : ["план", "safe window", "безопасн", "прогноз", "по часам", "прогул", "спорт", "planner"]
+            ? ["planner", "safe window", "safe windows", "hourly", "forecast", "walk", "sport", "ventilation", "план", "безопасн"]
+            : ["план", "safe window", "safe windows", "безопасн", "прогноз", "по часам", "прогул", "спорт", "проветр", "planner"]
         let notificationWords = language == "en"
-            ? ["notification", "alert", "push", "warning", "уведомл", "алерт"]
-            : ["уведомл", "алерт", "push", "предупрежд", "notification", "alert"]
+            ? ["notification", "notifications", "alert", "push", "warning", "morning briefing", "уведомл", "алерт"]
+            : ["уведомл", "алерт", "push", "предупрежд", "утренний брифинг", "notification", "alert"]
         let symptomsWords = language == "en"
-            ? ["symptom", "insight", "journal", "log", "симптом", "инсайт"]
-            : ["симптом", "инсайт", "журнал", "лог", "symptom", "insight"]
+            ? ["symptom", "symptoms", "insight", "insights", "journal", "log", "симптом", "инсайт"]
+            : ["симптом", "симптомы", "инсайт", "инсайты", "журнал", "лог", "symptom", "insight"]
         let accountWords = language == "en"
-            ? ["account", "profile", "privacy", "delete", "export", "login", "sign", "аккаунт", "профил"]
-            : ["аккаунт", "профил", "приват", "удал", "экспорт", "войти", "регистрац", "account", "profile"]
+            ? ["account", "profile", "privacy", "delete", "export", "login", "sign", "settings", "аккаунт", "профил"]
+            : ["аккаунт", "профил", "приват", "удал", "экспорт", "войти", "регистрац", "настройк", "account", "profile"]
 
-        let intent: AIGuideIntent
-        if containsAny(normalized, keywords: onboardingWords) {
-            intent = .onboarding
-        } else if containsAny(normalized, keywords: riskWords) {
-            intent = .risk
-        } else if containsAny(normalized, keywords: plannerWords) {
-            intent = .planner
-        } else if containsAny(normalized, keywords: notificationWords) {
-            intent = .notifications
-        } else if containsAny(normalized, keywords: symptomsWords) {
-            intent = .symptoms
-        } else if containsAny(normalized, keywords: accountWords) {
-            intent = .account
-        } else {
-            intent = .fallback
+        let candidates: [(AIGuideIntent, [String])] = [
+            (.onboarding, onboardingWords),
+            (.risk, riskWords),
+            (.planner, plannerWords),
+            (.notifications, notificationWords),
+            (.symptoms, symptomsWords),
+            (.account, accountWords),
+        ]
+
+        let scored = candidates.map { intent, keywords in
+            (intent, scoreIntent(normalized, tokens: tokens, keywords: keywords))
         }
-        return answer(for: intent)
+
+        guard let best = scored.max(by: { lhs, rhs in
+            if lhs.1 == rhs.1 {
+                return priority(of: lhs.0) > priority(of: rhs.0)
+            }
+            return lhs.1 < rhs.1
+        }), best.1 > 0 else {
+            return answer(for: .fallback)
+        }
+
+        return answer(for: best.0)
     }
 
     private static func normalizedLanguage(_ raw: String) -> String {
-        raw.lowercased().hasPrefix("en") ? "en" : "ru"
+        let lower = raw.lowercased()
+        return (lower.hasPrefix("en") || lower.hasPrefix("es") || lower.hasPrefix("it")) ? "en" : "ru"
     }
 
-    private static func containsAny(_ text: String, keywords: [String]) -> Bool {
-        keywords.contains { text.contains($0) }
+    private static func normalizedText(_ raw: String) -> String {
+        let lowered = raw.lowercased()
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ". "))
+        let mapped = lowered.unicodeScalars.map { scalar in
+            allowed.contains(scalar) ? Character(scalar) : " "
+        }
+        return String(mapped).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    private static func scoreIntent(_ text: String, tokens: [String], keywords: [String]) -> Int {
+        keywords.reduce(0) { partial, keyword in
+            partial + scoreKeyword(text, tokens: tokens, keyword: keyword)
+        }
+    }
+
+    private static func scoreKeyword(_ text: String, tokens: [String], keyword: String) -> Int {
+        if keyword.contains(" ") {
+            return text.contains(keyword) ? 3 : 0
+        }
+        if tokens.contains(where: { $0 == keyword || $0.hasPrefix(keyword) || keyword.hasPrefix($0) }) {
+            return 2
+        }
+        return text.contains(keyword) ? 1 : 0
+    }
+
+    private static func priority(of intent: AIGuideIntent) -> Int {
+        switch intent {
+        case .onboarding:
+            return 6
+        case .risk:
+            return 5
+        case .planner:
+            return 4
+        case .notifications:
+            return 3
+        case .symptoms:
+            return 2
+        case .account:
+            return 1
+        case .fallback:
+            return 0
+        }
     }
 
     private static func answer(for intent: AIGuideIntent) -> AIGuideAnswer {
@@ -997,7 +1077,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.onboarding.step2",
                     "ai_guide.intent.onboarding.step3",
                     "ai_guide.intent.onboarding.step4",
-                ]
+                ],
+                quickActions: [.openOnboarding, .openDashboard]
             )
         case .risk:
             return AIGuideAnswer(
@@ -1007,7 +1088,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.risk.step2",
                     "ai_guide.intent.risk.step3",
                     "ai_guide.intent.risk.step4",
-                ]
+                ],
+                quickActions: [.openDashboard, .openPlanner]
             )
         case .planner:
             return AIGuideAnswer(
@@ -1017,7 +1099,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.planner.step2",
                     "ai_guide.intent.planner.step3",
                     "ai_guide.intent.planner.step4",
-                ]
+                ],
+                quickActions: [.openPlanner, .openDashboard]
             )
         case .notifications:
             return AIGuideAnswer(
@@ -1027,7 +1110,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.notifications.step2",
                     "ai_guide.intent.notifications.step3",
                     "ai_guide.intent.notifications.step4",
-                ]
+                ],
+                quickActions: [.openNotifications, .openDashboard]
             )
         case .symptoms:
             return AIGuideAnswer(
@@ -1037,7 +1121,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.symptoms.step2",
                     "ai_guide.intent.symptoms.step3",
                     "ai_guide.intent.symptoms.step4",
-                ]
+                ],
+                quickActions: [.openSymptoms, .openInsights]
             )
         case .account:
             return AIGuideAnswer(
@@ -1047,7 +1132,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.account.step2",
                     "ai_guide.intent.account.step3",
                     "ai_guide.intent.account.step4",
-                ]
+                ],
+                quickActions: [.openAccount, .openOnboarding]
             )
         case .fallback:
             return AIGuideAnswer(
@@ -1057,7 +1143,8 @@ private enum HiAirAIGuideEngine {
                     "ai_guide.intent.fallback.step2",
                     "ai_guide.intent.fallback.step3",
                     "ai_guide.intent.fallback.step4",
-                ]
+                ],
+                quickActions: [.openDashboard, .openPlanner, .openAccount]
             )
         }
     }
@@ -1072,6 +1159,7 @@ private struct AIGuideMessage: Identifiable {
     let id = UUID()
     let role: Role
     let text: String
+    let quickActions: [AIGuideQuickAction]
 }
 
 private struct HiAirAIGuideView: View {
@@ -1086,35 +1174,97 @@ private struct HiAirAIGuideView: View {
             session.l("ai_guide.suggestion.risk"),
             session.l("ai_guide.suggestion.safe_windows"),
             session.l("ai_guide.suggestion.notifications"),
+            session.l("ai_guide.suggestion.symptoms"),
+            session.l("ai_guide.suggestion.account"),
         ]
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 10) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(messages) { message in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(message.role == .assistant ? session.l("ai_guide.assistant_label") : session.l("ai_guide.user_label"))
-                                    .font(AuroraTokens.Typography.caption)
-                                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-                                Text(message.text)
-                                    .font(AuroraTokens.Typography.bodyMD)
-                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                HStack(spacing: 10) {
+                    AiryGuideAvatar(size: 42)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.l("ai_guide.title"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("ai_guide.subtitle"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(messages) { message in
+                                HStack(alignment: .top, spacing: 8) {
+                                    if message.role == .assistant {
+                                        AiryGuideAvatar(size: 28)
+                                    } else {
+                                        Spacer(minLength: 0)
+                                    }
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(message.role == .assistant ? session.l("ai_guide.assistant_label") : session.l("ai_guide.user_label"))
+                                            .font(AuroraTokens.Typography.caption)
+                                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                        Text(message.text)
+                                            .font(AuroraTokens.Typography.bodyMD)
+                                            .foregroundStyle(HiAirV2Theme.primaryText)
+                                        if message.role == .assistant, !message.quickActions.isEmpty {
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack(spacing: 8) {
+                                                    ForEach(message.quickActions, id: \.rawValue) { action in
+                                                        Button(session.l(action.titleKey)) {
+                                                            applyQuickAction(action)
+                                                        }
+                                                        .font(AuroraTokens.Typography.caption)
+                                                        .foregroundStyle(HiAirV2Theme.primaryText)
+                                                        .padding(.horizontal, 10)
+                                                        .padding(.vertical, 6)
+                                                        .background(.white.opacity(0.08), in: Capsule())
+                                                        .buttonStyle(.plain)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if message.role == .user {
+                                        Circle()
+                                            .fill(HiAirV2Theme.accentStart.opacity(0.5))
+                                            .frame(width: 28, height: 28)
+                                            .overlay(
+                                                Image(systemName: "person.fill")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                                            )
+                                    } else {
+                                        Spacer(minLength: 0)
+                                    }
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: message.role == .assistant ? .leading : .trailing)
+                                .background(
+                                    message.role == .assistant
+                                    ? HiAirV2Theme.cardFill.opacity(0.95)
+                                    : HiAirV2Theme.accentStart.opacity(0.22),
+                                    in: RoundedRectangle(cornerRadius: 12)
+                                )
+                                .id(message.id)
                             }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                message.role == .assistant
-                                ? HiAirV2Theme.cardFill.opacity(0.95)
-                                : HiAirV2Theme.accentStart.opacity(0.22),
-                                in: RoundedRectangle(cornerRadius: 12)
-                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                    }
+                    .onChange(of: messages.count) { _ in
+                        guard let lastId = messages.last?.id else { return }
+                        withAnimation(.easeOut(duration: AuroraTokens.Motion.fast)) {
+                            proxy.scrollTo(lastId, anchor: .bottom)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
                 }
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -1123,7 +1273,12 @@ private struct HiAirAIGuideView: View {
                             Button(suggestion) {
                                 askQuestion(suggestion)
                             }
-                            .buttonStyle(.bordered)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(.white.opacity(0.08), in: Capsule())
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -1132,6 +1287,8 @@ private struct HiAirAIGuideView: View {
                 HStack(spacing: 8) {
                     TextField(session.l("ai_guide.placeholder"), text: $question)
                         .textFieldStyle(.roundedBorder)
+                        .submitLabel(.send)
+                        .onSubmit { askQuestion(question) }
                     Button(session.l("ai_guide.send")) {
                         askQuestion(question)
                     }
@@ -1162,24 +1319,32 @@ private struct HiAirAIGuideView: View {
     }
 
     private func resetConversation() {
-        let languageLabel = session.l("settings.language_\(session.preferredLanguage.lowercased().hasPrefix("en") ? "en" : "ru")")
+        let languageLabel = session.l("settings.language_\(displayLanguageCode(session.preferredLanguage))")
         messages = [
             AIGuideMessage(
                 role: .assistant,
-                text: "\(session.l("ai_guide.greeting"))\n\(session.l("ai_guide.language_hint")) \(languageLabel)."
+                text: "\(session.l("ai_guide.greeting"))\n\(session.l("ai_guide.language_hint")) \(languageLabel).",
+                quickActions: [.openDashboard, .openPlanner, .openNotifications]
             )
         ]
     }
 
+    private func displayLanguageCode(_ lang: String) -> String {
+        let lower = lang.lowercased()
+        if lower.hasPrefix("es") { return "es" }
+        if lower.hasPrefix("it") { return "it" }
+        return lower.hasPrefix("en") ? "en" : "ru"
+    }
+
     private func askQuestion(_ rawQuestion: String) {
-        let normalized = rawQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = String(rawQuestion.trimmingCharacters(in: .whitespacesAndNewlines).prefix(320))
         guard !normalized.isEmpty else { return }
         question = ""
-        messages.append(AIGuideMessage(role: .user, text: normalized))
+        messages.append(AIGuideMessage(role: .user, text: normalized, quickActions: []))
 
         let answer = HiAirAIGuideEngine.answer(for: normalized, lang: session.preferredLanguage)
         let rendered = renderAnswer(answer)
-        messages.append(AIGuideMessage(role: .assistant, text: rendered))
+        messages.append(AIGuideMessage(role: .assistant, text: rendered, quickActions: answer.quickActions))
     }
 
     private func renderAnswer(_ answer: AIGuideAnswer) -> String {
@@ -1189,6 +1354,76 @@ private struct HiAirAIGuideView: View {
         }
         lines.append(session.l("ai_guide.followup"))
         return lines.joined(separator: "\n")
+    }
+
+    private func applyQuickAction(_ action: AIGuideQuickAction) {
+        switch action {
+        case .openDashboard:
+            session.selectedTab = 0
+        case .openPlanner:
+            session.selectedTab = 1
+        case .openInsights:
+            session.selectedTab = 2
+        case .openSymptoms:
+            session.selectedTab = 3
+        case .openNotifications, .openAccount:
+            session.selectedTab = 4
+        case .openOnboarding:
+            session.showOnboardingFromSettings = true
+        }
+        dismiss()
+    }
+}
+
+private struct AiryGuideAvatar: View {
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            fallbackAvatar
+            Image("hiair-ai-guide-avatar")
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        }
+        .frame(width: size, height: size)
+        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+        .shadow(color: AuroraTokens.ColorPalette.info.opacity(0.36), radius: 10, x: 0, y: 4)
+        .accessibilityHidden(true)
+    }
+
+    private var fallbackAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AuroraTokens.ColorPalette.info.opacity(0.85),
+                            AuroraTokens.ColorPalette.ctaEnd.opacity(0.65),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Circle()
+                .fill(.white.opacity(0.18))
+                .frame(width: size * 0.72, height: size * 0.72)
+                .offset(y: size * 0.06)
+            Circle()
+                .fill(.white.opacity(0.78))
+                .frame(width: size * 0.14, height: size * 0.14)
+                .offset(x: -size * 0.13, y: -size * 0.08)
+            Circle()
+                .fill(.white.opacity(0.78))
+                .frame(width: size * 0.14, height: size * 0.14)
+                .offset(x: size * 0.13, y: -size * 0.08)
+            Capsule()
+                .fill(.white.opacity(0.8))
+                .frame(width: size * 0.28, height: size * 0.08)
+                .offset(y: size * 0.08)
+        }
+        .frame(width: size, height: size)
     }
 }
 
