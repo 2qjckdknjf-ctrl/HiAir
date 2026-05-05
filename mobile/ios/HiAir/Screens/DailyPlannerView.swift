@@ -26,7 +26,7 @@ final class DailyPlannerViewModel: ObservableObject {
                 ? "Loaded \(planner.hourlyRisk.count) hourly slots."
                 : "Загружено \(planner.hourlyRisk.count) почасовых слотов."
         } catch {
-            statusText = HiAirL10n.t("planner.failed", lang: language)
+            statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             hourlyItems = []
             safeWindows = []
             ventilationWindows = []
@@ -56,6 +56,34 @@ struct DailyPlannerView: View {
                 Text(viewModel.statusText)
                     .font(.footnote)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
+
+                if session.profileId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("planner.empty.no_profile.title"))
+                            .font(.headline)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("planner.empty.no_profile.body"))
+                            .font(.subheadline)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("planner.empty.no_profile.cta")) {
+                            Task {
+                                let created = await session.ensureProfileIdIfNeeded()
+                                if created {
+                                    session.markChecklistItem("profile", done: true)
+                                    await viewModel.refresh(
+                                        profileId: session.profileId,
+                                        userId: session.userId,
+                                        accessToken: session.accessToken,
+                                        language: session.preferredLanguage
+                                    )
+                                }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(HiAirV2Theme.accentStart)
+                    }
+                    .v2Card()
+                }
 
                 if !viewModel.hourlyItems.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -131,6 +159,7 @@ struct DailyPlannerView: View {
                             accessToken: session.accessToken,
                             language: session.preferredLanguage
                         )
+                        session.markChecklistItem("hourly", done: true)
                     }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
@@ -158,6 +187,7 @@ struct DailyPlannerView: View {
                 accessToken: session.accessToken,
                 language: session.preferredLanguage
             )
+            session.markChecklistItem("hourly", done: true)
         }
     }
 

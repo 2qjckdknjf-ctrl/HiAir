@@ -8,6 +8,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var headline = "-"
     @Published var actions: [String] = []
     @Published var nearestSafeWindow = "-"
+    @Published var environmental: AirEnvironmentalInput?
 
     private let apiClient = APIClient.live()
 
@@ -21,10 +22,11 @@ final class DashboardViewModel: ObservableObject {
         defer { loading = false }
         guard let profileId, !profileId.isEmpty else {
             riskLevel = "unknown"
-            headline = language == "en" ? "Create a profile first" : "Сначала создайте профиль"
-            explanation = HiAirL10n.t("planner.profile_required", lang: language)
+            headline = HiAirL10n.t("dashboard.empty.no_profile.title", lang: language)
+            explanation = HiAirL10n.t("dashboard.empty.no_profile.body", lang: language)
             actions = []
             nearestSafeWindow = "-"
+            environmental = nil
             return
         }
         do {
@@ -37,6 +39,7 @@ final class DashboardViewModel: ObservableObject {
             explanation = result.explanation
             headline = result.recommendation.headline
             actions = result.recommendation.actions
+            environmental = result.environmental
             if let firstWindow = result.risk.safeWindows.first {
                 nearestSafeWindow = "\(firstWindow.type): \(firstWindow.start) -> \(firstWindow.end)"
             } else {
@@ -45,9 +48,10 @@ final class DashboardViewModel: ObservableObject {
         } catch {
             riskLevel = "error"
             headline = HiAirL10n.t("dashboard.error", lang: language)
-            explanation = language == "en" ? "Current risk request failed." : "Запрос текущего риска завершился ошибкой."
+            explanation = HiAirL10n.t("dashboard.empty.api_unavailable", lang: language)
             actions = []
             nearestSafeWindow = "-"
+            environmental = nil
         }
     }
 }
@@ -55,6 +59,7 @@ final class DashboardViewModel: ObservableObject {
 struct DashboardView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DashboardViewModel()
+    @State private var activeInfoKey: InfoTerm?
 
     private var riskScore: Int {
         switch viewModel.riskLevel.lowercased() {
@@ -104,6 +109,16 @@ struct DashboardView: View {
         return [viewModel.nearestSafeWindow, "16:30-19:00", "22:00-23:00"]
     }
 
+    private var starterChecklist: [(id: String, titleKey: String)] {
+        [
+            ("risk", "dashboard.get_started.item.risk"),
+            ("hourly", "dashboard.get_started.item.hourly"),
+            ("recommendations", "dashboard.get_started.item.recommendations"),
+            ("profile", "dashboard.get_started.item.profile"),
+            ("notifications", "dashboard.get_started.item.notifications"),
+        ]
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AuroraTokens.Spacing.md) {
@@ -149,11 +164,73 @@ struct DashboardView: View {
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
+                if !session.checklistHidden {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(session.l("dashboard.get_started.title"))
+                                .font(AuroraTokens.Typography.titleMD)
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+                            Spacer()
+                            Button(session.l("dashboard.get_started.hide")) {
+                                session.checklistHidden = true
+                            }
+                            .font(AuroraTokens.Typography.caption)
+                        }
+                        ForEach(starterChecklist, id: \.id) { item in
+                            Button {
+                                let next = !session.isChecklistItemDone(item.id)
+                                session.markChecklistItem(item.id, done: next)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: session.isChecklistItemDone(item.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(session.isChecklistItemDone(item.id) ? HiAirV2Theme.accentStart : HiAirV2Theme.tertiaryText)
+                                    Text(session.l(item.titleKey))
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .v2Card()
+                }
+
+                if session.latitude == 0 && session.longitude == 0 {
+                    Text(session.l("dashboard.empty.location_missing"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                        .v2Card()
+                }
+
+                if session.profileId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("dashboard.empty.no_profile.title"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("dashboard.empty.no_profile.body"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("dashboard.empty.no_profile.cta")) {
+                            Task {
+                                let created = await session.ensureProfileIdIfNeeded()
+                                if created {
+                                    session.markChecklistItem("profile", done: true)
+                                }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(HiAirV2Theme.accentStart)
+                    }
+                    .v2Card()
+                }
+
                 VStack(alignment: .leading, spacing: AuroraTokens.Spacing.sm) {
                     HStack(spacing: 8) {
                         Text(session.l("dashboard.current_risk_title"))
                             .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
+                        infoButton("dashboard.tooltip.risk_score")
                         Text(viewModel.riskLevel == "-" ? session.l("dashboard.badge_moderate") : viewModel.riskLevel.uppercased())
                             .font(AuroraTokens.Typography.caption.weight(.semibold))
                             .foregroundStyle(riskColor)
@@ -202,10 +279,32 @@ struct DashboardView: View {
                 .padding(10)
                 .v2Card()
 
+                if let env = viewModel.environmental {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("dashboard.air_metrics"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        metricRow("dashboard.metric.aqi", value: "\(env.aqi)", tooltip: "dashboard.tooltip.aqi")
+                        metricRow("dashboard.metric.pm25", value: String(format: "%.1f", env.pm25), tooltip: "dashboard.tooltip.pm25")
+                        metricRow("dashboard.metric.ozone", value: String(format: "%.1f", env.ozone), tooltip: "dashboard.tooltip.ozone")
+                        metricRow("dashboard.metric.heat_index", value: String(format: "%.1f°C", env.feelsLike), tooltip: "dashboard.tooltip.heat_index")
+                        metricRow("dashboard.metric.humidity", value: String(format: "%.0f%%", env.humidity), tooltip: "dashboard.tooltip.heat_index")
+                    }
+                    .v2Card()
+                } else if !viewModel.loading {
+                    Text(session.l("dashboard.empty.api_unavailable"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                        .v2Card()
+                }
+
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(session.l("dashboard.do_now"))
-                        .font(AuroraTokens.Typography.titleMD)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    HStack {
+                        Text(session.l("dashboard.do_now"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        infoButton("dashboard.recommendations_tooltip")
+                    }
 
                     if viewModel.actions.isEmpty {
                         Group {
@@ -225,9 +324,12 @@ struct DashboardView: View {
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(session.l("dashboard.safe_windows"))
-                        .font(AuroraTokens.Typography.titleMD)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    HStack {
+                        Text(session.l("dashboard.safe_windows"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        infoButton("dashboard.safe_windows_tooltip")
+                    }
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(safeWindows, id: \.self) { window in
@@ -253,6 +355,7 @@ struct DashboardView: View {
                         if session.profileId.isEmpty {
                             _ = await session.ensureProfileIdIfNeeded()
                         }
+                        session.markChecklistItem("risk", done: true)
                         await viewModel.refresh(
                             userId: session.userId,
                             accessToken: session.accessToken,
@@ -265,6 +368,7 @@ struct DashboardView: View {
 
                 Button(session.l("dashboard.log_symptoms")) {
                     session.selectedTab = 3
+                    session.markChecklistItem("recommendations", done: true)
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
             }
@@ -285,6 +389,10 @@ struct DashboardView: View {
                 profileId: session.profileId.isEmpty ? nil : session.profileId,
                 language: session.preferredLanguage
             )
+            session.markChecklistItem("risk", done: true)
+        }
+        .sheet(item: $activeInfoKey) { item in
+            InfoTextSheet(text: session.l(item.id), closeTitle: session.l("common.close"))
         }
     }
 
@@ -308,6 +416,57 @@ struct DashboardView: View {
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func infoButton(_ key: String) -> some View {
+        Button {
+            activeInfoKey = InfoTerm(id: key)
+        } label: {
+            Image(systemName: "info.circle")
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func metricRow(_ titleKey: String, value: String, tooltip: String) -> some View {
+        HStack {
+            Text(session.l(titleKey))
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            infoButton(tooltip)
+            Spacer()
+            Text(value)
+                .font(AuroraTokens.Typography.bodyMD.weight(.semibold))
+                .foregroundStyle(HiAirV2Theme.primaryText)
+        }
+    }
+}
+
+private struct InfoTerm: Identifiable {
+    let id: String
+}
+
+private struct InfoTextSheet: View, Identifiable {
+    let id = UUID()
+    let text: String
+    let closeTitle: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(text)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(16)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(closeTitle) { dismiss() }
+                }
+            }
+        }
     }
 }
 

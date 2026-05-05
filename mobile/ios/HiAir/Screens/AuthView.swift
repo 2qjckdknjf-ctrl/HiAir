@@ -41,7 +41,10 @@ final class AuthViewModel: ObservableObject {
             session.accessToken = response.accessToken
             session.refreshToken = response.refreshToken ?? ""
             session.authNotice = ""
-            _ = await session.ensureProfileIdIfNeeded()
+            let hasProfile = await session.ensureProfileIdIfNeeded()
+            if hasProfile {
+                session.markChecklistItem("profile", done: true)
+            }
             statusText = session.l("auth.ok")
         } catch APIError.serverWithDetail(let statusCode, let detail) {
             statusText = statusMessage(session: session, statusCode: statusCode, detail: detail)

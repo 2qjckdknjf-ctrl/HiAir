@@ -562,6 +562,7 @@ private struct AITrendMiniChart: View {
 struct SettingsView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SettingsViewModel()
+    @State private var showingGuide = false
 
     var body: some View {
         ScrollView {
@@ -583,6 +584,11 @@ struct SettingsView: View {
                         .font(.headline)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Toggle(session.l("settings.push"), isOn: $viewModel.pushAlertsEnabled)
+                    if !viewModel.pushAlertsEnabled {
+                        Text(session.l("settings.notifications_off_hint"))
+                            .font(.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
                     Toggle(session.l("settings.morning_briefing"), isOn: $viewModel.morningBriefingEnabled)
                     TextField(session.l("settings.morning_briefing_time"), text: $viewModel.morningBriefingTime)
                         .textFieldStyle(.roundedBorder)
@@ -777,6 +783,27 @@ struct SettingsView: View {
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.help_title"))
+                        .font(.headline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Button(session.l("settings.help_open")) {
+                        showingGuide = true
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("settings.onboarding_reopen")) {
+                        session.showOnboardingFromSettings = true
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("dashboard.get_started.title")) {
+                        session.resetChecklist()
+                        session.selectedTab = 0
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .tint(HiAirV2Theme.accentStart)
+                .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.security_privacy"))
                         .font(.headline)
                         .foregroundStyle(HiAirV2Theme.primaryText)
@@ -861,6 +888,13 @@ struct SettingsView: View {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
         }
+        .onChange(of: viewModel.pushAlertsEnabled) { enabled in
+            session.markChecklistItem("notifications", done: enabled)
+        }
+        .sheet(isPresented: $showingGuide) {
+            HiAirGuideView()
+                .environmentObject(session)
+        }
     }
 
     private func aiErrorBreakdownLine() -> String {
@@ -872,5 +906,56 @@ struct SettingsView: View {
             }
             .joined(separator: ", ")
         return "\(session.l("settings.ai_error_counts")): \(rendered.isEmpty ? "-" : rendered)"
+    }
+}
+
+private struct HiAirGuideView: View {
+    @EnvironmentObject var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+
+    private var sections: [(title: String, body: String)] {
+        [
+            ("guide.what_is_title", "guide.what_is_body"),
+            ("guide.problems_title", "guide.problems_body"),
+            ("guide.for_whom_title", "guide.for_whom_body"),
+            ("guide.read_dashboard_title", "guide.read_dashboard_body"),
+            ("guide.risk_title", "guide.risk_body"),
+            ("guide.metrics_title", "guide.metrics_body"),
+            ("guide.hourly_title", "guide.hourly_body"),
+            ("guide.safe_windows_title", "guide.safe_windows_body"),
+            ("guide.symptoms_title", "guide.symptoms_body"),
+            ("guide.notifications_title", "guide.notifications_body"),
+            ("guide.high_risk_title", "guide.high_risk_body"),
+            ("guide.not_doctor_title", "guide.not_doctor_body"),
+            ("guide.faq_title", "guide.faq_body"),
+        ]
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(session.l(section.title))
+                                .font(.headline)
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+                            Text(session.l(section.body))
+                                .font(.subheadline)
+                                .foregroundStyle(HiAirV2Theme.secondaryText)
+                        }
+                        .v2Card()
+                    }
+                }
+                .padding(16)
+            }
+            .v2PageBackground()
+            .navigationTitle(session.l("guide.title"))
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(session.l("common.close")) { dismiss() }
+                }
+            }
+        }
     }
 }

@@ -47,5 +47,9 @@ struct RootTabView: View {
                 OnboardingView()
             }
         }
+        .fullScreenCover(isPresented: $session.showOnboardingFromSettings) {
+            OnboardingView(fromSettings: true)
+                .environmentObject(session)
+        }
     }
 }

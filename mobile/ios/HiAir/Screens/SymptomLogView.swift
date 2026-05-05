@@ -68,7 +68,6 @@ final class SymptomLogViewModel: ObservableObject {
 struct SymptomLogView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SymptomLogViewModel()
-    @State private var profileId = ""
 
     var body: some View {
         ScrollView {
@@ -92,8 +91,24 @@ struct SymptomLogView: View {
                     .padding(.vertical, 6)
                     .background(.white.opacity(0.08), in: Capsule())
 
-                TextField(session.l("symptoms.profile_id"), text: $profileId)
-                    .textFieldStyle(.roundedBorder)
+                if session.profileId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("symptoms.empty.title"))
+                            .font(.headline)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("symptoms.empty.body"))
+                            .font(.subheadline)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("planner.empty.no_profile.cta")) {
+                            Task {
+                                _ = await session.ensureProfileIdIfNeeded()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(HiAirV2Theme.accentStart)
+                    }
+                    .v2Card()
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("symptoms.title"))
@@ -139,7 +154,7 @@ struct SymptomLogView: View {
                     Button(session.l("symptoms.quick_breath")) {
                         Task {
                             await viewModel.quickLog(
-                                profileId: profileId,
+                                profileId: session.profileId,
                                 symptomType: "breath_discomfort",
                                 userId: session.userId,
                                 accessToken: session.accessToken,
@@ -152,7 +167,7 @@ struct SymptomLogView: View {
                     Button(session.l("symptoms.quick_headache")) {
                         Task {
                             await viewModel.quickLog(
-                                profileId: profileId,
+                                profileId: session.profileId,
                                 symptomType: "headache",
                                 userId: session.userId,
                                 accessToken: session.accessToken,
@@ -167,16 +182,15 @@ struct SymptomLogView: View {
                 Button(viewModel.loading ? session.l("symptoms.saving") : session.l("symptoms.submit")) {
                     Task {
                         await viewModel.submit(
-                            profileId: profileId,
+                            profileId: session.profileId,
                             userId: session.userId,
                             accessToken: session.accessToken,
                             language: session.preferredLanguage
                         )
-                        session.profileId = profileId
                     }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
-                .disabled(viewModel.loading || profileId.isEmpty)
+                .disabled(viewModel.loading || session.profileId.isEmpty)
 
                 Text(viewModel.statusText)
                     .font(.footnote)
@@ -186,9 +200,7 @@ struct SymptomLogView: View {
         }
         .v2PageBackground()
         .onAppear {
-            if profileId.isEmpty {
-                profileId = session.profileId
-            }
+            Task { _ = await session.ensureProfileIdIfNeeded() }
         }
     }
 

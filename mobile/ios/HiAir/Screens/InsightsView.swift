@@ -51,6 +51,34 @@ struct InsightsView: View {
                     .font(.subheadline)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
+                if session.profileId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("planner.empty.no_profile.title"))
+                            .font(.headline)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("planner.empty.no_profile.body"))
+                            .font(.subheadline)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("planner.empty.no_profile.cta")) {
+                            Task {
+                                let created = await session.ensureProfileIdIfNeeded()
+                                if created {
+                                    session.markChecklistItem("profile", done: true)
+                                    await viewModel.refresh(
+                                        profileId: session.profileId,
+                                        userId: session.userId,
+                                        accessToken: session.accessToken,
+                                        language: session.preferredLanguage
+                                    )
+                                }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(HiAirV2Theme.accentStart)
+                    }
+                    .v2Card()
+                }
+
                 if viewModel.loading {
                     Text(session.l("insights.loading"))
                         .font(.subheadline)
@@ -120,6 +148,7 @@ struct InsightsView: View {
                             accessToken: session.accessToken,
                             language: session.preferredLanguage
                         )
+                        session.markChecklistItem("recommendations", done: true)
                     }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
@@ -142,6 +171,7 @@ struct InsightsView: View {
                 accessToken: session.accessToken,
                 language: session.preferredLanguage
             )
+            session.markChecklistItem("recommendations", done: true)
         }
     }
 }
