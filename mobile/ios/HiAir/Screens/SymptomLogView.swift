@@ -73,19 +73,19 @@ struct SymptomLogView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(session.l("common.city_updated"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("symptoms.title"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
 
                 Text(session.l("symptoms.subtitle"))
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("symptoms.streak"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.tertiaryText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -94,10 +94,10 @@ struct SymptomLogView: View {
                 if session.profileId.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("symptoms.empty.title"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         Text(session.l("symptoms.empty.body"))
-                            .font(.subheadline)
+                            .font(AuroraTokens.Typography.bodyMD)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                         Button(session.l("planner.empty.no_profile.cta")) {
                             Task {
@@ -112,7 +112,7 @@ struct SymptomLogView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("symptoms.title"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     HStack(spacing: 8) {
                         symptomPill("💨 \(session.l("symptoms.cough"))", isOn: $viewModel.cough)
@@ -127,7 +127,7 @@ struct SymptomLogView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("symptoms.sleep_quality"))
-                        .font(.subheadline)
+                        .font(AuroraTokens.Typography.bodyMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     HStack(spacing: 8) {
                         ForEach(1...5, id: \.self) { value in
@@ -135,7 +135,7 @@ struct SymptomLogView: View {
                                 viewModel.sleepQuality = value
                             } label: {
                                 Text("\(value)")
-                                    .font(.footnote.bold())
+                                    .font(AuroraTokens.Typography.caption.weight(.semibold))
                                     .foregroundStyle(viewModel.sleepQuality == value ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
                                     .frame(width: 34, height: 28)
                                     .background(
@@ -193,7 +193,7 @@ struct SymptomLogView: View {
                 .disabled(viewModel.loading || session.profileId.isEmpty)
 
                 Text(viewModel.statusText)
-                    .font(.footnote)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
             }
             .padding(16)
@@ -209,7 +209,7 @@ struct SymptomLogView: View {
             isOn.wrappedValue.toggle()
         } label: {
             Text(label)
-                .font(.subheadline)
+                .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(isOn.wrappedValue ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)

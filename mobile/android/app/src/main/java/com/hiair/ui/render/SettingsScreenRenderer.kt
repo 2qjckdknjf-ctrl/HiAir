@@ -1,6 +1,5 @@
 package com.hiair.ui.render
 
-import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
@@ -64,8 +63,8 @@ internal object SettingsScreenRenderer {
         personaSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, personaLabels)
         val subscriptionSpinner = Spinner(activity)
         val aiWindowInput = EditText(activity).apply { hint = ctx.l("settings.ai_window"); setText("24") }
-        val languageLabel = TextView(activity).apply { text = ctx.l("settings.language"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiMetricLabel = TextView(activity).apply { text = ctx.l("settings.ai_metric"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
+        val languageLabel = TextView(activity).apply { text = ctx.l("settings.language"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val aiMetricLabel = TextView(activity).apply { text = ctx.l("settings.ai_metric"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
         val aiMetricSpinner = Spinner(activity)
         val aiMetricOptions = listOf("total", "fallback", "guardrail", "errors", "timeout", "network", "server")
         val aiMetricLabels = listOf(
@@ -78,27 +77,27 @@ internal object SettingsScreenRenderer {
             ctx.l("settings.ai_metric_server")
         )
         aiMetricSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, aiMetricLabels)
-        val aiModeLabel = TextView(activity).apply { text = ctx.l("settings.ai_mode"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
+        val aiModeLabel = TextView(activity).apply { text = ctx.l("settings.ai_mode"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
         val aiModeSpinner = Spinner(activity)
         val aiModeOptions = listOf("bars", "line")
         val aiModeLabels = listOf(ctx.l("settings.ai_mode_bars"), ctx.l("settings.ai_mode_line"))
         aiModeSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, aiModeLabels)
-        val aiSummaryText = TextView(activity).apply { text = ctx.l("settings.ai_summary"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiTrendText = TextView(activity).apply { text = ctx.l("settings.ai_trend"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiGraphText = TextView(activity).apply { text = ctx.l("settings.ai_graph"); textSize = 14f; setTextColor(Color.parseColor("#7BCBFF")) }
-        val aiRangeText = TextView(activity).apply { text = "${ctx.l("settings.ai_range")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiAxisText = TextView(activity).apply { text = "${ctx.l("settings.ai_axis")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiRequestStatusText = TextView(activity).apply { text = "${ctx.l("settings.ai_request_status")}: ${ctx.l("settings.ai_request_idle")}"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiLastUpdatedText = TextView(activity).apply { text = "${ctx.l("settings.ai_last_updated")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiInlineErrorText = TextView(activity).apply { text = ""; textSize = 13f; setTextColor(Color.parseColor("#FF9AA2")) }
+        val aiSummaryText = TextView(activity).apply { text = ctx.l("settings.ai_summary"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val aiTrendText = TextView(activity).apply { text = ctx.l("settings.ai_trend"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val aiGraphText = TextView(activity).apply { text = ctx.l("settings.ai_graph"); textSize = 14f; setTextColor(Tokens.Feedback.info) }
+        val aiRangeText = TextView(activity).apply { text = "${ctx.l("settings.ai_range")}: -"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiAxisText = TextView(activity).apply { text = "${ctx.l("settings.ai_axis")}: -"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiRequestStatusText = TextView(activity).apply { text = "${ctx.l("settings.ai_request_status")}: ${ctx.l("settings.ai_request_idle")}"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiLastUpdatedText = TextView(activity).apply { text = "${ctx.l("settings.ai_last_updated")}: -"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiInlineErrorText = TextView(activity).apply { text = ""; textSize = 13f; setTextColor(Tokens.Feedback.errorSoft) }
         val aiTrendChart = AITrendChartView(activity).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 V2Ui.dp(activity, 72)
             )
         }
-        val aiBreakdownText = TextView(activity).apply { text = ctx.l("settings.ai_breakdown"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val statusText = TextView(activity).apply { text = ctx.l("settings.load_save"); textSize = 16f; setTextColor(Color.parseColor("#A6B6D2")) }
+        val aiBreakdownText = TextView(activity).apply { text = ctx.l("settings.ai_breakdown"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val statusText = TextView(activity).apply { text = ctx.l("settings.load_save"); textSize = 16f; setTextColor(Tokens.Text.secondary) }
         val aiRetryButton = V2Ui.secondaryButton(activity, ctx.l("settings.ai_retry_now"))
         val mainHandler = Handler(Looper.getMainLooper())
         var aiRefreshRunnable: Runnable? = null
@@ -545,7 +544,7 @@ internal object SettingsScreenRenderer {
                 background = V2Ui.cardBackground(
                     activity,
                     fillHex = String.format("#%08X", color),
-                    strokeHex = "#40FFFFFF",
+                    strokeHex = String.format("#%08X", Tokens.Feedback.strokeSoft),
                     radiusDp = 999
                 )
             }

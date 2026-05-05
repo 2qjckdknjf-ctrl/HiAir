@@ -42,22 +42,22 @@ struct InsightsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(session.l("common.city_updated"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
                 Text(session.l("tab.insights"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
                 Text(viewModel.statusText)
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 if session.profileId.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.empty.no_profile.title"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         Text(session.l("planner.empty.no_profile.body"))
-                            .font(.subheadline)
+                            .font(AuroraTokens.Typography.bodyMD)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                         Button(session.l("planner.empty.no_profile.cta")) {
                             Task {
@@ -81,7 +81,7 @@ struct InsightsView: View {
 
                 if viewModel.loading {
                     Text(session.l("insights.loading"))
-                        .font(.subheadline)
+                        .font(AuroraTokens.Typography.bodyMD)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -90,8 +90,8 @@ struct InsightsView: View {
                 } else if let lastError = viewModel.lastError {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(lastError)
-                            .font(.subheadline)
-                            .foregroundStyle(.red.opacity(0.9))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(AuroraTokens.ColorPalette.errorSoft.opacity(0.9))
                         Button(session.l("insights.retry")) {
                             Task {
                                 await viewModel.refresh(
@@ -110,7 +110,7 @@ struct InsightsView: View {
                     .v2Card()
                 } else if viewModel.items.isEmpty {
                     Text(session.l("insights.empty"))
-                        .font(.subheadline)
+                        .font(AuroraTokens.Typography.bodyMD)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,13 +120,13 @@ struct InsightsView: View {
                     ForEach(Array(viewModel.items.enumerated()), id: \.offset) { _, item in
                         VStack(alignment: .leading, spacing: 6) {
                             Text("\(item.factorA) ↔ \(item.factorB)")
-                                .font(.headline)
+                                .font(AuroraTokens.Typography.titleMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                             Text(item.humanReadableText)
-                                .font(.subheadline)
+                                .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text("r=\(item.coefficient, specifier: "%.2f"), p=\(item.pValue, specifier: "%.3f"), n=\(item.sampleSize)")
-                                .font(.caption)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.tertiaryText)
                         }
                         .v2Card()

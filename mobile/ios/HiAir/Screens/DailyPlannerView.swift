@@ -42,28 +42,28 @@ struct DailyPlannerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(session.l("common.city_updated"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("planner.title"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
 
                 Text(session.l("planner.subtitle"))
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(viewModel.statusText)
-                    .font(.footnote)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 if session.profileId.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.empty.no_profile.title"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         Text(session.l("planner.empty.no_profile.body"))
-                            .font(.subheadline)
+                            .font(AuroraTokens.Typography.bodyMD)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                         Button(session.l("planner.empty.no_profile.cta")) {
                             Task {
@@ -88,7 +88,7 @@ struct DailyPlannerView: View {
                 if !viewModel.hourlyItems.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.hourly"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(alignment: .bottom, spacing: 3) {
@@ -111,16 +111,16 @@ struct DailyPlannerView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("• \(keyEventLine())")
-                                .font(.subheadline)
+                                .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                             if let firstWindow = viewModel.safeWindows.first {
                                 Text("• \(session.l("planner.safe_windows")): \(firstWindow.start) → \(firstWindow.end)")
-                                    .font(.subheadline)
+                                    .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }
                             if let firstVent = viewModel.ventilationWindows.first {
                                 Text("• \(session.l("planner.ventilation_windows")): \(firstVent.start) → \(firstVent.end)")
-                                    .font(.subheadline)
+                                    .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }
                         }
@@ -129,11 +129,11 @@ struct DailyPlannerView: View {
                 } else if !viewModel.safeWindows.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.safe_windows"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         ForEach(viewModel.safeWindows, id: \.start) { window in
                             Text("\(window.type): \(window.start) → \(window.end)")
-                                .font(.subheadline)
+                                .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)

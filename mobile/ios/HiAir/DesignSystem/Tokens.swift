@@ -8,6 +8,8 @@ enum AuroraTokens {
         static let textTertiary = Color(hex: 0x6A7A99)
         static let ctaStart = Color(hex: 0x5DD5C4)
         static let ctaEnd = Color(hex: 0x8B7BFF)
+        static let info = Color(hex: 0x7BCBFF)
+        static let errorSoft = Color(hex: 0xFF9AA2)
         static let riskLow = Color(hex: 0x7DDCB0)
         static let riskModerate = Color(hex: 0xF5B66E)
         static let riskHigh = Color(hex: 0xF08A8A)

@@ -45,7 +45,7 @@ extension View {
 struct V2PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(AuroraTokens.Typography.titleMD)
             .foregroundStyle(Color(red: 0.05, green: 0.09, blue: 0.16))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 13)
