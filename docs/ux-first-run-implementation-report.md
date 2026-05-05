@@ -55,6 +55,7 @@
 ### 6) Localization
 - Added RU/EN localization keys for onboarding, checklist, guide, tooltip copy, and new empty states.
 - Routed new UX text through localization (no newly introduced hardcoded long-form UX copy).
+- Added missing localization coverage for auth subtitle and dashboard mood label.
 
 ## Files changed
 - `mobile/ios/HiAir/AppSession.swift`
@@ -74,15 +75,16 @@
 - iOS build:
   - `xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16' build` -> PASS
 - Android build:
-  - `./gradlew :app:assembleDebug` -> PASS (1 non-blocking warning in existing Android file)
+  - `./gradlew :app:assembleDebug` -> PASS
 - Backend gate (non-DB):
   - `backend/run_gate.sh --skip-db` -> PASS
 - Backend tests:
   - `../.venv/bin/python -m pytest tests/test_alert_and_recommendation.py tests/test_privacy_export_api.py tests/test_privacy_delete_api.py tests/test_auth_hardening.py` -> PASS (14 passed)
+- Full backend test suite:
+  - `../.venv/bin/python -m pytest tests` -> PASS (46 passed)
 - IDE lints on changed iOS files:
   - `ReadLints` -> PASS
 
 ## Residual risks / follow-up
-- Android has one pre-existing warning in `Tokens.kt` (`hour` unused) that does not block build.
 - Onboarding permission step requests permissions directly; UX micro-copy for denied-permission recovery can be expanded later with deep links to system settings.
 - Additional UI test automation for first-run flow is recommended (currently validated by build + logic integration, without dedicated XCTest UI scripts in this change).

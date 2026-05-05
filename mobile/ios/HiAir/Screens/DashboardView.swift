@@ -267,7 +267,7 @@ struct DashboardView: View {
                         Text(weatherTitle)
                             .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
-                        Text("Mood: \(moodTitle)")
+                        Text("\(session.l("dashboard.mood_prefix")): \(moodTitle)")
                             .font(AuroraTokens.Typography.bodyMD)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                         Text(session.l("dashboard.auto_updates"))

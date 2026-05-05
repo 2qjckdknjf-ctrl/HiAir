@@ -52,7 +52,7 @@ object Tokens {
 
         companion object {
             fun current(now: Calendar = Calendar.getInstance()): TimeOfDayPhase {
-                return when (val hour = now.get(Calendar.HOUR_OF_DAY)) {
+                return when (now.get(Calendar.HOUR_OF_DAY)) {
                     in 5..7 -> Dawn
                     in 8..11 -> Morning
                     in 12..15 -> Midday

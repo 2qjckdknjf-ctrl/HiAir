@@ -82,7 +82,7 @@ struct AuthView: View {
                     Text(session.l("auth.title"))
                         .font(AuroraTokens.Typography.displayLG)
                         .foregroundStyle(HiAirV2Theme.primaryText)
-                    Text("Aurora Calm v2")
+                    Text(session.l("auth.subtitle"))
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
                 }
