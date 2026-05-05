@@ -55,6 +55,8 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ vars.EXTERNAL_BLOCKER_COORD_REPO || github.repository }}
+          TARGET_ISSUE: ${{ vars.EXTERNAL_BLOCKER_COORD_ISSUE || '7' }}
         run: |
           CLOSURE_STATUS="PASS"
           EVIDENCE_STATUS="PASS"
@@ -83,7 +85,7 @@ jobs:
           print("\n".join(lines))
           PY
           )"
-          gh issue comment 7 --repo 2qjckdknjf-ctrl/HiAir --body "$(cat <<EOF
+          gh issue comment "${TARGET_ISSUE}" --repo "${TARGET_REPO}" --body "$(cat <<EOF
           Automated External Blocker Ops run completed.
 
           - closure-readiness gate: ${CLOSURE_STATUS}

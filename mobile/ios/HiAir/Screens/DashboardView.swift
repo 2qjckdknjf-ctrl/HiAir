@@ -69,7 +69,7 @@ struct DashboardView: View {
             return 58
         case "high":
             return 79
-        case "very_high":
+        case "very_high", "very high":
             return 90
         default:
             return 58
@@ -80,8 +80,23 @@ struct DashboardView: View {
         RiskAccentColor.color(for: viewModel.riskLevel)
     }
 
-    private let weatherTitle = "Sunny 26C"
-    private let moodTitle = "Calm"
+    private var weatherTitle: String {
+        session.l("dashboard.weather_title")
+    }
+    private var moodTitle: String {
+        switch viewModel.riskLevel.lowercased() {
+        case "low":
+            return session.l("dashboard.mood.calm")
+        case "moderate", "medium":
+            return session.l("dashboard.mood.aware")
+        case "high":
+            return session.l("dashboard.mood.cautious")
+        case "very_high", "very high":
+            return session.l("dashboard.mood.protective")
+        default:
+            return session.l("dashboard.mood.calm")
+        }
+    }
 
     private var pm25Estimate: Double {
         switch viewModel.riskLevel.lowercased() {
@@ -480,7 +495,7 @@ private struct GlobeAnchorView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [riskColor.opacity(0.85), Color.cyan.opacity(0.32)],
+                        colors: [riskColor.opacity(0.85), AuroraTokens.ColorPalette.info.opacity(0.32)],
                         center: .center,
                         startRadius: 6,
                         endRadius: 42
