@@ -41,9 +41,29 @@ final class AuthViewModel: ObservableObject {
             session.accessToken = response.accessToken
             session.refreshToken = response.refreshToken ?? ""
             session.authNotice = ""
+            _ = await session.ensureProfileIdIfNeeded()
             statusText = session.l("auth.ok")
+        } catch APIError.serverWithDetail(let statusCode, let detail) {
+            statusText = statusMessage(session: session, statusCode: statusCode, detail: detail)
+        } catch APIError.server(let statusCode) {
+            statusText = statusMessage(session: session, statusCode: statusCode, detail: nil)
+        } catch is URLError {
+            statusText = session.l("auth.backend_unreachable")
         } catch {
             statusText = session.l("auth.fail")
+        }
+    }
+
+    private func statusMessage(session: AppSession, statusCode: Int, detail: String?) -> String {
+        switch statusCode {
+        case 409:
+            return session.l("auth.email_conflict")
+        case 422:
+            return detail?.isEmpty == false ? detail! : session.l("auth.password_short")
+        case 503:
+            return detail?.isEmpty == false ? detail! : session.l("auth.backend_unavailable")
+        default:
+            return detail?.isEmpty == false ? detail! : session.l("auth.fail")
         }
     }
 }

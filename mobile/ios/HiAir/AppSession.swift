@@ -27,6 +27,7 @@ final class AppSession: ObservableObject {
     @Published var latitude = 41.39 { didSet { persist() } }
     @Published var longitude = 2.17 { didSet { persist() } }
     @Published var selectedTab = 0
+    private let apiClient = APIClient.live()
 
     init() {
         let defaults = UserDefaults.standard
@@ -82,6 +83,36 @@ final class AppSession: ObservableObject {
         APIClient.setAuthState(nil)
     }
 
+    func ensureProfileIdIfNeeded() async -> Bool {
+        if !profileId.isEmpty {
+            return true
+        }
+        guard !userId.isEmpty, !accessToken.isEmpty else {
+            return false
+        }
+        do {
+            let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
+            if let existing = profiles.first {
+                profileId = existing.id
+                return true
+            }
+            let created = try await apiClient.createProfile(
+                userId: userId,
+                payload: ProfileCreatePayload(
+                    personaType: persona,
+                    sensitivityLevel: sensitivity,
+                    homeLat: latitude,
+                    homeLon: longitude
+                ),
+                accessToken: accessToken
+            )
+            profileId = created.id
+            return true
+        } catch {
+            return false
+        }
+    }
+
     private func persist() {
         let defaults = UserDefaults.standard
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
@@ -116,6 +147,7 @@ enum HiAirL10n {
 
     private static let strings: [String: [String: String]] = [
         "ru": [
+            "title.settings": "Настройки",
             "tab.dashboard": "Главная",
             "tab.planner": "План",
             "tab.insights": "Инсайты",
@@ -139,6 +171,9 @@ enum HiAirL10n {
             "auth.password_short": "Пароль должен быть не короче 12 символов.",
             "auth.session_expired": "Сессия истекла. Войдите снова.",
             "auth.ok": "Авторизация успешна.",
+            "auth.email_conflict": "Пользователь с таким email уже существует.",
+            "auth.backend_unreachable": "Нет подключения к API. Проверьте, что backend запущен на 127.0.0.1:8000.",
+            "auth.backend_unavailable": "Backend временно недоступен. Проверьте подключение к базе данных.",
             "auth.fail": "Ошибка авторизации.",
             "onboarding.title": "Онбординг HiAir",
             "onboarding.persona": "Профиль",
@@ -185,6 +220,7 @@ enum HiAirL10n {
             "planner.apply": "Применить план",
             "planner.loading": "Загрузка...",
             "planner.profile_required": "Нужен Profile ID.",
+            "planner.fetch": "Загрузите план дня, чтобы увидеть ключевой интервал.",
             "planner.failed": "Не удалось загрузить план.",
             "symptoms.title": "Журнал симптомов",
             "symptoms.subtitle": "Отмечайте самочувствие для точных персональных рекомендаций.",
@@ -320,6 +356,7 @@ enum HiAirL10n {
             "settings.loading_ai_metrics": "Загружаем AI метрики..."
         ],
         "en": [
+            "title.settings": "Settings",
             "tab.dashboard": "Dashboard",
             "tab.planner": "Planner",
             "tab.insights": "Insights",
@@ -343,6 +380,9 @@ enum HiAirL10n {
             "auth.password_short": "Password must be at least 12 characters.",
             "auth.session_expired": "Session expired. Please sign in again.",
             "auth.ok": "Authenticated.",
+            "auth.email_conflict": "An account with this email already exists.",
+            "auth.backend_unreachable": "Cannot reach API. Ensure backend is running on 127.0.0.1:8000.",
+            "auth.backend_unavailable": "Backend is temporarily unavailable. Check database connectivity.",
             "auth.fail": "Auth failed.",
             "onboarding.title": "HiAir Onboarding",
             "onboarding.persona": "Persona",
@@ -389,6 +429,7 @@ enum HiAirL10n {
             "planner.apply": "Apply this plan",
             "planner.loading": "Loading...",
             "planner.profile_required": "Profile ID is required.",
+            "planner.fetch": "Load daily plan to see the key interval.",
             "planner.failed": "Failed to load planner.",
             "symptoms.title": "Symptoms Log",
             "symptoms.subtitle": "Track how you feel for better personalized guidance.",

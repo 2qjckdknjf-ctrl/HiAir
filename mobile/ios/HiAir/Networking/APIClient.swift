@@ -4,6 +4,7 @@ enum APIError: Error {
     case invalidURL
     case invalidResponse
     case server(statusCode: Int)
+    case serverWithDetail(statusCode: Int, detail: String)
 }
 
 final class APIClient {
@@ -178,15 +179,7 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(AuthRequest(email: email, password: password))
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
-        }
-        return try JSONDecoder().decode(AuthResponse.self, from: data)
+        return try await executeAuthRequest(request)
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -195,15 +188,60 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(AuthRequest(email: email, password: password))
+        return try await executeAuthRequest(request)
+    }
 
+    private func executeAuthRequest(_ request: URLRequest) async throws -> AuthResponse {
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(AuthResponse.self, from: data)
+    }
+
+    func listProfiles(userId: String, accessToken: String? = nil) async throws -> [UserProfile] {
+        let url = baseURL.appending(path: "/api/profiles")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode([UserProfile].self, from: data)
+    }
+
+    func createProfile(
+        userId: String,
+        payload: ProfileCreatePayload,
+        accessToken: String? = nil
+    ) async throws -> UserProfile {
+        let url = baseURL.appending(path: "/api/profiles")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(UserProfile.self, from: data)
+    }
+
+    private func extractErrorDetail(from data: Data) -> String? {
+        guard !data.isEmpty,
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let detail = payload["detail"] as? String else {
+            return nil
+        }
+        return detail.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func fetchMockEnvironment(lat: Double, lon: Double) async throws -> EnvironmentSnapshot {

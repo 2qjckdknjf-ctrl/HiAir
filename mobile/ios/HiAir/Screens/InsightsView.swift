@@ -107,6 +107,9 @@ struct InsightsView: View {
 
                 Button(viewModel.loading ? session.l("dashboard.loading") : session.l("planner.refresh")) {
                     Task {
+                        if session.profileId.isEmpty {
+                            _ = await session.ensureProfileIdIfNeeded()
+                        }
                         guard !session.profileId.isEmpty else {
                             viewModel.statusText = session.l("planner.profile_required")
                             return
@@ -126,6 +129,9 @@ struct InsightsView: View {
         }
         .v2PageBackground()
         .task {
+            if session.profileId.isEmpty {
+                _ = await session.ensureProfileIdIfNeeded()
+            }
             guard !session.profileId.isEmpty else {
                 viewModel.statusText = session.l("planner.profile_required")
                 return

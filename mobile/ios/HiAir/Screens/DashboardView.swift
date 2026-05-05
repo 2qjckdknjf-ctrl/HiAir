@@ -250,6 +250,9 @@ struct DashboardView: View {
 
                 Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
                     Task {
+                        if session.profileId.isEmpty {
+                            _ = await session.ensureProfileIdIfNeeded()
+                        }
                         await viewModel.refresh(
                             userId: session.userId,
                             accessToken: session.accessToken,
@@ -273,6 +276,9 @@ struct DashboardView: View {
                 .allowsHitTesting(false)
         )
         .task {
+            if session.profileId.isEmpty {
+                _ = await session.ensureProfileIdIfNeeded()
+            }
             await viewModel.refresh(
                 userId: session.userId,
                 accessToken: session.accessToken,

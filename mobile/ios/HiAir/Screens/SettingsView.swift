@@ -1,6 +1,5 @@
 import SwiftUI
 import Foundation
-import UIKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -560,37 +559,6 @@ private struct AITrendMiniChart: View {
     }
 }
 
-private struct TokenSwatchRow: View {
-    let title: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(color)
-                .frame(width: 14, height: 14)
-                .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
-            Text(title)
-                .font(.footnote)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-            Spacer()
-            Text(colorHex)
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
-        }
-    }
-
-    private var colorHex: String {
-        let uiColor = UIColor(color)
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return String(format: "#%02X%02X%02X", Int(red * 255), Int(green * 255), Int(blue * 255))
-    }
-}
-
 struct SettingsView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SettingsViewModel()
@@ -609,19 +577,6 @@ struct SettingsView: View {
                 Text(session.l("settings.subtitle"))
                     .font(.subheadline)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Developer · Design tokens")
-                        .font(.headline)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                    TokenSwatchRow(title: "Risk low", color: AuroraTokens.ColorPalette.riskLow)
-                    TokenSwatchRow(title: "Risk moderate", color: AuroraTokens.ColorPalette.riskModerate)
-                    TokenSwatchRow(title: "Risk high", color: AuroraTokens.ColorPalette.riskHigh)
-                    TokenSwatchRow(title: "Risk very high", color: AuroraTokens.ColorPalette.riskVeryHigh)
-                    TokenSwatchRow(title: "CTA start", color: AuroraTokens.ColorPalette.ctaStart)
-                    TokenSwatchRow(title: "CTA end", color: AuroraTokens.ColorPalette.ctaEnd)
-                }
-                .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.notifications"))

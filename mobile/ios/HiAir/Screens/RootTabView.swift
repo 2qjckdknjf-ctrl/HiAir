@@ -40,6 +40,9 @@ struct RootTabView: View {
                         }
                 }
                 .tint(HiAirV2Theme.accentStart)
+                .task(id: session.userId) {
+                    _ = await session.ensureProfileIdIfNeeded()
+                }
             } else {
                 OnboardingView()
             }
