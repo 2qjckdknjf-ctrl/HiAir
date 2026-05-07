@@ -145,7 +145,14 @@ class SettingsViewModel(
     }
 
     fun setPreferredLanguage(value: String) {
-        val normalized = if (value.lowercase().startsWith("en")) "en" else "ru"
+        val lower = value.lowercase()
+        val normalized = when {
+            lower.startsWith("fr") -> "fr"
+            lower.startsWith("it") -> "it"
+            lower.startsWith("es") -> "es"
+            lower.startsWith("en") -> "en"
+            else -> "ru"
+        }
         state = state.copy(preferredLanguage = normalized)
     }
 

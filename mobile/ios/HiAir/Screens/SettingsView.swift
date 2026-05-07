@@ -634,6 +634,7 @@ struct SettingsView: View {
                         Text(session.l("settings.language_en")).tag("en")
                         Text(session.l("settings.language_es")).tag("es")
                         Text(session.l("settings.language_it")).tag("it")
+                        Text(session.l("settings.language_fr")).tag("fr")
                     }
                     .pickerStyle(.menu)
                 }
@@ -1020,7 +1021,7 @@ private enum HiAirAIGuideEngine {
 
     private static func normalizedLanguage(_ raw: String) -> String {
         let lower = raw.lowercased()
-        return (lower.hasPrefix("en") || lower.hasPrefix("es") || lower.hasPrefix("it")) ? "en" : "ru"
+        return (lower.hasPrefix("en") || lower.hasPrefix("es") || lower.hasPrefix("it") || lower.hasPrefix("fr")) ? "en" : "ru"
     }
 
     private static func normalizedText(_ raw: String) -> String {
@@ -1333,6 +1334,7 @@ private struct HiAirAIGuideView: View {
         let lower = lang.lowercased()
         if lower.hasPrefix("es") { return "es" }
         if lower.hasPrefix("it") { return "it" }
+        if lower.hasPrefix("fr") { return "fr" }
         return lower.hasPrefix("en") ? "en" : "ru"
     }
 

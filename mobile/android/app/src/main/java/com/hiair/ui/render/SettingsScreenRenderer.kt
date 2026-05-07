@@ -46,8 +46,14 @@ internal object SettingsScreenRenderer {
         )
         thresholdSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, thresholdLabels)
         val languageSpinner = Spinner(activity)
-        val languageOptions = listOf("ru", "en")
-        val languageLabels = listOf(ctx.l("settings.language_ru"), ctx.l("settings.language_en"))
+        val languageOptions = listOf("ru", "en", "es", "it", "fr")
+        val languageLabels = listOf(
+            ctx.l("settings.language_ru"),
+            ctx.l("settings.language_en"),
+            ctx.l("settings.language_es"),
+            ctx.l("settings.language_it"),
+            ctx.l("settings.language_fr")
+        )
         languageSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, languageLabels)
         val personaSpinner = Spinner(activity)
         val personaOptions = listOf("adult", "child", "elderly", "asthma", "allergy", "runner", "worker")
