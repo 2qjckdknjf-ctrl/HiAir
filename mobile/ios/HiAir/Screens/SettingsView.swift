@@ -975,24 +975,50 @@ private enum HiAirAIGuideEngine {
         let tokens = normalized.split(separator: " ").map(String.init)
         let language = normalizedLanguage(lang)
 
-        let onboardingWords = language == "en"
-            ? ["onboarding", "first launch", "first run", "start", "where begin", "how to start", "get started", "как начать", "первый запуск"]
-            : ["онбординг", "первый запуск", "с чего начать", "как начать", "старт", "начать", "onboarding", "first run"]
-        let riskWords = language == "en"
-            ? ["risk", "aqi", "pm2.5", "ozone", "heat index", "humidity", "air quality", "риск", "озон"]
-            : ["риск", "aqi", "pm2.5", "озон", "качество воздуха", "heat index", "влажност", "как читать", "risk"]
-        let plannerWords = language == "en"
-            ? ["planner", "safe window", "safe windows", "hourly", "forecast", "walk", "sport", "ventilation", "план", "безопасн"]
-            : ["план", "safe window", "safe windows", "безопасн", "прогноз", "по часам", "прогул", "спорт", "проветр", "planner"]
-        let notificationWords = language == "en"
-            ? ["notification", "notifications", "alert", "push", "warning", "morning briefing", "уведомл", "алерт"]
-            : ["уведомл", "алерт", "push", "предупрежд", "утренний брифинг", "notification", "alert"]
-        let symptomsWords = language == "en"
-            ? ["symptom", "symptoms", "insight", "insights", "journal", "log", "симптом", "инсайт"]
-            : ["симптом", "симптомы", "инсайт", "инсайты", "журнал", "лог", "symptom", "insight"]
-        let accountWords = language == "en"
-            ? ["account", "profile", "privacy", "delete", "export", "login", "sign", "settings", "аккаунт", "профил"]
-            : ["аккаунт", "профил", "приват", "удал", "экспорт", "войти", "регистрац", "настройк", "account", "profile"]
+        let onboardingWords: [String]
+        let riskWords: [String]
+        let plannerWords: [String]
+        let notificationWords: [String]
+        let symptomsWords: [String]
+        let accountWords: [String]
+
+        switch language {
+        case "es":
+            onboardingWords = ["onboarding", "primer inicio", "empezar", "comenzar", "inicio", "registr", "cómo empezar", "como empezar"]
+            riskWords = ["risk", "riesgo", "aqi", "pm2.5", "ozono", "calor", "humedad", "calidad del aire", "interpretar"]
+            plannerWords = ["plan", "planner", "ventana segura", "ventanas seguras", "pronóstico", "pronostico", "hora", "paseo", "deporte", "ventilación", "ventilacion"]
+            notificationWords = ["notificación", "notificacion", "notificaciones", "alerta", "push", "aviso", "morning briefing"]
+            symptomsWords = ["síntoma", "sintoma", "síntomas", "sintomas", "insight", "insights", "registro", "diario"]
+            accountWords = ["cuenta", "perfil", "privacidad", "borrar", "eliminar", "exportar", "login", "ajustes", "datos"]
+        case "it":
+            onboardingWords = ["onboarding", "primo avvio", "iniziare", "inizio", "registr", "come iniziare"]
+            riskWords = ["risk", "rischio", "aqi", "pm2.5", "ozono", "calore", "umidita", "umidità", "qualita dell aria", "qualità dell aria"]
+            plannerWords = ["piano", "planner", "finestra sicura", "finestre sicure", "previsione", "orario", "passeggi", "sport", "ventilazione"]
+            notificationWords = ["notifica", "notifiche", "alert", "push", "avviso", "morning briefing"]
+            symptomsWords = ["sintomo", "sintomi", "insight", "insights", "registro", "log"]
+            accountWords = ["account", "profilo", "privacy", "elimina", "cancella", "esporta", "login", "impostazioni", "dati"]
+        case "fr":
+            onboardingWords = ["onboarding", "premier lancement", "demarrer", "démarrer", "commencer", "inscription", "comment commencer"]
+            riskWords = ["risk", "risque", "aqi", "pm2.5", "ozone", "chaleur", "humidite", "humidité", "qualite de l air", "qualité de l air"]
+            plannerWords = ["plan", "planner", "creneau sur", "créneau sûr", "creneaux surs", "créneaux sûrs", "prevision", "prévision", "horaire", "marche", "sport", "ventilation"]
+            notificationWords = ["notification", "notifications", "alerte", "push", "avertissement", "morning briefing"]
+            symptomsWords = ["symptome", "symptôme", "symptomes", "symptômes", "insight", "insights", "journal", "log"]
+            accountWords = ["compte", "profil", "confidentialite", "confidentialité", "supprimer", "exporter", "connexion", "parametres", "paramètres", "donnees", "données"]
+        case "ru":
+            onboardingWords = ["онбординг", "первый запуск", "с чего начать", "как начать", "старт", "начать", "onboarding", "first run"]
+            riskWords = ["риск", "aqi", "pm2.5", "озон", "качество воздуха", "heat index", "влажност", "как читать", "risk"]
+            plannerWords = ["план", "safe window", "safe windows", "безопасн", "прогноз", "по часам", "прогул", "спорт", "проветр", "planner"]
+            notificationWords = ["уведомл", "алерт", "push", "предупрежд", "утренний брифинг", "notification", "alert"]
+            symptomsWords = ["симптом", "симптомы", "инсайт", "инсайты", "журнал", "лог", "symptom", "insight"]
+            accountWords = ["аккаунт", "профил", "приват", "удал", "экспорт", "войти", "регистрац", "настройк", "account", "profile"]
+        default:
+            onboardingWords = ["onboarding", "first launch", "first run", "start", "where begin", "how to start", "get started", "как начать", "первый запуск"]
+            riskWords = ["risk", "aqi", "pm2.5", "ozone", "heat index", "humidity", "air quality", "риск", "озон"]
+            plannerWords = ["planner", "safe window", "safe windows", "hourly", "forecast", "walk", "sport", "ventilation", "план", "безопасн"]
+            notificationWords = ["notification", "notifications", "alert", "push", "warning", "morning briefing", "уведомл", "алерт"]
+            symptomsWords = ["symptom", "symptoms", "insight", "insights", "journal", "log", "симптом", "инсайт"]
+            accountWords = ["account", "profile", "privacy", "delete", "export", "login", "sign", "settings", "аккаунт", "профил"]
+        }
 
         let candidates: [(AIGuideIntent, [String])] = [
             (.onboarding, onboardingWords),
@@ -1021,7 +1047,10 @@ private enum HiAirAIGuideEngine {
 
     private static func normalizedLanguage(_ raw: String) -> String {
         let lower = raw.lowercased()
-        return (lower.hasPrefix("en") || lower.hasPrefix("es") || lower.hasPrefix("it") || lower.hasPrefix("fr")) ? "en" : "ru"
+        if lower.hasPrefix("es") { return "es" }
+        if lower.hasPrefix("it") { return "it" }
+        if lower.hasPrefix("fr") { return "fr" }
+        return lower.hasPrefix("en") ? "en" : "ru"
     }
 
     private static func normalizedText(_ raw: String) -> String {
