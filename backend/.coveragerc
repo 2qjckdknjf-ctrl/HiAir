@@ -1,0 +1,15 @@
+[run]
+omit =
+    app/services/*_repository.py
+    app/services/db.py
+    app/services/notification_providers.py
+    app/services/notification_credentials.py
+    app/services/notification_dispatcher.py
+    app/services/notification_repository.py
+    app/services/secret_store.py
+    app/services/environment_service.py
+    app/services/auth_tokens_repository.py
+    app/services/user_repository.py
+    app/services/privacy_repository.py
+    app/services/insights_repository.py
+    app/services/briefing_repository.py

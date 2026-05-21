@@ -8,7 +8,6 @@ import app.services.user_repository as user_repository
 
 def get_current_user_id(
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None),
 ) -> str:
     if authorization:
         scheme, _, token = authorization.partition(" ")
@@ -23,14 +22,6 @@ def get_current_user_id(
         except PsycopgError as exc:
             raise HTTPException(status_code=503, detail="Database unavailable") from exc
         return user_id
-    if x_user_id and settings.allow_legacy_user_header_auth:
-        # Temporary migration mode for legacy clients.
-        try:
-            if not user_repository.user_exists(x_user_id):
-                raise HTTPException(status_code=401, detail="User is not available")
-        except PsycopgError as exc:
-            raise HTTPException(status_code=503, detail="Database unavailable") from exc
-        return x_user_id
     raise HTTPException(status_code=401, detail="Missing authentication header")
 
 

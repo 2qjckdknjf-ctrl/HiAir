@@ -1,6 +1,9 @@
 package com.hiair
 
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 data class StoredSession(
     val email: String,
@@ -10,7 +13,20 @@ data class StoredSession(
 )
 
 class SessionStore(context: Context) {
-    private val prefs = context.getSharedPreferences("hiair_session", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "hiair_session_secure",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (_: Exception) {
+        context.getSharedPreferences("hiair_session", Context.MODE_PRIVATE)
+    }
 
     fun load(): StoredSession {
         return StoredSession(

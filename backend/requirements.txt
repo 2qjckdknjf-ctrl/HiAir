@@ -6,3 +6,7 @@ httpx
 email-validator
 pyjwt[crypto]
 pytest
+pytest-cov
+ruff
+mypy
+pip-audit

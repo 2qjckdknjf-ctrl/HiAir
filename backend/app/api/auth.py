@@ -4,6 +4,7 @@ from psycopg import Error as PsycopgError
 from app.api.deps import get_current_user_id
 from app.models.user import AuthResponse, LoginRequest, RefreshTokenRequest, SignupRequest
 from app.services import auth_guard, auth_tokens_repository
+from app.services.request_rate_limiter import check_limit
 from app.services.security import create_access_token, create_refresh_token, validate_password_policy
 import app.services.user_repository as user_repository
 
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/signup", response_model=AuthResponse)
 def signup(payload: SignupRequest, request: Request) -> AuthResponse:
     client_host = request.client.host if request.client else "unknown"
-    if auth_guard.is_rate_limited(f"signup-ip:{client_host}", limit=10, window_seconds=600):
+    if not check_limit(f"signup-ip:{client_host}", limit=10, window_seconds=600):
         raise HTTPException(status_code=429, detail="Too many signup attempts. Please retry later.")
     is_valid, reason = validate_password_policy(payload.password)
     if not is_valid:
@@ -40,7 +41,7 @@ def signup(payload: SignupRequest, request: Request) -> AuthResponse:
 @router.post("/login", response_model=AuthResponse)
 def login(payload: LoginRequest, request: Request) -> AuthResponse:
     client_host = request.client.host if request.client else "unknown"
-    if auth_guard.is_rate_limited(f"login-ip:{client_host}", limit=30, window_seconds=600):
+    if not check_limit(f"login-ip:{client_host}", limit=30, window_seconds=600):
         raise HTTPException(status_code=429, detail="Too many login attempts. Please retry later.")
     if auth_guard.check_login_lock(payload.email):
         raise HTTPException(status_code=429, detail="Account temporarily locked due to failed logins.")
@@ -66,7 +67,10 @@ def login(payload: LoginRequest, request: Request) -> AuthResponse:
 
 
 @router.post("/refresh", response_model=AuthResponse)
-def refresh(payload: RefreshTokenRequest) -> AuthResponse:
+def refresh(payload: RefreshTokenRequest, request: Request) -> AuthResponse:
+    client_host = request.client.host if request.client else "unknown"
+    if not check_limit(f"refresh-ip:{client_host}", limit=60, window_seconds=600):
+        raise HTTPException(status_code=429, detail="Too many refresh attempts. Please retry later.")
     try:
         existing = auth_tokens_repository.get_active_refresh_token(payload.refresh_token)
         if existing is None:

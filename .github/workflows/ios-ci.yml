@@ -48,3 +48,14 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             build \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Run iOS unit tests
+        run: |
+          xcodebuild \
+            -project HiAir.xcodeproj \
+            -scheme HiAir \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=iPhone 15" \
+            test \
+            CODE_SIGNING_ALLOWED=NO

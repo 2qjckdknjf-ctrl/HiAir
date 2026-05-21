@@ -33,13 +33,14 @@ final class AppSession: ObservableObject {
     @Published var showOnboardingFromSettings = false
     @Published var selectedTab = 0
     private let apiClient = APIClient.live()
+    private let keychain = KeychainStore(service: "com.hiair.app.session")
 
     init() {
         let defaults = UserDefaults.standard
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
-        userId = defaults.string(forKey: Keys.userId) ?? ""
-        accessToken = defaults.string(forKey: Keys.accessToken) ?? ""
-        refreshToken = defaults.string(forKey: Keys.refreshToken) ?? ""
+        userId = keychain.getString(forKey: Keys.userId) ?? defaults.string(forKey: Keys.userId) ?? ""
+        accessToken = keychain.getString(forKey: Keys.accessToken) ?? defaults.string(forKey: Keys.accessToken) ?? ""
+        refreshToken = keychain.getString(forKey: Keys.refreshToken) ?? defaults.string(forKey: Keys.refreshToken) ?? ""
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
         persona = defaults.string(forKey: Keys.persona) ?? "adult"
         sensitivity = defaults.string(forKey: Keys.sensitivity) ?? "medium"
@@ -144,9 +145,6 @@ final class AppSession: ObservableObject {
     private func persist() {
         let defaults = UserDefaults.standard
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
-        defaults.set(userId, forKey: Keys.userId)
-        defaults.set(accessToken, forKey: Keys.accessToken)
-        defaults.set(refreshToken, forKey: Keys.refreshToken)
         defaults.set(profileId, forKey: Keys.profileId)
         defaults.set(persona, forKey: Keys.persona)
         defaults.set(sensitivity, forKey: Keys.sensitivity)
@@ -155,6 +153,21 @@ final class AppSession: ObservableObject {
         defaults.set(longitude, forKey: Keys.longitude)
         defaults.set(Array(checklistCompletedItems).sorted(), forKey: Keys.checklistCompletedItems)
         defaults.set(checklistHidden, forKey: Keys.checklistHidden)
+        if userId.isEmpty {
+            keychain.deleteValue(forKey: Keys.userId)
+        } else {
+            keychain.setString(userId, forKey: Keys.userId)
+        }
+        if accessToken.isEmpty {
+            keychain.deleteValue(forKey: Keys.accessToken)
+        } else {
+            keychain.setString(accessToken, forKey: Keys.accessToken)
+        }
+        if refreshToken.isEmpty {
+            keychain.deleteValue(forKey: Keys.refreshToken)
+        } else {
+            keychain.setString(refreshToken, forKey: Keys.refreshToken)
+        }
         if userId.isEmpty || accessToken.isEmpty || refreshToken.isEmpty {
             APIClient.setAuthState(nil)
         } else {

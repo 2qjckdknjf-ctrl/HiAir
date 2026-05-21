@@ -32,3 +32,15 @@ targets:
           INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: YES
         Release:
           INFOPLIST_KEY_API_BASE_URL: https://api.hiair.app
+  HiAirTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - HiAirTests
+    dependencies:
+      - target: HiAir
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app.tests
+        SWIFT_VERSION: 5.0

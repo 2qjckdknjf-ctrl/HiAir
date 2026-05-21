@@ -2,16 +2,60 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
+from app.models.air import EnvironmentalInput, ProfileType, UserProfileContext
 from app.models.dashboard import DashboardOverviewResponse
-from app.models.risk import RiskEstimateResponse, SymptomInput
+from app.models.risk import RiskEstimateResponse
+import app.services.air_recommendation_engine as air_recommendation_engine
+import app.services.air_risk_engine as air_risk_engine
+import app.services.settings_repository as settings_repository
 import app.services.notification_service as notification_service
 import app.services.profile_access as profile_access
 import app.services.recommendation_service as recommendation_service
 import app.services.risk_repository as risk_repository
+from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.environment_service import build_mock_snapshot
-from app.services.risk_engine import estimate_risk
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+RISK_LEVEL_TO_SCORE = {
+    "low": 20,
+    "moderate": 45,
+    "high": 70,
+    "very_high": 90,
+}
+
+
+def _build_profile_context(profile_id: str | None, user_id: str, persona: str, lat: float, lon: float) -> UserProfileContext:
+    mapped_profile = PERSONA_TO_PROFILE_TYPE.get(persona, ProfileType.ADULT_DEFAULT)
+    return UserProfileContext(
+        profile_id=profile_id or f"virtual-{user_id}",
+        user_id=user_id,
+        profile_type=mapped_profile,
+        age_group=persona,
+        home_lat=lat,
+        home_lon=lon,
+    )
+
+
+def _to_air_environment(environment, lat: float, lon: float) -> EnvironmentalInput:
+    humidity = float(environment.humidity_percent)
+    return EnvironmentalInput(
+        lat=lat,
+        lon=lon,
+        temperature=float(environment.temperature_c),
+        feels_like=float(environment.temperature_c + (humidity / 20.0)),
+        humidity=humidity,
+        aqi=int(environment.aqi),
+        pm25=float(environment.pm25),
+        pm10=max(1.0, float(environment.pm25) * 1.4),
+        ozone=float(environment.ozone),
+        uv=4.0,
+        wind_speed=2.0,
+        source=environment.source,
+        timestamp="1970-01-01T00:00:00Z",
+        timezone="UTC",
+    )
 
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
@@ -29,7 +73,6 @@ def dashboard_overview(
             if not profile_access.profile_belongs_to_user(profile_id, user_id):
                 raise HTTPException(status_code=403, detail="Profile does not belong to user")
             symptom_stats = risk_repository.get_recent_symptom_stats(profile_id=profile_id, hours=48)
-            sleep_quality = risk_repository.get_latest_sleep_quality(profile_id=profile_id)
         except PsycopgError as exc:
             raise HTTPException(status_code=503, detail="Database unavailable") from exc
     else:
@@ -40,38 +83,43 @@ def dashboard_overview(
             "fatigue_count": 0,
             "total_logs": 0,
         }
-        sleep_quality = 3
-
-    symptoms = SymptomInput(
-        cough=symptom_stats["cough_count"] > 0,
-        wheeze=symptom_stats["wheeze_count"] > 0,
-        headache=symptom_stats["headache_count"] > 0,
-        fatigue=symptom_stats["fatigue_count"] > 0,
-        sleep_quality=sleep_quality,
-    )
 
     environment = build_mock_snapshot(lat=lat, lon=lon)
-    score, level, recommendations, components = estimate_risk(
-        persona=persona,
-        symptoms=symptoms,
-        environment=environment,
+    profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
+    air_environment = _to_air_environment(environment, lat, lon)
+    air_risk = air_risk_engine.evaluate_risk(profile_context, air_environment)
+    user_settings = settings_repository.get_user_settings(user_id)
+    recommendation_card = air_recommendation_engine.generate_recommendation(
+        profile_context,
+        air_risk,
+        language=user_settings.preferred_language,
     )
+    risk_level = air_risk.overallRisk.value
+    risk_score = RISK_LEVEL_TO_SCORE[risk_level]
     risk = RiskEstimateResponse(
-        score=score,
-        level=level,
-        recommendations=recommendations,
-        components=components,
+        score=risk_score,
+        level=risk_level,
+        recommendations=recommendation_card.actions,
+        components={
+            "env_component": risk_score,
+            "persona_component": 0,
+            "symptom_component": 0,
+        },
     )
 
     if profile_id:
         try:
             snapshot_id = risk_repository.save_environment_snapshot(environment)
-            risk_repository.save_risk_score(profile_id=profile_id, risk=risk, snapshot_id=snapshot_id)
+            risk_repository.save_risk_score(
+                profile_id=profile_id,
+                risk=risk,
+                snapshot_id=snapshot_id,
+            )
         except PsycopgError as exc:
             raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
     daily_summary, daily_actions = recommendation_service.build_daily_recommendation(
-        risk_level=risk.level,
+        risk_level=risk_level,
         symptom_stats=symptom_stats,
     )
     should_notify = notification_service.should_notify(risk)
@@ -80,9 +128,9 @@ def dashboard_overview(
     return DashboardOverviewResponse(
         profile_id=profile_id,
         environment=environment,
-        risk_score=risk.score,
-        risk_level=risk.level,
-        recommendations=risk.recommendations,
+        risk_score=risk_score,
+        risk_level=risk_level,
+        recommendations=recommendation_card.actions,
         daily_summary=daily_summary,
         daily_actions=daily_actions,
         should_notify=should_notify,

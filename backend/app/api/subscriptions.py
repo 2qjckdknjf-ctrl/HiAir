@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
-from app.core.settings import settings
+from app.core.settings import _is_protected_env, settings
 from app.models.subscription import (
     ActivateSubscriptionRequest,
     SubscriptionPlan,
@@ -35,6 +35,11 @@ def activate_subscription(
     payload: ActivateSubscriptionRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> SubscriptionStatusResponse:
+    if _is_protected_env(settings.app_env):
+        raise HTTPException(
+            status_code=403,
+            detail="Manual activation is disabled in protected environments",
+        )
     try:
         return subscription_repository.activate_subscription(
             user_id=user_id,
