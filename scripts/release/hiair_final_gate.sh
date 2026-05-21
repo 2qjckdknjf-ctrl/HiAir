@@ -108,12 +108,12 @@ run_step "iOS release config verification" check_ios_release_config
 run_step "Repository secret baseline scan" check_repo_secret_baseline
 run_step "External readiness checklist" check_external_readiness
 
-if command -v python3 >/dev/null 2>&1 && [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
-  run_step "Backend full test suite" bash -lc "cd '${ROOT_DIR}/backend' && ../.venv/bin/python -m pytest tests -q"
-  run_step "Backend strict env check" bash -lc "cd '${ROOT_DIR}/backend' && ../.venv/bin/python scripts/check_env_security.py --strict --env-file .env.local"
+if command -v python3 >/dev/null 2>&1 && [[ -x "${ROOT_DIR}/backend/.venv/bin/python" ]]; then
+  run_step "Backend full test suite" bash -lc "cd '${ROOT_DIR}/backend' && .venv/bin/python -m pytest tests -q"
+  run_step "Backend strict env check" bash -lc "cd '${ROOT_DIR}/backend' && .venv/bin/python scripts/check_env_security.py --strict --env-file .env.local"
   run_step "Backend gate (skip-db)" bash -lc "cd '${ROOT_DIR}/backend' && ./run_gate.sh --skip-db"
 else
-  echo "[WARN] Python/.venv unavailable; backend checks skipped."
+  echo "[WARN] backend/.venv unavailable; backend checks skipped."
 fi
 
 if command -v xcodebuild >/dev/null 2>&1; then

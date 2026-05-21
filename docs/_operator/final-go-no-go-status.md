@@ -2,7 +2,7 @@
 
 Generated on: 2026-05-21
 Branch: `release/hiair-100-percent-closure-20260501-1005`
-Snapshot commit: `21545f4`
+Snapshot commit: `0d8a247`
 
 ## Decision
 
@@ -13,13 +13,18 @@ Snapshot commit: `21545f4`
 
 - Backend gate: `PASS` (`backend/run_gate.sh --skip-db --skip-smoke`)
 - Backend tests and quality gate: `PASS` (coverage threshold >= 70%)
-- Android unit tests: `PASS` (`mobile/android ./gradlew test`)
+- Android unit tests: `PASS` (`mobile/android ./gradlew :app:testDebugUnitTest --tests "com.hiair.StoredSessionTest"`)
+- iOS release simulator build: `PASS` (`xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO`)
+- Final strict gate: `FAIL` (only by external readiness blockers; all technical gates pass)
 - Release sign-off gate: `BLOCKED` (`python3 scripts/release/check_signoff.py`)
 - Release automation artifacts present:
   - `.github/workflows/backend-deploy-staging.yml`
+  - `.github/workflows/backend-deploy-production.yml`
   - `.github/workflows/release-go-no-go.yml`
   - `scripts/release/deploy_backend.sh`
   - `scripts/release/rollback_backend.sh`
+  - `docs/ops-production-readiness-checklist.md`
+  - `docs/_operator/risk-api-deprecation-plan.md`
 
 ## External Blockers (must be resolved for GO)
 
@@ -52,11 +57,11 @@ Snapshot commit: `21545f4`
 - Re-run final gate:
   - `scripts/release/hiair_final_gate.sh --strict-external`
 
-## Recent Release Hardening Commits
+## Latest Evidence
 
-- `21545f4` chore(repo): ignore local cursor plan artifacts
-- `89d498f` chore(release): enforce owner sign-off gate
-- `7e38fa7` feat(release): harden platform security and release gates
+- `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local` -> `MISSING=14`, `BLOCKED=2`
+- `scripts/release/hiair_final_gate.sh --strict-external` -> technical stages pass, external readiness fails
+- Legacy `/api/risk/*` now exposes deprecation + sunset headers; migration plan documented in `docs/_operator/risk-api-deprecation-plan.md`
 
 ## Sign-Off
 

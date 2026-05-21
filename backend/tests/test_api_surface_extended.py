@@ -387,3 +387,52 @@ def test_planner_and_validation(monkeypatch) -> None:
     validation_response = client.get("/api/validation/risk/historical")
     assert planner_response.status_code == 200
     assert validation_response.status_code == 200
+
+
+def test_legacy_risk_endpoints_return_deprecation_headers(monkeypatch) -> None:
+    _enable_auth(monkeypatch)
+    monkeypatch.setattr(
+        "app.api.risk.estimate_risk",
+        lambda persona, symptoms, environment: (35, "medium", ["Hydrate"], {"env_component": 20}),
+    )
+    monkeypatch.setattr("app.api.risk.profile_access.profile_exists", lambda profile_id: True)
+    monkeypatch.setattr("app.api.risk.profile_access.profile_belongs_to_user", lambda profile_id, user_id: True)
+    monkeypatch.setattr(
+        "app.api.risk.risk_repository.get_risk_history",
+        lambda profile_id, limit: [
+            {
+                "id": "risk-1",
+                "profile_id": profile_id,
+                "score_value": 40,
+                "risk_level": "medium",
+                "recommendations": ["Hydrate"],
+                "created_at": "2026-05-21T09:00:00Z",
+            }
+        ],
+    )
+
+    client = TestClient(app)
+    estimate = client.post(
+        "/api/risk/estimate",
+        json={
+            "persona": "adult",
+            "symptoms": {"cough": False, "wheeze": False, "headache": False, "fatigue": False, "sleep_quality": 3},
+            "environment": {
+                "temperature_c": 26.0,
+                "humidity_percent": 55.0,
+                "aqi": 60,
+                "pm25": 11.0,
+                "ozone": 62.0,
+                "source": "mock",
+            },
+        },
+        headers=_auth_headers(),
+    )
+    history = client.get("/api/risk/history", params={"profile_id": "profile-1"}, headers=_auth_headers())
+    thresholds = client.get("/api/risk/thresholds")
+    assert estimate.status_code == 200
+    assert history.status_code == 200
+    assert thresholds.status_code == 200
+    assert estimate.headers.get("Deprecation") == "true"
+    assert history.headers.get("Deprecation") == "true"
+    assert thresholds.headers.get("Deprecation") == "true"

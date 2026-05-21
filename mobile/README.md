@@ -6,11 +6,12 @@ This folder contains native client code skeletons for:
 
 ## Current status
 
-- Core network/request models are added for risk flow.
+- Core network/request models are added for air-risk flow.
 - API client is added for both platforms.
 - Onboarding + Dashboard view model skeletons are added for both platforms.
 - Dashboard flow on both platforms now uses:
   - `GET /api/dashboard/overview` (single aggregated payload)
+- Legacy `/api/risk/*` endpoints are deprecated and should not be used in new mobile code.
 - Dashboard models now include daily summary/actions and notification text.
 - Symptom log skeleton added on both platforms (`/api/symptoms/log`).
 - Settings state now supports backend sync on both platforms (`GET/PUT /api/settings`).
