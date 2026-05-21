@@ -1,6 +1,8 @@
 # Final Go/No-Go Status
 
 Generated on: 2026-05-21
+Branch: `release/hiair-100-percent-closure-20260501-1005`
+Snapshot commit: `21545f4`
 
 ## Decision
 
@@ -12,6 +14,7 @@ Generated on: 2026-05-21
 - Backend gate: `PASS` (`backend/run_gate.sh --skip-db --skip-smoke`)
 - Backend tests and quality gate: `PASS` (coverage threshold >= 70%)
 - Android unit tests: `PASS` (`mobile/android ./gradlew test`)
+- Release sign-off gate: `BLOCKED` (`python3 scripts/release/check_signoff.py`)
 - Release automation artifacts present:
   - `.github/workflows/backend-deploy-staging.yml`
   - `.github/workflows/release-go-no-go.yml`
@@ -42,10 +45,18 @@ Generated on: 2026-05-21
 ## Owner Actions
 
 - Follow and complete: `docs/_operator/external-owner-action-plan.md`
+- Mark all required sign-off owners as `DONE` in:
+  - `docs/_operator/release-signoff-template.md`
 - Re-run strict readiness:
   - `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local`
 - Re-run final gate:
   - `scripts/release/hiair_final_gate.sh --strict-external`
+
+## Recent Release Hardening Commits
+
+- `21545f4` chore(repo): ignore local cursor plan artifacts
+- `89d498f` chore(release): enforce owner sign-off gate
+- `7e38fa7` feat(release): harden platform security and release gates
 
 ## Sign-Off
 
