@@ -35,3 +35,7 @@ jobs:
           python scripts/release/check_external_readiness.py \
             --strict \
             --write-owner-plan docs/_operator/external-owner-action-plan.md
+
+      - name: Enforce release sign-off completion
+        run: |
+          python scripts/release/check_signoff.py
