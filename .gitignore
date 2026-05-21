@@ -12,6 +12,7 @@
 .tmp.drivedownload/
 .tmp/
 .cursor/hooks/state/
+.cursor/plans/
 .tools/gradle/
 .tools/xcodegen/
 .tools/xcodegen.zip
