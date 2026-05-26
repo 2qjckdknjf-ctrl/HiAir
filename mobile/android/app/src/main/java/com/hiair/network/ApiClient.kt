@@ -20,13 +20,17 @@ class ApiClient(private val baseUrl: String) {
         private var authProvider: (() -> AuthState?)? = null
         @Volatile
         private var authUpdater: ((AuthState?) -> Unit)? = null
+        @Volatile
+        private var tokenRefresher: ((AuthState) -> AuthState?)? = null
 
         fun configureAuth(
             provider: (() -> AuthState?)?,
-            updater: ((AuthState?) -> Unit)?
+            updater: ((AuthState?) -> Unit)?,
+            refresher: ((AuthState) -> AuthState?)? = null
         ) {
             authProvider = provider
             authUpdater = updater
+            tokenRefresher = refresher
         }
 
         private fun currentAuthState(): AuthState? = authProvider?.invoke()
@@ -395,6 +399,21 @@ class ApiClient(private val baseUrl: String) {
         if (state.refreshToken.isBlank()) {
             updateAuthState(null)
             return false
+        }
+        tokenRefresher?.let { refresher ->
+            return try {
+                val refreshed = refresher(state)
+                if (refreshed == null || refreshed.accessToken.isBlank()) {
+                    updateAuthState(null)
+                    false
+                } else {
+                    updateAuthState(refreshed)
+                    true
+                }
+            } catch (_: Exception) {
+                updateAuthState(null)
+                false
+            }
         }
         return try {
             val endpoint = "$baseUrl/api/auth/refresh"

@@ -117,7 +117,7 @@ else
 fi
 
 if command -v xcodebuild >/dev/null 2>&1; then
-  run_step "iOS Debug simulator build" bash -lc "cd '${ROOT_DIR}/mobile/ios' && xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16' build"
+  run_step "iOS Debug simulator build" bash -lc "cd '${ROOT_DIR}/mobile/ios' && xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO"
   run_step "iOS Release simulator build no-sign" bash -lc "cd '${ROOT_DIR}/mobile/ios' && xcodebuild -project HiAir.xcodeproj -scheme HiAir -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO"
 else
   echo "[WARN] xcodebuild unavailable; iOS checks skipped."

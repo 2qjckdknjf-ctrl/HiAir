@@ -1,10 +1,220 @@
 import Foundation
+import UIKit
 
 enum APIError: Error {
     case invalidURL
     case invalidResponse
     case server(statusCode: Int)
     case serverWithDetail(statusCode: Int, detail: String)
+}
+
+struct SupabaseAuthSession {
+    let userId: String
+    let email: String
+    let accessToken: String
+    let refreshToken: String
+}
+
+@MainActor
+final class SupabaseAuthService {
+    static let shared = SupabaseAuthService()
+    static let sessionDidChange = Notification.Name("hiair.supabase.session.did.change")
+
+    private let urlSession: URLSession = .shared
+    private let supabaseURL: URL?
+    private let anonKey: String
+    private let redirectURI: String
+
+    private init() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let env = ProcessInfo.processInfo.environment
+        let rawURL = env["SUPABASE_URL"] ?? (info["SUPABASE_URL"] as? String) ?? ""
+        anonKey = env["SUPABASE_ANON_KEY"] ?? (info["SUPABASE_ANON_KEY"] as? String) ?? ""
+        redirectURI = env["HIAIR_AUTH_REDIRECT_URI"] ?? (info["HIAIR_AUTH_REDIRECT_URI"] as? String) ?? "hiair://auth/callback"
+        supabaseURL = URL(string: rawURL)
+    }
+
+    func restoreSessionIfNeeded() async throws -> SupabaseAuthSession? {
+        return nil
+    }
+
+    func signUp(email: String, password: String) async throws -> SupabaseAuthSession {
+        let payload = ["email": email, "password": password]
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/signup",
+            query: nil,
+            body: payload
+        )
+        let session = try parseSession(from: data, fallbackEmail: email)
+        notifySessionChanged(session)
+        return session
+    }
+
+    func signIn(email: String, password: String) async throws -> SupabaseAuthSession {
+        let payload = ["email": email, "password": password]
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "password")],
+            body: payload
+        )
+        let session = try parseSession(from: data, fallbackEmail: email)
+        notifySessionChanged(session)
+        return session
+    }
+
+    func signInWithApple() async throws {
+        try await openOAuth(provider: "apple")
+    }
+
+    func signInWithGoogle() async throws {
+        try await openOAuth(provider: "google")
+    }
+
+    func refreshSession() async throws -> SupabaseAuthSession? {
+        guard let state = APIClient.getAuthState(), !state.refreshToken.isEmpty else {
+            return nil
+        }
+        let payload = ["refresh_token": state.refreshToken]
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
+            body: payload
+        )
+        let session = try parseSession(from: data, fallbackEmail: "")
+        notifySessionChanged(session)
+        return session
+    }
+
+    func signOut() async {
+        guard let state = APIClient.getAuthState() else {
+            NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
+            return
+        }
+        do {
+            _ = try await request(
+                method: "POST",
+                path: "/auth/v1/logout",
+                query: nil,
+                body: [:],
+                bearerToken: state.accessToken
+            )
+        } catch {
+            // Best effort signout.
+        }
+        NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
+    }
+
+    func handleCallbackURL(_ url: URL) async -> Bool {
+        let absolute = url.absoluteString
+        guard let hashIdx = absolute.firstIndex(of: "#") else {
+            return false
+        }
+        let fragment = String(absolute[absolute.index(after: hashIdx)...])
+        var pairs: [String: String] = [:]
+        for item in fragment.split(separator: "&") {
+            let parts = item.split(separator: "=", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { continue }
+            pairs[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+        }
+        guard
+            let accessToken = pairs["access_token"],
+            let refreshToken = pairs["refresh_token"]
+        else {
+            return false
+        }
+        let session = SupabaseAuthSession(
+            userId: pairs["user_id"] ?? pairs["sub"] ?? "",
+            email: pairs["email"] ?? "",
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        )
+        guard !session.userId.isEmpty else {
+            return false
+        }
+        notifySessionChanged(session)
+        return true
+    }
+
+    private func openOAuth(provider: String) async throws {
+        guard let base = supabaseURL else {
+            throw APIError.invalidURL
+        }
+        var components = URLComponents(url: base.appending(path: "/auth/v1/authorize"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "provider", value: provider),
+            URLQueryItem(name: "redirect_to", value: redirectURI),
+        ]
+        guard let target = components?.url else {
+            throw APIError.invalidURL
+        }
+        await MainActor.run {
+            UIApplication.shared.open(target)
+        }
+    }
+
+    private func request(
+        method: String,
+        path: String,
+        query: [URLQueryItem]?,
+        body: [String: String],
+        bearerToken: String? = nil
+    ) async throws -> Data {
+        guard let base = supabaseURL else {
+            throw APIError.invalidURL
+        }
+        var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)
+        components?.queryItems = query
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        if let bearerToken, !bearerToken.isEmpty {
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw APIError.server(statusCode: http.statusCode)
+        }
+        return data
+    }
+
+    private func parseSession(from data: Data, fallbackEmail: String) throws -> SupabaseAuthSession {
+        guard
+            let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let accessToken = payload["access_token"] as? String,
+            let refreshToken = payload["refresh_token"] as? String
+        else {
+            throw APIError.invalidResponse
+        }
+        let user = payload["user"] as? [String: Any]
+        let userId = (payload["user_id"] as? String)
+            ?? (user?["id"] as? String)
+            ?? ""
+        let email = (user?["email"] as? String) ?? fallbackEmail
+        guard !userId.isEmpty else {
+            throw APIError.invalidResponse
+        }
+        return SupabaseAuthSession(
+            userId: userId,
+            email: email,
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        )
+    }
+
+    private func notifySessionChanged(_ session: SupabaseAuthSession) {
+        NotificationCenter.default.post(name: Self.sessionDidChange, object: session)
+    }
 }
 
 final class APIClient {
@@ -42,7 +252,7 @@ final class APIClient {
         authInvalidatedHandler = handler
     }
 
-    private static func getAuthState() -> AuthState? {
+    static func getAuthState() -> AuthState? {
         authStateLock.lock()
         defer { authStateLock.unlock() }
         return authState
@@ -146,28 +356,14 @@ final class APIClient {
         else {
             return false
         }
-        let url = baseURL.appending(path: "/api/auth/refresh")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        struct RefreshPayload: Codable {
-            let refreshToken: String
-
-            enum CodingKeys: String, CodingKey {
-                case refreshToken = "refresh_token"
-            }
-        }
-        request.httpBody = try JSONEncoder().encode(RefreshPayload(refreshToken: state.refreshToken))
-        let (data, response) = try await sendRequest(request)
-        guard (200...299).contains(response.statusCode) else {
+        guard let refreshed = try await SupabaseAuthService.shared.refreshSession() else {
             Self.clearAuthStateAndNotify()
             return false
         }
-        let auth = try JSONDecoder().decode(AuthResponse.self, from: data)
         let nextState = AuthState(
-            userId: auth.userId,
-            accessToken: auth.accessToken,
-            refreshToken: auth.refreshToken ?? state.refreshToken
+            userId: refreshed.userId,
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken.isEmpty ? state.refreshToken : refreshed.refreshToken
         )
         Self.setAuthState(nextState)
         return true

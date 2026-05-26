@@ -2,6 +2,8 @@
 
 HiAir - мобильный wellness-ассистент по жаре и качеству воздуха.
 
+Текущий baseline архитектуры: Supabase-first (Auth + PostgreSQL + RLS) с FastAPI как серверным orchestration-слоем.
+
 Проект заново стартован с документации на основе файла
 `Идеи для вирусных приложений.pdf`.
 
@@ -38,6 +40,14 @@ HiAir - мобильный wellness-ассистент по жаре и каче
 - `docs/terms-of-service-draft.md` - черновик Terms of Service.
 - `docs/api-contract-risk-levels.md` - договоренность по risk-level alias и deprecation.
 - `docs/store-metadata-packet.md` - единый пакет store metadata/privacy label.
+- `docs/_operator/supabase-auth-db-audit.md` - аудит текущего состояния auth/db/mobile под Supabase migration.
+- `docs/_operator/supabase-env-setup.md` - env contract для Supabase-first стека.
+- `docs/_operator/supabase-rls-migration-report.md` - отчет по SQL/RLS migration.
+- `docs/_operator/supabase-backend-auth-report.md` - отчет по backend Supabase auth integration.
+- `docs/_operator/supabase-ios-auth-report.md` - отчет по iOS auth integration.
+- `docs/_operator/supabase-android-auth-report.md` - отчет по Android auth integration.
+- `docs/_operator/supabase-final-implementation-report.md` - финальный статус внедрения.
+- `docs/_operator/supabase-production-checklist.md` - production readiness checklist для Supabase/Auth providers.
 - `docs/aurora-calm-design-system.md` - Aurora Calm v2 design system (canonical).
 - `docs/feat-personal-patterns-spec.md` - спека Personal Patterns Insights.
 - `docs/feat-morning-briefing-spec.md` - спека Morning Briefing.

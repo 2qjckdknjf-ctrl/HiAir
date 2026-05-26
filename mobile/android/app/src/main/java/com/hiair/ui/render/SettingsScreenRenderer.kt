@@ -306,6 +306,7 @@ internal object SettingsScreenRenderer {
         }
         val logoutButton = V2Ui.secondaryButton(activity, ctx.l("settings.log_out")).apply {
             setOnClickListener {
+                rootShell.settingsViewModel.signOutSupabase()
                 rootShell.settingsViewModel.setUserId("")
                 rootShell.settingsViewModel.setAccessToken("")
                 rootShell.settingsViewModel.setRefreshToken("")
@@ -401,6 +402,21 @@ internal object SettingsScreenRenderer {
             addView(signupButton)
             addView(loginButton)
         }
+        val socialAuthRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(V2Ui.secondaryButton(activity, "Google Sign-In").apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.launchGoogleOAuth()
+                    statusText.text = "Continue in browser and return to app."
+                }
+            })
+            addView(V2Ui.secondaryButton(activity, "Apple Sign-In").apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.launchAppleOAuth()
+                    statusText.text = "Continue in browser and return to app."
+                }
+            })
+        }
 
         fun sectionTitle(key: String): TextView = V2Ui.styledBodyText(activity, ctx.l(key)).apply { textSize = 17f }
 
@@ -456,6 +472,7 @@ internal object SettingsScreenRenderer {
             addView(emailInput)
             addView(passwordInput)
             addView(authRow)
+            addView(socialAuthRow)
             addView(userIdInput)
             addView(tokenInput)
             addView(exportPrivacyButton)

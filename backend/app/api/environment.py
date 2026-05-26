@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi import Header
 
+from app.api.deps import get_current_auth_context
 from app.models.risk import EnvironmentSnapshot
-from app.api.deps import get_current_user_id
 from app.services.request_rate_limiter import check_limit
 from app.services.environment_service import build_mock_snapshot, fetch_live_snapshot
 
@@ -18,7 +18,7 @@ def get_snapshot(
 ) -> EnvironmentSnapshot:
     try:
         if source == "live":
-            user_id = get_current_user_id(authorization=authorization)
+            user_id = get_current_auth_context(authorization=authorization).user_id
             if not check_limit(key=f"environment-live:{user_id}", limit=30, window_seconds=300):
                 raise HTTPException(status_code=429, detail="Too many live snapshot requests")
             return fetch_live_snapshot(lat, lon)

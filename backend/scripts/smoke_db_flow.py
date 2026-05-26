@@ -80,7 +80,7 @@ def assert_no_residual_personal_data(user_id: str, profile_ids: list[str]) -> No
 def run() -> None:
     client = TestClient(app)
     email = f"smoke-{uuid4().hex[:10]}@hiair.app"
-    password = "strongpass123"
+    password = "StrongPass123!"
 
     signup = client.post("/api/auth/signup", json={"email": email, "password": password})
     assert signup.status_code == 200, signup.text

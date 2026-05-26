@@ -9,6 +9,7 @@ final class AppSession: ObservableObject {
         static let userId = "session.userId"
         static let accessToken = "session.accessToken"
         static let refreshToken = "session.refreshToken"
+        static let email = "session.email"
         static let profileId = "session.profileId"
         static let persona = "session.persona"
         static let sensitivity = "session.sensitivity"
@@ -19,6 +20,7 @@ final class AppSession: ObservableObject {
 
     @Published var onboardingCompleted = false { didSet { persist() } }
     @Published var userId = "" { didSet { persist() } }
+    @Published var email = "" { didSet { persist() } }
     @Published var accessToken = "" { didSet { persist() } }
     @Published var refreshToken = "" { didSet { persist() } }
     @Published var authNotice = ""
@@ -34,11 +36,14 @@ final class AppSession: ObservableObject {
     @Published var selectedTab = 0
     private let apiClient = APIClient.live()
     private let keychain = KeychainStore(service: "com.hiair.app.session")
+    private let supabaseAuth = SupabaseAuthService.shared
+    private var authObserver: NSObjectProtocol?
 
     init() {
         let defaults = UserDefaults.standard
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
         userId = keychain.getString(forKey: Keys.userId) ?? defaults.string(forKey: Keys.userId) ?? ""
+        email = keychain.getString(forKey: Keys.email) ?? defaults.string(forKey: Keys.email) ?? ""
         accessToken = keychain.getString(forKey: Keys.accessToken) ?? defaults.string(forKey: Keys.accessToken) ?? ""
         refreshToken = keychain.getString(forKey: Keys.refreshToken) ?? defaults.string(forKey: Keys.refreshToken) ?? ""
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
@@ -65,10 +70,39 @@ final class AppSession: ObservableObject {
                 )
             )
         }
+        authObserver = NotificationCenter.default.addObserver(
+            forName: SupabaseAuthService.sessionDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            guard let session = note.object as? SupabaseAuthSession else {
+                self.logout()
+                return
+            }
+            self.userId = session.userId
+            self.email = session.email
+            self.accessToken = session.accessToken
+            self.refreshToken = session.refreshToken
+            self.authNotice = ""
+        }
+        Task { [weak self] in
+            await self?.restoreSupabaseSession()
+        }
+    }
+
+    deinit {
+        if let authObserver {
+            NotificationCenter.default.removeObserver(authObserver)
+        }
     }
 
     func logout() {
+        Task {
+            await supabaseAuth.signOut()
+        }
         userId = ""
+        email = ""
         accessToken = ""
         refreshToken = ""
         authNotice = ""
@@ -158,6 +192,11 @@ final class AppSession: ObservableObject {
         } else {
             keychain.setString(userId, forKey: Keys.userId)
         }
+        if email.isEmpty {
+            keychain.deleteValue(forKey: Keys.email)
+        } else {
+            keychain.setString(email, forKey: Keys.email)
+        }
         if accessToken.isEmpty {
             keychain.deleteValue(forKey: Keys.accessToken)
         } else {
@@ -178,6 +217,21 @@ final class AppSession: ObservableObject {
                     refreshToken: refreshToken
                 )
             )
+        }
+    }
+
+    private func restoreSupabaseSession() async {
+        do {
+            guard let session = try await supabaseAuth.restoreSessionIfNeeded() else {
+                return
+            }
+            userId = session.userId
+            email = session.email
+            accessToken = session.accessToken
+            refreshToken = session.refreshToken
+            authNotice = ""
+        } catch {
+            // Keep local session as source of truth when restore fails.
         }
     }
 }

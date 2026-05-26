@@ -3,6 +3,7 @@ package com.hiair.ui.settings
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
 import com.hiair.network.ApiHttpException
+import com.hiair.network.SupabaseAuthService
 import com.hiair.ui.i18n.AndroidL10n
 import java.net.ConnectException
 import java.net.SocketException
@@ -58,6 +59,7 @@ data class SettingsState(
 class SettingsViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
+    private var supabaseAuthService: SupabaseAuthService? = null
     var state: SettingsState = SettingsState()
         private set
     @Volatile
@@ -81,6 +83,10 @@ class SettingsViewModel(
 
     fun setRefreshToken(value: String) {
         state = state.copy(refreshToken = value)
+    }
+
+    fun configureSupabaseAuth(authService: SupabaseAuthService) {
+        supabaseAuthService = authService
     }
 
     fun notifySessionExpired() {
@@ -246,12 +252,21 @@ class SettingsViewModel(
         }
         state = state.copy(loading = true)
         try {
-            val json = JSONObject(apiClient.signup(state.email, state.password))
+            val session = supabaseAuthService?.signUp(state.email, state.password)
+                ?: run {
+                    val json = JSONObject(apiClient.signup(state.email, state.password))
+                    com.hiair.network.SupabaseSession(
+                        userId = json.getString("user_id"),
+                        email = state.email,
+                        accessToken = json.getString("access_token"),
+                        refreshToken = json.optString("refresh_token", ""),
+                    )
+                }
             state = state.copy(
                 loading = false,
-                userId = json.getString("user_id"),
-                accessToken = json.getString("access_token"),
-                refreshToken = json.optString("refresh_token", ""),
+                userId = session?.userId ?: "",
+                accessToken = session?.accessToken ?: "",
+                refreshToken = session?.refreshToken ?: "",
                 statusText = l("settings.signed_up")
             )
         } catch (_: Exception) {
@@ -266,16 +281,41 @@ class SettingsViewModel(
         }
         state = state.copy(loading = true)
         try {
-            val json = JSONObject(apiClient.login(state.email, state.password))
+            val session = supabaseAuthService?.signIn(state.email, state.password)
+                ?: run {
+                    val json = JSONObject(apiClient.login(state.email, state.password))
+                    com.hiair.network.SupabaseSession(
+                        userId = json.getString("user_id"),
+                        email = state.email,
+                        accessToken = json.getString("access_token"),
+                        refreshToken = json.optString("refresh_token", ""),
+                    )
+                }
             state = state.copy(
                 loading = false,
-                userId = json.getString("user_id"),
-                accessToken = json.getString("access_token"),
-                refreshToken = json.optString("refresh_token", ""),
+                userId = session?.userId ?: "",
+                accessToken = session?.accessToken ?: "",
+                refreshToken = session?.refreshToken ?: "",
                 statusText = l("settings.logged_in")
             )
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.login_failed"))
+        }
+    }
+
+    fun launchGoogleOAuth() {
+        supabaseAuthService?.launchGoogleSignIn()
+    }
+
+    fun launchAppleOAuth() {
+        supabaseAuthService?.launchAppleSignIn()
+    }
+
+    fun signOutSupabase() {
+        try {
+            supabaseAuthService?.signOut()
+        } catch (_: Exception) {
+            // no-op
         }
     }
 

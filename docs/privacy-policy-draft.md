@@ -11,7 +11,7 @@ It does not provide medical diagnosis or treatment.
 
 - Account data:
   - email
-  - internal user id
+  - Supabase auth user id
 - Profile data:
   - selected persona type
   - sensitivity settings
@@ -65,6 +65,8 @@ It does not provide medical diagnosis or treatment.
 - Secret rotation policy for push provider credentials.
 - Audit trails for push delivery attempts and key rotation events.
 - Administrative observability/provider health endpoints require admin token when configured.
+- Row-Level Security (RLS) is enabled for user-owned data tables in Supabase PostgreSQL.
+- Supabase service-role credentials are server-only and not shipped in mobile clients.
 
 ## 9. User rights
 

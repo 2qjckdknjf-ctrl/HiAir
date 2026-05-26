@@ -7,7 +7,7 @@ final class AuthViewModel: ObservableObject {
     @Published var loading = false
     @Published var statusText = "-"
 
-    private let apiClient = APIClient.live()
+    private let supabaseAuth = SupabaseAuthService.shared
 
     func signup(session: AppSession) async {
         await authenticate(session: session, mode: "signup")
@@ -31,25 +31,22 @@ final class AuthViewModel: ObservableObject {
         defer { loading = false }
 
         do {
-            let response: AuthResponse
+            let authSession: SupabaseAuthSession
             if mode == "signup" {
-                response = try await apiClient.signup(email: normalizedEmail, password: password)
+                authSession = try await supabaseAuth.signUp(email: normalizedEmail, password: password)
             } else {
-                response = try await apiClient.login(email: normalizedEmail, password: password)
+                authSession = try await supabaseAuth.signIn(email: normalizedEmail, password: password)
             }
-            session.userId = response.userId
-            session.accessToken = response.accessToken
-            session.refreshToken = response.refreshToken ?? ""
+            session.userId = authSession.userId
+            session.email = authSession.email
+            session.accessToken = authSession.accessToken
+            session.refreshToken = authSession.refreshToken
             session.authNotice = ""
             let hasProfile = await session.ensureProfileIdIfNeeded()
             if hasProfile {
                 session.markChecklistItem("profile", done: true)
             }
             statusText = session.l("auth.ok")
-        } catch APIError.serverWithDetail(let statusCode, let detail) {
-            statusText = statusMessage(session: session, statusCode: statusCode, detail: detail)
-        } catch APIError.server(let statusCode) {
-            statusText = statusMessage(session: session, statusCode: statusCode, detail: nil)
         } catch is URLError {
             statusText = session.l("auth.backend_unreachable")
         } catch {
@@ -57,16 +54,25 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    private func statusMessage(session: AppSession, statusCode: Int, detail: String?) -> String {
-        switch statusCode {
-        case 409:
-            return session.l("auth.email_conflict")
-        case 422:
-            return detail?.isEmpty == false ? detail! : session.l("auth.password_short")
-        case 503:
-            return detail?.isEmpty == false ? detail! : session.l("auth.backend_unavailable")
-        default:
-            return detail?.isEmpty == false ? detail! : session.l("auth.fail")
+    func signInWithApple(session: AppSession) async {
+        loading = true
+        defer { loading = false }
+        do {
+            try await supabaseAuth.signInWithApple()
+            statusText = session.l("auth.ok")
+        } catch {
+            statusText = session.l("auth.fail")
+        }
+    }
+
+    func signInWithGoogle(session: AppSession) async {
+        loading = true
+        defer { loading = false }
+        do {
+            try await supabaseAuth.signInWithGoogle()
+            statusText = session.l("auth.ok")
+        } catch {
+            statusText = session.l("auth.fail")
         }
     }
 }
@@ -114,6 +120,18 @@ struct AuthView: View {
 
                 Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
                     Task { await viewModel.login(session: session) }
+                }
+                .buttonStyle(V2PrimaryButtonStyle())
+                .disabled(viewModel.loading)
+
+                Button("Sign in with Apple") {
+                    Task { await viewModel.signInWithApple(session: session) }
+                }
+                .buttonStyle(V2PrimaryButtonStyle())
+                .disabled(viewModel.loading)
+
+                Button("Sign in with Google") {
+                    Task { await viewModel.signInWithGoogle(session: session) }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
                 .disabled(viewModel.loading)
