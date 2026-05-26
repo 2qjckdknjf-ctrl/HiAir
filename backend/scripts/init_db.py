@@ -7,6 +7,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.settings import settings
 
+SUPABASE_AUTH_MIGRATIONS = {
+    "003_supabase_auth_rls.sql",
+    "010_public_tables_rls_lockdown.sql",
+}
+
 
 def _ensure_migrations_table(cur) -> None:
     cur.execute(
@@ -54,7 +59,7 @@ def main() -> None:
                 migration_name = sql_path.name
                 if migration_name in applied:
                     continue
-                if migration_name == "003_supabase_auth_rls.sql" and not has_auth_schema:
+                if migration_name in SUPABASE_AUTH_MIGRATIONS and not has_auth_schema:
                     print(f"Skipping {migration_name}: auth schema not found in current database.")
                     continue
                 sql_text = sql_path.read_text(encoding="utf-8")
