@@ -14,6 +14,8 @@ import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
+import com.hiair.network.ApiClient
+import com.hiair.network.SupabaseAuthService
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.theme.V2Ui
 
@@ -29,11 +31,63 @@ class AppMainActivity : AppCompatActivity() {
     private lateinit var insightsButton: Button
     private lateinit var symptomsButton: Button
     private lateinit var settingsButton: Button
+    private lateinit var supabaseAuth: SupabaseAuthService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
+        supabaseAuth = SupabaseAuthService(this, sessionStore)
+        rootShell.settingsViewModel.configureSupabaseAuth(supabaseAuth)
         restoreSession()
+        supabaseAuth.consumeOAuthCallback(intent)?.let { oauthSession ->
+            rootShell.settingsViewModel.setEmail(oauthSession.email)
+            rootShell.settingsViewModel.setUserId(oauthSession.userId)
+            rootShell.settingsViewModel.setAccessToken(oauthSession.accessToken)
+            rootShell.settingsViewModel.setRefreshToken(oauthSession.refreshToken)
+        }
+        ApiClient.configureAuth(
+            provider = {
+                val state = rootShell.settingsViewModel.state
+                if (state.userId.isBlank() || state.accessToken.isBlank() || state.refreshToken.isBlank()) {
+                    null
+                } else {
+                    ApiClient.AuthState(
+                        userId = state.userId,
+                        accessToken = state.accessToken,
+                        refreshToken = state.refreshToken
+                    )
+                }
+            },
+            updater = { refreshed ->
+                runOnUiThread {
+                    if (refreshed == null) {
+                        rootShell.settingsViewModel.setUserId("")
+                        rootShell.settingsViewModel.setAccessToken("")
+                        rootShell.settingsViewModel.setRefreshToken("")
+                        rootShell.settingsViewModel.notifySessionExpired()
+                        rootShell.openSettings()
+                    } else {
+                        rootShell.settingsViewModel.setUserId(refreshed.userId)
+                        rootShell.settingsViewModel.setAccessToken(refreshed.accessToken)
+                        rootShell.settingsViewModel.setRefreshToken(refreshed.refreshToken)
+                    }
+                    persistSession()
+                    renderCurrentScreen()
+                }
+            },
+            refresher = { state ->
+                try {
+                    val refreshed = supabaseAuth.refresh(state.refreshToken)
+                    ApiClient.AuthState(
+                        userId = refreshed.userId,
+                        accessToken = refreshed.accessToken,
+                        refreshToken = refreshed.refreshToken
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            },
+        )
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -116,6 +170,7 @@ class AppMainActivity : AppCompatActivity() {
         rootShell.settingsViewModel.setEmail(stored.email)
         rootShell.settingsViewModel.setUserId(stored.userId)
         rootShell.settingsViewModel.setAccessToken(stored.accessToken)
+        rootShell.settingsViewModel.setRefreshToken(stored.refreshToken)
     }
 
     private fun persistSession() {
@@ -124,7 +179,8 @@ class AppMainActivity : AppCompatActivity() {
             StoredSession(
                 email = state.email,
                 userId = state.userId,
-                accessToken = state.accessToken
+                accessToken = state.accessToken,
+                refreshToken = state.refreshToken
             )
         )
     }
@@ -171,4 +227,16 @@ class AppMainActivity : AppCompatActivity() {
     }
 
     private fun dp(value: Int): Int = V2Ui.dp(this, value)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val oauthSession = supabaseAuth.consumeOAuthCallback(intent) ?: return
+        rootShell.settingsViewModel.setEmail(oauthSession.email)
+        rootShell.settingsViewModel.setUserId(oauthSession.userId)
+        rootShell.settingsViewModel.setAccessToken(oauthSession.accessToken)
+        rootShell.settingsViewModel.setRefreshToken(oauthSession.refreshToken)
+        persistSession()
+        renderCurrentScreen()
+    }
 }

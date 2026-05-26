@@ -1,12 +1,233 @@
 import Foundation
+import UIKit
 
 enum APIError: Error {
     case invalidURL
     case invalidResponse
     case server(statusCode: Int)
+    case serverWithDetail(statusCode: Int, detail: String)
+}
+
+struct SupabaseAuthSession {
+    let userId: String
+    let email: String
+    let accessToken: String
+    let refreshToken: String
+}
+
+@MainActor
+final class SupabaseAuthService {
+    static let shared = SupabaseAuthService()
+    static let sessionDidChange = Notification.Name("hiair.supabase.session.did.change")
+
+    private let urlSession: URLSession = .shared
+    private let supabaseURL: URL?
+    private let anonKey: String
+    private let redirectURI: String
+
+    private init() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let env = ProcessInfo.processInfo.environment
+        let rawURL = env["SUPABASE_URL"] ?? (info["SUPABASE_URL"] as? String) ?? ""
+        anonKey = env["SUPABASE_ANON_KEY"] ?? (info["SUPABASE_ANON_KEY"] as? String) ?? ""
+        redirectURI = env["HIAIR_AUTH_REDIRECT_URI"] ?? (info["HIAIR_AUTH_REDIRECT_URI"] as? String) ?? "hiair://auth/callback"
+        supabaseURL = URL(string: rawURL)
+    }
+
+    func restoreSessionIfNeeded() async throws -> SupabaseAuthSession? {
+        return nil
+    }
+
+    func signUp(email: String, password: String) async throws -> SupabaseAuthSession {
+        let payload = ["email": email, "password": password]
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/signup",
+            query: nil,
+            body: payload
+        )
+        let session = try parseSession(from: data, fallbackEmail: email)
+        notifySessionChanged(session)
+        return session
+    }
+
+    func signIn(email: String, password: String) async throws -> SupabaseAuthSession {
+        let payload = ["email": email, "password": password]
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "password")],
+            body: payload
+        )
+        let session = try parseSession(from: data, fallbackEmail: email)
+        notifySessionChanged(session)
+        return session
+    }
+
+    func signInWithApple() async throws {
+        try await openOAuth(provider: "apple")
+    }
+
+    func signInWithGoogle() async throws {
+        try await openOAuth(provider: "google")
+    }
+
+    func refreshSession() async throws -> SupabaseAuthSession? {
+        guard let state = APIClient.getAuthState(), !state.refreshToken.isEmpty else {
+            return nil
+        }
+        let payload = ["refresh_token": state.refreshToken]
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
+            body: payload
+        )
+        let session = try parseSession(from: data, fallbackEmail: "")
+        notifySessionChanged(session)
+        return session
+    }
+
+    func signOut() async {
+        guard let state = APIClient.getAuthState() else {
+            NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
+            return
+        }
+        do {
+            _ = try await request(
+                method: "POST",
+                path: "/auth/v1/logout",
+                query: nil,
+                body: [:],
+                bearerToken: state.accessToken
+            )
+        } catch {
+            // Best effort signout.
+        }
+        NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
+    }
+
+    func handleCallbackURL(_ url: URL) async -> Bool {
+        let absolute = url.absoluteString
+        guard let hashIdx = absolute.firstIndex(of: "#") else {
+            return false
+        }
+        let fragment = String(absolute[absolute.index(after: hashIdx)...])
+        var pairs: [String: String] = [:]
+        for item in fragment.split(separator: "&") {
+            let parts = item.split(separator: "=", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { continue }
+            pairs[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+        }
+        guard
+            let accessToken = pairs["access_token"],
+            let refreshToken = pairs["refresh_token"]
+        else {
+            return false
+        }
+        let session = SupabaseAuthSession(
+            userId: pairs["user_id"] ?? pairs["sub"] ?? "",
+            email: pairs["email"] ?? "",
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        )
+        guard !session.userId.isEmpty else {
+            return false
+        }
+        notifySessionChanged(session)
+        return true
+    }
+
+    private func openOAuth(provider: String) async throws {
+        guard let base = supabaseURL else {
+            throw APIError.invalidURL
+        }
+        var components = URLComponents(url: base.appending(path: "/auth/v1/authorize"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "provider", value: provider),
+            URLQueryItem(name: "redirect_to", value: redirectURI),
+        ]
+        guard let target = components?.url else {
+            throw APIError.invalidURL
+        }
+        await MainActor.run {
+            UIApplication.shared.open(target)
+        }
+    }
+
+    private func request(
+        method: String,
+        path: String,
+        query: [URLQueryItem]?,
+        body: [String: String],
+        bearerToken: String? = nil
+    ) async throws -> Data {
+        guard let base = supabaseURL else {
+            throw APIError.invalidURL
+        }
+        var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)
+        components?.queryItems = query
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        if let bearerToken, !bearerToken.isEmpty {
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw APIError.server(statusCode: http.statusCode)
+        }
+        return data
+    }
+
+    private func parseSession(from data: Data, fallbackEmail: String) throws -> SupabaseAuthSession {
+        guard
+            let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let accessToken = payload["access_token"] as? String,
+            let refreshToken = payload["refresh_token"] as? String
+        else {
+            throw APIError.invalidResponse
+        }
+        let user = payload["user"] as? [String: Any]
+        let userId = (payload["user_id"] as? String)
+            ?? (user?["id"] as? String)
+            ?? ""
+        let email = (user?["email"] as? String) ?? fallbackEmail
+        guard !userId.isEmpty else {
+            throw APIError.invalidResponse
+        }
+        return SupabaseAuthSession(
+            userId: userId,
+            email: email,
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        )
+    }
+
+    private func notifySessionChanged(_ session: SupabaseAuthSession) {
+        NotificationCenter.default.post(name: Self.sessionDidChange, object: session)
+    }
 }
 
 final class APIClient {
+    struct AuthState {
+        let userId: String
+        let accessToken: String
+        let refreshToken: String
+    }
+
+    private static let authStateLock = NSLock()
+    private static var authState: AuthState?
+    private static var authInvalidatedHandler: (() -> Void)?
+
     private let baseURL: URL
     private let session: URLSession
 
@@ -19,21 +240,69 @@ final class APIClient {
         APIClient(baseURL: resolveBaseURL(), session: session)
     }
 
+    static func setAuthState(_ state: AuthState?) {
+        authStateLock.lock()
+        defer { authStateLock.unlock() }
+        authState = state
+    }
+
+    static func setAuthInvalidatedHandler(_ handler: (() -> Void)?) {
+        authStateLock.lock()
+        defer { authStateLock.unlock() }
+        authInvalidatedHandler = handler
+    }
+
+    static func getAuthState() -> AuthState? {
+        authStateLock.lock()
+        defer { authStateLock.unlock() }
+        return authState
+    }
+
+    private static func clearAuthStateAndNotify() {
+        authStateLock.lock()
+        authState = nil
+        let handler = authInvalidatedHandler
+        authStateLock.unlock()
+        handler?()
+    }
+
     private static func resolveBaseURL() -> URL {
+        #if DEBUG
         let defaultBaseURL = "http://127.0.0.1:8000"
+        #else
+        let defaultBaseURL = "https://api.hiair.app"
+        #endif
         let fromEnv = ProcessInfo.processInfo.environment["HIAIR_API_BASE_URL"]?.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
-        if let fromEnv, !fromEnv.isEmpty, let url = URL(string: fromEnv) {
+        if let fromEnv,
+           !fromEnv.isEmpty,
+           let url = validatedBaseURL(fromEnv) {
             return url
         }
 
         let fromPlist = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        if let fromPlist, !fromPlist.isEmpty, let url = URL(string: fromPlist) {
+        if let fromPlist,
+           !fromPlist.isEmpty,
+           let url = validatedBaseURL(fromPlist) {
             return url
         }
 
         return URL(string: defaultBaseURL)!
+    }
+
+    private static func validatedBaseURL(_ raw: String) -> URL? {
+        guard let url = URL(string: raw) else {
+            return nil
+        }
+        if url.scheme?.lowercased() == "https" {
+            return url
+        }
+        #if DEBUG
+        return url
+        #else
+        return nil
+        #endif
     }
 
     private func applyAuthHeaders(
@@ -41,11 +310,63 @@ final class APIClient {
         accessToken: String? = nil,
         userId: String? = nil
     ) {
+        if let state = Self.getAuthState(), !state.accessToken.isEmpty {
+            if let userId, !userId.isEmpty, userId != state.userId {
+                // fall through to explicit token for mismatched session.
+            } else {
+                request.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
+                return
+            }
+        }
         if let accessToken, !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             return
         }
         _ = userId
+    }
+
+    private func sendRequest(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        return (data, httpResponse)
+    }
+
+    private func sendRequestWithAutoRefresh(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, httpResponse) = try await sendRequest(request)
+        guard httpResponse.statusCode == 401 else {
+            return (data, httpResponse)
+        }
+        let refreshed = try await refreshAccessToken()
+        guard refreshed else {
+            Self.clearAuthStateAndNotify()
+            return (data, httpResponse)
+        }
+        var retriedRequest = request
+        if let state = Self.getAuthState(), !state.accessToken.isEmpty {
+            retriedRequest.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        return try await sendRequest(retriedRequest)
+    }
+
+    private func refreshAccessToken() async throws -> Bool {
+        guard let state = Self.getAuthState(),
+              !state.refreshToken.isEmpty
+        else {
+            return false
+        }
+        guard let refreshed = try await SupabaseAuthService.shared.refreshSession() else {
+            Self.clearAuthStateAndNotify()
+            return false
+        }
+        let nextState = AuthState(
+            userId: refreshed.userId,
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken.isEmpty ? state.refreshToken : refreshed.refreshToken
+        )
+        Self.setAuthState(nextState)
+        return true
     }
 
     func signup(email: String, password: String) async throws -> AuthResponse {
@@ -54,15 +375,7 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(AuthRequest(email: email, password: password))
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
-        }
-        return try JSONDecoder().decode(AuthResponse.self, from: data)
+        return try await executeAuthRequest(request)
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -71,15 +384,60 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(AuthRequest(email: email, password: password))
+        return try await executeAuthRequest(request)
+    }
 
+    private func executeAuthRequest(_ request: URLRequest) async throws -> AuthResponse {
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(AuthResponse.self, from: data)
+    }
+
+    func listProfiles(userId: String, accessToken: String? = nil) async throws -> [UserProfile] {
+        let url = baseURL.appending(path: "/api/profiles")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode([UserProfile].self, from: data)
+    }
+
+    func createProfile(
+        userId: String,
+        payload: ProfileCreatePayload,
+        accessToken: String? = nil
+    ) async throws -> UserProfile {
+        let url = baseURL.appending(path: "/api/profiles")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(UserProfile.self, from: data)
+    }
+
+    private func extractErrorDetail(from data: Data) -> String? {
+        guard !data.isEmpty,
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let detail = payload["detail"] as? String else {
+            return nil
+        }
+        return detail.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func fetchMockEnvironment(lat: Double, lon: Double) async throws -> EnvironmentSnapshot {
@@ -153,10 +511,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -180,10 +535,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -207,10 +559,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -240,10 +589,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -259,10 +605,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -281,10 +624,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -303,10 +643,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -351,14 +688,42 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(UserSettingsResponse.self, from: data)
+    }
+
+    func fetchPrivacyExport(userId: String, accessToken: String? = nil) async throws -> [String: Any] {
+        let url = baseURL.appending(path: "/api/privacy/export")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        let raw = try JSONSerialization.jsonObject(with: data, options: [])
+        guard let payload = raw as? [String: Any] else {
+            throw APIError.invalidResponse
+        }
+        return payload
+    }
+
+    func deleteAccount(userId: String, accessToken: String? = nil) async throws {
+        let url = baseURL.appending(path: "/api/privacy/delete-account")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(["confirmation": "DELETE"])
+
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
     }
 
     func updateUserSettings(
@@ -373,10 +738,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -395,10 +757,7 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (_, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -476,10 +835,7 @@ final class APIClient {
             Payload(platform: platform, deviceToken: deviceToken, profileId: profileId)
         )
 
-        let (_, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -506,10 +862,7 @@ final class APIClient {
         request.httpMethod = "GET"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -531,10 +884,7 @@ final class APIClient {
             ActivateSubscriptionRequest(planId: planId, useTrial: useTrial)
         )
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
@@ -550,10 +900,7 @@ final class APIClient {
         request.httpMethod = "POST"
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }

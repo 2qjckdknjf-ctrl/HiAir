@@ -434,12 +434,46 @@ struct AuthRequest: Codable {
 struct AuthResponse: Codable {
     let userId: String
     let accessToken: String
+    let refreshToken: String?
     let tokenType: String
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case accessToken = "access_token"
+        case refreshToken = "refresh_token"
         case tokenType = "token_type"
+    }
+}
+
+struct UserProfile: Codable {
+    let id: String
+    let userId: String
+    let personaType: String
+    let sensitivityLevel: String
+    let homeLat: Double
+    let homeLon: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case personaType = "persona_type"
+        case sensitivityLevel = "sensitivity_level"
+        case homeLat = "home_lat"
+        case homeLon = "home_lon"
+    }
+}
+
+struct ProfileCreatePayload: Codable {
+    let personaType: String
+    let sensitivityLevel: String
+    let homeLat: Double
+    let homeLon: Double
+
+    enum CodingKeys: String, CodingKey {
+        case personaType = "persona_type"
+        case sensitivityLevel = "sensitivity_level"
+        case homeLat = "home_lat"
+        case homeLon = "home_lon"
     }
 }
 

@@ -1,6 +1,5 @@
 package com.hiair.ui.render
 
-import android.graphics.Color
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -25,7 +24,12 @@ internal object SymptomsScreenRenderer {
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.streak")).apply {
             textSize = 12f
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
-            background = V2Ui.cardBackground(activity, "#1C355A", "#325888", 999)
+            background = V2Ui.cardBackground(
+                activity,
+                String.format("#%08X", Tokens.Surface.chip),
+                String.format("#%08X", Tokens.Surface.chipStroke),
+                999
+            )
         })
         val profileInput = EditText(activity).apply { hint = ctx.l("symptoms.profile_id") }
         val coughPill = symptomPill(activity, "💨 ${ctx.l("symptoms.cough")}") { selected ->
@@ -45,7 +49,7 @@ internal object SymptomsScreenRenderer {
         val stateText = TextView(activity).apply {
             text = ctx.l("symptoms.fill_submit")
             textSize = 16f
-            setTextColor(Color.parseColor("#A6B6D2"))
+            setTextColor(Tokens.Text.secondary)
         }
 
         val submitButton = V2Ui.primaryButton(activity, ctx.l("symptoms.submit")).apply {
@@ -114,7 +118,12 @@ internal object SymptomsScreenRenderer {
             textSize = 13f
             setTextColor(Tokens.Text.secondary)
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 8), V2Ui.dp(activity, 10), V2Ui.dp(activity, 8))
-            background = V2Ui.cardBackground(activity, "#20385D", "#355987", 999)
+            background = V2Ui.cardBackground(
+                activity,
+                String.format("#%08X", Tokens.Surface.tile),
+                String.format("#%08X", Tokens.Surface.tileStroke),
+                999
+            )
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginEnd = V2Ui.dp(activity, 6)
                 topMargin = V2Ui.dp(activity, 6)
@@ -125,8 +134,8 @@ internal object SymptomsScreenRenderer {
                 setTextColor(if (selected) Tokens.Text.primary else Tokens.Text.secondary)
                 background = V2Ui.cardBackground(
                     activity,
-                    if (selected) "#2B5A8A" else "#20385D",
-                    if (selected) "#67C6FF" else "#355987",
+                    String.format("#%08X", if (selected) Tokens.Surface.tileSelected else Tokens.Surface.tile),
+                    String.format("#%08X", if (selected) Tokens.Surface.tileSelectedStroke else Tokens.Surface.tileStroke),
                     999
                 )
             }

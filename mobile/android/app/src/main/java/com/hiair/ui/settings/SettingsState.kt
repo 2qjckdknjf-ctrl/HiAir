@@ -3,6 +3,7 @@ package com.hiair.ui.settings
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
 import com.hiair.network.ApiHttpException
+import com.hiair.network.SupabaseAuthService
 import com.hiair.ui.i18n.AndroidL10n
 import java.net.ConnectException
 import java.net.SocketException
@@ -15,6 +16,7 @@ data class SettingsState(
     val password: String = "",
     val userId: String = "",
     val accessToken: String = "",
+    val refreshToken: String = "",
     val pushAlertsEnabled: Boolean = true,
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
@@ -49,6 +51,7 @@ data class SettingsState(
     val aiInlineActionType: String = "",
     val aiLastUpdatedLabel: String = "-",
     val aiBreakdownText: String = "-",
+    val privacyExportSummary: String = "-",
     val loading: Boolean = false,
     val statusText: String = "-"
 )
@@ -56,6 +59,7 @@ data class SettingsState(
 class SettingsViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
+    private var supabaseAuthService: SupabaseAuthService? = null
     var state: SettingsState = SettingsState()
         private set
     @Volatile
@@ -75,6 +79,18 @@ class SettingsViewModel(
 
     fun setAccessToken(value: String) {
         state = state.copy(accessToken = value)
+    }
+
+    fun setRefreshToken(value: String) {
+        state = state.copy(refreshToken = value)
+    }
+
+    fun configureSupabaseAuth(authService: SupabaseAuthService) {
+        supabaseAuthService = authService
+    }
+
+    fun notifySessionExpired() {
+        state = state.copy(statusText = l("settings.auth_expired"))
     }
 
     fun setSelectedPlanId(value: String) {
@@ -135,7 +151,14 @@ class SettingsViewModel(
     }
 
     fun setPreferredLanguage(value: String) {
-        val normalized = if (value.lowercase().startsWith("en")) "en" else "ru"
+        val lower = value.lowercase()
+        val normalized = when {
+            lower.startsWith("fr") -> "fr"
+            lower.startsWith("it") -> "it"
+            lower.startsWith("es") -> "es"
+            lower.startsWith("en") -> "en"
+            else -> "ru"
+        }
         state = state.copy(preferredLanguage = normalized)
     }
 
@@ -223,17 +246,27 @@ class SettingsViewModel(
     }
 
     fun signup() {
-        if (state.email.isBlank() || state.password.length < 8) {
+        if (state.email.isBlank() || state.password.length < 12) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             return
         }
         state = state.copy(loading = true)
         try {
-            val json = JSONObject(apiClient.signup(state.email, state.password))
+            val session = supabaseAuthService?.signUp(state.email, state.password)
+                ?: run {
+                    val json = JSONObject(apiClient.signup(state.email, state.password))
+                    com.hiair.network.SupabaseSession(
+                        userId = json.getString("user_id"),
+                        email = state.email,
+                        accessToken = json.getString("access_token"),
+                        refreshToken = json.optString("refresh_token", ""),
+                    )
+                }
             state = state.copy(
                 loading = false,
-                userId = json.getString("user_id"),
-                accessToken = json.getString("access_token"),
+                userId = session?.userId ?: "",
+                accessToken = session?.accessToken ?: "",
+                refreshToken = session?.refreshToken ?: "",
                 statusText = l("settings.signed_up")
             )
         } catch (_: Exception) {
@@ -242,21 +275,47 @@ class SettingsViewModel(
     }
 
     fun login() {
-        if (state.email.isBlank() || state.password.length < 8) {
+        if (state.email.isBlank() || state.password.length < 12) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             return
         }
         state = state.copy(loading = true)
         try {
-            val json = JSONObject(apiClient.login(state.email, state.password))
+            val session = supabaseAuthService?.signIn(state.email, state.password)
+                ?: run {
+                    val json = JSONObject(apiClient.login(state.email, state.password))
+                    com.hiair.network.SupabaseSession(
+                        userId = json.getString("user_id"),
+                        email = state.email,
+                        accessToken = json.getString("access_token"),
+                        refreshToken = json.optString("refresh_token", ""),
+                    )
+                }
             state = state.copy(
                 loading = false,
-                userId = json.getString("user_id"),
-                accessToken = json.getString("access_token"),
+                userId = session?.userId ?: "",
+                accessToken = session?.accessToken ?: "",
+                refreshToken = session?.refreshToken ?: "",
                 statusText = l("settings.logged_in")
             )
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.login_failed"))
+        }
+    }
+
+    fun launchGoogleOAuth() {
+        supabaseAuthService?.launchGoogleSignIn()
+    }
+
+    fun launchAppleOAuth() {
+        supabaseAuthService?.launchAppleSignIn()
+    }
+
+    fun signOutSupabase() {
+        try {
+            supabaseAuthService?.signOut()
+        } catch (_: Exception) {
+            // no-op
         }
     }
 
@@ -315,6 +374,50 @@ class SettingsViewModel(
             state = state.copy(loading = false, statusText = l("settings.saved"))
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.save_failed"))
+        }
+    }
+
+    fun exportPrivacyData() {
+        if (state.userId.isBlank()) {
+            state = state.copy(statusText = l("settings.user_id_required"))
+            return
+        }
+        state = state.copy(loading = true)
+        try {
+            val json = JSONObject(apiClient.fetchPrivacyExport(state.userId, state.accessToken))
+            val sectionCount = json.optJSONObject("data")?.length() ?: 0
+            state = state.copy(
+                loading = false,
+                privacyExportSummary = "${l("settings.privacy_export_ready")}: $sectionCount",
+                statusText = l("settings.privacy_export_done")
+            )
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.privacy_export_failed"))
+        }
+    }
+
+    fun deleteAccount(): Boolean {
+        if (state.userId.isBlank()) {
+            state = state.copy(statusText = l("settings.user_id_required"))
+            return false
+        }
+        state = state.copy(loading = true)
+        return try {
+            apiClient.deleteAccount(state.userId, state.accessToken)
+            state = state.copy(
+                loading = false,
+                email = "",
+                password = "",
+                userId = "",
+                accessToken = "",
+                refreshToken = "",
+                privacyExportSummary = "-",
+                statusText = l("settings.account_deleted")
+            )
+            true
+        } catch (_: Exception) {
+            state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))
+            false
         }
     }
 

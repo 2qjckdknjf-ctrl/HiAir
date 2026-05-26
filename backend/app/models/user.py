@@ -18,7 +18,12 @@ class LoginRequest(BaseModel):
 class AuthResponse(BaseModel):
     user_id: str
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(min_length=24)
 
 
 class ProfileCreateRequest(BaseModel):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.models.thresholds import RiskThresholdsResponse, ThresholdBand
 
@@ -6,7 +6,12 @@ router = APIRouter(prefix="/risk", tags=["risk"])
 
 
 @router.get("/thresholds", response_model=RiskThresholdsResponse)
-def risk_thresholds() -> RiskThresholdsResponse:
+def risk_thresholds(response: Response) -> RiskThresholdsResponse:
+    response.headers["Deprecation"] = "true"
+    response.headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT"
+    response.headers["Warning"] = (
+        '299 - "Legacy /api/risk/thresholds endpoint is deprecated; use air-domain metadata."'
+    )
     return RiskThresholdsResponse(
         version="v1-rule-based",
         references=[

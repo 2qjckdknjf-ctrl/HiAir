@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
@@ -9,13 +9,20 @@ import app.services.risk_repository as risk_repository
 from app.services.risk_engine import estimate_risk
 
 router = APIRouter(prefix="/risk", tags=["risk"])
+LEGACY_DEPRECATION_MESSAGE = (
+    '299 - "Legacy /api/risk endpoints are deprecated; migrate to /api/air endpoints."'
+)
 
 
 @router.post("/estimate", response_model=RiskEstimateResponse)
 def risk_estimate(
     payload: RiskEstimateRequest,
+    response: Response,
     user_id: str = Depends(get_current_user_id),
 ) -> RiskEstimateResponse:
+    response.headers["Deprecation"] = "true"
+    response.headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT"
+    response.headers["Warning"] = LEGACY_DEPRECATION_MESSAGE
     score, level, recommendations, components = estimate_risk(
         persona=payload.persona,
         symptoms=payload.symptoms,
@@ -46,10 +53,14 @@ def risk_estimate(
 
 @router.get("/history", response_model=list[RiskHistoryItem])
 def risk_history(
+    response: Response,
     profile_id: str = Query(...),
     limit: int = Query(default=20, ge=1, le=100),
     user_id: str = Depends(get_current_user_id),
 ) -> list[RiskHistoryItem]:
+    response.headers["Deprecation"] = "true"
+    response.headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT"
+    response.headers["Warning"] = LEGACY_DEPRECATION_MESSAGE
     try:
         if not profile_access.profile_exists(profile_id):
             raise HTTPException(status_code=404, detail="Profile not found")

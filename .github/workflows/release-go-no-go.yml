@@ -1,0 +1,41 @@
+name: Release Go No-Go
+
+on:
+  workflow_dispatch:
+
+jobs:
+  go-no-go:
+    runs-on: ubuntu-latest
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APP_STORE_CONNECT_APP_ID: ${{ secrets.APP_STORE_CONNECT_APP_ID }}
+      APP_REVIEW_TEST_EMAIL: ${{ secrets.APP_REVIEW_TEST_EMAIL }}
+      APP_REVIEW_TEST_PASSWORD: ${{ secrets.APP_REVIEW_TEST_PASSWORD }}
+      GOOGLE_PLAY_PACKAGE_NAME: ${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
+      PLAY_REVIEW_TEST_EMAIL: ${{ secrets.PLAY_REVIEW_TEST_EMAIL }}
+      PLAY_REVIEW_TEST_PASSWORD: ${{ secrets.PLAY_REVIEW_TEST_PASSWORD }}
+      APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+      APNS_TEAM_ID: ${{ secrets.APNS_TEAM_ID }}
+      APNS_KEY_PATH: ${{ secrets.APNS_KEY_PATH }}
+      FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+      FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+      LEGAL_PRIVACY_POLICY_URL: ${{ secrets.LEGAL_PRIVACY_POLICY_URL }}
+      LEGAL_TERMS_URL: ${{ secrets.LEGAL_TERMS_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate owner action plan and enforce strict readiness
+        run: |
+          python scripts/release/check_external_readiness.py \
+            --strict \
+            --write-owner-plan docs/_operator/external-owner-action-plan.md
+
+      - name: Enforce release sign-off completion
+        run: |
+          python scripts/release/check_signoff.py

@@ -80,7 +80,7 @@ def assert_no_residual_personal_data(user_id: str, profile_ids: list[str]) -> No
 def run() -> None:
     client = TestClient(app)
     email = f"smoke-{uuid4().hex[:10]}@hiair.app"
-    password = "strongpass123"
+    password = "StrongPass123!"
 
     signup = client.post("/api/auth/signup", json={"email": email, "password": password})
     assert signup.status_code == 200, signup.text
@@ -271,7 +271,7 @@ def run() -> None:
         params={"profile_id": profile_id, "persona": "asthma", "lat": 41.39, "lon": 2.17},
     )
     assert overview.status_code == 200, overview.text
-    assert overview.json()["risk_level"] in ("low", "medium", "high", "very_high")
+    assert overview.json()["risk_level"] in ("low", "moderate", "high", "very_high")
 
     planner = client.get(
         "/api/planner/daily",

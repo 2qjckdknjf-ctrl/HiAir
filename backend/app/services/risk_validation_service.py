@@ -3,7 +3,7 @@ from app.models.validation import HistoricalValidationCaseResult, HistoricalVali
 from app.services.risk_engine import estimate_risk
 
 
-_LEVEL_ORDER = {"low": 0, "medium": 1, "high": 2, "very_high": 3}
+_LEVEL_ORDER = {"low": 0, "moderate": 1, "high": 2, "very_high": 3}
 
 
 def _passes(level: str, expected_min_level: str) -> bool:
@@ -66,7 +66,7 @@ def run_historical_validation() -> HistoricalValidationResponse:
                 ozone=75.0,
                 source="historical",
             ),
-            "expected_min_level": "medium",
+            "expected_min_level": "moderate",
         },
     ]
 

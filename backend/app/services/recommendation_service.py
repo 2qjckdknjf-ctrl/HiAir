@@ -1,5 +1,9 @@
+from app.services.risk_level_contract import normalize_legacy_level
+
+
 def _risk_actions(risk_level: str) -> tuple[str, list[str]]:
-    if risk_level == "very_high":
+    normalized_risk_level = normalize_legacy_level(risk_level)
+    if normalized_risk_level == "very_high":
         return (
             "Conditions are very high risk right now.",
             [
@@ -8,7 +12,7 @@ def _risk_actions(risk_level: str) -> tuple[str, list[str]]:
                 "Hydrate frequently and reduce physical load.",
             ],
         )
-    if risk_level == "high":
+    if normalized_risk_level == "high":
         return (
             "Conditions are high risk.",
             [
@@ -17,7 +21,7 @@ def _risk_actions(risk_level: str) -> tuple[str, list[str]]:
                 "Prefer indoor ventilation when air quality improves.",
             ],
         )
-    if risk_level == "medium":
+    if normalized_risk_level == "moderate":
         return (
             "Conditions are moderate risk.",
             [

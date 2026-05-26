@@ -1,6 +1,5 @@
 package com.hiair.ui.render
 
-import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
@@ -47,8 +46,14 @@ internal object SettingsScreenRenderer {
         )
         thresholdSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, thresholdLabels)
         val languageSpinner = Spinner(activity)
-        val languageOptions = listOf("ru", "en")
-        val languageLabels = listOf(ctx.l("settings.language_ru"), ctx.l("settings.language_en"))
+        val languageOptions = listOf("ru", "en", "es", "it", "fr")
+        val languageLabels = listOf(
+            ctx.l("settings.language_ru"),
+            ctx.l("settings.language_en"),
+            ctx.l("settings.language_es"),
+            ctx.l("settings.language_it"),
+            ctx.l("settings.language_fr")
+        )
         languageSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, languageLabels)
         val personaSpinner = Spinner(activity)
         val personaOptions = listOf("adult", "child", "elderly", "asthma", "allergy", "runner", "worker")
@@ -64,8 +69,8 @@ internal object SettingsScreenRenderer {
         personaSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, personaLabels)
         val subscriptionSpinner = Spinner(activity)
         val aiWindowInput = EditText(activity).apply { hint = ctx.l("settings.ai_window"); setText("24") }
-        val languageLabel = TextView(activity).apply { text = ctx.l("settings.language"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiMetricLabel = TextView(activity).apply { text = ctx.l("settings.ai_metric"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
+        val languageLabel = TextView(activity).apply { text = ctx.l("settings.language"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val aiMetricLabel = TextView(activity).apply { text = ctx.l("settings.ai_metric"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
         val aiMetricSpinner = Spinner(activity)
         val aiMetricOptions = listOf("total", "fallback", "guardrail", "errors", "timeout", "network", "server")
         val aiMetricLabels = listOf(
@@ -78,27 +83,27 @@ internal object SettingsScreenRenderer {
             ctx.l("settings.ai_metric_server")
         )
         aiMetricSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, aiMetricLabels)
-        val aiModeLabel = TextView(activity).apply { text = ctx.l("settings.ai_mode"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
+        val aiModeLabel = TextView(activity).apply { text = ctx.l("settings.ai_mode"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
         val aiModeSpinner = Spinner(activity)
         val aiModeOptions = listOf("bars", "line")
         val aiModeLabels = listOf(ctx.l("settings.ai_mode_bars"), ctx.l("settings.ai_mode_line"))
         aiModeSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, aiModeLabels)
-        val aiSummaryText = TextView(activity).apply { text = ctx.l("settings.ai_summary"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiTrendText = TextView(activity).apply { text = ctx.l("settings.ai_trend"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiGraphText = TextView(activity).apply { text = ctx.l("settings.ai_graph"); textSize = 14f; setTextColor(Color.parseColor("#7BCBFF")) }
-        val aiRangeText = TextView(activity).apply { text = "${ctx.l("settings.ai_range")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiAxisText = TextView(activity).apply { text = "${ctx.l("settings.ai_axis")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiRequestStatusText = TextView(activity).apply { text = "${ctx.l("settings.ai_request_status")}: ${ctx.l("settings.ai_request_idle")}"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiLastUpdatedText = TextView(activity).apply { text = "${ctx.l("settings.ai_last_updated")}: -"; textSize = 13f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val aiInlineErrorText = TextView(activity).apply { text = ""; textSize = 13f; setTextColor(Color.parseColor("#FF9AA2")) }
+        val aiSummaryText = TextView(activity).apply { text = ctx.l("settings.ai_summary"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val aiTrendText = TextView(activity).apply { text = ctx.l("settings.ai_trend"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val aiGraphText = TextView(activity).apply { text = ctx.l("settings.ai_graph"); textSize = 14f; setTextColor(Tokens.Feedback.info) }
+        val aiRangeText = TextView(activity).apply { text = "${ctx.l("settings.ai_range")}: -"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiAxisText = TextView(activity).apply { text = "${ctx.l("settings.ai_axis")}: -"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiRequestStatusText = TextView(activity).apply { text = "${ctx.l("settings.ai_request_status")}: ${ctx.l("settings.ai_request_idle")}"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiLastUpdatedText = TextView(activity).apply { text = "${ctx.l("settings.ai_last_updated")}: -"; textSize = 13f; setTextColor(Tokens.Text.secondary) }
+        val aiInlineErrorText = TextView(activity).apply { text = ""; textSize = 13f; setTextColor(Tokens.Feedback.errorSoft) }
         val aiTrendChart = AITrendChartView(activity).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 V2Ui.dp(activity, 72)
             )
         }
-        val aiBreakdownText = TextView(activity).apply { text = ctx.l("settings.ai_breakdown"); textSize = 14f; setTextColor(Color.parseColor("#A6B6D2")) }
-        val statusText = TextView(activity).apply { text = ctx.l("settings.load_save"); textSize = 16f; setTextColor(Color.parseColor("#A6B6D2")) }
+        val aiBreakdownText = TextView(activity).apply { text = ctx.l("settings.ai_breakdown"); textSize = 14f; setTextColor(Tokens.Text.secondary) }
+        val statusText = TextView(activity).apply { text = ctx.l("settings.load_save"); textSize = 16f; setTextColor(Tokens.Text.secondary) }
         val aiRetryButton = V2Ui.secondaryButton(activity, ctx.l("settings.ai_retry_now"))
         val mainHandler = Handler(Looper.getMainLooper())
         var aiRefreshRunnable: Runnable? = null
@@ -301,13 +306,58 @@ internal object SettingsScreenRenderer {
         }
         val logoutButton = V2Ui.secondaryButton(activity, ctx.l("settings.log_out")).apply {
             setOnClickListener {
+                rootShell.settingsViewModel.signOutSupabase()
                 rootShell.settingsViewModel.setUserId("")
                 rootShell.settingsViewModel.setAccessToken("")
+                rootShell.settingsViewModel.setRefreshToken("")
                 rootShell.settingsViewModel.setPassword("")
                 clearSession()
                 userIdInput.setText("")
                 tokenInput.setText("")
                 statusText.text = ctx.l("settings.logged_out")
+            }
+        }
+        val privacyExportSummary = V2Ui.styledSecondaryText(
+            activity,
+            rootShell.settingsViewModel.state.privacyExportSummary
+        ).apply {
+            textSize = 13f
+        }
+        val exportPrivacyButton = V2Ui.secondaryButton(activity, ctx.l("settings.privacy_export")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                Thread {
+                    rootShell.settingsViewModel.exportPrivacyData()
+                    val updated = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        privacyExportSummary.text = updated.privacyExportSummary
+                        statusText.text = updated.statusText
+                    }
+                }.start()
+            }
+        }
+        val deleteAccountButton = V2Ui.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                Thread {
+                    val deleted = rootShell.settingsViewModel.deleteAccount()
+                    val updated = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        if (deleted) {
+                            clearSession()
+                            emailInput.setText("")
+                            passwordInput.setText("")
+                            userIdInput.setText("")
+                            tokenInput.setText("")
+                        }
+                        privacyExportSummary.text = updated.privacyExportSummary
+                        statusText.text = updated.statusText
+                    }
+                }.start()
             }
         }
         val loadAiSummaryButton = V2Ui.secondaryButton(activity, ctx.l("settings.load_ai_summary")).apply {
@@ -351,6 +401,21 @@ internal object SettingsScreenRenderer {
             orientation = LinearLayout.HORIZONTAL
             addView(signupButton)
             addView(loginButton)
+        }
+        val socialAuthRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(V2Ui.secondaryButton(activity, "Google Sign-In").apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.launchGoogleOAuth()
+                    statusText.text = "Continue in browser and return to app."
+                }
+            })
+            addView(V2Ui.secondaryButton(activity, "Apple Sign-In").apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.launchAppleOAuth()
+                    statusText.text = "Continue in browser and return to app."
+                }
+            })
         }
 
         fun sectionTitle(key: String): TextView = V2Ui.styledBodyText(activity, ctx.l(key)).apply { textSize = 17f }
@@ -407,8 +472,12 @@ internal object SettingsScreenRenderer {
             addView(emailInput)
             addView(passwordInput)
             addView(authRow)
+            addView(socialAuthRow)
             addView(userIdInput)
             addView(tokenInput)
+            addView(exportPrivacyButton)
+            addView(privacyExportSummary)
+            addView(deleteAccountButton)
             addView(statusText)
             addView(logoutButton)
         }
@@ -498,7 +567,7 @@ internal object SettingsScreenRenderer {
                 background = V2Ui.cardBackground(
                     activity,
                     fillHex = String.format("#%08X", color),
-                    strokeHex = "#40FFFFFF",
+                    strokeHex = String.format("#%08X", Tokens.Feedback.strokeSoft),
                     radiusDp = 999
                 )
             }

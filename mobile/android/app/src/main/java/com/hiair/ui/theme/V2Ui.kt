@@ -34,7 +34,7 @@ object V2Ui {
     fun cardContainer(context: Context): LinearLayout {
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(context, 14), dp(context, 14), dp(context, 14), dp(context, 14))
+            setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 16))
             background = cardBackground(
                 context,
                 fillHex = colorHex(TimeOfDayBackground.surfacePrimary()),
@@ -53,7 +53,7 @@ object V2Ui {
     fun styledBodyText(context: Context, text: String): TextView {
         return TextView(context).apply {
             this.text = text
-            textSize = 18f
+            textSize = 17f
             setTextColor(Tokens.Text.primary)
         }
     }
@@ -61,7 +61,7 @@ object V2Ui {
     fun styledSecondaryText(context: Context, text: String): TextView {
         return TextView(context).apply {
             this.text = text
-            textSize = 14f
+            textSize = 15f
             setTextColor(Tokens.Text.secondary)
         }
     }
@@ -84,7 +84,7 @@ object V2Ui {
     fun primaryButton(context: Context, label: String): Button {
         return Button(context).apply {
             text = label
-            setTextColor(Color.parseColor("#0D172A"))
+            setTextColor(Tokens.Cta.textOnGradient)
             textSize = 15f
             setTypeface(typeface, Typeface.BOLD)
             minHeight = dp(context, 48)
@@ -125,7 +125,7 @@ object V2Ui {
 
     fun applyRiskGlobeStyle(context: Context, orb: View, riskLevel: String, glowStrength: Float) {
         val primary = Tokens.RiskAccent.forLevel(riskLevel)
-        val secondary = Color.parseColor("#66C7FF")
+        val secondary = Tokens.Feedback.info
         orb.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = intArrayOf(primary, secondary)

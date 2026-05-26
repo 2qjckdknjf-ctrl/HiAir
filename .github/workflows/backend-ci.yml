@@ -55,25 +55,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Compile backend
+      - name: Run backend gate
         working-directory: backend
         run: |
-          python -m compileall app scripts
+          python scripts/run_backend_gate.py --skip-smoke
 
-      - name: Run backend tests
+      - name: Dependency security audit
         working-directory: backend
         run: |
-          python -m pytest tests -q
+          pip-audit
 
-      - name: Security and retention prechecks
-        working-directory: backend
-        run: |
-          python scripts/check_env_security.py --strict
-
-      - name: Initialize schema and run validations
+      - name: Run DB smoke sequence
         working-directory: backend
         run: |
           python scripts/init_db.py
           python scripts/retention_cleanup.py --dry-run
           python scripts/smoke_db_flow.py
-          python scripts/validate_risk_historical.py

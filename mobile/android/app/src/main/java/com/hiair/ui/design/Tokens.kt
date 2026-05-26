@@ -13,6 +13,26 @@ object Tokens {
     object Cta {
         val start: Int = Color.parseColor("#5DD5C4")
         val end: Int = Color.parseColor("#8B7BFF")
+        val textOnGradient: Int = Color.parseColor("#0D172A")
+    }
+
+    object Surface {
+        val chip: Int = Color.parseColor("#1C355A")
+        val chipStroke: Int = Color.parseColor("#325888")
+        val tile: Int = Color.parseColor("#20385D")
+        val tileStroke: Int = Color.parseColor("#355987")
+        val tileSelected: Int = Color.parseColor("#2B5A8A")
+        val tileSelectedStroke: Int = Color.parseColor("#67C6FF")
+        val progressTrack: Int = Color.parseColor("#2A4A79")
+        val weatherBar: Int = Color.parseColor("#5378C8")
+        val riskBadgeFillModerate: Int = Color.parseColor("#3A2F17")
+        val riskBadgeStrokeModerate: Int = Color.parseColor("#6A5830")
+    }
+
+    object Feedback {
+        val info: Int = Color.parseColor("#7BCBFF")
+        val errorSoft: Int = Color.parseColor("#FF9AA2")
+        val strokeSoft: Int = Color.parseColor("#40FFFFFF")
     }
 
     object RiskAccent {
@@ -52,7 +72,7 @@ object Tokens {
 
         companion object {
             fun current(now: Calendar = Calendar.getInstance()): TimeOfDayPhase {
-                return when (val hour = now.get(Calendar.HOUR_OF_DAY)) {
+                return when (now.get(Calendar.HOUR_OF_DAY)) {
                     in 5..7 -> Dawn
                     in 8..11 -> Morning
                     in 12..15 -> Midday

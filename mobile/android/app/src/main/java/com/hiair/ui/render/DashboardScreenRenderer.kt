@@ -23,7 +23,12 @@ internal object DashboardScreenRenderer {
                 textSize = 12f
                 setTextColor(Tokens.Text.primary)
                 setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
-                background = V2Ui.cardBackground(activity, "#1B3358", "#325888", 999)
+                background = V2Ui.cardBackground(
+                    activity,
+                    String.format("#%08X", Tokens.Surface.chip),
+                    String.format("#%08X", Tokens.Surface.chipStroke),
+                    999
+                )
             })
             addView(TextView(activity).apply {
                 text = " • ${ctx.l("dashboard.freshness_fresh")}"
@@ -55,7 +60,12 @@ internal object DashboardScreenRenderer {
             text = ctx.l("dashboard.badge_moderate")
             textSize = 10f
             setTextColor(Tokens.RiskAccent.moderate)
-            background = V2Ui.cardBackground(activity, "#3A2F17", strokeHex = "#6A5830", radiusDp = 10)
+            background = V2Ui.cardBackground(
+                activity,
+                String.format("#%08X", Tokens.Surface.riskBadgeFillModerate),
+                strokeHex = String.format("#%08X", Tokens.Surface.riskBadgeStrokeModerate),
+                radiusDp = 10
+            )
             setPadding(V2Ui.dp(activity, 8), V2Ui.dp(activity, 3), V2Ui.dp(activity, 8), V2Ui.dp(activity, 3))
         }
         val riskValue = V2Ui.styledBodyText(activity, "58").apply {
@@ -64,8 +74,8 @@ internal object DashboardScreenRenderer {
         val riskDetail = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.reason_code")).apply {
             textSize = 13f
         }
-        val weatherTitle = V2Ui.styledBodyText(activity, "Sunny 26C")
-        val weatherMood = V2Ui.styledSecondaryText(activity, globeMoodLabel(ctx.rootShell.dashboardViewModel.state.riskLevel))
+        val weatherTitle = V2Ui.styledBodyText(activity, ctx.l("dashboard.weather_title"))
+        val weatherMood = V2Ui.styledSecondaryText(activity, globeMoodLabel(ctx, ctx.rootShell.dashboardViewModel.state.riskLevel))
 
         val weatherOrb = View(activity).apply {
             layoutParams = LinearLayout.LayoutParams(V2Ui.dp(activity, 64), V2Ui.dp(activity, 64))
@@ -92,7 +102,12 @@ internal object DashboardScreenRenderer {
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         V2Ui.dp(activity, 3)
                     ).apply { topMargin = V2Ui.dp(activity, 8) }
-                    background = V2Ui.cardBackground(activity, "#5378C8", strokeHex = "#5378C8", radiusDp = 12)
+                    background = V2Ui.cardBackground(
+                        activity,
+                        String.format("#%08X", Tokens.Surface.weatherBar),
+                        strokeHex = String.format("#%08X", Tokens.Surface.weatherBar),
+                        radiusDp = 12
+                    )
                 })
             })
         }
@@ -123,7 +138,12 @@ internal object DashboardScreenRenderer {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 V2Ui.dp(activity, 8)
             )
-            background = V2Ui.cardBackground(activity, "#2A4A79", strokeHex = "#2A4A79", radiusDp = 12)
+            background = V2Ui.cardBackground(
+                activity,
+                String.format("#%08X", Tokens.Surface.progressTrack),
+                strokeHex = String.format("#%08X", Tokens.Surface.progressTrack),
+                radiusDp = 12
+            )
         })
         dashboardCard.addView(V2Ui.spacer(activity, 8))
         bodyContainer.addView(dashboardCard)
@@ -169,7 +189,7 @@ internal object DashboardScreenRenderer {
                         riskValue.text = riskScore(state.riskLevel).toString()
                         badge.text = state.riskLevel.uppercase()
                         badge.setTextColor(Tokens.RiskAccent.forLevel(state.riskLevel))
-                        weatherMood.text = globeMoodLabel(state.riskLevel)
+                        weatherMood.text = globeMoodLabel(ctx, state.riskLevel)
                         particles.setPm25(pm25Estimate(state.riskLevel))
                         particles.setTintColor(Tokens.RiskAccent.forLevel(state.riskLevel))
                         riskDetail.text = "${state.headline}\n${state.explanation}"
@@ -199,7 +219,12 @@ internal object DashboardScreenRenderer {
             textSize = 13f
             setTextColor(Tokens.Text.primary)
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 8), V2Ui.dp(activity, 10), V2Ui.dp(activity, 8))
-            background = V2Ui.cardBackground(activity, "#20385D", "#355987", 12)
+            background = V2Ui.cardBackground(
+                activity,
+                String.format("#%08X", Tokens.Surface.tile),
+                String.format("#%08X", Tokens.Surface.tileStroke),
+                12
+            )
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -213,7 +238,12 @@ internal object DashboardScreenRenderer {
             textSize = 12f
             setTextColor(Tokens.Text.primary)
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
-            background = V2Ui.cardBackground(activity, "#1C355A", "#325888", 999)
+            background = V2Ui.cardBackground(
+                activity,
+                String.format("#%08X", Tokens.Surface.chip),
+                String.format("#%08X", Tokens.Surface.chipStroke),
+                999
+            )
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -223,10 +253,10 @@ internal object DashboardScreenRenderer {
 
     private fun riskScore(riskLevel: String): Int {
         return when (riskLevel.lowercase()) {
-            "low" -> 32
+            "low" -> 24
             "medium", "moderate" -> 58
-            "high" -> 78
-            "very_high", "very high" -> 91
+            "high" -> 79
+            "very_high", "very high" -> 90
             else -> 58
         }
     }
@@ -241,14 +271,14 @@ internal object DashboardScreenRenderer {
         }
     }
 
-    private fun globeMoodLabel(riskLevel: String): String {
+    private fun globeMoodLabel(ctx: RenderContext, riskLevel: String): String {
         val mood = when (riskLevel.lowercase()) {
-            "low" -> "Calm"
-            "medium", "moderate" -> "Aware"
-            "high" -> "Cautious"
-            "very_high", "very high" -> "Protective"
-            else -> "Calm"
+            "low" -> ctx.l("dashboard.mood.calm")
+            "medium", "moderate" -> ctx.l("dashboard.mood.aware")
+            "high" -> ctx.l("dashboard.mood.cautious")
+            "very_high", "very high" -> ctx.l("dashboard.mood.protective")
+            else -> ctx.l("dashboard.mood.calm")
         }
-        return "Mood: $mood"
+        return "${ctx.l("dashboard.mood_prefix")}: $mood"
     }
 }

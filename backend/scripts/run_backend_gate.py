@@ -32,6 +32,11 @@ def main() -> int:
         help="Skip smoke flow execution.",
     )
     parser.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Skip pytest execution.",
+    )
+    parser.add_argument(
         "--skip-db",
         action="store_true",
         help="Skip database-dependent steps (init_db, retention_cleanup, smoke_db_flow).",
@@ -53,9 +58,18 @@ def main() -> int:
     python_exe = sys.executable
     commands = [
         [python_exe, "-m", "compileall", "app", "scripts"],
+    ]
+    if not args.skip_tests:
+        commands.append([python_exe, "-m", "pytest", "tests", "-q"])
+    else:
+        print("[INFO] --skip-tests enabled: skipping pytest.")
+
+    commands.extend(
+        [
         [python_exe, "scripts/check_env_security.py", "--strict"],
         [python_exe, "scripts/validate_risk_historical.py"],
-    ]
+        ]
+    )
 
     if not args.skip_db:
         commands.extend(

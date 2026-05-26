@@ -1,6 +1,5 @@
 import SwiftUI
 import Foundation
-import UIKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -91,6 +90,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiNetworkCount = 0
     @Published var aiServerCount = 0
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
+    @Published var privacyExportSummary = "-"
     @Published var statusText = "-"
     @Published var loading = false
 
@@ -215,6 +215,44 @@ final class SettingsViewModel: ObservableObject {
             statusText = l("settings.saved")
         } catch {
             statusText = l("settings.save_failed")
+        }
+    }
+
+    func exportPrivacyData() async {
+        guard !userId.isEmpty else {
+            statusText = l("settings.user_id_required")
+            return
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            let payload = try await apiClient.fetchPrivacyExport(userId: userId, accessToken: accessToken)
+            let data = payload["data"] as? [String: Any]
+            let sectionCount = data?.keys.count ?? 0
+            privacyExportSummary = "\(l("settings.privacy_export_ready")): \(sectionCount)"
+            statusText = l("settings.privacy_export_done")
+        } catch {
+            statusText = l("settings.privacy_export_failed")
+        }
+    }
+
+    func deleteAccount() async -> Bool {
+        guard !userId.isEmpty else {
+            statusText = l("settings.user_id_required")
+            return false
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            try await apiClient.deleteAccount(userId: userId, accessToken: accessToken)
+            statusText = l("settings.account_deleted")
+            userId = ""
+            accessToken = ""
+            privacyExportSummary = "-"
+            return true
+        } catch {
+            statusText = l("settings.account_delete_failed")
+            return false
         }
     }
 
@@ -486,10 +524,10 @@ private struct AITrendMiniChart: View {
                         }
                     }
                 }
-                .stroke(Color.cyan, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                .stroke(AuroraTokens.ColorPalette.info, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                 ForEach(Array(pointsXY.enumerated()), id: \.offset) { index, point in
                     Circle()
-                        .fill(index == pointsXY.count - 1 ? Color.white : Color.cyan.opacity(0.8))
+                        .fill(index == pointsXY.count - 1 ? AuroraTokens.ColorPalette.textPrimary : AuroraTokens.ColorPalette.info.opacity(0.8))
                         .frame(width: index == pointsXY.count - 1 ? 7 : 5, height: index == pointsXY.count - 1 ? 7 : 5)
                         .position(point)
                 }
@@ -511,94 +549,57 @@ private struct AITrendMiniChart: View {
     private func color(for normalized: CGFloat, isLatest: Bool) -> Color {
         let base: Color
         if normalized >= 0.75 {
-            base = .red
+            base = AuroraTokens.ColorPalette.riskHigh
         } else if normalized >= 0.4 {
-            base = .orange
+            base = AuroraTokens.ColorPalette.riskModerate
         } else {
-            base = .blue
+            base = AuroraTokens.ColorPalette.riskLow
         }
         return isLatest ? base.opacity(0.9) : base.opacity(0.7)
-    }
-}
-
-private struct TokenSwatchRow: View {
-    let title: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(color)
-                .frame(width: 14, height: 14)
-                .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
-            Text(title)
-                .font(.footnote)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-            Spacer()
-            Text(colorHex)
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
-        }
-    }
-
-    private var colorHex: String {
-        let uiColor = UIColor(color)
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return String(format: "#%02X%02X%02X", Int(red * 255), Int(green * 255), Int(blue * 255))
     }
 }
 
 struct SettingsView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SettingsViewModel()
+    @State private var showingGuide = false
+    @State private var showingAIGuide = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(session.l("common.city_updated"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("title.settings"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
 
                 Text(session.l("settings.subtitle"))
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Developer · Design tokens")
-                        .font(.headline)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                    TokenSwatchRow(title: "Risk low", color: AuroraTokens.ColorPalette.riskLow)
-                    TokenSwatchRow(title: "Risk moderate", color: AuroraTokens.ColorPalette.riskModerate)
-                    TokenSwatchRow(title: "Risk high", color: AuroraTokens.ColorPalette.riskHigh)
-                    TokenSwatchRow(title: "Risk very high", color: AuroraTokens.ColorPalette.riskVeryHigh)
-                    TokenSwatchRow(title: "CTA start", color: AuroraTokens.ColorPalette.ctaStart)
-                    TokenSwatchRow(title: "CTA end", color: AuroraTokens.ColorPalette.ctaEnd)
-                }
-                .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.notifications"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Toggle(session.l("settings.push"), isOn: $viewModel.pushAlertsEnabled)
+                    if !viewModel.pushAlertsEnabled {
+                        Text(session.l("settings.notifications_off_hint"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
                     Toggle(session.l("settings.morning_briefing"), isOn: $viewModel.morningBriefingEnabled)
                     TextField(session.l("settings.morning_briefing_time"), text: $viewModel.morningBriefingTime)
                         .textFieldStyle(.roundedBorder)
                     if viewModel.userId.isEmpty {
                         Text(session.l("settings.briefing_setup_hint"))
-                            .font(.caption)
+                            .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }
                     Text(session.l("settings.morning_briefing_hint"))
-                        .font(.caption)
+                        .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
                     Toggle(session.l("settings.profile_alerting"), isOn: $viewModel.profileBasedAlerting)
                     Picker(session.l("settings.alert_threshold"), selection: $viewModel.riskThreshold) {
@@ -616,7 +617,7 @@ struct SettingsView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.profile_defaults"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Picker(session.l("settings.persona"), selection: $viewModel.selectedPersona) {
                         Text(session.l("settings.persona_adult")).tag("adult")
@@ -631,14 +632,17 @@ struct SettingsView: View {
                     Picker(session.l("settings.language"), selection: $viewModel.preferredLanguage) {
                         Text(session.l("settings.language_ru")).tag("ru")
                         Text(session.l("settings.language_en")).tag("en")
+                        Text(session.l("settings.language_es")).tag("es")
+                        Text(session.l("settings.language_it")).tag("it")
+                        Text(session.l("settings.language_fr")).tag("fr")
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                 }
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.sync"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     HStack(spacing: 8) {
                         Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load")) {
@@ -658,14 +662,14 @@ struct SettingsView: View {
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
                     Text(viewModel.statusText)
-                        .font(.footnote)
+                        .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.subscription"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
                         ForEach(viewModel.plans, id: \.planId) { plan in
@@ -673,7 +677,7 @@ struct SettingsView: View {
                         }
                     }
                     Text("\(session.l("settings.status")): \(viewModel.localizedSubscriptionStatus())")
-                        .font(.footnote)
+                        .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_plans")) {
                         Task { await viewModel.loadPlans() }
@@ -699,7 +703,7 @@ struct SettingsView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.ai_observability"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Picker(session.l("settings.window"), selection: $viewModel.aiSummaryHours) {
                         Text(session.l("settings.window_24h")).tag(24)
@@ -713,10 +717,10 @@ struct SettingsView: View {
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
                     Text(viewModel.aiSummaryText)
-                        .font(.footnote)
+                        .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                     Text(viewModel.aiTrendText)
-                        .font(.footnote)
+                        .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                     DisclosureGroup(session.l("settings.advanced_controls")) {
                         VStack(alignment: .leading, spacing: 10) {
@@ -736,16 +740,16 @@ struct SettingsView: View {
                                 .font(.system(.footnote, design: .monospaced))
                                 .foregroundStyle(HiAirV2Theme.accentStart)
                             Text("\(session.l("settings.range")): \(viewModel.aiRangeText)")
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text("\(session.l("settings.axis")): \(viewModel.aiTrendStartLabel) -> \(viewModel.aiTrendEndLabel)")
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text("\(session.l("settings.request_status")): \(viewModel.aiRequestInFlight ? session.l("settings.request_loading") : (viewModel.aiRequestTimedOut ? session.l("settings.request_timeout") : session.l("settings.request_idle")))")
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text("\(session.l("settings.last_updated")): \(viewModel.aiLastUpdatedLabel)")
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             if let errorCode = viewModel.aiInlineErrorCode {
                                 let errorTextKey: String = {
@@ -758,8 +762,8 @@ struct SettingsView: View {
                                 }()
                                 let actionCode = viewModel.aiInlineActionCode ?? "retry_now"
                                 Text(session.l(errorTextKey))
-                                    .font(.footnote)
-                                    .foregroundStyle(.red)
+                                    .font(AuroraTokens.Typography.caption)
+                                    .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
                                 Button(session.l(actionCode == "retry_later" ? "settings.ai_retry_later" : "settings.ai_retry_now")) {
                                     viewModel.scheduleAISummaryRefresh(force: true)
                                 }
@@ -769,13 +773,13 @@ struct SettingsView: View {
                             AITrendMiniChart(points: viewModel.currentAiTrendPoints, mode: viewModel.aiChartMode)
                                 .frame(height: 74)
                             Text(viewModel.aiBreakdownText)
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text("\(session.l("settings.ai_error_counts")): \(session.l("settings.ai_error_type.timeout")) \(viewModel.aiTimeoutCount), \(session.l("settings.ai_error_type.network")) \(viewModel.aiNetworkCount), \(session.l("settings.ai_error_type.server")) \(viewModel.aiServerCount)")
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             Text(aiErrorBreakdownLine())
-                                .font(.footnote)
+                                .font(AuroraTokens.Typography.caption)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                         }
                     }
@@ -783,21 +787,66 @@ struct SettingsView: View {
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.help_title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Button(session.l("settings.help_open")) {
+                        showingGuide = true
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("settings.ai_guide_open")) {
+                        showingAIGuide = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button(session.l("settings.onboarding_reopen")) {
+                        session.showOnboardingFromSettings = true
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("dashboard.get_started.title")) {
+                        session.resetChecklist()
+                        session.selectedTab = 0
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .tint(HiAirV2Theme.accentStart)
+                .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.security_privacy"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     TextField(session.l("settings.user_id"), text: $viewModel.userId)
                         .textFieldStyle(.roundedBorder)
                     SecureField(session.l("settings.token"), text: $viewModel.accessToken)
                         .textFieldStyle(.roundedBorder)
+                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.privacy_export")) {
+                        Task { await viewModel.exportPrivacyData() }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.loading)
+                    Text(viewModel.privacyExportSummary)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.delete_account")) {
+                        Task {
+                            let deleted = await viewModel.deleteAccount()
+                            if deleted {
+                                session.logout()
+                            }
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.loading)
+                    .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
                     Button(session.l("settings.log_out")) {
                         session.logout()
                         viewModel.userId = ""
                         viewModel.accessToken = ""
                         viewModel.subscriptionStatus = "inactive"
                         viewModel.statusText = session.l("settings.logged_out")
+                        viewModel.privacyExportSummary = "-"
                     }
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
                 }
                 .v2Card()
 
@@ -847,6 +896,20 @@ struct SettingsView: View {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
         }
+        .onChange(of: viewModel.pushAlertsEnabled) { enabled in
+            session.markChecklistItem("notifications", done: enabled)
+        }
+        .onChange(of: viewModel.preferredLanguage) { language in
+            session.preferredLanguage = language
+        }
+        .sheet(isPresented: $showingGuide) {
+            HiAirGuideView()
+                .environmentObject(session)
+        }
+        .sheet(isPresented: $showingAIGuide) {
+            HiAirAIGuideView()
+                .environmentObject(session)
+        }
     }
 
     private func aiErrorBreakdownLine() -> String {
@@ -858,5 +921,590 @@ struct SettingsView: View {
             }
             .joined(separator: ", ")
         return "\(session.l("settings.ai_error_counts")): \(rendered.isEmpty ? "-" : rendered)"
+    }
+}
+
+private struct AIGuideAnswer {
+    let titleKey: String
+    let stepKeys: [String]
+    let quickActions: [AIGuideQuickAction]
+}
+
+private enum AIGuideIntent {
+    case onboarding
+    case risk
+    case planner
+    case notifications
+    case symptoms
+    case account
+    case fallback
+}
+
+private enum AIGuideQuickAction: String {
+    case openDashboard
+    case openPlanner
+    case openInsights
+    case openSymptoms
+    case openNotifications
+    case openAccount
+    case openOnboarding
+
+    var titleKey: String {
+        switch self {
+        case .openDashboard:
+            return "ai_guide.action.open_dashboard"
+        case .openPlanner:
+            return "ai_guide.action.open_planner"
+        case .openInsights:
+            return "ai_guide.action.open_insights"
+        case .openSymptoms:
+            return "ai_guide.action.open_symptoms"
+        case .openNotifications:
+            return "ai_guide.action.open_notifications"
+        case .openAccount:
+            return "ai_guide.action.open_account"
+        case .openOnboarding:
+            return "ai_guide.action.open_onboarding"
+        }
+    }
+}
+
+private enum HiAirAIGuideEngine {
+    static func answer(for question: String, lang: String) -> AIGuideAnswer {
+        let normalized = normalizedText(question)
+        let tokens = normalized.split(separator: " ").map(String.init)
+        let language = normalizedLanguage(lang)
+
+        let onboardingWords: [String]
+        let riskWords: [String]
+        let plannerWords: [String]
+        let notificationWords: [String]
+        let symptomsWords: [String]
+        let accountWords: [String]
+
+        switch language {
+        case "es":
+            onboardingWords = ["onboarding", "primer inicio", "empezar", "comenzar", "inicio", "registr", "cómo empezar", "como empezar"]
+            riskWords = ["risk", "riesgo", "aqi", "pm2.5", "ozono", "calor", "humedad", "calidad del aire", "interpretar"]
+            plannerWords = ["plan", "planner", "ventana segura", "ventanas seguras", "pronóstico", "pronostico", "hora", "paseo", "deporte", "ventilación", "ventilacion"]
+            notificationWords = ["notificación", "notificacion", "notificaciones", "alerta", "push", "aviso", "morning briefing"]
+            symptomsWords = ["síntoma", "sintoma", "síntomas", "sintomas", "insight", "insights", "registro", "diario"]
+            accountWords = ["cuenta", "perfil", "privacidad", "borrar", "eliminar", "exportar", "login", "ajustes", "datos"]
+        case "it":
+            onboardingWords = ["onboarding", "primo avvio", "iniziare", "inizio", "registr", "come iniziare"]
+            riskWords = ["risk", "rischio", "aqi", "pm2.5", "ozono", "calore", "umidita", "umidità", "qualita dell aria", "qualità dell aria"]
+            plannerWords = ["piano", "planner", "finestra sicura", "finestre sicure", "previsione", "orario", "passeggi", "sport", "ventilazione"]
+            notificationWords = ["notifica", "notifiche", "alert", "push", "avviso", "morning briefing"]
+            symptomsWords = ["sintomo", "sintomi", "insight", "insights", "registro", "log"]
+            accountWords = ["account", "profilo", "privacy", "elimina", "cancella", "esporta", "login", "impostazioni", "dati"]
+        case "fr":
+            onboardingWords = ["onboarding", "premier lancement", "demarrer", "démarrer", "commencer", "inscription", "comment commencer"]
+            riskWords = ["risk", "risque", "aqi", "pm2.5", "ozone", "chaleur", "humidite", "humidité", "qualite de l air", "qualité de l air"]
+            plannerWords = ["plan", "planner", "creneau sur", "créneau sûr", "creneaux surs", "créneaux sûrs", "prevision", "prévision", "horaire", "marche", "sport", "ventilation"]
+            notificationWords = ["notification", "notifications", "alerte", "push", "avertissement", "morning briefing"]
+            symptomsWords = ["symptome", "symptôme", "symptomes", "symptômes", "insight", "insights", "journal", "log"]
+            accountWords = ["compte", "profil", "confidentialite", "confidentialité", "supprimer", "exporter", "connexion", "parametres", "paramètres", "donnees", "données"]
+        case "ru":
+            onboardingWords = ["онбординг", "первый запуск", "с чего начать", "как начать", "старт", "начать", "onboarding", "first run"]
+            riskWords = ["риск", "aqi", "pm2.5", "озон", "качество воздуха", "heat index", "влажност", "как читать", "risk"]
+            plannerWords = ["план", "safe window", "safe windows", "безопасн", "прогноз", "по часам", "прогул", "спорт", "проветр", "planner"]
+            notificationWords = ["уведомл", "алерт", "push", "предупрежд", "утренний брифинг", "notification", "alert"]
+            symptomsWords = ["симптом", "симптомы", "инсайт", "инсайты", "журнал", "лог", "symptom", "insight"]
+            accountWords = ["аккаунт", "профил", "приват", "удал", "экспорт", "войти", "регистрац", "настройк", "account", "profile"]
+        default:
+            onboardingWords = ["onboarding", "first launch", "first run", "start", "where begin", "how to start", "get started", "как начать", "первый запуск"]
+            riskWords = ["risk", "aqi", "pm2.5", "ozone", "heat index", "humidity", "air quality", "риск", "озон"]
+            plannerWords = ["planner", "safe window", "safe windows", "hourly", "forecast", "walk", "sport", "ventilation", "план", "безопасн"]
+            notificationWords = ["notification", "notifications", "alert", "push", "warning", "morning briefing", "уведомл", "алерт"]
+            symptomsWords = ["symptom", "symptoms", "insight", "insights", "journal", "log", "симптом", "инсайт"]
+            accountWords = ["account", "profile", "privacy", "delete", "export", "login", "sign", "settings", "аккаунт", "профил"]
+        }
+
+        let candidates: [(AIGuideIntent, [String])] = [
+            (.onboarding, onboardingWords),
+            (.risk, riskWords),
+            (.planner, plannerWords),
+            (.notifications, notificationWords),
+            (.symptoms, symptomsWords),
+            (.account, accountWords),
+        ]
+
+        let scored = candidates.map { intent, keywords in
+            (intent, scoreIntent(normalized, tokens: tokens, keywords: keywords))
+        }
+
+        guard let best = scored.max(by: { lhs, rhs in
+            if lhs.1 == rhs.1 {
+                return priority(of: lhs.0) > priority(of: rhs.0)
+            }
+            return lhs.1 < rhs.1
+        }), best.1 > 0 else {
+            return answer(for: .fallback)
+        }
+
+        return answer(for: best.0)
+    }
+
+    private static func normalizedLanguage(_ raw: String) -> String {
+        let lower = raw.lowercased()
+        if lower.hasPrefix("es") { return "es" }
+        if lower.hasPrefix("it") { return "it" }
+        if lower.hasPrefix("fr") { return "fr" }
+        return lower.hasPrefix("en") ? "en" : "ru"
+    }
+
+    private static func normalizedText(_ raw: String) -> String {
+        let lowered = raw.lowercased()
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ". "))
+        let mapped = lowered.unicodeScalars.map { scalar in
+            allowed.contains(scalar) ? Character(scalar) : " "
+        }
+        return String(mapped).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    private static func scoreIntent(_ text: String, tokens: [String], keywords: [String]) -> Int {
+        keywords.reduce(0) { partial, keyword in
+            partial + scoreKeyword(text, tokens: tokens, keyword: keyword)
+        }
+    }
+
+    private static func scoreKeyword(_ text: String, tokens: [String], keyword: String) -> Int {
+        if keyword.contains(" ") {
+            return text.contains(keyword) ? 3 : 0
+        }
+        if tokens.contains(where: { $0 == keyword || $0.hasPrefix(keyword) || keyword.hasPrefix($0) }) {
+            return 2
+        }
+        return text.contains(keyword) ? 1 : 0
+    }
+
+    private static func priority(of intent: AIGuideIntent) -> Int {
+        switch intent {
+        case .onboarding:
+            return 6
+        case .risk:
+            return 5
+        case .planner:
+            return 4
+        case .notifications:
+            return 3
+        case .symptoms:
+            return 2
+        case .account:
+            return 1
+        case .fallback:
+            return 0
+        }
+    }
+
+    private static func answer(for intent: AIGuideIntent) -> AIGuideAnswer {
+        switch intent {
+        case .onboarding:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.onboarding.title",
+                stepKeys: [
+                    "ai_guide.intent.onboarding.step1",
+                    "ai_guide.intent.onboarding.step2",
+                    "ai_guide.intent.onboarding.step3",
+                    "ai_guide.intent.onboarding.step4",
+                ],
+                quickActions: [.openOnboarding, .openDashboard]
+            )
+        case .risk:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.risk.title",
+                stepKeys: [
+                    "ai_guide.intent.risk.step1",
+                    "ai_guide.intent.risk.step2",
+                    "ai_guide.intent.risk.step3",
+                    "ai_guide.intent.risk.step4",
+                ],
+                quickActions: [.openDashboard, .openPlanner]
+            )
+        case .planner:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.planner.title",
+                stepKeys: [
+                    "ai_guide.intent.planner.step1",
+                    "ai_guide.intent.planner.step2",
+                    "ai_guide.intent.planner.step3",
+                    "ai_guide.intent.planner.step4",
+                ],
+                quickActions: [.openPlanner, .openDashboard]
+            )
+        case .notifications:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.notifications.title",
+                stepKeys: [
+                    "ai_guide.intent.notifications.step1",
+                    "ai_guide.intent.notifications.step2",
+                    "ai_guide.intent.notifications.step3",
+                    "ai_guide.intent.notifications.step4",
+                ],
+                quickActions: [.openNotifications, .openDashboard]
+            )
+        case .symptoms:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.symptoms.title",
+                stepKeys: [
+                    "ai_guide.intent.symptoms.step1",
+                    "ai_guide.intent.symptoms.step2",
+                    "ai_guide.intent.symptoms.step3",
+                    "ai_guide.intent.symptoms.step4",
+                ],
+                quickActions: [.openSymptoms, .openInsights]
+            )
+        case .account:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.account.title",
+                stepKeys: [
+                    "ai_guide.intent.account.step1",
+                    "ai_guide.intent.account.step2",
+                    "ai_guide.intent.account.step3",
+                    "ai_guide.intent.account.step4",
+                ],
+                quickActions: [.openAccount, .openOnboarding]
+            )
+        case .fallback:
+            return AIGuideAnswer(
+                titleKey: "ai_guide.intent.fallback.title",
+                stepKeys: [
+                    "ai_guide.intent.fallback.step1",
+                    "ai_guide.intent.fallback.step2",
+                    "ai_guide.intent.fallback.step3",
+                    "ai_guide.intent.fallback.step4",
+                ],
+                quickActions: [.openDashboard, .openPlanner, .openAccount]
+            )
+        }
+    }
+}
+
+private struct AIGuideMessage: Identifiable {
+    enum Role {
+        case user
+        case assistant
+    }
+
+    let id = UUID()
+    let role: Role
+    let text: String
+    let quickActions: [AIGuideQuickAction]
+}
+
+private struct HiAirAIGuideView: View {
+    @EnvironmentObject var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+    @State private var question = ""
+    @State private var messages: [AIGuideMessage] = []
+
+    private var suggestions: [String] {
+        [
+            session.l("ai_guide.suggestion.onboarding"),
+            session.l("ai_guide.suggestion.risk"),
+            session.l("ai_guide.suggestion.safe_windows"),
+            session.l("ai_guide.suggestion.notifications"),
+            session.l("ai_guide.suggestion.symptoms"),
+            session.l("ai_guide.suggestion.account"),
+        ]
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    AiryGuideAvatar(size: 42)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.l("ai_guide.title"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("ai_guide.subtitle"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(messages) { message in
+                                HStack(alignment: .top, spacing: 8) {
+                                    if message.role == .assistant {
+                                        AiryGuideAvatar(size: 28)
+                                    } else {
+                                        Spacer(minLength: 0)
+                                    }
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(message.role == .assistant ? session.l("ai_guide.assistant_label") : session.l("ai_guide.user_label"))
+                                            .font(AuroraTokens.Typography.caption)
+                                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                        Text(message.text)
+                                            .font(AuroraTokens.Typography.bodyMD)
+                                            .foregroundStyle(HiAirV2Theme.primaryText)
+                                        if message.role == .assistant, !message.quickActions.isEmpty {
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack(spacing: 8) {
+                                                    ForEach(message.quickActions, id: \.rawValue) { action in
+                                                        Button(session.l(action.titleKey)) {
+                                                            applyQuickAction(action)
+                                                        }
+                                                        .font(AuroraTokens.Typography.caption)
+                                                        .foregroundStyle(HiAirV2Theme.primaryText)
+                                                        .padding(.horizontal, 10)
+                                                        .padding(.vertical, 6)
+                                                        .background(.white.opacity(0.08), in: Capsule())
+                                                        .buttonStyle(.plain)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if message.role == .user {
+                                        Circle()
+                                            .fill(HiAirV2Theme.accentStart.opacity(0.5))
+                                            .frame(width: 28, height: 28)
+                                            .overlay(
+                                                Image(systemName: "person.fill")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                                            )
+                                    } else {
+                                        Spacer(minLength: 0)
+                                    }
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: message.role == .assistant ? .leading : .trailing)
+                                .background(
+                                    message.role == .assistant
+                                    ? HiAirV2Theme.cardFill.opacity(0.95)
+                                    : HiAirV2Theme.accentStart.opacity(0.22),
+                                    in: RoundedRectangle(cornerRadius: 12)
+                                )
+                                .id(message.id)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                    }
+                    .onChange(of: messages.count) { _ in
+                        guard let lastId = messages.last?.id else { return }
+                        withAnimation(.easeOut(duration: AuroraTokens.Motion.fast)) {
+                            proxy.scrollTo(lastId, anchor: .bottom)
+                        }
+                    }
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(suggestions, id: \.self) { suggestion in
+                            Button(suggestion) {
+                                askQuestion(suggestion)
+                            }
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(.white.opacity(0.08), in: Capsule())
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                HStack(spacing: 8) {
+                    TextField(session.l("ai_guide.placeholder"), text: $question)
+                        .textFieldStyle(.roundedBorder)
+                        .submitLabel(.send)
+                        .onSubmit { askQuestion(question) }
+                    Button(session.l("ai_guide.send")) {
+                        askQuestion(question)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
+            .v2PageBackground()
+            .navigationTitle(session.l("ai_guide.title"))
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(session.l("ai_guide.clear")) {
+                        resetConversation()
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(session.l("common.close")) { dismiss() }
+                }
+            }
+            .onAppear {
+                if messages.isEmpty {
+                    resetConversation()
+                }
+            }
+        }
+    }
+
+    private func resetConversation() {
+        let languageLabel = session.l("settings.language_\(displayLanguageCode(session.preferredLanguage))")
+        messages = [
+            AIGuideMessage(
+                role: .assistant,
+                text: "\(session.l("ai_guide.greeting"))\n\(session.l("ai_guide.language_hint")) \(languageLabel).",
+                quickActions: [.openDashboard, .openPlanner, .openNotifications]
+            )
+        ]
+    }
+
+    private func displayLanguageCode(_ lang: String) -> String {
+        let lower = lang.lowercased()
+        if lower.hasPrefix("es") { return "es" }
+        if lower.hasPrefix("it") { return "it" }
+        if lower.hasPrefix("fr") { return "fr" }
+        return lower.hasPrefix("en") ? "en" : "ru"
+    }
+
+    private func askQuestion(_ rawQuestion: String) {
+        let normalized = String(rawQuestion.trimmingCharacters(in: .whitespacesAndNewlines).prefix(320))
+        guard !normalized.isEmpty else { return }
+        question = ""
+        messages.append(AIGuideMessage(role: .user, text: normalized, quickActions: []))
+
+        let answer = HiAirAIGuideEngine.answer(for: normalized, lang: session.preferredLanguage)
+        let rendered = renderAnswer(answer)
+        messages.append(AIGuideMessage(role: .assistant, text: rendered, quickActions: answer.quickActions))
+    }
+
+    private func renderAnswer(_ answer: AIGuideAnswer) -> String {
+        var lines: [String] = [session.l(answer.titleKey)]
+        for (index, stepKey) in answer.stepKeys.enumerated() {
+            lines.append("\(index + 1). \(session.l(stepKey))")
+        }
+        lines.append(session.l("ai_guide.followup"))
+        return lines.joined(separator: "\n")
+    }
+
+    private func applyQuickAction(_ action: AIGuideQuickAction) {
+        switch action {
+        case .openDashboard:
+            session.selectedTab = 0
+        case .openPlanner:
+            session.selectedTab = 1
+        case .openInsights:
+            session.selectedTab = 2
+        case .openSymptoms:
+            session.selectedTab = 3
+        case .openNotifications, .openAccount:
+            session.selectedTab = 4
+        case .openOnboarding:
+            session.showOnboardingFromSettings = true
+        }
+        dismiss()
+    }
+}
+
+private struct AiryGuideAvatar: View {
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            fallbackAvatar
+            Image("hiair-ai-guide-avatar")
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        }
+        .frame(width: size, height: size)
+        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+        .shadow(color: AuroraTokens.ColorPalette.info.opacity(0.36), radius: 10, x: 0, y: 4)
+        .accessibilityHidden(true)
+    }
+
+    private var fallbackAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AuroraTokens.ColorPalette.info.opacity(0.85),
+                            AuroraTokens.ColorPalette.ctaEnd.opacity(0.65),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Circle()
+                .fill(.white.opacity(0.18))
+                .frame(width: size * 0.72, height: size * 0.72)
+                .offset(y: size * 0.06)
+            Circle()
+                .fill(.white.opacity(0.78))
+                .frame(width: size * 0.14, height: size * 0.14)
+                .offset(x: -size * 0.13, y: -size * 0.08)
+            Circle()
+                .fill(.white.opacity(0.78))
+                .frame(width: size * 0.14, height: size * 0.14)
+                .offset(x: size * 0.13, y: -size * 0.08)
+            Capsule()
+                .fill(.white.opacity(0.8))
+                .frame(width: size * 0.28, height: size * 0.08)
+                .offset(y: size * 0.08)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct HiAirGuideView: View {
+    @EnvironmentObject var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+
+    private var sections: [(title: String, body: String)] {
+        [
+            ("guide.what_is_title", "guide.what_is_body"),
+            ("guide.problems_title", "guide.problems_body"),
+            ("guide.for_whom_title", "guide.for_whom_body"),
+            ("guide.read_dashboard_title", "guide.read_dashboard_body"),
+            ("guide.risk_title", "guide.risk_body"),
+            ("guide.metrics_title", "guide.metrics_body"),
+            ("guide.hourly_title", "guide.hourly_body"),
+            ("guide.safe_windows_title", "guide.safe_windows_body"),
+            ("guide.symptoms_title", "guide.symptoms_body"),
+            ("guide.notifications_title", "guide.notifications_body"),
+            ("guide.high_risk_title", "guide.high_risk_body"),
+            ("guide.not_doctor_title", "guide.not_doctor_body"),
+            ("guide.faq_title", "guide.faq_body"),
+        ]
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(session.l(section.title))
+                                .font(AuroraTokens.Typography.titleMD)
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+                            Text(session.l(section.body))
+                                .font(AuroraTokens.Typography.bodyMD)
+                                .foregroundStyle(HiAirV2Theme.secondaryText)
+                        }
+                        .v2Card()
+                    }
+                }
+                .padding(16)
+            }
+            .v2PageBackground()
+            .navigationTitle(session.l("guide.title"))
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(session.l("common.close")) { dismiss() }
+                }
+            }
+        }
     }
 }

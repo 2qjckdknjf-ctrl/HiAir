@@ -80,7 +80,7 @@ def _risk_level(score: int) -> str:
     if score >= 60:
         return "high"
     if score >= 35:
-        return "medium"
+        return "moderate"
     return "low"
 
 
@@ -97,7 +97,7 @@ def _recommendations(level: str) -> list[str]:
             "Prefer shaded or indoor activities.",
             "Monitor symptoms and rest if needed.",
         ]
-    if level == "medium":
+    if level == "moderate":
         return [
             "Plan activities in safer time windows.",
             "Stay hydrated and take regular breaks.",

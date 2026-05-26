@@ -68,36 +68,51 @@ final class SymptomLogViewModel: ObservableObject {
 struct SymptomLogView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SymptomLogViewModel()
-    @State private var profileId = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(session.l("common.city_updated"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("symptoms.title"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
 
                 Text(session.l("symptoms.subtitle"))
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("symptoms.streak"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.tertiaryText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(.white.opacity(0.08), in: Capsule())
 
-                TextField(session.l("symptoms.profile_id"), text: $profileId)
-                    .textFieldStyle(.roundedBorder)
+                if session.profileId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("symptoms.empty.title"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("symptoms.empty.body"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("planner.empty.no_profile.cta")) {
+                            Task {
+                                _ = await session.ensureProfileIdIfNeeded()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(HiAirV2Theme.accentStart)
+                    }
+                    .v2Card()
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("symptoms.title"))
-                        .font(.headline)
+                        .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     HStack(spacing: 8) {
                         symptomPill("💨 \(session.l("symptoms.cough"))", isOn: $viewModel.cough)
@@ -112,7 +127,7 @@ struct SymptomLogView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("symptoms.sleep_quality"))
-                        .font(.subheadline)
+                        .font(AuroraTokens.Typography.bodyMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     HStack(spacing: 8) {
                         ForEach(1...5, id: \.self) { value in
@@ -120,7 +135,7 @@ struct SymptomLogView: View {
                                 viewModel.sleepQuality = value
                             } label: {
                                 Text("\(value)")
-                                    .font(.footnote.bold())
+                                    .font(AuroraTokens.Typography.caption.weight(.semibold))
                                     .foregroundStyle(viewModel.sleepQuality == value ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
                                     .frame(width: 34, height: 28)
                                     .background(
@@ -139,7 +154,7 @@ struct SymptomLogView: View {
                     Button(session.l("symptoms.quick_breath")) {
                         Task {
                             await viewModel.quickLog(
-                                profileId: profileId,
+                                profileId: session.profileId,
                                 symptomType: "breath_discomfort",
                                 userId: session.userId,
                                 accessToken: session.accessToken,
@@ -152,7 +167,7 @@ struct SymptomLogView: View {
                     Button(session.l("symptoms.quick_headache")) {
                         Task {
                             await viewModel.quickLog(
-                                profileId: profileId,
+                                profileId: session.profileId,
                                 symptomType: "headache",
                                 userId: session.userId,
                                 accessToken: session.accessToken,
@@ -167,28 +182,25 @@ struct SymptomLogView: View {
                 Button(viewModel.loading ? session.l("symptoms.saving") : session.l("symptoms.submit")) {
                     Task {
                         await viewModel.submit(
-                            profileId: profileId,
+                            profileId: session.profileId,
                             userId: session.userId,
                             accessToken: session.accessToken,
                             language: session.preferredLanguage
                         )
-                        session.profileId = profileId
                     }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
-                .disabled(viewModel.loading || profileId.isEmpty)
+                .disabled(viewModel.loading || session.profileId.isEmpty)
 
                 Text(viewModel.statusText)
-                    .font(.footnote)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
             }
             .padding(16)
         }
         .v2PageBackground()
         .onAppear {
-            if profileId.isEmpty {
-                profileId = session.profileId
-            }
+            Task { _ = await session.ensureProfileIdIfNeeded() }
         }
     }
 
@@ -197,7 +209,7 @@ struct SymptomLogView: View {
             isOn.wrappedValue.toggle()
         } label: {
             Text(label)
-                .font(.subheadline)
+                .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(isOn.wrappedValue ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)

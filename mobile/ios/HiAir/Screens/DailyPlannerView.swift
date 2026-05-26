@@ -26,7 +26,7 @@ final class DailyPlannerViewModel: ObservableObject {
                 ? "Loaded \(planner.hourlyRisk.count) hourly slots."
                 : "Загружено \(planner.hourlyRisk.count) почасовых слотов."
         } catch {
-            statusText = HiAirL10n.t("planner.failed", lang: language)
+            statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             hourlyItems = []
             safeWindows = []
             ventilationWindows = []
@@ -42,25 +42,53 @@ struct DailyPlannerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(session.l("common.city_updated"))
-                    .font(.caption)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(session.l("planner.title"))
-                    .font(.system(size: 34, weight: .bold))
+                    .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)
 
                 Text(session.l("planner.subtitle"))
-                    .font(.subheadline)
+                    .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
                 Text(viewModel.statusText)
-                    .font(.footnote)
+                    .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
+
+                if session.profileId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.l("planner.empty.no_profile.title"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("planner.empty.no_profile.body"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("planner.empty.no_profile.cta")) {
+                            Task {
+                                let created = await session.ensureProfileIdIfNeeded()
+                                if created {
+                                    session.markChecklistItem("profile", done: true)
+                                    await viewModel.refresh(
+                                        profileId: session.profileId,
+                                        userId: session.userId,
+                                        accessToken: session.accessToken,
+                                        language: session.preferredLanguage
+                                    )
+                                }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(HiAirV2Theme.accentStart)
+                    }
+                    .v2Card()
+                }
 
                 if !viewModel.hourlyItems.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.hourly"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(alignment: .bottom, spacing: 3) {
@@ -83,16 +111,16 @@ struct DailyPlannerView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("• \(keyEventLine())")
-                                .font(.subheadline)
+                                .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                             if let firstWindow = viewModel.safeWindows.first {
                                 Text("• \(session.l("planner.safe_windows")): \(firstWindow.start) → \(firstWindow.end)")
-                                    .font(.subheadline)
+                                    .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }
                             if let firstVent = viewModel.ventilationWindows.first {
                                 Text("• \(session.l("planner.ventilation_windows")): \(firstVent.start) → \(firstVent.end)")
-                                    .font(.subheadline)
+                                    .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }
                         }
@@ -101,11 +129,11 @@ struct DailyPlannerView: View {
                 } else if !viewModel.safeWindows.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.safe_windows"))
-                            .font(.headline)
+                            .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         ForEach(viewModel.safeWindows, id: \.start) { window in
                             Text("\(window.type): \(window.start) → \(window.end)")
-                                .font(.subheadline)
+                                .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)
@@ -118,6 +146,9 @@ struct DailyPlannerView: View {
 
                 Button(viewModel.loading ? session.l("planner.loading") : session.l("planner.refresh")) {
                     Task {
+                        if session.profileId.isEmpty {
+                            _ = await session.ensureProfileIdIfNeeded()
+                        }
                         guard !session.profileId.isEmpty else {
                             viewModel.statusText = session.l("planner.profile_required")
                             return
@@ -128,6 +159,7 @@ struct DailyPlannerView: View {
                             accessToken: session.accessToken,
                             language: session.preferredLanguage
                         )
+                        session.markChecklistItem("hourly", done: true)
                     }
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
@@ -142,6 +174,9 @@ struct DailyPlannerView: View {
         }
         .v2PageBackground()
         .task {
+            if session.profileId.isEmpty {
+                _ = await session.ensureProfileIdIfNeeded()
+            }
             guard !session.profileId.isEmpty else {
                 viewModel.statusText = session.l("planner.profile_required")
                 return
@@ -152,6 +187,7 @@ struct DailyPlannerView: View {
                 accessToken: session.accessToken,
                 language: session.preferredLanguage
             )
+            session.markChecklistItem("hourly", done: true)
         }
     }
 

@@ -24,6 +24,7 @@ HiAir is a wellness support tool and does not provide medical diagnosis.
 
 - Improved risk consistency and recommendation reliability.
 - Strengthened privacy export/delete flows.
+- Migrated account/session stack to Supabase Auth with secure token refresh.
 - Stability and quality updates across iOS and Android.
 
 ## 3) Screenshot matrix
@@ -54,7 +55,7 @@ HiAir is a wellness support tool and does not provide medical diagnosis.
 
 | Data type | Used in product | Purpose | User deletion support |
 |---|---|---|---|
-| Email/account id | yes | account auth/session | yes |
+| Email/Supabase auth id | yes | account auth/session | yes |
 | Profile sensitivity/location | yes | personalized risk computation | yes |
 | Symptom logs | yes | recommendation personalization | yes |
 | Risk/recommendation history | yes | user history and guidance | yes |

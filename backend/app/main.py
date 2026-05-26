@@ -26,7 +26,7 @@ from app.api.subscriptions import router as subscriptions_router
 from app.api.symptoms import router as symptoms_router
 from app.api.thresholds import router as thresholds_router
 from app.api.validation import router as validation_router
-from app.core.settings import settings, validate_runtime_settings
+from app.core.settings import _is_protected_env, settings, validate_runtime_settings
 from app.services.observability import record_request
 
 logger = logging.getLogger("hiair.api")
@@ -36,10 +36,14 @@ if not logger.handlers:
 
 def create_app() -> FastAPI:
     validate_runtime_settings(settings)
+    is_protected_env = _is_protected_env(settings.app_env)
     app = FastAPI(
         title="HiAir API",
         description="Backend API for HiAir MVP",
         version="0.1.0",
+        docs_url=None if is_protected_env else "/docs",
+        redoc_url=None if is_protected_env else "/redoc",
+        openapi_url=None if is_protected_env else "/openapi.json",
     )
 
     @app.middleware("http")

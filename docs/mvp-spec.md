@@ -24,6 +24,14 @@
 - Push-оповещения:
   - предупреждения по порогам риска.
 
+## Identity/Data baseline (Supabase-first)
+
+- Supabase Auth - основной источник пользователей и сессий.
+- Mobile iOS/Android используют Supabase email/password + OAuth (Apple/Google) и session refresh.
+- Supabase PostgreSQL - production storage.
+- RLS обязателен для всех user-owned таблиц.
+- FastAPI сохраняется как backend orchestration слой (risk/ingestion/notifications/privacy/admin).
+
 ## Не входит в MVP (после запуска)
 
 - HealthKit / Health Connect.

@@ -12,9 +12,25 @@ class Settings:
         "DATABASE_URL",
         "postgresql://hiair:hiair@localhost:5432/hiair",
     )
+    direct_database_url: str = os.getenv(
+        "DIRECT_DATABASE_URL",
+        os.getenv("DATABASE_URL", "postgresql://hiair:hiair@localhost:5432/hiair"),
+    )
     jwt_secret: str = os.getenv("JWT_SECRET", "dev-only-change-me")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     access_token_ttl_minutes: int = int(os.getenv("ACCESS_TOKEN_TTL_MINUTES", "120"))
+    refresh_token_ttl_days: int = int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "30"))
+    supabase_url: str = os.getenv("SUPABASE_URL", "").strip()
+    supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    supabase_jwt_secret: str = os.getenv("SUPABASE_JWT_SECRET", "").strip()
+    hiair_auth_provider: str = os.getenv("HIAIR_AUTH_PROVIDER", "supabase").strip().lower()
+    hiair_auth_legacy_enabled: bool = (
+        os.getenv("HIAIR_AUTH_LEGACY_ENABLED", "false").strip().lower() == "true"
+    )
+    hiair_ios_url_scheme: str = os.getenv("HIAIR_IOS_URL_SCHEME", "hiair").strip()
+    hiair_android_url_scheme: str = os.getenv("HIAIR_ANDROID_URL_SCHEME", "hiair").strip()
+    hiair_auth_redirect_uri: str = os.getenv("HIAIR_AUTH_REDIRECT_URI", "hiair://auth/callback").strip()
     allow_legacy_user_header_auth: bool = (
         os.getenv("ALLOW_LEGACY_USER_HEADER_AUTH", "false").strip().lower() == "true"
     )
@@ -64,6 +80,9 @@ class Settings:
     vault_kv_mount: str = os.getenv("VAULT_KV_MOUNT", "secret")
     vault_kv_path: str = os.getenv("VAULT_KV_PATH", "hiair")
     app_env: str = os.getenv("APP_ENV", "development")
+    allow_insecure_local_dev: bool = (
+        os.getenv("HIAIR_ALLOW_INSECURE_LOCAL_DEV", "false").strip().lower() == "true"
+    )
 
 
 settings = Settings()
@@ -75,7 +94,14 @@ def _is_protected_env(env_name: str) -> bool:
 
 def validate_runtime_settings(current: Settings) -> None:
     if _is_protected_env(current.app_env):
-        if not current.jwt_secret or current.jwt_secret == "dev-only-change-me":
+        jwt_secret = getattr(current, "jwt_secret", "")
+        if not jwt_secret or jwt_secret == "dev-only-change-me":
             raise RuntimeError("JWT_SECRET must be explicitly configured in protected environments.")
-        if current.allow_legacy_user_header_auth:
+        if getattr(current, "allow_legacy_user_header_auth", False):
             raise RuntimeError("Legacy X-User-Id auth must be disabled in protected environments.")
+        if getattr(current, "allow_insecure_local_dev", False):
+            raise RuntimeError("HIAIR_ALLOW_INSECURE_LOCAL_DEV must be disabled in protected environments.")
+        if getattr(current, "hiair_auth_provider", "legacy") == "supabase" and not getattr(
+            current, "supabase_url", ""
+        ):
+            raise RuntimeError("SUPABASE_URL must be configured when HIAIR_AUTH_PROVIDER=supabase.")

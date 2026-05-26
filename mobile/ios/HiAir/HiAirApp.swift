@@ -8,6 +8,11 @@ struct HiAirApp: App {
         WindowGroup {
             RootTabView()
                 .environmentObject(session)
+                .onOpenURL { url in
+                    Task {
+                        _ = await SupabaseAuthService.shared.handleCallbackURL(url)
+                    }
+                }
         }
     }
 }

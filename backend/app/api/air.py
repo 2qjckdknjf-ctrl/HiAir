@@ -8,7 +8,6 @@ import app.services.air_repository as air_repository
 import app.services.air_recommendation_engine as air_recommendation_engine
 import app.services.ai_explanation_service as ai_explanation_service
 import app.services.air_risk_engine as air_risk_engine
-from app.services.risk_level_contract import normalize_air_risk, normalize_day_plan
 import app.services.settings_repository as settings_repository
 
 router = APIRouter(prefix="/air", tags=["air"])
@@ -28,7 +27,7 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     user_settings = settings_repository.get_user_settings(user_id)
     language = user_settings.preferred_language
     environment = air_environment_service.load_environment(profile, force_live=force_live)
-    risk = normalize_air_risk(air_risk_engine.evaluate_risk(profile, environment))
+    risk = air_risk_engine.evaluate_risk(profile, environment)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
     snapshot_id = air_repository.save_environment_snapshot(environment)
     assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
@@ -75,7 +74,7 @@ def get_day_plan(
     try:
         profile = _resolve_profile_for_user(profileId, user_id)
         environment = air_environment_service.load_environment(profile, force_live=False)
-        return normalize_day_plan(air_risk_engine.build_day_plan(profile, environment))
+        return air_risk_engine.build_day_plan(profile, environment)
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
@@ -89,7 +88,7 @@ def get_recommendations(
         profile = _resolve_profile_for_user(profileId, user_id)
         user_settings = settings_repository.get_user_settings(user_id)
         environment = air_environment_service.load_environment(profile, force_live=False)
-        risk = normalize_air_risk(air_risk_engine.evaluate_risk(profile, environment))
+        risk = air_risk_engine.evaluate_risk(profile, environment)
         recommendation = air_recommendation_engine.generate_recommendation(
             profile,
             risk,

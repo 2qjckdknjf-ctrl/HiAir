@@ -4,14 +4,17 @@
 
 - Mobile client (iOS/Android).
 - Backend API (единый сервис на этапе MVP).
+- Supabase Auth (source of truth для пользователей и сессий).
+- Supabase PostgreSQL (production database + RLS).
 - Сервис ingestion внешних источников (weather + AQI).
 - Rule-based risk engine.
 - Notification service (FCM/APNs).
-- PostgreSQL (или другой выбранный storage).
+- FastAPI backend для risk engine, ingestion, notifications, privacy orchestration и admin/server logic.
 
 ## Логические модули backend
 
 - `auth` - регистрация, логин, токены.
+- `auth` - Supabase token verification + compatibility layer для legacy endpoints.
 - `profiles` - персональные профили и чувствительность.
 - `environment` - получение и нормализация погодных и air-quality данных.
 - `risk` - расчет risk score и генерация рекомендаций.
@@ -59,3 +62,12 @@
 - Минимизация данных и явные consent flows.
 - Удаление данных пользователя по запросу.
 - Формулировки в продукте: wellness guidance, not medical advice.
+
+## Supabase-First Baseline (2026-05)
+
+- Identity и session lifecycle идут через Supabase Auth.
+- User-owned таблицы используют `user_id uuid references auth.users(id) on delete cascade`.
+- Для user-owned таблиц включен RLS и own-row policies:
+  - `to authenticated`
+  - `(select auth.uid()) = user_id`
+- `service_role` используется только на сервере (backend/admin flows), не на мобильных клиентах.

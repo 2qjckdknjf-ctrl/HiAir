@@ -3,6 +3,10 @@ options:
   minimumXcodeGenVersion: 2.37.0
   objectVersion: 56
   bundleIdPrefix: com.hiair
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.7.0
 targets:
   HiAir:
     type: application
@@ -24,11 +28,35 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone:
           - UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_CFBundleURLTypes:
+          - CFBundleURLName: com.hiair.app.auth
+            CFBundleURLSchemes:
+              - hiair
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
           CODE_SIGNING_REQUIRED[sdk=iphoneos*]: NO
           INFOPLIST_KEY_API_BASE_URL: http://127.0.0.1:8000
           INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: YES
+          INFOPLIST_KEY_SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
+          INFOPLIST_KEY_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
+          INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
         Release:
           INFOPLIST_KEY_API_BASE_URL: https://api.hiair.app
+          INFOPLIST_KEY_SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
+          INFOPLIST_KEY_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
+          INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
+    dependencies:
+      - package: Supabase
+  HiAirTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - HiAirTests
+    dependencies:
+      - target: HiAir
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app.tests
+        SWIFT_VERSION: 5.0

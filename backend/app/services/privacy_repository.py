@@ -13,8 +13,6 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 (user_id,),
             )
             user = cur.fetchone()
-            if user is None:
-                raise ValueError("User not found")
 
             cur.execute(
                 """
@@ -106,6 +104,16 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 (user_id,),
             )
             delivery_attempts = cur.fetchall()
+            cur.execute(
+                """
+                SELECT id, user_id, expires_at, revoked_at, created_at
+                FROM auth_refresh_tokens
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            refresh_tokens = cur.fetchall()
 
             symptoms: list[dict[str, Any]] = []
             risk_history: list[dict[str, Any]] = []
@@ -279,6 +287,31 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 )
                 subscription_webhook_events = cur.fetchall()
 
+    if user is None and not any(
+        (
+            profiles,
+            settings,
+            subscription,
+            briefing_schedule,
+            symptoms,
+            risk_history,
+            notification_events,
+            risk_assessments,
+            ai_recommendations,
+            alert_events,
+            ai_explanation_events,
+            personal_correlations,
+            device_tokens,
+            delivery_attempts,
+            refresh_tokens,
+            subscription_webhook_events,
+        )
+    ):
+        raise ValueError("User not found")
+
+    if user is None:
+        user = {"id": user_id, "email": None, "created_at": None}
+
     return {
         "user": _serialize_row(user),
         "settings": _serialize_optional_row(settings),
@@ -295,11 +328,13 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "personal_correlations": _serialize_rows(personal_correlations),
         "device_tokens": _serialize_rows(device_tokens),
         "notification_delivery_attempts": _serialize_rows(delivery_attempts),
+        "auth_refresh_tokens": _serialize_rows(refresh_tokens),
         "subscription_webhook_events": _serialize_rows(subscription_webhook_events),
     }
 
 
 def delete_user_data(user_id: str) -> bool:
+    deleted_any = False
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -312,13 +347,18 @@ def delete_user_data(user_id: str) -> bool:
             )
             profile_ids = [row["id"] for row in cur.fetchall()]
             if profile_ids:
-                cur.execute(
-                    """
-                    DELETE FROM ai_explanation_events
-                    WHERE user_profile_id = ANY(%s)
-                    """,
-                    (profile_ids,),
-                )
+                try:
+                    cur.execute(
+                        """
+                        DELETE FROM ai_explanation_events
+                        WHERE user_profile_id = ANY(%s)
+                        """,
+                        (profile_ids,),
+                    )
+                    deleted_any = deleted_any or cur.rowcount > 0
+                except Exception as exc:
+                    if "does not exist" not in str(exc).lower():
+                        raise
             cur.execute(
                 """
                 DELETE FROM notification_events ne
@@ -328,9 +368,61 @@ def delete_user_data(user_id: str) -> bool:
                 """,
                 (user_id,),
             )
-            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
-            deleted = cur.rowcount > 0
-    return deleted
+            deleted_any = deleted_any or cur.rowcount > 0
+
+            for table_name, profile_column in (
+                ("risk_assessments", "user_profile_id"),
+                ("alert_events", "user_profile_id"),
+                ("personal_correlations", "profile_id"),
+                ("symptom_logs", "profile_id"),
+                ("risk_scores", "profile_id"),
+            ):
+                try:
+                    cur.execute(
+                        f"""
+                        DELETE FROM {table_name}
+                        WHERE {profile_column} = ANY(%s)
+                        """,
+                        (profile_ids,),
+                    )
+                    deleted_any = deleted_any or cur.rowcount > 0
+                except Exception as exc:
+                    lowered = str(exc).lower()
+                    if "does not exist" not in lowered and "column" not in lowered:
+                        raise
+
+            for table_name in (
+                "push_device_tokens",
+                "notification_delivery_attempts",
+                "user_settings",
+                "user_subscriptions",
+                "briefing_schedule",
+                "auth_refresh_tokens",
+            ):
+                try:
+                    cur.execute(
+                        f"""
+                        DELETE FROM {table_name}
+                        WHERE user_id = %s
+                        """,
+                        (user_id,),
+                    )
+                    deleted_any = deleted_any or cur.rowcount > 0
+                except Exception as exc:
+                    if "does not exist" not in str(exc).lower():
+                        raise
+
+            cur.execute("DELETE FROM profiles WHERE user_id = %s", (user_id,))
+            deleted_any = deleted_any or cur.rowcount > 0
+
+            try:
+                cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+                deleted_any = deleted_any or cur.rowcount > 0
+            except Exception as exc:
+                # In Supabase-first mode auth.users is source-of-truth; local users row is optional.
+                if "does not exist" not in str(exc).lower():
+                    deleted_any = deleted_any or True
+    return deleted_any
 
 
 def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

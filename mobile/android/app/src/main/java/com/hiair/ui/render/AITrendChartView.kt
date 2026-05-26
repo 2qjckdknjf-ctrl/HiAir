@@ -2,11 +2,11 @@ package com.hiair.ui.render
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
+import com.hiair.ui.design.Tokens
 import kotlin.math.max
 
 class AITrendChartView @JvmOverloads constructor(
@@ -17,7 +17,7 @@ class AITrendChartView @JvmOverloads constructor(
     private var mode: String = "bars"
 
     private val axisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#2E4B76")
+        color = Tokens.Surface.tileStroke
         strokeWidth = dp(1f)
         style = Paint.Style.STROKE
     }
@@ -25,21 +25,21 @@ class AITrendChartView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
     private val latestBarStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFFFFF")
+        color = Tokens.Text.primary
         style = Paint.Style.STROKE
         strokeWidth = dp(1.2f)
     }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#7BCBFF")
+        color = Tokens.Feedback.info
         style = Paint.Style.STROKE
         strokeWidth = dp(2f)
     }
     private val pointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#7BCBFF")
+        color = Tokens.Feedback.info
         style = Paint.Style.FILL
     }
     private val latestPointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFFFFF")
+        color = Tokens.Text.primary
         style = Paint.Style.FILL
     }
 
@@ -98,9 +98,9 @@ class AITrendChartView @JvmOverloads constructor(
                 val barHeight = ratio * chartHeight
                 val yTop = topPad + (chartHeight - barHeight)
                 barPaint.color = when {
-                    ratio >= 0.75f -> Color.parseColor("#FF7B7B")
-                    ratio >= 0.40f -> Color.parseColor("#FFD166")
-                    else -> Color.parseColor("#4FC3F7")
+                    ratio >= 0.75f -> Tokens.RiskAccent.high
+                    ratio >= 0.40f -> Tokens.RiskAccent.moderate
+                    else -> Tokens.RiskAccent.low
                 }
                 canvas.drawRoundRect(
                     x,
