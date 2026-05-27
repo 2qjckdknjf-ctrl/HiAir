@@ -216,6 +216,14 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var greetingSection: some View {
+        HiAirBrandHeader(
+            title: "HiAir",
+            subtitle: nil,
+            showOrb: true,
+            orbSize: 44,
+            compact: true
+        )
+
         Text(session.l("dashboard.greeting"))
             .font(HiAirTypography.displayLG)
             .foregroundStyle(HiAirV2Theme.primaryText)
@@ -290,19 +298,14 @@ struct DashboardView: View {
     @ViewBuilder
     private func riskHeroSection(width: CGFloat) -> some View {
         HiAirCard {
-            HiAirRiskBadge(
+            HiAirRiskGaugeView(
                 score: riskScore,
-                label: session.l("dashboard.current_risk_title"),
+                sectionLabel: session.l("dashboard.current_risk_title"),
+                statusLabel: moodTitle,
                 riskLevel: viewModel.riskLevel == "-" ? "moderate" : viewModel.riskLevel,
-                reason: session.l("dashboard.reason_code")
+                reason: session.l("dashboard.reason_code"),
+                diameter: min(width * 0.52, 220)
             )
-            ZStack(alignment: .leading) {
-                Capsule().fill(HiAirColors.Overlay.borderSoft).frame(height: 8)
-                Capsule()
-                    .fill(HiAirGradients.cta())
-                    .frame(width: max(CGFloat(riskScore) * min(width * 0.008, 3.1), 20), height: 8)
-            }
-            .padding(.top, HiAirSpacing.xs)
         }
     }
 

@@ -122,23 +122,38 @@ struct HiAirBrandHeader: View {
     var showOrb: Bool = true
     var orbSize: CGFloat = 96
     var taglineUsesBrandAccent: Bool = true
+    var compact: Bool = false
 
     var body: some View {
-        VStack(spacing: HiAirSpacing.sm) {
-            if showOrb {
-                HiAirOrbLogoView(size: orbSize, animated: false, presentation: .brand)
-            }
-            Text(title)
-                .font(HiAirTypography.displayLG)
-                .foregroundStyle(HiAirColors.Text.primary)
-            if let subtitle {
-                Text(subtitle)
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(taglineUsesBrandAccent ? HiAirColors.Cta.gradientStart : HiAirColors.Text.tertiary)
-                    .multilineTextAlignment(.center)
+        Group {
+            if compact {
+                HStack(spacing: HiAirSpacing.sm) {
+                    if showOrb {
+                        HiAirOrbLogoView(size: orbSize, animated: false, presentation: .brand)
+                    }
+                    Text(title)
+                        .font(HiAirTypography.titleLG)
+                        .foregroundStyle(HiAirColors.Text.primary)
+                    Spacer(minLength: 0)
+                }
+            } else {
+                VStack(spacing: HiAirSpacing.sm) {
+                    if showOrb {
+                        HiAirOrbLogoView(size: orbSize, animated: false, presentation: .brand)
+                    }
+                    Text(title)
+                        .font(HiAirTypography.displayLG)
+                        .foregroundStyle(HiAirColors.Text.primary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(taglineUsesBrandAccent ? HiAirColors.Cta.gradientStart : HiAirColors.Text.tertiary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -287,6 +302,76 @@ struct HiAirRiskBadge: View {
                     .font(HiAirTypography.bodyMD)
                     .foregroundStyle(HiAirColors.Text.secondary)
                     .lineLimit(3)
+            }
+        }
+    }
+}
+
+/// Aurora ring gauge — signature dashboard hero (mockup-aligned).
+struct HiAirRiskGaugeView: View {
+    let score: Int
+    let sectionLabel: String
+    let statusLabel: String
+    let riskLevel: String
+    var reason: String? = nil
+    var diameter: CGFloat = 200
+
+    private var accent: Color { HiAirRiskStyle.color(for: riskLevel) }
+    private var progress: CGFloat { CGFloat(min(max(score, 0), 100)) / 100 }
+
+    var body: some View {
+        VStack(spacing: HiAirSpacing.md) {
+            Text(sectionLabel)
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            ZStack {
+                Circle()
+                    .stroke(HiAirColors.Overlay.borderSoft, lineWidth: 12)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        AngularGradient(
+                            gradient: Gradient(colors: [
+                                HiAirColors.Brand.orbViolet,
+                                HiAirColors.Cta.gradientEnd,
+                                HiAirColors.Cta.gradientStart,
+                                accent,
+                            ]),
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: accent.opacity(0.4), radius: 14, x: 0, y: 4)
+
+                VStack(spacing: 6) {
+                    Text("\(score)")
+                        .font(.system(size: diameter * 0.34, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HiAirColors.Text.primary)
+                        .minimumScaleFactor(0.5)
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: 8, height: 8)
+                        Text(statusLabel)
+                            .font(HiAirTypography.bodyMD.weight(.medium))
+                            .foregroundStyle(HiAirColors.Text.primary)
+                    }
+                }
+            }
+            .frame(width: diameter, height: diameter)
+            .frame(maxWidth: .infinity)
+
+            if let reason {
+                Text(reason)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
             }
         }
     }

@@ -15,22 +15,31 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="HiAirOrb" translatesAutoresizingMaskIntoConstraints="NO" id="brand-orb">
+                                <rect key="frame" x="136.66666666666666" y="326" width="120" height="120"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="120" id="orb-width"/>
+                                    <constraint firstAttribute="height" constant="120" id="orb-height"/>
+                                </constraints>
+                            </imageView>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="HiAir" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="brand-title">
-                                <rect key="frame" x="96.666666666666686" y="406" width="200" height="40"/>
+                                <rect key="frame" x="96.666666666666686" y="462" width="200" height="40"/>
                                 <fontDescription key="fontDescription" type="boldSystem" pointSize="34"/>
                                 <color key="textColor" red="0.941" green="0.957" blue="1.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Breathe better. Live better." textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="2" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="brand-tagline">
-                                <rect key="frame" x="46.666666666666686" y="454" width="300" height="20"/>
+                                <rect key="frame" x="46.666666666666686" y="510" width="300" height="20"/>
                                 <fontDescription key="fontDescription" type="system" pointSize="15"/>
-                                <color key="textColor" red="0.416" green="0.478" blue="0.6" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <color key="textColor" red="0.365" green="0.835" blue="0.769" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                             </label>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                         <color key="backgroundColor" red="0.055" green="0.071" blue="0.149" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
+                            <constraint firstItem="brand-orb" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="orb-center-x"/>
+                            <constraint firstItem="brand-orb" firstAttribute="bottom" secondItem="brand-title" secondAttribute="top" constant="-16" id="orb-bottom"/>
                             <constraint firstItem="brand-title" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="title-center-x"/>
-                            <constraint firstItem="brand-title" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="title-center-y"/>
+                            <constraint firstItem="brand-title" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="56" id="title-center-y"/>
                             <constraint firstItem="brand-tagline" firstAttribute="top" secondItem="brand-title" secondAttribute="bottom" constant="8" id="tagline-top"/>
                             <constraint firstItem="brand-tagline" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="tagline-center-x"/>
                             <constraint firstItem="brand-tagline" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="24" id="tagline-leading"/>
@@ -43,4 +52,7 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <image name="HiAirOrb" width="128" height="128"/>
+    </resources>
 </document>

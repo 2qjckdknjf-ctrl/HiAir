@@ -220,38 +220,83 @@ object HiAirComponents {
         }
     }
 
-    fun brandHeader(context: Context, tagline: String = "Breathe better. Live better.", showOrb: Boolean = true, orbSizeDp: Int = 96): LinearLayout {
-        return LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            if (showOrb) {
-                addView(brandOrbView(context, orbSizeDp))
-            }
-            addView(TextView(context).apply {
-                text = "HiAir"
-                textSize = 30f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(HiAirColors.Text.primary)
-                gravity = Gravity.CENTER
-            })
-            addView(TextView(context).apply {
-                text = tagline
-                textSize = 13f
-                setTextColor(HiAirColors.Cta.gradientStart)
-                gravity = Gravity.CENTER
-                val params = LinearLayout.LayoutParams(
+    fun brandHeader(
+        context: Context,
+        tagline: String = "Breathe better. Live better.",
+        showOrb: Boolean = true,
+        orbSizeDp: Int = 96,
+        compact: Boolean = false,
+    ): LinearLayout {
+        return if (compact) {
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                if (showOrb) {
+                    addView(brandOrbView(context, orbSizeDp).apply {
+                        layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
+                            bottomMargin = 0
+                            rightMargin = V2Ui.dp(context, HiAirSpacing.sm)
+                        }
+                    })
+                }
+                addView(TextView(context).apply {
+                    text = "HiAir"
+                    textSize = 22f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(HiAirColors.Text.primary)
+                })
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    bottomMargin = V2Ui.dp(context, HiAirSpacing.md)
+                }
+            }
+        } else {
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                if (showOrb) {
+                    addView(brandOrbView(context, orbSizeDp))
+                }
+                addView(TextView(context).apply {
+                    text = "HiAir"
+                    textSize = 30f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(HiAirColors.Text.primary)
+                    gravity = Gravity.CENTER
+                })
+                addView(TextView(context).apply {
+                    text = tagline
+                    textSize = 13f
+                    setTextColor(HiAirColors.Cta.gradientStart)
+                    gravity = Gravity.CENTER
+                    val params = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    )
+                    params.topMargin = V2Ui.dp(context, HiAirSpacing.xs)
+                    layoutParams = params
+                })
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 )
-                params.topMargin = V2Ui.dp(context, HiAirSpacing.xs)
+                params.bottomMargin = V2Ui.dp(context, HiAirSpacing.md)
                 layoutParams = params
-            })
-            val params = LinearLayout.LayoutParams(
+            }
+        }
+    }
+
+    fun riskGaugeView(context: Context, score: Int, statusLabel: String, riskLevel: String): HiAirRiskGaugeView {
+        return HiAirRiskGaugeView(context).apply {
+            bind(score, statusLabel, riskLevel)
+            layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            )
-            params.bottomMargin = V2Ui.dp(context, HiAirSpacing.md)
-            layoutParams = params
+                V2Ui.dp(context, 220),
+            ).apply {
+                bottomMargin = V2Ui.dp(context, HiAirSpacing.sm)
+            }
         }
     }
 
