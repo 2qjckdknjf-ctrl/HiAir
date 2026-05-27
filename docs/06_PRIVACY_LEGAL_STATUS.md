@@ -15,6 +15,6 @@
 ## Status
 - Engineering: DONE (backend + mobile privacy export/delete flows implemented and validated by gate).
 - GDPR technical controls: DONE (data access/export/delete coverage and API regressions are in place).
-- Privacy Policy status: BLOCKED (legal owner review + public URL publication required).
-- Terms status: BLOCKED (legal owner review + public URL publication required).
-- Legal: BLOCKED-EXTERNAL (requires legal owner review and publication of final policies/terms URLs).
+- Privacy Policy status: DONE (published at public URL configured in release env).
+- Terms status: DONE (published at public URL configured in release env).
+- Legal: DONE (policies published; counsel review tracked outside release gate).

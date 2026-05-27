@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !.env.staging.example
+backend/.env.local
 .venv/
 **/__pycache__/
 *.pyc
@@ -35,3 +36,5 @@ mobile/ios/HiAir.xcodeproj/xcuserdata/
 *.key
 *GoogleService-Info.plist
 *google-services.json
+backend/.secrets/
+backend/.coverage
