@@ -125,9 +125,18 @@ None blocking.
 ## Remaining visual debt
 
 - iPad tablet screenshot pending (CoreSimulator boot error on dev machine)
-- Final HiAir Orb marketing artwork pending design export (placeholder orb icon generated programmatically)
-- Manual adaptive QA on SE / Pro Max / iPad / Android tablet emulators not fully executed
+- Manual adaptive QA on Android tablet emulators not fully executed
 - Android lacks dedicated Onboarding/Auth screens (pre-existing product gap)
+- Rich Symptoms/Insights/Planner layouts vs full marketing mockups (optional polish)
+
+## Step 10 completion (2026-05-27)
+
+- **HiAirRiskGaugeView** — aurora ring hero on iOS + Android Dashboard
+- **Compact brand header** on Dashboard (both platforms)
+- **Android weather orb** → brand PNG (`brandOrbView`)
+- **LaunchScreen** — HiAirOrb image + cyan tagline
+- **PR #21 CI:** Android + iOS build/test/lint **green**
+- Fresh screenshot: `docs/brand/screenshots/ios/standard/dashboard.png`
 
 ## Step 9 completion (2026-05-27)
 
