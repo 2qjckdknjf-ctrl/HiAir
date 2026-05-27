@@ -2,33 +2,24 @@ import SwiftUI
 
 enum HiAirV2Theme {
     static var pageGradient: LinearGradient {
-        TimeOfDayBackground.gradient()
+        HiAirGradients.timeOfDay()
     }
 
     static var cardFill: Color {
         TimeOfDayBackground.surfacePrimary().opacity(0.92)
     }
 
-    static let cardStroke = AuroraTokens.ColorPalette.textPrimary.opacity(0.14)
-    static let primaryText = AuroraTokens.ColorPalette.textPrimary
-    static let secondaryText = AuroraTokens.ColorPalette.textSecondary
-    static let tertiaryText = AuroraTokens.ColorPalette.textTertiary
-    static let accentStart = AuroraTokens.ColorPalette.ctaStart
-    static let accentEnd = AuroraTokens.ColorPalette.ctaEnd
+    static let cardStroke = HiAirColors.Overlay.borderSoft
+    static let primaryText = HiAirColors.Text.primary
+    static let secondaryText = HiAirColors.Text.secondary
+    static let tertiaryText = HiAirColors.Text.tertiary
+    static let accentStart = HiAirColors.Cta.gradientStart
+    static let accentEnd = HiAirColors.Cta.gradientEnd
 }
 
 struct V2Card: ViewModifier {
     func body(content: Content) -> some View {
-        content
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: AuroraTokens.Radius.lg)
-                    .fill(HiAirV2Theme.cardFill)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AuroraTokens.Radius.lg)
-                            .stroke(HiAirV2Theme.cardStroke, lineWidth: 1)
-                    )
-            )
+        HiAirCard { content }
     }
 }
 
@@ -38,32 +29,66 @@ extension View {
     }
 
     func v2PageBackground() -> some View {
-        background(HiAirV2Theme.pageGradient.ignoresSafeArea())
+        hiAirPageBackground()
     }
 }
 
 struct V2PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(AuroraTokens.Typography.titleMD)
-            .foregroundStyle(Color(red: 0.05, green: 0.09, blue: 0.16))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 13)
-            .background(
-                LinearGradient(
-                    colors: [HiAirV2Theme.accentStart, HiAirV2Theme.accentEnd],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: AuroraTokens.Radius.md))
-            .shadow(
-                color: Color(red: 0.23, green: 0.61, blue: 1.0).opacity(0.24),
-                radius: 14,
-                x: 0,
-                y: 6
-            )
-            .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.99 : 1.0)
+        HiAirGradientButtonStyle().makeBody(configuration: configuration)
+    }
+}
+
+typealias AuroraTokens = HiAirLegacyTokens
+
+enum HiAirLegacyTokens {
+    enum ColorPalette {
+        static let textPrimary = HiAirColors.Text.primary
+        static let textSecondary = HiAirColors.Text.secondary
+        static let textTertiary = HiAirColors.Text.tertiary
+        static let ctaStart = HiAirColors.Cta.gradientStart
+        static let ctaEnd = HiAirColors.Cta.gradientEnd
+        static let info = HiAirColors.Feedback.info
+        static let errorSoft = HiAirColors.Feedback.errorSoft
+        static let riskLow = HiAirColors.Risk.low
+        static let riskModerate = HiAirColors.Risk.moderate
+        static let riskHigh = HiAirColors.Risk.high
+        static let riskVeryHigh = HiAirColors.Risk.veryHigh
+    }
+
+    enum Spacing {
+        static let xxs = HiAirSpacing.xxs
+        static let xs = HiAirSpacing.xs
+        static let sm = HiAirSpacing.sm
+        static let md = HiAirSpacing.md
+        static let lg = HiAirSpacing.lg
+        static let xl = HiAirSpacing.xl
+        static let xxl = HiAirSpacing.xxl
+        static let xxxl = HiAirSpacing.xxxl
+        static let hero = HiAirSpacing.hero
+    }
+
+    enum Radius {
+        static let pill = HiAirRadius.pill
+        static let sm = HiAirRadius.sm
+        static let md = HiAirRadius.md
+        static let lg = HiAirRadius.lg
+        static let xl = HiAirRadius.xl
+    }
+
+    enum Motion {
+        static let fast = HiAirMotion.fast
+        static let normal = HiAirMotion.normal
+        static let heroMorph = HiAirMotion.heroMorph
+    }
+
+    enum Typography {
+        static let displayXL = HiAirTypography.displayXL
+        static let displayLG = HiAirTypography.displayLG
+        static let titleLG = HiAirTypography.titleLG
+        static let titleMD = HiAirTypography.titleMD
+        static let bodyLG = HiAirTypography.bodyLG
+        static let bodyMD = HiAirTypography.bodyMD
+        static let caption = HiAirTypography.caption
     }
 }

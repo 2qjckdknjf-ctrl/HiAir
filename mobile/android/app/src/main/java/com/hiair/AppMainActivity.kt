@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
+import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
 import com.hiair.network.ApiClient
@@ -89,9 +90,10 @@ class AppMainActivity : AppCompatActivity() {
             },
         )
 
+        val horizontalPad = HiAirComponents.horizontalPaddingDp(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setPadding(horizontalPad, horizontalPad, horizontalPad, horizontalPad)
             background = TimeOfDayBackground.pageGradient()
         }
 
@@ -107,7 +109,7 @@ class AppMainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
             setPadding(p, p, p, p)
-            background = V2Ui.cardBackground(this@AppMainActivity, "#10264A", strokeHex = "#2F4C77", radiusDp = 16)
+            background = HiAirComponents.glassCardBackground(this@AppMainActivity)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -217,13 +219,8 @@ class AppMainActivity : AppCompatActivity() {
     }
 
     private fun setNavSelected(button: Button, selected: Boolean) {
-        if (selected) {
-            button.background = V2Ui.cardBackground(this, "#2A4C7F", strokeHex = "#67C6FF", radiusDp = 13)
-            button.setTextColor(Tokens.Text.primary)
-        } else {
-            button.background = V2Ui.cardBackground(this, "#1B3A62", strokeHex = "#325888", radiusDp = 13)
-            button.setTextColor(Tokens.Cta.start)
-        }
+        button.background = HiAirComponents.navChipBackground(this, selected)
+        button.setTextColor(if (selected) Tokens.Text.primary else Tokens.Cta.start)
     }
 
     private fun dp(value: Int): Int = V2Ui.dp(this, value)

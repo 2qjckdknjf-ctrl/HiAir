@@ -1,10 +1,11 @@
 ## Learned User Preferences
-- User prefers autonomous execution with minimal back-and-forth and asks the agent to continue until major tasks are complete.
+- User prefers autonomous execution with minimal back-and-forth; for large work, audit then plan then implement in phases without mid-task confirmation unless blocked, and continue until major tasks are complete.
 - User often prefers Russian for task instructions and progress communication.
 - User values direct, action-oriented progress over extended planning-only responses.
 - User frequently asks for deep end-to-end audits and full hardening/closure rather than partial fixes.
 - User prioritizes high-quality, polished outcomes and is comfortable trading speed for quality.
 - User expects Supabase project provisioning, migrations, and server-side secrets to be handled via Supabase MCP/server automation rather than manual dashboard or local PAT flows when possible.
+- For brand or visual redesign work, keep scope to design tokens, components, and assets only; do not change backend, API, auth, data models, risk engine, or business flows, and keep UI components presentation-only.
 
 ## Learned Workspace Facts
 - Main project workspace is `/Users/alex/Projects/HIAir`.
@@ -12,6 +13,7 @@
 - The team uses incremental continual-learning memory updates with transcript files under the Cursor project transcript store.
 - The product scope includes multilingual UX/content support across Russian, English, Spanish, Italian, and French.
 - GitHub repository is `2qjckdknjf-ctrl/HiAir`.
-- Backend is Python/FastAPI under `backend/`, with Postgres schema migrations in `backend/sql/` and Supabase-first auth configuration.
+- Backend is Python/FastAPI under `backend/` (risk engine, ingestion, notifications, privacy orchestration); production data/auth use Supabase PostgreSQL with RLS and Supabase Auth, with schema migrations in `backend/sql/`.
 - Production Supabase project is named `hiair-prod` (region `eu-central-1`); operator docs for Supabase/auth live under `docs/_operator/`.
 - Release closure is validated with `scripts/release/hiair_final_gate.sh` (including `--strict-external` for owner/legal readiness).
+- Brand and design-system source of truth lives under `docs/brand/`; product visual identity is HiAir Orb / Aurora Calm, and the brand name is spelled exactly `HiAir` in UI and store copy.

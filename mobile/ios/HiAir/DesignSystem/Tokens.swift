@@ -1,58 +1,6 @@
 import SwiftUI
 import UIKit
 
-enum AuroraTokens {
-    enum ColorPalette {
-        static let textPrimary = Color(hex: 0xF0F4FF)
-        static let textSecondary = Color(hex: 0xA8B5D1)
-        static let textTertiary = Color(hex: 0x6A7A99)
-        static let ctaStart = Color(hex: 0x5DD5C4)
-        static let ctaEnd = Color(hex: 0x8B7BFF)
-        static let info = Color(hex: 0x7BCBFF)
-        static let errorSoft = Color(hex: 0xFF9AA2)
-        static let riskLow = Color(hex: 0x7DDCB0)
-        static let riskModerate = Color(hex: 0xF5B66E)
-        static let riskHigh = Color(hex: 0xF08A8A)
-        static let riskVeryHigh = Color(hex: 0xC95684)
-    }
-
-    enum Spacing {
-        static let xxs: CGFloat = 4
-        static let xs: CGFloat = 8
-        static let sm: CGFloat = 12
-        static let md: CGFloat = 16
-        static let lg: CGFloat = 20
-        static let xl: CGFloat = 24
-        static let xxl: CGFloat = 32
-        static let xxxl: CGFloat = 48
-        static let hero: CGFloat = 64
-    }
-
-    enum Radius {
-        static let pill: CGFloat = 999
-        static let sm: CGFloat = 8
-        static let md: CGFloat = 14
-        static let lg: CGFloat = 20
-        static let xl: CGFloat = 28
-    }
-
-    enum Motion {
-        static let fast: Double = 0.24
-        static let normal: Double = 0.32
-        static let heroMorph: Double = 0.8
-    }
-
-    enum Typography {
-        static let displayXL = Font.system(size: 88, weight: .semibold, design: .rounded)
-        static let displayLG = Font.system(size: 34, weight: .bold)
-        static let titleLG = Font.system(size: 22, weight: .semibold)
-        static let titleMD = Font.system(size: 17, weight: .semibold)
-        static let bodyLG = Font.system(size: 17, weight: .regular)
-        static let bodyMD = Font.system(size: 15, weight: .regular)
-        static let caption = Font.system(size: 13, weight: .medium)
-    }
-}
-
 enum TimeOfDayPhase {
     case dawn
     case morning

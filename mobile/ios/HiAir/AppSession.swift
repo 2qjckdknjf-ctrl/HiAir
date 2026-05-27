@@ -75,18 +75,21 @@ final class AppSession: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] note in
-            guard let self else { return }
-            guard let session = note.object as? SupabaseAuthSession else {
-                self.logout()
-                return
+            let session = note.object as? SupabaseAuthSession
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard let session else {
+                    self.logout()
+                    return
+                }
+                self.userId = session.userId
+                self.email = session.email
+                self.accessToken = session.accessToken
+                self.refreshToken = session.refreshToken
+                self.authNotice = ""
             }
-            self.userId = session.userId
-            self.email = session.email
-            self.accessToken = session.accessToken
-            self.refreshToken = session.refreshToken
-            self.authNotice = ""
         }
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             await self?.restoreSupabaseSession()
         }
     }
@@ -276,7 +279,8 @@ enum HiAirL10n {
             "tab.symptoms": "Симптомы",
             "tab.settings": "Настройки",
             "auth.title": "Аккаунт HiAir",
-            "auth.subtitle": "Aurora Calm v2",
+            "auth.subtitle": "Breathe better. Live better.",
+            "brand.tagline": "Breathe better. Live better.",
             "auth.email": "Email",
             "auth.password": "Пароль (мин. 12 символов, A/a/0-9/символ)",
             "auth.sign_up": "Регистрация",
@@ -653,7 +657,8 @@ enum HiAirL10n {
             "tab.symptoms": "Symptoms",
             "tab.settings": "Settings",
             "auth.title": "HiAir Account",
-            "auth.subtitle": "Aurora Calm v2",
+            "auth.subtitle": "Breathe better. Live better.",
+            "brand.tagline": "Breathe better. Live better.",
             "auth.email": "Email",
             "auth.password": "Password (min 12 chars, A/a/0-9/symbol)",
             "auth.sign_up": "Sign Up",
@@ -1025,6 +1030,7 @@ enum HiAirL10n {
             "tab.settings": "Ajustes",
             "title.settings": "Ajustes",
             "auth.title": "Cuenta HiAir",
+            "brand.tagline": "Breathe better. Live better.",
             "auth.email": "Correo",
             "auth.password": "Contraseña (mín. 12 caracteres, A/a/0-9/símbolo)",
             "auth.sign_up": "Registrarse",
@@ -1148,6 +1154,7 @@ enum HiAirL10n {
             "tab.settings": "Impostazioni",
             "title.settings": "Impostazioni",
             "auth.title": "Account HiAir",
+            "brand.tagline": "Breathe better. Live better.",
             "auth.email": "Email",
             "auth.password": "Password (min. 12 caratteri, A/a/0-9/simbolo)",
             "auth.sign_up": "Registrati",
@@ -1271,6 +1278,7 @@ enum HiAirL10n {
             "tab.settings": "Parametres",
             "title.settings": "Parametres",
             "auth.title": "Compte HiAir",
+            "brand.tagline": "Breathe better. Live better.",
             "auth.email": "Email",
             "auth.password": "Mot de passe (min. 12 caracteres, A/a/0-9/symbole)",
             "auth.sign_up": "S'inscrire",

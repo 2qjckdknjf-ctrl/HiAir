@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="hiair_night_top">#0E1226</color>
+    <color name="hiair_night_bottom">#181D38</color>
+    <color name="hiair_text_primary">#F0F4FF</color>
+    <color name="hiair_cta_start">#5DD5C4</color>
+    <color name="hiair_cta_end">#8B7BFF</color>
+
+    <style name="Theme.HiAir" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/hiair_splash_background</item>
+        <item name="android:statusBarColor">@color/hiair_night_top</item>
+        <item name="android:navigationBarColor">@color/hiair_night_bottom</item>
+    </style>
+</resources>

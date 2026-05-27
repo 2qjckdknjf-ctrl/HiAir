@@ -5,15 +5,15 @@ import java.util.Calendar
 
 object Tokens {
     object Text {
-        val primary: Int = Color.parseColor("#F0F4FF")
-        val secondary: Int = Color.parseColor("#A8B5D1")
-        val tertiary: Int = Color.parseColor("#6A7A99")
+        val primary: Int = HiAirColors.Text.primary
+        val secondary: Int = HiAirColors.Text.secondary
+        val tertiary: Int = HiAirColors.Text.tertiary
     }
 
     object Cta {
-        val start: Int = Color.parseColor("#5DD5C4")
-        val end: Int = Color.parseColor("#8B7BFF")
-        val textOnGradient: Int = Color.parseColor("#0D172A")
+        val start: Int = HiAirColors.Cta.gradientStart
+        val end: Int = HiAirColors.Cta.gradientEnd
+        val textOnGradient: Int = HiAirColors.Cta.labelOnGradient
     }
 
     object Surface {
@@ -30,36 +30,35 @@ object Tokens {
     }
 
     object Feedback {
-        val info: Int = Color.parseColor("#7BCBFF")
-        val errorSoft: Int = Color.parseColor("#FF9AA2")
+        val info: Int = HiAirColors.Feedback.info
+        val errorSoft: Int = HiAirColors.Feedback.errorSoft
         val strokeSoft: Int = Color.parseColor("#40FFFFFF")
     }
 
     object RiskAccent {
-        val low: Int = Color.parseColor("#7DDCB0")
-        val moderate: Int = Color.parseColor("#F5B66E")
-        val high: Int = Color.parseColor("#F08A8A")
-        val veryHigh: Int = Color.parseColor("#C95684")
+        val low: Int = HiAirColors.Risk.low
+        val moderate: Int = HiAirColors.Risk.moderate
+        val high: Int = HiAirColors.Risk.high
+        val veryHigh: Int = HiAirColors.Risk.veryHigh
 
-        fun forLevel(level: String): Int {
-            return when (level.lowercase()) {
-                "low" -> low
-                "moderate", "medium" -> moderate
-                "high" -> high
-                "very_high", "very high" -> veryHigh
-                else -> secondaryFallback
-            }
-        }
+        fun forLevel(level: String): Int = HiAirRiskStyle.colorForLevel(level)
+    }
 
-        private val secondaryFallback: Int = Text.secondary
+    object Spacing {
+        const val xxs = HiAirSpacing.xxs
+        const val xs = HiAirSpacing.xs
+        const val sm = HiAirSpacing.sm
+        const val md = HiAirSpacing.md
+        const val lg = HiAirSpacing.lg
+        const val xl = HiAirSpacing.xl
     }
 
     object RadiusDp {
-        const val pill = 999
-        const val sm = 8
-        const val md = 14
-        const val lg = 20
-        const val xl = 28
+        const val pill = HiAirRadius.pill
+        const val sm = HiAirRadius.sm
+        const val md = HiAirRadius.md
+        const val lg = HiAirRadius.lg
+        const val xl = HiAirRadius.xl
     }
 
     enum class TimeOfDayPhase(val top: Int, val bottom: Int) {

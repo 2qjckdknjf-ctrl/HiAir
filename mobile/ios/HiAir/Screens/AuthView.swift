@@ -77,81 +77,87 @@ final class AuthViewModel: ObservableObject {
     }
 }
 
+@MainActor
 struct AuthView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = AuthViewModel()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: AuroraTokens.Spacing.md) {
-                VStack(alignment: .leading, spacing: 8) {
+        HiAirAdaptiveLayout { width, _ in
+            ScrollView {
+                VStack(spacing: HiAirSpacing.md) {
+                    HiAirBrandHeader(
+                        title: "HiAir",
+                        subtitle: session.l("brand.tagline"),
+                        showOrb: true,
+                        orbSize: min(HiAirScreenMetrics.heroOrbSize(for: width), 120)
+                    )
+                    .padding(.top, HiAirSpacing.sm)
+
                     Text(session.l("auth.title"))
-                        .font(AuroraTokens.Typography.displayLG)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                    Text(session.l("auth.subtitle"))
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 8)
-
-                VStack(spacing: 12) {
-                    TextField(session.l("auth.email"), text: $viewModel.email)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-
-                    SecureField(session.l("auth.password"), text: $viewModel.password)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                }
-                .v2Card()
-
-                Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
-                    Task { await viewModel.signup(session: session) }
-                }
-                .buttonStyle(V2PrimaryButtonStyle())
-                .disabled(viewModel.loading)
-
-                Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
-                    Task { await viewModel.login(session: session) }
-                }
-                .buttonStyle(V2PrimaryButtonStyle())
-                .disabled(viewModel.loading)
-
-                Button("Sign in with Apple") {
-                    Task { await viewModel.signInWithApple(session: session) }
-                }
-                .buttonStyle(V2PrimaryButtonStyle())
-                .disabled(viewModel.loading)
-
-                Button("Sign in with Google") {
-                    Task { await viewModel.signInWithGoogle(session: session) }
-                }
-                .buttonStyle(V2PrimaryButtonStyle())
-                .disabled(viewModel.loading)
-
-                if !session.authNotice.isEmpty {
-                    Text(session.authNotice)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(AuroraTokens.ColorPalette.riskHigh)
+                        .font(HiAirTypography.titleMD)
+                        .foregroundStyle(HiAirColors.Text.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 4)
-                }
 
-                Text(viewModel.statusText)
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
+                    HiAirGlassCard {
+                        VStack(spacing: 12) {
+                            TextField(session.l("auth.email"), text: $viewModel.email)
+                                .textInputAutocapitalization(.never)
+                                .keyboardType(.emailAddress)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .hiAirInputSurface()
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+
+                            SecureField(session.l("auth.password"), text: $viewModel.password)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .hiAirInputSurface()
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+                        }
+                    }
+
+                    Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
+                        Task { await viewModel.signup(session: session) }
+                    }
+                    .buttonStyle(HiAirGradientButtonStyle())
+                    .disabled(viewModel.loading)
+
+                    Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
+                        Task { await viewModel.login(session: session) }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .disabled(viewModel.loading)
+
+                    Button("Sign in with Apple") {
+                        Task { await viewModel.signInWithApple(session: session) }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .disabled(viewModel.loading)
+
+                    Button("Sign in with Google") {
+                        Task { await viewModel.signInWithGoogle(session: session) }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .disabled(viewModel.loading)
+
+                    if !session.authNotice.isEmpty {
+                        Text(session.authNotice)
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirColors.Feedback.errorSoft)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Text(viewModel.statusText)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .hiAirContentWidth(for: width)
+                .hiAirScreenPadding(for: width)
+                .padding(.bottom, HiAirSpacing.xl)
             }
-            .padding(16)
         }
-        .v2PageBackground()
+        .hiAirPageBackground()
     }
 }

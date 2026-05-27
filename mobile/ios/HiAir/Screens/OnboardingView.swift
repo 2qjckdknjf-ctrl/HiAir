@@ -18,16 +18,20 @@ struct OnboardingView: View {
     private var canGoBack: Bool { step > 0 }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AuroraTokens.Spacing.md) {
+        HiAirAdaptiveLayout { width, mode in
+            ScrollView {
+                VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
+                if step == 0 {
+                    HiAirBrandHeader(showOrb: true, orbSize: HiAirScreenMetrics.heroOrbSize(for: width) * 0.6)
+                        .padding(.bottom, HiAirSpacing.xs)
+                }
+
                 HStack {
-                    Text("HiAir")
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                     Spacer()
                     if fromSettings {
                         Button(session.l("common.close")) { dismiss() }
-                            .font(AuroraTokens.Typography.caption)
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }
                 }
 
@@ -54,17 +58,20 @@ struct OnboardingView: View {
                         Button(session.l("onboarding.back")) {
                             step = max(step - 1, 0)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                     }
                     Button(primaryButtonTitle) {
                         Task { await handlePrimaryAction() }
                     }
-                    .buttonStyle(V2PrimaryButtonStyle())
+                    .buttonStyle(HiAirGradientButtonStyle())
                 }
             }
-            .padding(16)
+            .hiAirContentWidth(for: width)
+            .hiAirScreenPadding(for: width)
+            .padding(.bottom, HiAirSpacing.xl)
+            }
         }
-        .v2PageBackground()
+        .hiAirPageBackground()
         .onAppear {
             personaSelection = session.persona
         }
@@ -175,7 +182,7 @@ struct OnboardingView: View {
             Button(session.l("onboarding.permissions.later")) {
                 step += 1
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(HiAirSecondaryButtonStyle())
         }
     }
 

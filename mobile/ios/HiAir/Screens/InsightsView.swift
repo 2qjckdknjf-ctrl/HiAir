@@ -39,8 +39,9 @@ struct InsightsView: View {
     @StateObject private var viewModel = InsightsViewModel()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+        HiAirAdaptiveLayout { width, mode in
+            ScrollView {
+                VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
                 Text(session.l("common.city_updated"))
                     .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -73,7 +74,7 @@ struct InsightsView: View {
                                 }
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                         .tint(HiAirV2Theme.accentStart)
                     }
                     .v2Card()
@@ -85,7 +86,7 @@ struct InsightsView: View {
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                        .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 12))
                         .v2Card()
                 } else if let lastError = viewModel.lastError {
                     VStack(alignment: .leading, spacing: 8) {
@@ -102,11 +103,11 @@ struct InsightsView: View {
                                 )
                             }
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                    .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 12))
                     .v2Card()
                 } else if viewModel.items.isEmpty {
                     Text(session.l("insights.empty"))
@@ -114,7 +115,7 @@ struct InsightsView: View {
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                        .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 12))
                         .v2Card()
                 } else {
                     ForEach(Array(viewModel.items.enumerated()), id: \.offset) { _, item in
@@ -151,12 +152,15 @@ struct InsightsView: View {
                         session.markChecklistItem("recommendations", done: true)
                     }
                 }
-                .buttonStyle(V2PrimaryButtonStyle())
+                .buttonStyle(HiAirGradientButtonStyle())
                 .disabled(viewModel.loading)
             }
-            .padding(16)
+            .hiAirContentWidth(for: width)
+            .hiAirScreenPadding(for: width)
+            .padding(.bottom, HiAirSpacing.xl)
+            }
         }
-        .v2PageBackground()
+        .hiAirPageBackground()
         .task {
             if session.profileId.isEmpty {
                 _ = await session.ensureProfileIdIfNeeded()

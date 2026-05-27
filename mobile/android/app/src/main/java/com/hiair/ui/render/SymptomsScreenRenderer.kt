@@ -3,6 +3,7 @@ package com.hiair.ui.render
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 
@@ -18,18 +19,14 @@ internal object SymptomsScreenRenderer {
         var headacheSelected = false
         var fatigueSelected = false
 
+        bodyContainer.addView(HiAirComponents.brandHeader(activity))
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.symptoms")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f })
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.streak")).apply {
             textSize = 12f
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
-            background = V2Ui.cardBackground(
-                activity,
-                String.format("#%08X", Tokens.Surface.chip),
-                String.format("#%08X", Tokens.Surface.chipStroke),
-                999
-            )
+            background = HiAirComponents.chipBackground(activity)
         })
         val profileInput = EditText(activity).apply { hint = ctx.l("symptoms.profile_id") }
         val coughPill = symptomPill(activity, "💨 ${ctx.l("symptoms.cough")}") { selected ->
@@ -52,7 +49,7 @@ internal object SymptomsScreenRenderer {
             setTextColor(Tokens.Text.secondary)
         }
 
-        val submitButton = V2Ui.primaryButton(activity, ctx.l("symptoms.submit")).apply {
+        val submitButton = HiAirComponents.primaryButton(activity, ctx.l("symptoms.submit")).apply {
             setOnClickListener {
                 stateText.text = ctx.l("symptoms.submitting")
                 val sleep = sleepInput.text.toString().toIntOrNull()?.coerceIn(1, 5) ?: 3
@@ -78,14 +75,14 @@ internal object SymptomsScreenRenderer {
             }
         }
 
-        val quickBreathButton = V2Ui.secondaryButton(activity, ctx.l("symptoms.quick_breath")).apply {
+        val quickBreathButton = HiAirComponents.secondaryButton(activity, ctx.l("symptoms.quick_breath")).apply {
             setOnClickListener { quickSymptom(ctx, profileInput, intensityInput, stateText, "breath_discomfort") }
         }
-        val quickHeadacheButton = V2Ui.secondaryButton(activity, ctx.l("symptoms.quick_headache")).apply {
+        val quickHeadacheButton = HiAirComponents.secondaryButton(activity, ctx.l("symptoms.quick_headache")).apply {
             setOnClickListener { quickSymptom(ctx, profileInput, intensityInput, stateText, "headache") }
         }
 
-        val symptomCard = V2Ui.cardContainer(activity).apply {
+        val symptomCard = HiAirComponents.cardContainer(activity).apply {
             addView(profileInput)
             addView(LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -118,12 +115,7 @@ internal object SymptomsScreenRenderer {
             textSize = 13f
             setTextColor(Tokens.Text.secondary)
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 8), V2Ui.dp(activity, 10), V2Ui.dp(activity, 8))
-            background = V2Ui.cardBackground(
-                activity,
-                String.format("#%08X", Tokens.Surface.tile),
-                String.format("#%08X", Tokens.Surface.tileStroke),
-                999
-            )
+            background = HiAirComponents.tileBackground(activity, selected = false)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginEnd = V2Ui.dp(activity, 6)
                 topMargin = V2Ui.dp(activity, 6)
@@ -132,12 +124,7 @@ internal object SymptomsScreenRenderer {
                 selected = !selected
                 onChange(selected)
                 setTextColor(if (selected) Tokens.Text.primary else Tokens.Text.secondary)
-                background = V2Ui.cardBackground(
-                    activity,
-                    String.format("#%08X", if (selected) Tokens.Surface.tileSelected else Tokens.Surface.tile),
-                    String.format("#%08X", if (selected) Tokens.Surface.tileSelectedStroke else Tokens.Surface.tileStroke),
-                    999
-                )
+                background = HiAirComponents.tileBackground(activity, selected = selected)
             }
         }
     }

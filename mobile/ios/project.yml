@@ -14,9 +14,12 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - HiAir
+    entitlements:
+      path: HiAir/HiAir.entitlements
     settings:
       base:
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 43A4KW5BKB
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
         SWIFT_VERSION: 5.0

@@ -39,8 +39,9 @@ struct DailyPlannerView: View {
     @StateObject private var viewModel = DailyPlannerViewModel()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+        HiAirAdaptiveLayout { width, mode in
+            ScrollView {
+                VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
                 Text(session.l("common.city_updated"))
                     .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -79,7 +80,7 @@ struct DailyPlannerView: View {
                                 }
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                         .tint(HiAirV2Theme.accentStart)
                     }
                     .v2Card()
@@ -138,7 +139,7 @@ struct DailyPlannerView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                                .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
                     .v2Card()
@@ -162,17 +163,20 @@ struct DailyPlannerView: View {
                         session.markChecklistItem("hourly", done: true)
                     }
                 }
-                .buttonStyle(V2PrimaryButtonStyle())
+                .buttonStyle(HiAirGradientButtonStyle())
                 .disabled(viewModel.loading)
 
                 Button(session.l("planner.apply")) {
                     session.selectedTab = 0
                 }
-                .buttonStyle(V2PrimaryButtonStyle())
+                .buttonStyle(HiAirSecondaryButtonStyle())
             }
-            .padding(16)
+            .hiAirContentWidth(for: width)
+            .hiAirScreenPadding(for: width)
+            .padding(.bottom, HiAirSpacing.xl)
+            }
         }
-        .v2PageBackground()
+        .hiAirPageBackground()
         .task {
             if session.profileId.isEmpty {
                 _ = await session.ensureProfileIdIfNeeded()

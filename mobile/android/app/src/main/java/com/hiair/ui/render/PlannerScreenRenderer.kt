@@ -4,6 +4,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 
@@ -14,12 +15,13 @@ internal object PlannerScreenRenderer {
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
 
+        bodyContainer.addView(HiAirComponents.brandHeader(activity))
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.planner")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.subtitle")).apply { textSize = 13f })
 
         val stateText = V2Ui.styledSecondaryText(activity, ctx.l("planner.fetch"))
-        val plannerCard = V2Ui.cardContainer(activity)
+        val plannerCard = HiAirComponents.cardContainer(activity)
         plannerCard.addView(V2Ui.styledBodyText(activity, ctx.l("planner.summary")))
         val heatStrip = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -33,7 +35,7 @@ internal object PlannerScreenRenderer {
         plannerCard.addView(keyEvents)
         bodyContainer.addView(plannerCard)
 
-        val refreshButton = V2Ui.primaryButton(activity, ctx.l("planner.refresh")).apply {
+        val refreshButton = HiAirComponents.primaryButton(activity, ctx.l("planner.refresh")).apply {
             setOnClickListener {
                 stateText.text = ctx.l("common.loading")
                 Thread {
@@ -58,7 +60,7 @@ internal object PlannerScreenRenderer {
             }
         }
         bodyContainer.addView(refreshButton)
-        bodyContainer.addView(V2Ui.primaryButton(activity, ctx.l("planner.apply")).apply {
+        bodyContainer.addView(HiAirComponents.secondaryButton(activity, ctx.l("planner.apply")).apply {
             setOnClickListener {
                 rootShell.openDashboard()
                 ctx.rerender()
@@ -94,15 +96,7 @@ internal object PlannerScreenRenderer {
         return "• Peak: $peak\n• ${ctx.l("dashboard.safe_windows")}: $firstSafe"
     }
 
-    private fun colorHex(risk: String): String {
-        return when (risk.lowercase()) {
-            "low" -> String.format("#%08X", Tokens.RiskAccent.low)
-            "moderate", "medium" -> String.format("#%08X", Tokens.RiskAccent.moderate)
-            "high" -> String.format("#%08X", Tokens.RiskAccent.high)
-            "very_high", "very high" -> String.format("#%08X", Tokens.RiskAccent.veryHigh)
-            else -> String.format("#%08X", Tokens.Text.secondary)
-        }
-    }
+    private fun colorHex(risk: String): String = HiAirComponents.riskAccentHex(risk)
 
     private fun riskWeight(risk: String): Int {
         return when (risk.lowercase()) {

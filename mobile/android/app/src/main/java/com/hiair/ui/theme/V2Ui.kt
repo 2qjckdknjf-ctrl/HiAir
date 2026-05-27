@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.design.HiAirColors
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
 
@@ -35,10 +36,10 @@ object V2Ui {
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 16))
-            background = cardBackground(
+            background = V2Ui.cardBackground(
                 context,
                 fillHex = colorHex(TimeOfDayBackground.surfacePrimary()),
-                strokeHex = "#2E4B76",
+                strokeHex = colorHex(withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha)),
                 radiusDp = Tokens.RadiusDp.lg
             )
             val params = LinearLayout.LayoutParams(
@@ -72,7 +73,7 @@ object V2Ui {
             textSize = 11f
             setTextColor(Tokens.Cta.start)
             minHeight = dp(context, 38)
-            background = cardBackground(context, "#1B3A62", strokeHex = "#325888", radiusDp = 13)
+            background = cardBackground(context, colorHex(TimeOfDayBackground.surfaceSecondary()), strokeHex = colorHex(withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha)), radiusDp = 13)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dp(context, 3)
                 marginEnd = dp(context, 3)
@@ -111,7 +112,7 @@ object V2Ui {
             background = cardBackground(
                 context,
                 fillHex = colorHex(TimeOfDayBackground.surfaceSecondary()),
-                strokeHex = "#355987",
+                strokeHex = colorHex(withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha)),
                 radiusDp = 13
             )
             val params = LinearLayout.LayoutParams(
@@ -153,4 +154,6 @@ object V2Ui {
     }
 
     private fun colorHex(colorInt: Int): String = String.format("#%08X", colorInt)
+
+    private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or (alpha shl 24)
 }
