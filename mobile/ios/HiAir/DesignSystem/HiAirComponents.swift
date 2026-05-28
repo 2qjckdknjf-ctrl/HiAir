@@ -87,6 +87,7 @@ struct HiAirOrbLogoView: View {
                 .opacity(animated && pulse ? 0.95 : 0.78)
 
             Image("HiAirOrb")
+                .renderingMode(.original)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()

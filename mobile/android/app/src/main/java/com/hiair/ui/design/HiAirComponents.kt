@@ -303,6 +303,7 @@ object HiAirComponents {
     fun brandOrbView(context: Context, sizeDp: Int): ImageView {
         return ImageView(context).apply {
             setImageResource(R.drawable.hiair_orb)
+            imageTintList = null
             scaleType = ImageView.ScaleType.FIT_CENTER
             layoutParams = LinearLayout.LayoutParams(
                 V2Ui.dp(context, sizeDp),
