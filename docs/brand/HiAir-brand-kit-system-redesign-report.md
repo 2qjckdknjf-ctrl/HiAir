@@ -1,7 +1,7 @@
 # HiAir Brand Kit System Redesign — Final Report
 
-Date: 2026-05-27  
-Branch: `feat/hiair-brand-kit-system-redesign`
+Date: 2026-05-28 (updated after logo pack)  
+Branch: `feat/hiair-brand-kit-system-redesign` (includes merged PR #22 logo assets)
 
 ## Executive summary
 
@@ -12,10 +12,10 @@ Implemented HiAir **Orb / Aurora Calm** as a cross-platform design system: centr
 - Brand source of truth (`docs/brand/*`)
 - iOS design tokens + components + adaptive metrics
 - Android design tokens + components + adaptive metrics (View-based, matching existing architecture)
-- Placeholder brand assets (iOS Assets.xcassets, Android drawables)
+- Production brand assets from `HiAir_logo_publish_pack` (orb, full AppIcon set, adaptive Android launcher, store graphics)
 - Launch / splash (iOS LaunchScreen.storyboard, Android Theme.HiAir)
 - Screen visual refit: all primary iOS screens + Android renderers + shell nav
-- iOS AppIcon placeholder PNG (1024) + screenshot capture script
+- Screenshot capture scripts + adaptive QA index (compact / standard / large / tablet)
 - Design-system guard script (warning-only)
 - Parity + adaptive QA checklists
 - Build verification (both platforms green)
@@ -47,7 +47,7 @@ Implemented HiAir **Orb / Aurora Calm** as a cross-platform design system: centr
 
 ## Assets added
 
-See `docs/brand/HiAir-brand-assets-manifest.md`. All orb/icon assets are **placeholder vectors** pending final design export.
+See `docs/brand/HiAir-brand-assets-manifest.md` and `docs/brand/HiAir-logo-assets-fix-report.md`. Orb, AppIcon, launcher mipmaps, and in-app imagesets are **production PNGs** from the publish pack; store assets live in `docs/brand/store-assets/`.
 
 ## Token files
 
@@ -82,7 +82,7 @@ Documented in `HiAir-ios-android-parity-checklist.md`. Visual system aligned; An
 
 ## Adaptive QA
 
-Checklist in `HiAir-adaptive-qa-checklist.md`. Builds verified; iOS standard dashboard screenshot captured via `scripts/capture_hiair_ios_screenshots.sh`. Remaining device sizes pending manual pass.
+Checklist in `HiAir-adaptive-qa-checklist.md`. Automated iOS dashboard screenshots: compact, standard, large, tablet (`scripts/capture_hiair_adaptive_qa.sh`). iPad landscape + Dynamic Type + Android emulators still manual.
 
 ## Build commands & results
 
@@ -105,11 +105,12 @@ scripts/capture_hiair_ios_screenshots.sh            # dashboard.png
 
 None blocking.
 
-## Manual replacement list
+## Logo publish pack (PR #22, merged 2026-05-28)
 
-1. iOS `AppIcon.appiconset` — replace placeholder `AppIcon-1024.png` with final marketing icon set from design
-2. iOS/Android HiAir Orb — final SVG/PNG artwork
-3. Wordmark lockup if not using system text
+- Full iOS `AppIcon.appiconset` (120 / 152 / 167 / 1024 + full iPhone/iPad set)
+- `HiAirOrb`, `HiAirLogoMark`, `HiAirWordmark`, `HiAirLaunchLogo` imagesets populated
+- Android `@mipmap/ic_launcher` adaptive icons; `hiair_orb.png` updated
+- Rendering: iOS `.renderingMode(.original)`; Android `imageTintList = null` on orb views
 
 ## Design-system guardrails
 
@@ -120,14 +121,21 @@ None blocking.
 - `docs/brand/screenshots/ios/compact/dashboard.png`
 - `docs/brand/screenshots/ios/standard/dashboard.png`
 - `docs/brand/screenshots/ios/large/dashboard.png`
+- `docs/brand/screenshots/ios/tablet/dashboard.png`
 - Script: `scripts/capture_hiair_adaptive_qa.sh`
 
 ## Remaining visual debt
 
-- iPad tablet screenshot pending (CoreSimulator boot error on dev machine)
 - Manual adaptive QA on Android tablet emulators not fully executed
 - Android lacks dedicated Onboarding/Auth screens (pre-existing product gap)
 - Rich Symptoms/Insights/Planner layouts vs full marketing mockups (optional polish)
+
+## Step 11 completion (2026-05-28)
+
+- **Logo publish pack** integrated (PR #22 → branch)
+- **AGENTS.md** continual-learning sync (brand pack + PNG rules)
+- **Store assets** under `docs/brand/store-assets/`
+- PR #21 CI re-run after merge
 
 ## Step 10 completion (2026-05-27)
 
