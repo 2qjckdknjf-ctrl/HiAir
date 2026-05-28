@@ -10,7 +10,7 @@ Mode: manual QA + `scripts/capture_hiair_adaptive_qa.sh` (compact / standard / l
 | iPhone SE / compact | Captured | `docs/brand/screenshots/ios/compact/dashboard.png` |
 | Standard iPhone 15 | Captured | `docs/brand/screenshots/ios/standard/dashboard.png` |
 | iPhone Pro Max | Captured | `docs/brand/screenshots/ios/large/dashboard.png` |
-| iPad portrait | Pending (simulator boot error on dev machine) | contentMaxWidth 680pt |
+| iPad portrait | Captured | `docs/brand/screenshots/ios/tablet/dashboard.png` — contentMaxWidth 680pt |
 | iPad landscape | Pending manual | scroll + max width |
 | Dynamic Type large | Pending manual | badges use lineLimit + minimumScaleFactor on score |
 
@@ -66,4 +66,14 @@ docs/brand/screenshots/ios/{compact,standard,large,tablet}/
 docs/brand/screenshots/android/{compact,standard,large,tablet}/
 ```
 
-Captured 2026-05-27: compact, standard, large dashboard.png (iPad pending — CoreSimulator boot error on dev machine).
+Captured 2026-05-28: compact, standard, large, tablet dashboard.png (automated). iPad landscape + Dynamic Type — manual.
+
+## Automated verification (2026-05-28)
+
+| Check | Result |
+|-------|--------|
+| `scripts/check_hiair_design_system.sh` | 0 warnings |
+| Android `test assembleDebug lintDebug` | BUILD SUCCESSFUL, lint 0 errors |
+| iOS `xcodebuild test` (iPhone 15) | TEST SUCCEEDED (3 tests) |
+| iOS build matrix (SE, 15, Pro Max, iPad Air) | BUILD SUCCEEDED each destination |
+| `capture_hiair_adaptive_qa.sh` | Use after script lock fix (mkdir lock); avoid parallel `xcodebuild` on same DerivedData |
