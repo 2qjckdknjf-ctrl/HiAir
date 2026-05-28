@@ -11,6 +11,8 @@ run_capture() {
   echo ""
   echo "========== $bucket ($device) =========="
   HIAIR_SIM_DEVICE="$device" HIAIR_OUT_BUCKET="$bucket" "$CAPTURE"
+  # Let the simulator settle before the next destination build.
+  sleep 2
 }
 
 run_capture "iPhone SE (3rd generation)" "compact"
