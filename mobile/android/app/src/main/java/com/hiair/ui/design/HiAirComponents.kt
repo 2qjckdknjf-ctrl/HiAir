@@ -220,6 +220,46 @@ object HiAirComponents {
         }
     }
 
+    private fun brandDrawableView(
+        context: Context,
+        drawableRes: Int,
+        widthDp: Int,
+        heightDp: Int,
+        contentDescription: String = "HiAir",
+    ): ImageView {
+        return ImageView(context).apply {
+            setImageResource(drawableRes)
+            imageTintList = null
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            layoutParams = LinearLayout.LayoutParams(
+                V2Ui.dp(context, widthDp),
+                V2Ui.dp(context, heightDp),
+            )
+            this.contentDescription = contentDescription
+        }
+    }
+
+    fun brandLogoMarkView(context: Context, sizeDp: Int): ImageView {
+        return brandDrawableView(context, R.drawable.hiair_logo_mark, sizeDp, sizeDp)
+    }
+
+    fun brandWordmarkView(context: Context, widthDp: Int = 200): ImageView {
+        return brandDrawableView(context, R.drawable.hiair_wordmark, widthDp, 48)
+    }
+
+    /** Horizontal mono lockup for dark app backgrounds (Settings footer). */
+    fun brandMonoFooterView(context: Context): ImageView {
+        return brandDrawableView(context, R.drawable.hiair_mono_light, 128, 38).apply {
+            layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
+                width = LinearLayout.LayoutParams.WRAP_CONTENT
+                height = LinearLayout.LayoutParams.WRAP_CONTENT
+                topMargin = V2Ui.dp(context, HiAirSpacing.lg)
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        }
+    }
+
     fun brandHeader(
         context: Context,
         tagline: String = "Breathe better. Live better.",
@@ -232,18 +272,18 @@ object HiAirComponents {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 if (showOrb) {
-                    addView(brandOrbView(context, orbSizeDp).apply {
+                    addView(brandLogoMarkView(context, orbSizeDp.coerceAtMost(48)).apply {
                         layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
                             bottomMargin = 0
                             rightMargin = V2Ui.dp(context, HiAirSpacing.sm)
                         }
                     })
                 }
-                addView(TextView(context).apply {
-                    text = "HiAir"
-                    textSize = 22f
-                    setTypeface(typeface, Typeface.BOLD)
-                    setTextColor(HiAirColors.Text.primary)
+                addView(brandWordmarkView(context, 140).apply {
+                    layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
+                        width = LinearLayout.LayoutParams.WRAP_CONTENT
+                        height = V2Ui.dp(context, 32)
+                    }
                 })
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -259,12 +299,12 @@ object HiAirComponents {
                 if (showOrb) {
                     addView(brandOrbView(context, orbSizeDp))
                 }
-                addView(TextView(context).apply {
-                    text = "HiAir"
-                    textSize = 30f
-                    setTypeface(typeface, Typeface.BOLD)
-                    setTextColor(HiAirColors.Text.primary)
-                    gravity = Gravity.CENTER
+                addView(brandWordmarkView(context, 220).apply {
+                    layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
+                        width = LinearLayout.LayoutParams.WRAP_CONTENT
+                        height = V2Ui.dp(context, 44)
+                        gravity = Gravity.CENTER_HORIZONTAL
+                    }
                 })
                 addView(TextView(context).apply {
                     text = tagline

@@ -577,6 +577,8 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(tokenCard)
 
+        bodyContainer.addView(HiAirComponents.brandMonoFooterView(activity))
+
         bodyContainer.addView(HiAirComponents.primaryButton(activity, ctx.l("settings.sync_now")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")

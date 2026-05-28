@@ -860,6 +860,9 @@ struct SettingsView: View {
                 }
                 .buttonStyle(HiAirGradientButtonStyle())
                 .disabled(viewModel.loading)
+
+                HiAirBrandMonoFooter()
+                    .padding(.top, HiAirSpacing.md)
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)

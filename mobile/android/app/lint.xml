@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
     <issue id="GradleDependency" severity="ignore" />
+    <!-- hiair_mono_dark: publication bundle for light-bg marketing; in-app footer uses hiair_mono_light (see docs/brand/HiAir-brand-assets-manifest.md) -->
+    <issue id="UnusedResources">
+        <ignore regexp="hiair_mono_dark" />
+    </issue>
 </lint>

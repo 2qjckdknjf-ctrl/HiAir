@@ -10,6 +10,6 @@
         </shape>
     </item>
     <item
-        android:drawable="@drawable/hiair_orb"
+        android:drawable="@drawable/hiair_launch_logo"
         android:gravity="center" />
 </layer-list>

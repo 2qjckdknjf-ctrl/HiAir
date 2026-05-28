@@ -130,11 +130,20 @@ struct HiAirBrandHeader: View {
             if compact {
                 HStack(spacing: HiAirSpacing.sm) {
                     if showOrb {
-                        HiAirOrbLogoView(size: orbSize, animated: false, presentation: .brand)
+                        Image("HiAirLogoMark")
+                            .renderingMode(.original)
+                            .resizable()
+                            .interpolation(.high)
+                            .scaledToFit()
+                            .frame(width: min(orbSize, 48), height: min(orbSize, 48))
                     }
-                    Text(title)
-                        .font(HiAirTypography.titleLG)
-                        .foregroundStyle(HiAirColors.Text.primary)
+                    Image("HiAirWordmark")
+                        .renderingMode(.original)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .frame(maxWidth: 160, maxHeight: 36)
+                        .accessibilityLabel(title)
                     Spacer(minLength: 0)
                 }
             } else {
@@ -142,9 +151,13 @@ struct HiAirBrandHeader: View {
                     if showOrb {
                         HiAirOrbLogoView(size: orbSize, animated: false, presentation: .brand)
                     }
-                    Text(title)
-                        .font(HiAirTypography.displayLG)
-                        .foregroundStyle(HiAirColors.Text.primary)
+                    Image("HiAirWordmark")
+                        .renderingMode(.original)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .frame(maxWidth: 280, maxHeight: 48)
+                        .accessibilityLabel(title)
                     if let subtitle {
                         Text(subtitle)
                             .font(HiAirTypography.caption)
@@ -155,6 +168,20 @@ struct HiAirBrandHeader: View {
                 .frame(maxWidth: .infinity)
             }
         }
+    }
+}
+
+/// Small horizontal mono lockup for Settings / legal footers on dark backgrounds.
+struct HiAirBrandMonoFooter: View {
+    var body: some View {
+        Image("HiAirMonoLight")
+            .renderingMode(.original)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(maxWidth: 140, maxHeight: 40)
+            .accessibilityLabel("HiAir")
+            .frame(maxWidth: .infinity)
     }
 }
 
