@@ -70,8 +70,9 @@ struct SymptomLogView: View {
     @StateObject private var viewModel = SymptomLogViewModel()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+        HiAirAdaptiveLayout { width, mode in
+            ScrollView {
+                VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
                 Text(session.l("common.city_updated"))
                     .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -89,7 +90,7 @@ struct SymptomLogView: View {
                     .foregroundStyle(HiAirV2Theme.tertiaryText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.white.opacity(0.08), in: Capsule())
+                    .background(HiAirColors.Overlay.subtle, in: Capsule())
 
                 if session.profileId.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -104,7 +105,7 @@ struct SymptomLogView: View {
                                 _ = await session.ensureProfileIdIfNeeded()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                         .tint(HiAirV2Theme.accentStart)
                     }
                     .v2Card()
@@ -139,7 +140,7 @@ struct SymptomLogView: View {
                                     .foregroundStyle(viewModel.sleepQuality == value ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
                                     .frame(width: 34, height: 28)
                                     .background(
-                                        (viewModel.sleepQuality == value ? HiAirV2Theme.accentStart.opacity(0.35) : Color.white.opacity(0.08)),
+                                        (viewModel.sleepQuality == value ? HiAirColors.Cta.gradientStart.opacity(0.35) : HiAirColors.Overlay.subtle),
                                         in: Capsule()
                                     )
                             }
@@ -162,7 +163,7 @@ struct SymptomLogView: View {
                             )
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
 
                     Button(session.l("symptoms.quick_headache")) {
                         Task {
@@ -175,7 +176,7 @@ struct SymptomLogView: View {
                             )
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                 }
                 .tint(HiAirV2Theme.accentStart)
 
@@ -189,16 +190,19 @@ struct SymptomLogView: View {
                         )
                     }
                 }
-                .buttonStyle(V2PrimaryButtonStyle())
+                .buttonStyle(HiAirGradientButtonStyle())
                 .disabled(viewModel.loading || session.profileId.isEmpty)
 
                 Text(viewModel.statusText)
                     .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
             }
-            .padding(16)
+            .hiAirContentWidth(for: width)
+            .hiAirScreenPadding(for: width)
+            .padding(.bottom, HiAirSpacing.xl)
+            }
         }
-        .v2PageBackground()
+        .hiAirPageBackground()
         .onAppear {
             Task { _ = await session.ensureProfileIdIfNeeded() }
         }
@@ -214,7 +218,7 @@ struct SymptomLogView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(
-                    (isOn.wrappedValue ? HiAirV2Theme.accentStart.opacity(0.26) : Color.white.opacity(0.08)),
+                    (isOn.wrappedValue ? HiAirColors.Cta.gradientStart.opacity(0.26) : HiAirColors.Overlay.subtle),
                     in: Capsule()
                 )
         }

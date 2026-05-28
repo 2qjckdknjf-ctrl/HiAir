@@ -4,6 +4,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.dailyActionsText
 import com.hiair.ui.theme.V2Ui
@@ -23,12 +24,7 @@ internal object DashboardScreenRenderer {
                 textSize = 12f
                 setTextColor(Tokens.Text.primary)
                 setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
-                background = V2Ui.cardBackground(
-                    activity,
-                    String.format("#%08X", Tokens.Surface.chip),
-                    String.format("#%08X", Tokens.Surface.chipStroke),
-                    999
-                )
+                background = HiAirComponents.chipBackground(activity)
             })
             addView(TextView(activity).apply {
                 text = " • ${ctx.l("dashboard.freshness_fresh")}"
@@ -48,39 +44,30 @@ internal object DashboardScreenRenderer {
         bodyContainer.addView(topRow)
 
         titleView.text = ctx.l("dashboard.greeting")
-        val subtitle = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.improving")).apply {
-            textSize = 14f
-        }
-        bodyContainer.addView(subtitle)
-
-        val riskLabel = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.current_risk_title")).apply {
-            textSize = 12f
-        }
-        val badge = TextView(activity).apply {
-            text = ctx.l("dashboard.badge_moderate")
-            textSize = 10f
-            setTextColor(Tokens.RiskAccent.moderate)
-            background = V2Ui.cardBackground(
+        bodyContainer.addView(
+            HiAirComponents.brandHeader(
                 activity,
-                String.format("#%08X", Tokens.Surface.riskBadgeFillModerate),
-                strokeHex = String.format("#%08X", Tokens.Surface.riskBadgeStrokeModerate),
-                radiusDp = 10
+                compact = true,
+                showOrb = true,
+                orbSizeDp = 44,
             )
-            setPadding(V2Ui.dp(activity, 8), V2Ui.dp(activity, 3), V2Ui.dp(activity, 8), V2Ui.dp(activity, 3))
-        }
-        val riskValue = V2Ui.styledBodyText(activity, "58").apply {
-            textSize = 64f
-        }
+        )
+
+        val initialRisk = ctx.rootShell.dashboardViewModel.state.riskLevel
+        val riskGauge = HiAirComponents.riskGaugeView(
+            activity,
+            riskScore(initialRisk),
+            moodLabel(ctx, initialRisk),
+            initialRisk,
+        )
         val riskDetail = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.reason_code")).apply {
             textSize = 13f
+            gravity = Gravity.CENTER_HORIZONTAL
         }
         val weatherTitle = V2Ui.styledBodyText(activity, ctx.l("dashboard.weather_title"))
-        val weatherMood = V2Ui.styledSecondaryText(activity, globeMoodLabel(ctx, ctx.rootShell.dashboardViewModel.state.riskLevel))
+        val weatherMood = V2Ui.styledSecondaryText(activity, globeMoodLabel(ctx, initialRisk))
 
-        val weatherOrb = View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(V2Ui.dp(activity, 64), V2Ui.dp(activity, 64))
-        }
-        V2Ui.startRiskGlobeAnimation(activity, weatherOrb) { rootShell.dashboardViewModel.state.riskLevel }
+        val weatherOrb = HiAirComponents.brandOrbView(activity, 64)
 
         val weatherRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -104,48 +91,21 @@ internal object DashboardScreenRenderer {
                     ).apply { topMargin = V2Ui.dp(activity, 8) }
                     background = V2Ui.cardBackground(
                         activity,
-                        String.format("#%08X", Tokens.Surface.weatherBar),
-                        strokeHex = String.format("#%08X", Tokens.Surface.weatherBar),
+                        HiAirComponents.colorHex(Tokens.Surface.weatherBar),
+                        strokeHex = HiAirComponents.colorHex(Tokens.Surface.weatherBar),
                         radiusDp = 12
                     )
                 })
             })
         }
 
-        val dashboardCard = V2Ui.cardContainer(activity)
-        val particles = AtmosphericParticlesView(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                V2Ui.dp(activity, 56)
+        val dashboardCard = HiAirComponents.cardContainer(activity).apply {
+            addView(
+                HiAirComponents.sectionTitle(activity, ctx.l("dashboard.current_risk_title"))
             )
-            setPm25(pm25Estimate(ctx.rootShell.dashboardViewModel.state.riskLevel))
-            setTintColor(Tokens.RiskAccent.forLevel(ctx.rootShell.dashboardViewModel.state.riskLevel))
+            addView(riskGauge)
+            addView(riskDetail)
         }
-        dashboardCard.addView(particles)
-        dashboardCard.addView(LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(riskLabel)
-            addView(View(activity).apply {
-                layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-            })
-            addView(badge)
-        })
-        dashboardCard.addView(riskValue)
-        dashboardCard.addView(riskDetail)
-        dashboardCard.addView(View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                V2Ui.dp(activity, 8)
-            )
-            background = V2Ui.cardBackground(
-                activity,
-                String.format("#%08X", Tokens.Surface.progressTrack),
-                strokeHex = String.format("#%08X", Tokens.Surface.progressTrack),
-                radiusDp = 12
-            )
-        })
-        dashboardCard.addView(V2Ui.spacer(activity, 8))
         bodyContainer.addView(dashboardCard)
         bodyContainer.addView(V2Ui.cardContainer(activity).apply {
             addView(weatherRow)
@@ -172,7 +132,7 @@ internal object DashboardScreenRenderer {
         bodyContainer.addView(safeCard)
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("dashboard.tomorrow_hint")))
 
-        val refreshButton = V2Ui.primaryButton(activity, ctx.l("dashboard.recompute")).apply {
+        val refreshButton = HiAirComponents.primaryButton(activity, ctx.l("dashboard.recompute")).apply {
             setOnClickListener {
                 riskDetail.text = ctx.l("common.loading")
                 Thread {
@@ -185,13 +145,12 @@ internal object DashboardScreenRenderer {
                     )
                     val state = rootShell.dashboardViewModel.state
                     activity.runOnUiThread {
-                        riskLabel.text = ctx.l("dashboard.current_risk_title")
-                        riskValue.text = riskScore(state.riskLevel).toString()
-                        badge.text = state.riskLevel.uppercase()
-                        badge.setTextColor(Tokens.RiskAccent.forLevel(state.riskLevel))
+                        riskGauge.bind(
+                            riskScore(state.riskLevel),
+                            moodLabel(ctx, state.riskLevel),
+                            state.riskLevel,
+                        )
                         weatherMood.text = globeMoodLabel(ctx, state.riskLevel)
-                        particles.setPm25(pm25Estimate(state.riskLevel))
-                        particles.setTintColor(Tokens.RiskAccent.forLevel(state.riskLevel))
                         riskDetail.text = "${state.headline}\n${state.explanation}"
                         safeCard.removeAllViews()
                         safeCard.addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.safe_windows")))
@@ -205,7 +164,7 @@ internal object DashboardScreenRenderer {
         }
         bodyContainer.addView(refreshButton)
 
-        val logSymptomsButton = V2Ui.primaryButton(activity, ctx.l("dashboard.log_symptoms")).apply {
+        val logSymptomsButton = HiAirComponents.secondaryButton(activity, ctx.l("dashboard.log_symptoms")).apply {
             setOnClickListener {
                 rootShell.openSymptoms()
                 ctx.rerender()
@@ -219,12 +178,7 @@ internal object DashboardScreenRenderer {
             textSize = 13f
             setTextColor(Tokens.Text.primary)
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 8), V2Ui.dp(activity, 10), V2Ui.dp(activity, 8))
-            background = V2Ui.cardBackground(
-                activity,
-                String.format("#%08X", Tokens.Surface.tile),
-                String.format("#%08X", Tokens.Surface.tileStroke),
-                12
-            )
+            background = HiAirComponents.tileBackground(activity)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -238,12 +192,7 @@ internal object DashboardScreenRenderer {
             textSize = 12f
             setTextColor(Tokens.Text.primary)
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
-            background = V2Ui.cardBackground(
-                activity,
-                String.format("#%08X", Tokens.Surface.chip),
-                String.format("#%08X", Tokens.Surface.chipStroke),
-                999
-            )
+            background = HiAirComponents.chipBackground(activity)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -261,24 +210,17 @@ internal object DashboardScreenRenderer {
         }
     }
 
-    private fun pm25Estimate(riskLevel: String): Double {
+    private fun moodLabel(ctx: RenderContext, riskLevel: String): String {
         return when (riskLevel.lowercase()) {
-            "low" -> 12.0
-            "medium", "moderate" -> 32.0
-            "high" -> 52.0
-            "very_high", "very high" -> 85.0
-            else -> 25.0
-        }
-    }
-
-    private fun globeMoodLabel(ctx: RenderContext, riskLevel: String): String {
-        val mood = when (riskLevel.lowercase()) {
             "low" -> ctx.l("dashboard.mood.calm")
             "medium", "moderate" -> ctx.l("dashboard.mood.aware")
             "high" -> ctx.l("dashboard.mood.cautious")
             "very_high", "very high" -> ctx.l("dashboard.mood.protective")
             else -> ctx.l("dashboard.mood.calm")
         }
-        return "${ctx.l("dashboard.mood_prefix")}: $mood"
+    }
+
+    private fun globeMoodLabel(ctx: RenderContext, riskLevel: String): String {
+        return "${ctx.l("dashboard.mood_prefix")}: ${moodLabel(ctx, riskLevel)}"
     }
 }

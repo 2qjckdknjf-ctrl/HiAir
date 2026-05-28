@@ -4,6 +4,8 @@ This document is a command-oriented companion for closed beta releases.
 
 ## iOS (TestFlight)
 
+Полный пошаговый гайд (Apple Developer → TestFlight): `docs/_operator/ios-testflight-runbook-ru.md`
+
 From `mobile/ios`:
 
 ```bash

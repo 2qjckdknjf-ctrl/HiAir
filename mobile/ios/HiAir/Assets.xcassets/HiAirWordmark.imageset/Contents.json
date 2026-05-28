@@ -1,0 +1,8 @@
+{
+  "images" : [
+    { "filename" : "HiAirWordmark.png", "idiom" : "universal", "scale" : "1x" },
+    { "filename" : "HiAirWordmark@2x.png", "idiom" : "universal", "scale" : "2x" },
+    { "filename" : "HiAirWordmark@3x.png", "idiom" : "universal", "scale" : "3x" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}

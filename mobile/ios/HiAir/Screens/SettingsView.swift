@@ -566,8 +566,9 @@ struct SettingsView: View {
     @State private var showingAIGuide = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+        HiAirAdaptiveLayout { width, mode in
+            ScrollView {
+                VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
                 Text(session.l("common.city_updated"))
                     .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -648,7 +649,7 @@ struct SettingsView: View {
                         Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load")) {
                             Task { await viewModel.load() }
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
 
                         Button(viewModel.loading ? session.l("settings.saving") : session.l("settings.save")) {
                             Task {
@@ -657,7 +658,7 @@ struct SettingsView: View {
                                 session.preferredLanguage = viewModel.preferredLanguage
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                     }
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
@@ -682,20 +683,20 @@ struct SettingsView: View {
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_plans")) {
                         Task { await viewModel.loadPlans() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_subscription")) {
                         Task { await viewModel.loadSubscription() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.activate_subscription")) {
                         Task { await viewModel.activateSubscription() }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading || viewModel.selectedPlanId.isEmpty)
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.cancel_subscription")) {
                         Task { await viewModel.cancelSubscription() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                 }
                 .disabled(viewModel.loading)
                 .tint(HiAirV2Theme.accentStart)
@@ -713,7 +714,7 @@ struct SettingsView: View {
                     Button(viewModel.loading ? session.l("settings.loading_ai_metrics") : session.l("settings.load_ai_summary")) {
                         Task { await viewModel.loadAISummary() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
                     Text(viewModel.aiSummaryText)
@@ -767,7 +768,7 @@ struct SettingsView: View {
                                 Button(session.l(actionCode == "retry_later" ? "settings.ai_retry_later" : "settings.ai_retry_now")) {
                                     viewModel.scheduleAISummaryRefresh(force: true)
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(HiAirSecondaryButtonStyle())
                                 .disabled(actionCode == "retry_later")
                             }
                             AITrendMiniChart(points: viewModel.currentAiTrendPoints, mode: viewModel.aiChartMode)
@@ -793,20 +794,20 @@ struct SettingsView: View {
                     Button(session.l("settings.help_open")) {
                         showingGuide = true
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     Button(session.l("settings.ai_guide_open")) {
                         showingAIGuide = true
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     Button(session.l("settings.onboarding_reopen")) {
                         session.showOnboardingFromSettings = true
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     Button(session.l("dashboard.get_started.title")) {
                         session.resetChecklist()
                         session.selectedTab = 0
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                 }
                 .tint(HiAirV2Theme.accentStart)
                 .v2Card()
@@ -822,7 +823,7 @@ struct SettingsView: View {
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.privacy_export")) {
                         Task { await viewModel.exportPrivacyData() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading)
                     Text(viewModel.privacyExportSummary)
                         .font(AuroraTokens.Typography.caption)
@@ -835,7 +836,7 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading)
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
                     Button(session.l("settings.log_out")) {
@@ -857,12 +858,15 @@ struct SettingsView: View {
                         session.preferredLanguage = viewModel.preferredLanguage
                     }
                 }
-                .buttonStyle(V2PrimaryButtonStyle())
+                .buttonStyle(HiAirGradientButtonStyle())
                 .disabled(viewModel.loading)
+                }
+                .hiAirContentWidth(for: width)
+                .hiAirScreenPadding(for: width)
+                .padding(.bottom, HiAirSpacing.xl)
             }
-            .padding(16)
         }
-        .v2PageBackground()
+        .hiAirPageBackground()
         .onAppear {
             if viewModel.userId.isEmpty {
                 viewModel.userId = session.userId
@@ -1255,7 +1259,7 @@ private struct HiAirAIGuideView: View {
                                                         .foregroundStyle(HiAirV2Theme.primaryText)
                                                         .padding(.horizontal, 10)
                                                         .padding(.vertical, 6)
-                                                        .background(.white.opacity(0.08), in: Capsule())
+                                                        .hiAirChipSurface()
                                                         .buttonStyle(.plain)
                                                     }
                                                 }
@@ -1307,7 +1311,7 @@ private struct HiAirAIGuideView: View {
                             .foregroundStyle(HiAirV2Theme.primaryText)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
-                            .background(.white.opacity(0.08), in: Capsule())
+                            .hiAirChipSurface()
                             .buttonStyle(.plain)
                         }
                     }
@@ -1322,7 +1326,7 @@ private struct HiAirAIGuideView: View {
                     Button(session.l("ai_guide.send")) {
                         askQuestion(question)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(.horizontal, 16)
@@ -1419,7 +1423,7 @@ private struct AiryGuideAvatar: View {
                 .clipShape(Circle())
         }
         .frame(width: size, height: size)
-        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+        .overlay(Circle().stroke(HiAirColors.Overlay.borderGlass, lineWidth: 1))
         .shadow(color: AuroraTokens.ColorPalette.info.opacity(0.36), radius: 10, x: 0, y: 4)
         .accessibilityHidden(true)
     }
@@ -1438,19 +1442,19 @@ private struct AiryGuideAvatar: View {
                     )
                 )
             Circle()
-                .fill(.white.opacity(0.18))
+                .fill(HiAirColors.Overlay.strong)
                 .frame(width: size * 0.72, height: size * 0.72)
                 .offset(y: size * 0.06)
             Circle()
-                .fill(.white.opacity(0.78))
+                .fill(HiAirColors.Overlay.avatarHighlight)
                 .frame(width: size * 0.14, height: size * 0.14)
                 .offset(x: -size * 0.13, y: -size * 0.08)
             Circle()
-                .fill(.white.opacity(0.78))
+                .fill(HiAirColors.Overlay.avatarHighlight)
                 .frame(width: size * 0.14, height: size * 0.14)
                 .offset(x: size * 0.13, y: -size * 0.08)
             Capsule()
-                .fill(.white.opacity(0.8))
+                .fill(HiAirColors.Overlay.avatarFeature)
                 .frame(width: size * 0.28, height: size * 0.08)
                 .offset(y: size * 0.08)
         }

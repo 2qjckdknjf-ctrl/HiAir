@@ -2,6 +2,7 @@ package com.hiair.ui.render
 
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
+import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.theme.V2Ui
 import org.json.JSONObject
 
@@ -14,15 +15,16 @@ internal object InsightsScreenRenderer {
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
 
+        bodyContainer.addView(HiAirComponents.brandHeader(activity))
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("nav.insights")
         val stateText = V2Ui.styledSecondaryText(activity, ctx.l("insights.loading"))
-        val card = V2Ui.cardContainer(activity)
+        val card = HiAirComponents.cardContainer(activity)
         card.addView(V2Ui.styledBodyText(activity, ctx.l("nav.insights")))
         card.addView(stateText)
         bodyContainer.addView(card)
 
-        val refreshButton = V2Ui.primaryButton(activity, ctx.l("planner.refresh")).apply {
+        val refreshButton = HiAirComponents.primaryButton(activity, ctx.l("planner.refresh")).apply {
             setOnClickListener {
                 val settings = rootShell.settingsViewModel.state
                 val profileId = rootShell.symptomLogViewModel.state.profileId

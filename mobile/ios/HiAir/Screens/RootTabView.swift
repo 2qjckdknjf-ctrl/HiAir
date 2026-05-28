@@ -39,7 +39,7 @@ struct RootTabView: View {
                             Label(session.l("tab.settings"), systemImage: "gearshape")
                         }
                 }
-                .tint(HiAirV2Theme.accentStart)
+                .tint(HiAirColors.Cta.gradientStart)
                 .task(id: session.userId) {
                     _ = await session.ensureProfileIdIfNeeded()
                 }

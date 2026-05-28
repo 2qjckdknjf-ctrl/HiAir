@@ -8,7 +8,7 @@ enum APIError: Error {
     case serverWithDetail(statusCode: Int, detail: String)
 }
 
-struct SupabaseAuthSession {
+struct SupabaseAuthSession: Sendable {
     let userId: String
     let email: String
     let accessToken: String
