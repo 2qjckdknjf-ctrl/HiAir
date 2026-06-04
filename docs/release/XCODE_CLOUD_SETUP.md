@@ -33,7 +33,7 @@
 | Project/Workspace | `mobile/ios/HiAir.xcodeproj` |
 | Scheme | `HiAir` |
 | Platform | iOS |
-| Start condition | Branch Changes → `main` (и при необходимости теги/release) |
+| Start condition | Branch Changes → **`main`** (не feature-ветки со старым `project.pbxproj`) |
 
 **Actions (порядок):**
 
@@ -73,6 +73,7 @@ bash mobile/ios/scripts/upload_ipa_testflight_api.sh
 | Scheme not found | Проверить `ci_post_clone.sh` в логе; `xcodegen generate` должен пройти |
 | SDK / upload rejected locally | Только Xcode Cloud или Xcode 26+ |
 | Signing failed | ASC → Xcode Cloud → Manage Certificates; Developer portal App ID `com.hiair.app` |
+| `Cannot find HiAirV2Theme in scope` | Workflow собрал **старый коммит** без файлов в `project.pbxproj`; перезапусти build с **`main`** (после `ci_post_clone` fix) |
 | SPM resolve failed | Лог `resolvePackageDependencies`; сеть к github.com/supabase |
 
 ## Ссылки
