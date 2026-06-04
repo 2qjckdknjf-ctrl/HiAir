@@ -7,13 +7,23 @@ from pathlib import Path
 from uuid import UUID
 from uuid import uuid4
 
-# Force legacy auth for isolated Postgres smoke before settings import.
+# Configure smoke auth mode before settings import.
 _db_url = os.getenv("DATABASE_URL", "")
-if os.getenv("HIAIR_SMOKE_LEGACY_AUTH", "").lower() == "true" or "localhost" in _db_url:
+_is_supabase_remote_db = "supabase.com" in _db_url or "pooler.supabase.com" in _db_url
+_has_supabase_smoke_config = bool(os.getenv("SUPABASE_URL")) and bool(
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+)
+_use_supabase_smoke_auth = _is_supabase_remote_db and _has_supabase_smoke_config
+
+if _use_supabase_smoke_auth:
+    os.environ["HIAIR_AUTH_PROVIDER"] = "supabase"
+    os.environ["HIAIR_AUTH_LEGACY_ENABLED"] = "false"
+elif os.getenv("HIAIR_SMOKE_LEGACY_AUTH", "").lower() == "true" or "localhost" in _db_url:
     os.environ["HIAIR_AUTH_PROVIDER"] = "legacy"
     os.environ["SUPABASE_URL"] = ""
     os.environ["HIAIR_AUTH_LEGACY_ENABLED"] = "false"
 
+import httpx
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -21,6 +31,53 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.main import app
 from app.core.settings import settings
 from app.services.db import get_connection
+
+
+def _supabase_service_role_key() -> str:
+    return (
+        settings.supabase_service_role_key.strip()
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    )
+
+
+def _supabase_anon_key() -> str:
+    return settings.supabase_anon_key.strip() or os.getenv("SUPABASE_ANON_KEY", "").strip()
+
+
+def supabase_smoke_create_session(email: str, password: str) -> tuple[str, str]:
+    base = settings.supabase_url.rstrip("/")
+    service_key = _supabase_service_role_key()
+    anon_key = _supabase_anon_key()
+    if not base or not service_key or not anon_key:
+        raise RuntimeError("Supabase smoke auth requires SUPABASE_URL, service role, and anon keys")
+
+    with httpx.Client(timeout=30.0) as http:
+        create = http.post(
+            f"{base}/auth/v1/admin/users",
+            headers={
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}",
+                "Content-Type": "application/json",
+            },
+            json={"email": email, "password": password, "email_confirm": True},
+        )
+        if create.status_code not in (200, 201):
+            if create.status_code != 422 or "already" not in create.text.lower():
+                create.raise_for_status()
+        token_resp = http.post(
+            f"{base}/auth/v1/token?grant_type=password",
+            headers={
+                "apikey": anon_key,
+                "Authorization": f"Bearer {anon_key}",
+                "Content-Type": "application/json",
+            },
+            json={"email": email, "password": password},
+        )
+        token_resp.raise_for_status()
+        payload = token_resp.json()
+        user_id = str(payload["user"]["id"])
+        access_token = str(payload["access_token"])
+    return user_id, access_token
 
 
 def assert_no_residual_personal_data(user_id: str, profile_ids: list[str]) -> None:
@@ -89,19 +146,24 @@ def run() -> None:
     email = f"smoke-{uuid4().hex[:10]}@hiair.app"
     password = "StrongPass123!"
 
-    signup = client.post("/api/auth/signup", json={"email": email, "password": password})
-    assert signup.status_code == 200, signup.text
-    access_token = signup.json()["access_token"]
+    if _use_supabase_smoke_auth:
+        smoke_user_id, access_token = supabase_smoke_create_session(email, password)
+    else:
+        signup = client.post("/api/auth/signup", json={"email": email, "password": password})
+        assert signup.status_code == 200, signup.text
+        smoke_user_id = signup.json()["user_id"]
+        access_token = signup.json()["access_token"]
+
+        login = client.post("/api/auth/login", json={"email": email, "password": password})
+        assert login.status_code == 200, login.text
+        assert "access_token" in login.json()
+
     auth_headers = {"Authorization": f"Bearer {access_token}"}
     ops_headers = (
         {"X-Admin-Token": settings.notification_admin_token}
         if settings.notification_admin_token
         else {}
     )
-
-    login = client.post("/api/auth/login", json={"email": email, "password": password})
-    assert login.status_code == 200, login.text
-    assert "access_token" in login.json()
 
     profile = client.post(
         "/api/profiles",
@@ -175,7 +237,7 @@ def run() -> None:
         "id": f"evt_{uuid4().hex}",
         "type": "subscription.renewed",
         "data": {
-            "user_id": signup.json()["user_id"],
+            "user_id": smoke_user_id,
             "provider_subscription_id": f"stub_{uuid4().hex}",
             "plan_id": "basic_monthly",
             "status": "active",
@@ -337,12 +399,19 @@ def run() -> None:
     assert metrics.status_code == 200, metrics.text
     assert "total_requests" in metrics.json()
 
-    intruder_signup = client.post(
-        "/api/auth/signup",
-        json={"email": f"intruder-{uuid4().hex[:10]}@hiair.app", "password": password},
-    )
-    assert intruder_signup.status_code == 200, intruder_signup.text
-    intruder_headers = {"Authorization": f"Bearer {intruder_signup.json()['access_token']}"}
+    if _use_supabase_smoke_auth:
+        _, intruder_token = supabase_smoke_create_session(
+            f"intruder-{uuid4().hex[:10]}@hiair.app",
+            password,
+        )
+        intruder_headers = {"Authorization": f"Bearer {intruder_token}"}
+    else:
+        intruder_signup = client.post(
+            "/api/auth/signup",
+            json={"email": f"intruder-{uuid4().hex[:10]}@hiair.app", "password": password},
+        )
+        assert intruder_signup.status_code == 200, intruder_signup.text
+        intruder_headers = {"Authorization": f"Bearer {intruder_signup.json()['access_token']}"}
     forbidden_history = client.get(
         "/api/risk/history",
         headers=intruder_headers,
@@ -352,7 +421,7 @@ def run() -> None:
 
     privacy_export = client.get("/api/privacy/export", headers=auth_headers)
     assert privacy_export.status_code == 200, privacy_export.text
-    assert privacy_export.json()["user_id"] == signup.json()["user_id"]
+    assert privacy_export.json()["user_id"] == smoke_user_id
     assert "profiles" in privacy_export.json()["data"]
 
     delete_account = client.post(
@@ -363,13 +432,18 @@ def run() -> None:
     assert delete_account.status_code == 200, delete_account.text
     assert delete_account.json()["deleted"] is True
 
-    assert_no_residual_personal_data(user_id=signup.json()["user_id"], profile_ids=profile_ids)
+    assert_no_residual_personal_data(user_id=smoke_user_id, profile_ids=profile_ids)
 
-    login_after_delete = client.post("/api/auth/login", json={"email": email, "password": password})
-    assert login_after_delete.status_code == 401, login_after_delete.text
+    if _use_supabase_smoke_auth:
+        me_after_delete = client.get("/api/auth/me", headers=auth_headers)
+        assert me_after_delete.status_code == 200, me_after_delete.text
+        assert me_after_delete.json().get("profile") is None
+    else:
+        login_after_delete = client.post("/api/auth/login", json={"email": email, "password": password})
+        assert login_after_delete.status_code == 401, login_after_delete.text
 
-    me_after_delete = client.get("/api/auth/me", headers=auth_headers)
-    assert me_after_delete.status_code == 401, me_after_delete.text
+        me_after_delete = client.get("/api/auth/me", headers=auth_headers)
+        assert me_after_delete.status_code == 401, me_after_delete.text
 
     print("DB smoke flow passed.")
 
