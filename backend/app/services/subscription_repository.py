@@ -342,7 +342,7 @@ def apply_provider_webhook_event(event: ProviderWebhookEvent) -> SubscriptionSta
                     provider_subscription_id, platform, provider, product_id,
                     original_transaction_id, purchase_token, last_verified_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                 ON CONFLICT (user_id) DO UPDATE SET
                     plan_id = EXCLUDED.plan_id,
                     status = EXCLUDED.status,
