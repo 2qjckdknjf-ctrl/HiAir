@@ -5,6 +5,7 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import com.hiair.health.WearableHealthHost
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.CheckBox
@@ -477,6 +478,14 @@ internal object SettingsScreenRenderer {
         val wearablesCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.wearables.title"))
             addView(V2Ui.styledSecondaryText(activity, rootShell.settingsViewModel.state.wearableStatus))
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
+                setOnClickListener {
+                    (activity as? WearableHealthHost)?.requestWearableConnect {
+                        rootShell.settingsViewModel.refreshWearableStatus()
+                        ctx.rerender()
+                    }
+                }
+            })
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
                 setOnClickListener {
                     rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
@@ -503,6 +512,7 @@ internal object SettingsScreenRenderer {
             })
         }
         bodyContainer.addView(wearablesCard)
+        rootShell.settingsViewModel.refreshWearableStatus()
 
         val securityCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))

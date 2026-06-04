@@ -16,7 +16,6 @@ import com.hiair.network.AppConfig
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import org.json.JSONObject
 
 enum class WearableConnectionState {
@@ -32,11 +31,17 @@ enum class WearableConnectionState {
 class HealthConnectService(private val context: Context) {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
 
-    private val permissions = setOf(
+    val readPermissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(RestingHeartRateRecord::class),
     )
+
+    suspend fun hasAllPermissions(): Boolean {
+        if (!isHealthConnectAvailable()) return false
+        val client = HealthConnectClient.getOrCreate(context)
+        return client.permissionController.getGrantedPermissions().containsAll(readPermissions)
+    }
 
     fun isHealthConnectAvailable(): Boolean {
         return HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
@@ -51,10 +56,7 @@ class HealthConnectService(private val context: Context) {
     }
 
     suspend fun requestPermissions(activity: androidx.activity.ComponentActivity): Boolean {
-        if (!isHealthConnectAvailable()) return false
-        val client = HealthConnectClient.getOrCreate(context)
-        val granted = client.permissionController.getGrantedPermissions()
-        return granted.containsAll(permissions)
+        return hasAllPermissions()
     }
 
     suspend fun fetchTodaySteps(): Long? {

@@ -17,6 +17,8 @@
 - StepsRecord aggregate API (no double counting)
 - HeartRateRecord + RestingHeartRateRecord summaries
 - Sync daily aggregates to backend when consent active
+- `WearableHealthController` — Health Connect permission launcher via `PermissionController.createRequestPermissionResultContract()`
+- `WearableHealthHost` — connect/sync from dashboard and settings
 
 ## States
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-04  
 **Branch:** `feature/wearable-activity-insights-v1`  
-**Status:** Implementation complete — pending device QA + migration apply on Supabase prod
+**Status:** Implementation complete — migration applied on Supabase prod; Android Health Connect permission flow wired.
 
 ## 1. Executive Summary
 

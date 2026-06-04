@@ -2,6 +2,8 @@
 
 **Migration:** `backend/sql/014_wearable_activity.sql`
 
+**Status:** Applied on `hiair-prod` (`qhxesaemlhzwbunpqjoo`) via Supabase migration `014_wearable_activity` on 2026-06-04.
+
 ## Tables Added
 
 | Table | Purpose |

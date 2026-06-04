@@ -18,11 +18,14 @@ import com.hiair.ui.design.Tokens
 import com.hiair.network.ApiClient
 import com.hiair.network.SupabaseAuthService
 import com.hiair.billing.SubscriptionPaywallController
+import com.hiair.health.HealthConnectService
+import com.hiair.health.WearableHealthController
+import com.hiair.health.WearableHealthHost
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
-class AppMainActivity : AppCompatActivity() {
+class AppMainActivity : AppCompatActivity(), WearableHealthHost {
     private val rootShell = RootShellViewModel()
     private lateinit var sessionStore: SessionStore
     private lateinit var titleView: TextView
@@ -35,10 +38,14 @@ class AppMainActivity : AppCompatActivity() {
     private lateinit var symptomsButton: Button
     private lateinit var settingsButton: Button
     private lateinit var supabaseAuth: SupabaseAuthService
+    private lateinit var healthConnectService: HealthConnectService
+    private lateinit var wearableHealthController: WearableHealthController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
+        healthConnectService = HealthConnectService(this)
+        wearableHealthController = WearableHealthController(this, healthConnectService)
         supabaseAuth = SupabaseAuthService(this, sessionStore)
         rootShell.settingsViewModel.configureSupabaseAuth(supabaseAuth)
         restoreSession()
@@ -240,6 +247,23 @@ class AppMainActivity : AppCompatActivity() {
     }
 
     private fun dp(value: Int): Int = V2Ui.dp(this, value)
+
+    override fun requestWearableConnect(onComplete: () -> Unit) {
+        val state = rootShell.settingsViewModel.state
+        wearableHealthController.requestConnect(
+            userId = state.userId,
+            accessToken = state.accessToken.ifBlank { null },
+            onComplete = onComplete,
+        )
+    }
+
+    override fun syncWearablesIfPermitted() {
+        val state = rootShell.settingsViewModel.state
+        wearableHealthController.syncIfPermitted(
+            userId = state.userId,
+            accessToken = state.accessToken.ifBlank { null },
+        )
+    }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
