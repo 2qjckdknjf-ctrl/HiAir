@@ -13,9 +13,9 @@ Team ID (уже в репо): `43A4KW5BKB`
 | Требование | Где проверить |
 |---|---|
 | Apple Developer Program (оплачен) | https://developer.apple.com/account |
-| Mac + Xcode 15+ | `xcodebuild -version` |
+| Mac + Xcode **26+** (загрузка в ASC с апр. 2026) или **Xcode Cloud** | `xcodebuild -version`; см. `docs/release/XCODE_CLOUD_SETUP.md` |
 | Доступ к App Store Connect | https://appstoreconnect.apple.com |
-| Backend/Supabase для Release | `INFOPLIST_KEY_API_BASE_URL` = `https://api.hiair.app` (или staging URL) |
+| Backend/Supabase для Release | `INFOPLIST_KEY_API_BASE_URL` = `https://api.hiair.io` (или staging URL) |
 
 Локально уже есть **Apple Development** сертификат — этого достаточно для разработки; для TestFlight нужен **App Store distribution** (Xcode создаст автоматически при Upload).
 
