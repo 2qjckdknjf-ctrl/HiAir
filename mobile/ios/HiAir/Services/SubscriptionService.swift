@@ -1,6 +1,10 @@
 import Foundation
 import StoreKit
 
+extension Notification.Name {
+    static let subscriptionEntitlementDidUpdate = Notification.Name("SubscriptionService.entitlementDidUpdate")
+}
+
 @MainActor
 final class SubscriptionService: ObservableObject {
     static let shared = SubscriptionService()
@@ -80,6 +84,26 @@ final class SubscriptionService: ObservableObject {
     private func listenForTransactionUpdates() async {
         for await update in Transaction.updates {
             guard case .verified(let transaction) = update else { continue }
+            guard let auth = APIClient.getAuthState() else { continue }
+            do {
+                let signed = try signedTransactionString(from: update)
+                let status = try await apiClient.verifyIosSubscription(
+                    userId: auth.userId,
+                    signedTransaction: signed,
+                    productId: transaction.productID,
+                    accessToken: auth.accessToken
+                )
+                NotificationCenter.default.post(
+                    name: .subscriptionEntitlementDidUpdate,
+                    object: status.entitlement
+                )
+            } catch {
+                if let apiError = error as? APIError {
+                    lastError = userFacingMessage(for: apiError)
+                } else {
+                    lastError = error.localizedDescription
+                }
+            }
             await transaction.finish()
         }
     }
@@ -87,10 +111,25 @@ final class SubscriptionService: ObservableObject {
     private func signedTransactionString(from verification: VerificationResult<Transaction>) throws -> String {
         switch verification {
         case .verified(let transaction):
+            if let jws = appleSignedPayload(from: verification) {
+                return jws
+            }
             return buildStubJws(for: transaction)
         case .unverified(_, let error):
             throw error
         }
+    }
+
+    /// StoreKit-signed JWS when available (sandbox/production); falls back to stub token for older runtimes.
+    private func appleSignedPayload(from verification: VerificationResult<Transaction>) -> String? {
+        guard case .verified = verification else { return nil }
+        let mirror = Mirror(reflecting: verification)
+        for child in mirror.children {
+            if child.label == "jwsRepresentation", let jws = child.value as? String, !jws.isEmpty {
+                return jws
+            }
+        }
+        return nil
     }
 
     /// Backend stub verifier accepts a minimal JWS-shaped token with transaction metadata.

@@ -24,6 +24,19 @@
 - Backend verifies StoreKit transactions at `POST /api/subscriptions/ios/verify`
 - Privacy: https://hiair.io/privacy/ — Terms: https://hiair.io/terms/
 
+## Bootstrap (API)
+
+If products are missing in App Store Connect:
+
+```bash
+cd backend && .venv/bin/python ../scripts/ops/bootstrap_app_store_subscriptions.py
+.venv/bin/python ../scripts/ops/check_app_store_iap.py
+```
+
+Requires `backend/.secrets/AuthKey_VCL6R84SP3.p8` and `apple_issuer_id`.
+
+After bootstrap, open App Store Connect → **Subscriptions** → each product → set **Subscription Prices** (USA baseline propagates to other territories) if API pricing returns 409. Then link products to the TestFlight app version under **In-App Purchases**.
+
 ## Sandbox testing
 
 1. Create Sandbox tester in App Store Connect → Users and Access → Sandbox

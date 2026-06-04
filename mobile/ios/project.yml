@@ -23,7 +23,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
         SWIFT_VERSION: 5.0
-        CURRENT_PROJECT_VERSION: 8
+        CURRENT_PROJECT_VERSION: 9
         MARKETING_VERSION: 0.1.0
         INFOPLIST_KEY_CFBundleDisplayName: HiAir
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
@@ -39,6 +39,8 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
           HiAir uses your location to estimate heat and air-quality risk for your area and personalize local guidance.
+        INFOPLIST_KEY_NSHealthShareUsageDescription: >-
+          HiAir reads steps and heart rate to estimate personal activity load during heat and poor air quality. HiAir provides wellness guidance, not medical diagnosis.
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
@@ -67,3 +69,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app.tests
         SWIFT_VERSION: 5.0
+schemes:
+  HiAir:
+    build:
+      targets:
+        HiAir: all
+    run:
+      config: Debug
+      storeKitConfiguration: HiAir/Configuration/HiAirPremium.storekit
