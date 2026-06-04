@@ -29,9 +29,25 @@ Auth → Providers → Google:
 Auth → Providers → Apple:
 
 1. **Enable** Apple (if disabled, native Sign in with Apple fails at Supabase).
-2. Configure Services ID `com.hiair.app.auth`, team ID `43A4KW5BKB`, key ID, and Sign in with Apple `.p8` from Apple Developer (not the App Store Connect API key).
-3. Return URL in Apple must include:
+2. **Client IDs** (comma-separated): `com.hiair.app,com.hiair.app.auth`
+3. **Secret Key**: JWT generated from `AuthKey_8BXW8SG2B4.p8` (not the raw `.p8` file).
+4. Apple Developer: Services ID `com.hiair.app.auth`, Team `43A4KW5BKB`, Key ID `8BXW8SG2B4`.
+5. Return URL in Apple must include:
    - `https://qhxesaemlhzwbunpqjoo.supabase.co/auth/v1/callback`
+
+Automated setup (requires [account PAT](https://supabase.com/dashboard/account/tokens), not service_role JWT):
+
+```bash
+# Key stored at backend/.secrets/AuthKey_8BXW8SG2B4.p8
+python3 scripts/ops/configure_supabase_apple_provider.py
+```
+
+Dry-run / dashboard paste only:
+
+```bash
+python3 scripts/ops/configure_supabase_apple_provider.py --dry-run
+# Secret written to backend/.secrets/apple_signin_client_secret.jwt
+```
 
 ## 3b) Telegram
 
