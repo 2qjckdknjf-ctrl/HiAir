@@ -2,10 +2,11 @@
 
 ## Deployment
 
-- [ ] Production workflow configured: `.github/workflows/backend-deploy-production.yml`
-- [ ] `HIAIR_DEPLOY_COMMAND` secret configured in production environment
-- [ ] `HIAIR_ROLLBACK_COMMAND` secret configured in production environment
-- [ ] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN` configured
+- [x] Production workflow configured: `.github/workflows/backend-deploy-production.yml`
+- [x] Staging deploy gate validated (GitHub Actions run `26935252617`, 2026-06-04)
+- [x] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN`, `OPENAI_*`, `SUPABASE_*` in GitHub staging + production
+- [ ] `HIAIR_DEPLOY_COMMAND` secret — **blocked on hosting choice** (repo has no Fly/Render/Dockerfile; gate runs verification-only until set)
+- [ ] `HIAIR_ROLLBACK_COMMAND` secret — set with deploy command
 
 ## Observability
 
@@ -22,8 +23,15 @@
 
 - [ ] Backup schedule documented and active
 - [ ] Restore drill executed successfully
-- [ ] Migration rollout tested on staging with current schema
+- [x] Migration rollout tested on staging with current schema (Supabase `hiair-prod`, through `011_supabase_auth_user_fk_fixup`)
 - [ ] Rollback strategy validated (app rollback + DB policy)
+
+## AI / LLM Ops
+
+- [x] `OPENAI_API_KEY` + `OPENAI_MODEL` in GitHub staging/production
+- [x] Staging deploy smoke asserts `explanationSource=llm` when key set
+- [x] `check_ai_connection.py --require-live` passes on staging deploy
+- [x] Rate limits and token caps configured (`OPENAI_RATE_LIMIT_PER_MINUTE`, `OPENAI_MAX_TOKENS`)
 
 ## Release Governance
 

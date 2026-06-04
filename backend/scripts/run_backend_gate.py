@@ -74,6 +74,16 @@ def main() -> int:
     else:
         print("[INFO] --skip-tests enabled: skipping pytest.")
 
+    if not args.skip_db:
+        commands.extend(
+            [
+                [python_exe, "scripts/init_db.py"],
+                [python_exe, "scripts/retention_cleanup.py", "--dry-run"],
+            ]
+        )
+    else:
+        print("[INFO] --skip-db enabled: skipping init_db and retention dry-run.")
+
     if not args.skip_ai_check:
         ai_check_cmd = [python_exe, "scripts/check_ai_connection.py", "--skip-if-unconfigured"]
         if args.require_ai_live:
@@ -84,20 +94,10 @@ def main() -> int:
 
     commands.extend(
         [
-        [python_exe, "scripts/check_env_security.py", "--strict"],
-        [python_exe, "scripts/validate_risk_historical.py"],
+            [python_exe, "scripts/check_env_security.py", "--strict"],
+            [python_exe, "scripts/validate_risk_historical.py"],
         ]
     )
-
-    if not args.skip_db:
-        commands.extend(
-            [
-                [python_exe, "scripts/init_db.py"],
-                [python_exe, "scripts/retention_cleanup.py", "--dry-run"],
-            ]
-        )
-    else:
-        print("[INFO] --skip-db enabled: skipping init_db and retention dry-run.")
 
     if not args.skip_smoke and not args.skip_db:
         commands.append([python_exe, "scripts/smoke_db_flow.py"])

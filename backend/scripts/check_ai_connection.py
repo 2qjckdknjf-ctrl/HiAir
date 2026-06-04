@@ -43,6 +43,10 @@ def main() -> int:
     print(f"provider_configured: {bool(settings.openai_api_key.strip())}")
     print(f"expected_runtime_mode: {'live_llm' if settings.openai_api_key.strip() else 'template_fallback'}")
 
+    if not settings.openai_api_key.strip() and args.skip_if_unconfigured:
+        print("verdict: SKIP — OPENAI_API_KEY not configured.")
+        return 0
+
     try:
         summary = ai_event_summary(hours=args.hours)
     except Exception as exc:
