@@ -12,6 +12,7 @@ SUPABASE_AUTH_MIGRATIONS = {
     "010_public_tables_rls_lockdown.sql",
     "011_supabase_auth_user_fk_fixup.sql",
     "013_supabase_entitlements_auth_user_fk.sql",
+    "014_wearable_activity.sql",
 }
 
 
