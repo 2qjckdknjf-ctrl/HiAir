@@ -49,7 +49,9 @@ jobs:
       - name: Pre-deploy gate
         working-directory: backend
         run: |
-          python scripts/run_backend_gate.py --skip-smoke
+          python -m compileall app scripts
+          python scripts/check_env_security.py --strict
+          python scripts/validate_risk_historical.py
 
       - name: Deploy to production
         run: |
