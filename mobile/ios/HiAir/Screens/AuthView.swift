@@ -5,10 +5,18 @@ final class AuthViewModel: ObservableObject {
     @Published var email = ""
     @Published var password = ""
     @Published var loading = false
-    @Published var statusText = "-"
+    @Published var statusText = ""
+    @Published var statusIsError = false
 
     private let supabaseAuth = SupabaseAuthService.shared
     private let apiClient = APIClient.live()
+
+    func resetForDisplay() {
+        loading = false
+        if statusText == "-" {
+            statusText = ""
+        }
+    }
 
     func signup(session: AppSession) async {
         await authenticate(session: session, mode: "signup")
@@ -19,61 +27,66 @@ final class AuthViewModel: ObservableObject {
     }
 
     private func authenticate(session: AppSession, mode: String) async {
-        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalizedEmail.isEmpty else {
-            statusText = session.l("auth.enter_email")
+            showError(session.l("auth.enter_email"), session: session)
             return
         }
         guard password.count >= 12 else {
-            statusText = session.l("auth.password_short")
+            showError(session.l("auth.password_short"), session: session)
             return
         }
+
         loading = true
+        statusIsError = false
+        statusText = session.l("auth.working")
         defer { loading = false }
 
         do {
-            if let bridged = try await emailBridgeSession(
+            let authSession = try await resolveEmailSession(
                 email: normalizedEmail,
                 password: password,
-                signup: mode == "signup"
-            ) {
-                applyAuthSession(bridged, session: session)
-                statusText = session.l("auth.ok")
-                return
-            }
-
-            if mode == "signup" {
-                switch try await supabaseAuth.signUp(email: normalizedEmail, password: password) {
-                case .session(let authSession):
-                    applyAuthSession(authSession, session: session)
-                    statusText = session.l("auth.ok")
-                case .emailConfirmationRequired(let confirmedEmail):
-                    if let bridged = try await emailBridgeSession(
-                        email: normalizedEmail,
-                        password: password,
-                        signup: true
-                    ) {
-                        applyAuthSession(bridged, session: session)
-                        statusText = session.l("auth.ok")
-                    } else {
-                        session.authNotice = String(format: session.l("auth.confirm_email"), confirmedEmail)
-                        statusText = session.l("auth.confirm_email_short")
-                    }
-                }
-            } else {
-                let authSession = try await supabaseAuth.signIn(email: normalizedEmail, password: password)
-                applyAuthSession(authSession, session: session)
-                statusText = session.l("auth.ok")
-            }
+                signup: mode == "signup",
+                session: session
+            )
+            completeSignIn(authSession, session: session)
         } catch is URLError {
-            statusText = session.l("auth.backend_unreachable")
+            showError(session.l("auth.backend_unreachable"), session: session)
         } catch let apiError as APIError {
-            statusText = apiErrorMessage(apiError, session: session)
+            showError(apiErrorMessage(apiError, session: session), session: session)
         } catch let failure as SupabaseAuthFailure {
-            statusText = failure.message
+            showError(failure.message, session: session)
+        } catch AuthFlowError.confirmationRequired {
+            showError(session.l("auth.confirm_email_short"), session: session)
         } catch {
-            statusText = session.l("auth.fail")
+            showError(session.l("auth.fail"), session: session)
         }
+    }
+
+    private func resolveEmailSession(
+        email: String,
+        password: String,
+        signup: Bool,
+        session: AppSession
+    ) async throws -> SupabaseAuthSession {
+        if let bridged = try await emailBridgeSession(email: email, password: password, signup: signup) {
+            return bridged
+        }
+
+        if signup {
+            switch try await supabaseAuth.signUp(email: email, password: password) {
+            case .session(let authSession):
+                return authSession
+            case .emailConfirmationRequired(let confirmedEmail):
+                if let bridged = try await emailBridgeSession(email: email, password: password, signup: true) {
+                    return bridged
+                }
+                session.authNotice = String(format: session.l("auth.confirm_email"), confirmedEmail)
+                throw AuthFlowError.confirmationRequired
+            }
+        }
+
+        return try await supabaseAuth.signIn(email: email, password: password)
     }
 
     private func emailBridgeSession(
@@ -87,7 +100,12 @@ final class AuthViewModel: ObservableObject {
                 password: password,
                 signup: signup
             )
-            guard let refresh = response.refreshToken, !refresh.isEmpty else { return nil }
+            guard let refresh = response.refreshToken, !refresh.isEmpty else {
+                return nil
+            }
+            guard !response.userId.isEmpty, !response.accessToken.isEmpty else {
+                return nil
+            }
             return SupabaseAuthSession(
                 userId: response.userId,
                 email: email,
@@ -105,6 +123,23 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    private func completeSignIn(_ authSession: SupabaseAuthSession, session: AppSession) {
+        session.installAuthSession(authSession)
+        supabaseAuth.adoptSession(authSession)
+        session.authNotice = ""
+        statusIsError = false
+        statusText = session.l("auth.ok")
+        Task {
+            _ = await session.ensureProfileIdIfNeeded()
+        }
+    }
+
+    private func showError(_ message: String, session: AppSession) {
+        statusIsError = true
+        statusText = message
+        session.authNotice = message
+    }
+
     private func apiErrorMessage(_ error: APIError, session: AppSession) -> String {
         switch error {
         case .serverWithDetail(let code, let detail) where !detail.isEmpty:
@@ -120,56 +155,48 @@ final class AuthViewModel: ObservableObject {
                 return session.l("auth.bridge_unreachable")
             }
             return String(format: session.l("auth.server_error"), code)
+        case .invalidResponse:
+            return session.l("auth.bad_response")
         default:
             return session.l("auth.fail")
         }
     }
 
-    private func applyAuthSession(_ authSession: SupabaseAuthSession, session: AppSession) {
-        supabaseAuth.adoptSession(authSession)
-        session.userId = authSession.userId
-        session.email = authSession.email
-        session.accessToken = authSession.accessToken
-        session.refreshToken = authSession.refreshToken
-        session.authNotice = ""
-        Task {
-            let hasProfile = await session.ensureProfileIdIfNeeded()
-            if hasProfile {
-                session.markChecklistItem("profile", done: true)
-            }
-        }
-    }
-
     func signInWithApple(session: AppSession) async {
         loading = true
+        statusIsError = false
+        statusText = session.l("auth.working")
         defer { loading = false }
         do {
             let authSession = try await supabaseAuth.signInWithApple()
-            applyAuthSession(authSession, session: session)
-            statusText = session.l("auth.ok")
+            completeSignIn(authSession, session: session)
         } catch AppleSignInError.cancelled {
+            statusIsError = false
             statusText = session.l("auth.cancelled")
         } catch is AppleSignInError {
-            statusText = session.l("auth.fail")
+            showError(session.l("auth.fail"), session: session)
         } catch let failure as SupabaseAuthFailure {
-            statusText = oauthFailureMessage(failure.message, provider: "Apple", session: session)
+            showError(oauthFailureMessage(failure.message, provider: "Apple", session: session), session: session)
         } catch is URLError {
-            statusText = session.l("auth.backend_unreachable")
+            showError(session.l("auth.backend_unreachable"), session: session)
         } catch {
-            statusText = session.l("auth.fail")
+            showError(session.l("auth.fail"), session: session)
         }
     }
 
     func signInWithGoogle(session: AppSession) async {
         loading = true
+        statusIsError = false
+        statusText = session.l("auth.working")
         defer { loading = false }
         do {
             try await supabaseAuth.signInWithGoogle()
+            statusIsError = false
             statusText = session.l("auth.oauth_continue")
         } catch let failure as SupabaseAuthFailure {
-            statusText = oauthFailureMessage(failure.message, provider: "Google", session: session)
+            showError(oauthFailureMessage(failure.message, provider: "Google", session: session), session: session)
         } catch {
-            statusText = session.l("auth.fail")
+            showError(session.l("auth.fail"), session: session)
         }
     }
 
@@ -185,6 +212,10 @@ final class AuthViewModel: ObservableObject {
     }
 }
 
+private enum AuthFlowError: Error {
+    case confirmationRequired
+}
+
 @MainActor
 struct AuthView: View {
     @EnvironmentObject var session: AppSession
@@ -192,80 +223,121 @@ struct AuthView: View {
 
     var body: some View {
         HiAirAdaptiveLayout { width, _ in
-            ScrollView {
-                VStack(spacing: HiAirSpacing.md) {
-                    HiAirBrandHeader(
-                        title: "HiAir",
-                        subtitle: session.l("brand.tagline"),
-                        showOrb: true,
-                        orbSize: min(HiAirScreenMetrics.heroOrbSize(for: width), 120)
-                    )
-                    .padding(.top, HiAirSpacing.sm)
+            ZStack {
+                ScrollView {
+                    VStack(spacing: HiAirSpacing.md) {
+                        HiAirBrandHeader(
+                            title: "HiAir",
+                            subtitle: session.l("brand.tagline"),
+                            showOrb: true,
+                            orbSize: min(HiAirScreenMetrics.heroOrbSize(for: width), 120)
+                        )
+                        .padding(.top, HiAirSpacing.sm)
 
-                    Text(session.l("auth.title"))
-                        .font(HiAirTypography.titleMD)
-                        .foregroundStyle(HiAirColors.Text.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(session.l("auth.title"))
+                            .font(HiAirTypography.titleMD)
+                            .foregroundStyle(HiAirColors.Text.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    HiAirGlassCard {
-                        VStack(spacing: 12) {
-                            TextField(session.l("auth.email"), text: $viewModel.email)
-                                .textInputAutocapitalization(.never)
-                                .keyboardType(.emailAddress)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .hiAirInputSurface()
-                                .foregroundStyle(HiAirV2Theme.primaryText)
+                        HiAirGlassCard {
+                            VStack(spacing: 12) {
+                                TextField(session.l("auth.email"), text: $viewModel.email)
+                                    .textInputAutocapitalization(.never)
+                                    .keyboardType(.emailAddress)
+                                    .textContentType(.username)
+                                    .autocorrectionDisabled()
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .hiAirInputSurface()
+                                    .foregroundStyle(HiAirV2Theme.primaryText)
 
-                            SecureField(session.l("auth.password"), text: $viewModel.password)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .hiAirInputSurface()
-                                .foregroundStyle(HiAirV2Theme.primaryText)
+                                SecureField(session.l("auth.password"), text: $viewModel.password)
+                                    .textContentType(.password)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .hiAirInputSurface()
+                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                            }
+                        }
+
+                        Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
+                            Task { @MainActor in
+                                await viewModel.signup(session: session)
+                            }
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                        .disabled(viewModel.loading)
+
+                        Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
+                            Task { @MainActor in
+                                await viewModel.login(session: session)
+                            }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .disabled(viewModel.loading)
+
+                        Button("Sign in with Apple") {
+                            Task { @MainActor in
+                                await viewModel.signInWithApple(session: session)
+                            }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .disabled(viewModel.loading)
+
+                        Button("Sign in with Google") {
+                            Task { @MainActor in
+                                await viewModel.signInWithGoogle(session: session)
+                            }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .disabled(viewModel.loading)
+
+                        if !viewModel.statusText.isEmpty {
+                            Text(viewModel.statusText)
+                                .font(HiAirTypography.bodyMD)
+                                .foregroundStyle(
+                                    viewModel.statusIsError
+                                        ? HiAirColors.Feedback.errorSoft
+                                        : HiAirV2Theme.primaryText
+                                )
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: HiAirRadius.md)
+                                        .fill(
+                                            viewModel.statusIsError
+                                                ? HiAirColors.Feedback.errorSoft.opacity(0.12)
+                                                : HiAirColors.Cta.gradientStart.opacity(0.12)
+                                        )
+                                )
                         }
                     }
-
-                    Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
-                        Task { await viewModel.signup(session: session) }
-                    }
-                    .buttonStyle(HiAirGradientButtonStyle())
-                    .disabled(viewModel.loading)
-
-                    Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
-                        Task { await viewModel.login(session: session) }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    .disabled(viewModel.loading)
-
-                    Button("Sign in with Apple") {
-                        Task { await viewModel.signInWithApple(session: session) }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    .disabled(viewModel.loading)
-
-                    Button("Sign in with Google") {
-                        Task { await viewModel.signInWithGoogle(session: session) }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    .disabled(viewModel.loading)
-
-                    if !session.authNotice.isEmpty {
-                        Text(session.authNotice)
-                            .font(HiAirTypography.caption)
-                            .foregroundStyle(HiAirColors.Feedback.errorSoft)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Text(viewModel.statusText)
-                        .font(HiAirTypography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .hiAirContentWidth(for: width)
+                    .hiAirScreenPadding(for: width)
+                    .padding(.bottom, HiAirSpacing.xl)
                 }
-                .hiAirContentWidth(for: width)
-                .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+
+                if viewModel.loading {
+                    Color.black.opacity(0.25)
+                        .ignoresSafeArea()
+                    VStack(spacing: HiAirSpacing.sm) {
+                        ProgressView()
+                            .tint(HiAirColors.Cta.gradientStart)
+                        Text(session.l("auth.working"))
+                            .font(HiAirTypography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                    }
+                    .padding(HiAirSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: HiAirRadius.md)
+                            .fill(TimeOfDayBackground.surfaceSecondary().opacity(0.95))
+                    )
+                }
             }
         }
         .hiAirPageBackground()
+        .onAppear {
+            viewModel.resetForDisplay()
+        }
     }
 }

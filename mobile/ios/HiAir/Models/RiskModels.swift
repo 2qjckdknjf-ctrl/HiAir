@@ -443,6 +443,22 @@ struct AuthResponse: Codable {
         case refreshToken = "refresh_token"
         case tokenType = "token_type"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try container.decode(String.self, forKey: .userId)
+        accessToken = try container.decode(String.self, forKey: .accessToken)
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
+        tokenType = try container.decodeIfPresent(String.self, forKey: .tokenType) ?? "bearer"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(accessToken, forKey: .accessToken)
+        try container.encodeIfPresent(refreshToken, forKey: .refreshToken)
+        try container.encode(tokenType, forKey: .tokenType)
+    }
 }
 
 struct UserProfile: Codable {

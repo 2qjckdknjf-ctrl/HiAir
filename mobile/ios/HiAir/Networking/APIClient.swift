@@ -440,8 +440,19 @@ final class APIClient {
         self.session = session
     }
 
-    static func live(session: URLSession = .shared) -> APIClient {
-        APIClient(baseURL: resolveBaseURL(), session: session)
+    static func configuredURLSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        configuration.waitsForConnectivity = true
+        return URLSession(configuration: configuration)
+    }
+
+    static func live(session: URLSession? = nil) -> APIClient {
+        APIClient(
+            baseURL: resolveBaseURL(),
+            session: session ?? configuredURLSession()
+        )
     }
 
     static func setAuthState(_ state: AuthState?) {

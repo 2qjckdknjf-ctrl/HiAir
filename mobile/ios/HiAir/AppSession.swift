@@ -150,6 +150,15 @@ final class AppSession: ObservableObject {
         checklistHidden = false
     }
 
+    /// Apply Supabase tokens in one shot so `persist()` does not clear API auth mid-update.
+    func installAuthSession(_ auth: SupabaseAuthSession) {
+        userId = auth.userId
+        email = auth.email
+        accessToken = auth.accessToken
+        refreshToken = auth.refreshToken
+        authNotice = ""
+    }
+
     func applyEntitlement(_ entitlement: UserEntitlementResponse?) {
         isPremium = entitlement?.isPremium ?? false
     }
@@ -334,6 +343,8 @@ enum HiAirL10n {
             "auth.oauth_not_configured": "Вход через %@ пока не настроен на сервере. Используйте email и пароль или обновите приложение позже.",
             "auth.rate_limited": "Слишком много попыток. Подождите 15 минут и повторите вход.",
             "auth.bridge_unreachable": "Сервер авторизации временно недоступен. Повторите через минуту.",
+            "auth.working": "Подключаемся к серверу…",
+            "auth.bad_response": "Некорректный ответ сервера. Обновите приложение или повторите позже.",
             "onboarding.title": "Онбординг HiAir",
             "onboarding.persona": "Профиль",
             "onboarding.sensitivity": "Чувствительность",
@@ -737,6 +748,8 @@ enum HiAirL10n {
             "auth.oauth_not_configured": "Sign in with %@ is not configured yet. Use email and password instead.",
             "auth.rate_limited": "Too many attempts. Wait 15 minutes and try again.",
             "auth.bridge_unreachable": "Auth server is temporarily unavailable. Try again in a minute.",
+            "auth.working": "Connecting to the server…",
+            "auth.bad_response": "Unexpected server response. Update the app or try again later.",
             "onboarding.title": "HiAir Onboarding",
             "onboarding.persona": "Persona",
             "onboarding.sensitivity": "Sensitivity",
