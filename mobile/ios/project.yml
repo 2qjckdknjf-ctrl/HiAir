@@ -35,6 +35,8 @@ targets:
           - CFBundleURLName: com.hiair.app.auth
             CFBundleURLSchemes:
               - hiair
+        # Export compliance: HTTPS/TLS only (exempt); skips ASC encryption questionnaire.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
@@ -45,7 +47,7 @@ targets:
           INFOPLIST_KEY_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
           INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
         Release:
-          INFOPLIST_KEY_API_BASE_URL: https://api.hiair.app
+          INFOPLIST_KEY_API_BASE_URL: https://api.hiair.io
           INFOPLIST_KEY_SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
           INFOPLIST_KEY_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
           INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
