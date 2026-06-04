@@ -27,9 +27,9 @@
 
 ## Parity Notes
 
-- Android has no full onboarding flow; consent via dashboard/settings
-- Permission request contract should be wired in `AppMainActivity` for production v1.1
+- Android onboarding flow still minimal; connect available from dashboard/settings
+- compileSdk/targetSdk bumped to 35 for Health Connect client compatibility
 
 ## Tests
 
-Unit tests not added for Health Connect (requires device with HC installed). Manual QA checklist covers Android paths.
+- `DashboardWearableParsingTest` — wearable API JSON parsing (unit)
