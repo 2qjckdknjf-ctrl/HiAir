@@ -41,8 +41,6 @@ targets:
           HiAir uses your location to estimate heat and air-quality risk for your area and personalize local guidance.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
           HiAir reads steps and heart rate to estimate personal activity load during heat and poor air quality. HiAir provides wellness guidance, not medical diagnosis.
-        INFOPLIST_KEY_NSHealthShareUsageDescription: >-
-          HiAir reads steps and heart rate to estimate personal activity load during heat and poor air quality. HiAir provides wellness guidance, not medical diagnosis.
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
