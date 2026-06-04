@@ -351,12 +351,12 @@ def _public_table_exists(cur, table_name: str) -> bool:
             FROM information_schema.tables
             WHERE table_schema = 'public'
               AND table_name = %s
-        )
+        ) AS table_exists
         """,
         (table_name,),
     )
     row = cur.fetchone()
-    return bool(row[0]) if row else False
+    return bool(row["table_exists"]) if row else False
 
 
 def _fetch_wearable_export_rows(
