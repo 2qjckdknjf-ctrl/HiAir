@@ -40,6 +40,10 @@ final class HealthKitService: ObservableObject {
         HKHealthStore.isHealthDataAvailable()
     }
 
+    func reportConnectionState(_ state: WearableConnectionState) {
+        connectionState = state
+    }
+
     func requestAuthorization() async -> Bool {
         guard isHealthDataAvailable() else {
             connectionState = .unavailable

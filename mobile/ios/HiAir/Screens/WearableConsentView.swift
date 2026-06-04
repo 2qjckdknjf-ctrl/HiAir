@@ -47,7 +47,7 @@ struct WearableConsentView: View {
         working = true
         defer { working = false }
         guard healthService.isHealthDataAvailable() else {
-            healthService.connectionState = .unavailable
+            healthService.reportConnectionState(.unavailable)
             onComplete?()
             if !fromOnboarding { dismiss() }
             return
@@ -59,7 +59,7 @@ struct WearableConsentView: View {
                 await healthService.syncWearableDailySummary(userId: session.userId, accessToken: session.accessToken)
                 await healthService.syncWearableHourlySummary(userId: session.userId, accessToken: session.accessToken)
             } catch {
-                healthService.connectionState = .syncFailed
+                healthService.reportConnectionState(.syncFailed)
             }
         }
         onComplete?()
