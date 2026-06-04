@@ -465,6 +465,7 @@
 				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your area and personalize local guidance.";
 				INFOPLIST_KEY_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw";
 				INFOPLIST_KEY_SUPABASE_URL = "https://qhxesaemlhzwbunpqjoo.supabase.co";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
