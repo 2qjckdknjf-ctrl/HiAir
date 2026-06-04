@@ -1186,6 +1186,89 @@ final class APIClient {
         }
         return .server(statusCode: statusCode)
     }
+
+    func saveWearableConsent(
+        userId: String,
+        accessToken: String? = nil,
+        payload: WearableConsentPayload
+    ) async throws -> WearableConsentResponse {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/wearables/consent"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(WearableConsentResponse.self, from: data)
+    }
+
+    func revokeWearableConsent(userId: String, accessToken: String? = nil) async throws -> WearableConsentResponse {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/wearables/consent"))
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(WearableConsentResponse.self, from: data)
+    }
+
+    func uploadWearableDailySummary(
+        userId: String,
+        accessToken: String? = nil,
+        payload: WearableDailySummaryPayload
+    ) async throws -> WearableDailySummaryResponse {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/wearables/daily-summary"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(WearableDailySummaryResponse.self, from: data)
+    }
+
+    func uploadWearableHourlySummary(
+        userId: String,
+        accessToken: String? = nil,
+        payload: WearableHourlySummaryPayload
+    ) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/wearables/hourly-summary"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    func fetchWearableToday(userId: String, accessToken: String? = nil) async throws -> WearableTodayResponse {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/wearables/today"))
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(WearableTodayResponse.self, from: data)
+    }
+
+    func deleteWearableData(userId: String, accessToken: String? = nil) async throws -> WearableDataDeleteResponse {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/wearables/data"))
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(WearableDataDeleteResponse.self, from: data)
+    }
 }
 
 // MARK: - Native Sign in with Apple

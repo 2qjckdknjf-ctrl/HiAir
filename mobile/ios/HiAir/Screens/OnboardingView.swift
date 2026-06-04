@@ -9,12 +9,13 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var personaSelection = "adult"
     @StateObject private var permissionCoordinator = OnboardingPermissionCoordinator()
+    @StateObject private var healthService = HealthKitService.shared
 
     init(fromSettings: Bool = false) {
         self.fromSettings = fromSettings
     }
 
-    private var isLastStep: Bool { step == 5 }
+    private var isLastStep: Bool { step == 6 }
     private var canGoBack: Bool { step > 0 }
 
     var body: some View {
@@ -47,6 +48,8 @@ struct OnboardingView: View {
                         onboardingWhatToWatch
                     case 4:
                         onboardingPermissions
+                    case 5:
+                        onboardingHealth
                     default:
                         onboardingDone
                     }
@@ -84,6 +87,9 @@ struct OnboardingView: View {
         if step == 4 {
             return session.l("onboarding.permissions.allow")
         }
+        if step == 5 {
+            return session.l("wearable.consent.skip")
+        }
         if isLastStep {
             return session.l("onboarding.open_forecast")
         }
@@ -93,6 +99,10 @@ struct OnboardingView: View {
     private func handlePrimaryAction() async {
         if step == 4 {
             await permissionCoordinator.requestAll()
+            step += 1
+            return
+        }
+        if step == 5 {
             step += 1
             return
         }
@@ -183,6 +193,30 @@ struct OnboardingView: View {
                 step += 1
             }
             .buttonStyle(HiAirSecondaryButtonStyle())
+        }
+    }
+
+    private var onboardingHealth: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(session.l("wearable.consent.title"))
+                .font(AuroraTokens.Typography.titleMD)
+                .foregroundStyle(HiAirV2Theme.primaryText)
+            Text(session.l("wearable.consent.body"))
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(session.l("wearable.consent.disclaimer"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+            Button(session.l("wearable.consent.connect")) {
+                Task {
+                    if await healthService.requestAuthorization() {
+                        try? await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
+                        await healthService.syncWearableDailySummary(userId: session.userId, accessToken: session.accessToken)
+                    }
+                    step += 1
+                }
+            }
+            .buttonStyle(HiAirGradientButtonStyle())
         }
     }
 

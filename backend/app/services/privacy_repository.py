@@ -274,6 +274,45 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 )
                 personal_correlations = cur.fetchall()
 
+            cur.execute(
+                """
+                SELECT id, platform, source, steps_enabled, heart_rate_enabled,
+                       resting_heart_rate_enabled, hrv_enabled, sleep_enabled,
+                       consent_version, accepted_at, revoked_at, created_at, updated_at
+                FROM health_data_consents
+                WHERE user_id = %s
+                ORDER BY updated_at DESC
+                """,
+                (user_id,),
+            )
+            health_consents = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT id, date, steps_total, steps_goal, heart_rate_avg, heart_rate_min,
+                       heart_rate_max, resting_heart_rate_avg, resting_heart_rate_delta,
+                       hrv_avg, sleep_minutes, source, created_at, updated_at
+                FROM wearable_daily_summaries
+                WHERE user_id = %s
+                ORDER BY date DESC
+                """,
+                (user_id,),
+            )
+            wearable_daily = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT id, hour_start, steps_total, heart_rate_avg, heart_rate_max,
+                       source, created_at
+                FROM wearable_hourly_summaries
+                WHERE user_id = %s
+                ORDER BY hour_start DESC
+                LIMIT 500
+                """,
+                (user_id,),
+            )
+            wearable_hourly = cur.fetchall()
+
             subscription_webhook_events: list[dict[str, Any]] = []
             if provider_subscription_id:
                 cur.execute(
@@ -305,6 +344,9 @@ def export_user_data(user_id: str) -> dict[str, Any]:
             delivery_attempts,
             refresh_tokens,
             subscription_webhook_events,
+            health_consents,
+            wearable_daily,
+            wearable_hourly,
         )
     ):
         raise ValueError("User not found")
@@ -330,6 +372,9 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "notification_delivery_attempts": _serialize_rows(delivery_attempts),
         "auth_refresh_tokens": _serialize_rows(refresh_tokens),
         "subscription_webhook_events": _serialize_rows(subscription_webhook_events),
+        "health_data_consents": _serialize_rows(health_consents),
+        "wearable_daily_summaries": _serialize_rows(wearable_daily),
+        "wearable_hourly_summaries": _serialize_rows(wearable_hourly),
     }
 
 
@@ -392,6 +437,9 @@ def delete_user_data(user_id: str) -> bool:
                         raise
 
             for table_name in (
+                "wearable_hourly_summaries",
+                "wearable_daily_summaries",
+                "health_data_consents",
                 "push_device_tokens",
                 "notification_delivery_attempts",
                 "user_settings",

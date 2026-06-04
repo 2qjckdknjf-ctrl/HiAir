@@ -10,7 +10,11 @@ data class DashboardState(
     val explanation: String = "-",
     val headline: String = "-",
     val actions: List<String> = emptyList(),
-    val nearestSafeWindow: String = "-"
+    val nearestSafeWindow: String = "-",
+    val wearableSteps: Int? = null,
+    val wearableLoadLevel: String = "-",
+    val wearableSummary: String = "-",
+    val wearableConnected: Boolean = false
 )
 
 class DashboardViewModel(
@@ -57,13 +61,40 @@ class DashboardViewModel(
             } else {
                 "No safe windows in the next hours."
             }
+            var wearableSteps: Int? = null
+            var wearableLoadLevel = "-"
+            var wearableSummary = "-"
+            var wearableConnected = false
+            try {
+                val wearableRaw = apiClient.fetchWearableToday(userId, accessToken)
+                val wearableJson = JSONObject(wearableRaw)
+                val daily = wearableJson.optJSONObject("dailySummary")
+                if (daily != null && !daily.isNull("stepsTotal")) {
+                    wearableSteps = daily.optInt("stepsTotal")
+                }
+                val load = wearableJson.optJSONObject("personalLoad")
+                if (load != null) {
+                    wearableLoadLevel = load.optString("level", "-")
+                    val explanations = load.optJSONArray("explanations")
+                    if (explanations != null && explanations.length() > 0) {
+                        wearableSummary = explanations.getString(0)
+                    }
+                }
+                wearableConnected = wearableJson.optJSONObject("consent")?.optBoolean("isActive") == true
+            } catch (_: Exception) {
+                // Wearable data optional — dashboard continues without it.
+            }
             state = state.copy(
                 loading = false,
                 riskLevel = risk.getString("overallRisk"),
                 explanation = overviewJson.getString("explanation"),
                 headline = recommendation.getString("headline"),
                 actions = actions,
-                nearestSafeWindow = nearest
+                nearestSafeWindow = nearest,
+                wearableSteps = wearableSteps,
+                wearableLoadLevel = wearableLoadLevel,
+                wearableSummary = wearableSummary,
+                wearableConnected = wearableConnected
             )
         } catch (_: Exception) {
             state = state.copy(

@@ -107,6 +107,22 @@ internal object DashboardScreenRenderer {
             addView(riskDetail)
         }
         bodyContainer.addView(dashboardCard)
+
+        val wearableState = ctx.rootShell.dashboardViewModel.state
+        bodyContainer.addView(V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("wearable.dashboard.title")).apply { textSize = 16f })
+            addView(V2Ui.spacer(activity, 6))
+            if (wearableState.wearableConnected && wearableState.wearableSteps != null) {
+                addView(V2Ui.styledSecondaryText(activity, "${ctx.l("wearable.dashboard.steps")}: ${wearableState.wearableSteps}"))
+                addView(V2Ui.styledSecondaryText(activity, "${ctx.l("wearable.dashboard.load_risk")}: ${wearableState.wearableLoadLevel}"))
+                if (wearableState.wearableSummary.isNotBlank() && wearableState.wearableSummary != "-") {
+                    addView(V2Ui.styledSecondaryText(activity, wearableState.wearableSummary))
+                }
+            } else {
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("wearable.dashboard.not_connected")))
+            }
+        })
+
         bodyContainer.addView(V2Ui.cardContainer(activity).apply {
             addView(weatherRow)
         })

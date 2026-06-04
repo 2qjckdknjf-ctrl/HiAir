@@ -5,6 +5,7 @@ from app.models.air import (
     DayPlanResponse,
     EnvironmentalInput,
     HourlyRiskPoint,
+    PersonalLoadAssessment,
     ProfileType,
     RiskAssessmentResult,
     RiskLevel,
@@ -12,6 +13,8 @@ from app.models.air import (
     SafeWindowType,
     UserProfileContext,
 )
+import app.services.personal_load_engine as personal_load_engine
+from app.services.personal_load_engine import PersonalLoadInput
 
 
 RISK_ORDER = {
@@ -227,7 +230,11 @@ def _build_recommendation_flags(
     return sorted(set(flags))
 
 
-def evaluate_risk(profile: UserProfileContext, environment: EnvironmentalInput) -> RiskAssessmentResult:
+def evaluate_risk(
+    profile: UserProfileContext,
+    environment: EnvironmentalInput,
+    personal_load: PersonalLoadInput | None = None,
+) -> RiskAssessmentResult:
     heat_risk, heat_reasons = _heat_risk(environment, profile)
     air_risk, air_reasons = _air_risk(environment, profile)
     outdoor_risk = _max_risk(heat_risk, air_risk)
@@ -240,11 +247,41 @@ def evaluate_risk(profile: UserProfileContext, environment: EnvironmentalInput) 
     overall_order = max(RISK_ORDER[heat_risk], RISK_ORDER[air_risk])
     if RISK_ORDER[heat_risk] >= 2 and RISK_ORDER[air_risk] >= 2:
         overall_order = min(3, overall_order + 1)
+
+    personal_load_result = personal_load_engine.compute_personal_load_score(
+        personal_load
+        if personal_load is not None
+        else PersonalLoadInput(
+            heat_index=environment.feels_like,
+            temperature=environment.temperature,
+            humidity=environment.humidity,
+            aqi=environment.aqi,
+            ozone=environment.ozone,
+            pm25=environment.pm25,
+            consent_active=False,
+        )
+    )
+    load_bump = personal_load_engine.personal_load_risk_bump(personal_load_result.score)
+    if load_bump > 0:
+        overall_order = min(3, overall_order + load_bump)
+
     overall_risk = _risk_from_order(overall_order)
 
-    reason_codes = sorted(set(heat_reasons + air_reasons))
+    reason_codes = sorted(set(heat_reasons + air_reasons + personal_load_result.reason_codes))
     if any(window.type == SafeWindowType.VENTILATION for window in _build_safe_windows(profile, environment)):
         reason_codes.append("night_ventilation_better")
+
+    recommendation_flags = _build_recommendation_flags(overall_risk, heat_risk, air_risk, profile)
+    if personal_load_result.score >= 25:
+        recommendation_flags.append("reduce_exertion")
+        recommendation_flags = sorted(set(recommendation_flags))
+
+    personal_load_assessment = PersonalLoadAssessment(
+        score=personal_load_result.score,
+        level=personal_load_result.level,
+        explanations=personal_load_result.explanations,
+        reasonCodes=personal_load_result.reason_codes,
+    )
 
     return RiskAssessmentResult(
         overallRisk=overall_risk,
@@ -253,8 +290,9 @@ def evaluate_risk(profile: UserProfileContext, environment: EnvironmentalInput) 
         outdoorRisk=outdoor_risk,
         indoorVentilationRisk=indoor_ventilation_risk,
         safeWindows=_build_safe_windows(profile, environment),
-        recommendationFlags=_build_recommendation_flags(overall_risk, heat_risk, air_risk, profile),
+        recommendationFlags=recommendation_flags,
         reasonCodes=sorted(set(reason_codes)),
+        personalLoad=personal_load_assessment,
     )
 
 

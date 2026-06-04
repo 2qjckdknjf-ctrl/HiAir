@@ -7,6 +7,8 @@ This draft is intended for closed beta and requires legal review before release.
 HiAir provides wellness-oriented insights about heat and air quality conditions.
 HiAir is not a medical device and does not provide medical diagnosis.
 
+Optional **Health & Activity** integration (Apple Health / Health Connect) helps estimate personal load during heat and poor air. This feature requires explicit user consent, stores aggregated summaries only, and can be disconnected or deleted at any time.
+
 ## 2. Eligibility
 
 - Users must meet local age requirements.

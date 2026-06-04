@@ -26,10 +26,19 @@ It does not provide medical diagnosis or treatment.
   - notification delivery attempt logs
 - Operational telemetry:
   - request metadata (path, status, latency, request id)
+- **Health & activity data (optional, with explicit consent):**
+  - daily step count summaries
+  - heart rate aggregates (average, min, max)
+  - resting heart rate daily average
+  - hourly activity summaries (steps + heart rate aggregates)
+  - consent record (platform, source, enabled data types, version, timestamps)
+
+We do **not** collect continuous raw heart-rate streams. We store aggregated summaries only.
 
 ## 3. Why we process data
 
 - Generate personalized risk insights and recommendations.
+- **Estimate personal activity load during heat and poor air quality (optional health data).**
 - Deliver important wellness alerts.
 - Maintain reliability, security, and abuse prevention.
 - Improve product quality during beta testing.
@@ -80,6 +89,19 @@ Current product support (backend):
 - Authenticated data export endpoint: `GET /api/privacy/export`
 - Authenticated account deletion endpoint: `POST /api/privacy/delete-account`
 - Export currently includes profile/settings/subscription/device-token history and AI/risk/alert event surfaces linked to the account.
+- **Health & activity:** users can disconnect (`DELETE /api/v1/wearables/consent`), delete stored summaries (`DELETE /api/v1/wearables/data`), and revoke OS permissions independently.
+
+## 9.1 Health & Activity Data (Wearables v1)
+
+**What we read (with consent):** steps, heart rate, resting heart rate. HRV/sleep may be added in future versions.
+
+**Why:** personal wellness analysis, heat/AQI activity recommendations, safer outdoor timing suggestions.
+
+**What we do NOT do:** medical diagnosis, medical advice, emergency monitoring.
+
+**What we store:** daily/hourly aggregated summaries only — not raw continuous streams.
+
+**User control:** connect, skip, disconnect, revoke OS permissions, delete stored summaries in Settings.
 
 Contact channel for requests must be published before public beta.
 

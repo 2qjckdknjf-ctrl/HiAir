@@ -481,4 +481,34 @@ class ApiClient(private val baseUrl: String) {
             false
         }
     }
+
+    fun saveWearableConsent(userId: String, accessToken: String?, body: String): String {
+        val endpoint = "$baseUrl/api/v1/wearables/consent"
+        return request("POST", endpoint, body, authHeaders(userId, accessToken))
+    }
+
+    fun revokeWearableConsent(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/v1/wearables/consent"
+        return request("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun uploadWearableDailySummary(userId: String, accessToken: String?, body: String): String {
+        val endpoint = "$baseUrl/api/v1/wearables/daily-summary"
+        return request("POST", endpoint, body, authHeaders(userId, accessToken))
+    }
+
+    fun uploadWearableHourlySummary(userId: String, accessToken: String?, body: String): String {
+        val endpoint = "$baseUrl/api/v1/wearables/hourly-summary"
+        return request("POST", endpoint, body, authHeaders(userId, accessToken))
+    }
+
+    fun fetchWearableToday(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/v1/wearables/today"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun deleteWearableData(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/v1/wearables/data"
+        return request("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
 }

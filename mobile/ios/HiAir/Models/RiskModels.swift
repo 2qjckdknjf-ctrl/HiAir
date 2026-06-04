@@ -598,3 +598,72 @@ struct ActivateSubscriptionRequest: Codable {
         case useTrial = "use_trial"
     }
 }
+
+struct WearableConsentPayload: Codable {
+    let platform: String
+    let source: String
+    let stepsEnabled: Bool
+    let heartRateEnabled: Bool
+    let restingHeartRateEnabled: Bool
+    let hrvEnabled: Bool
+    let sleepEnabled: Bool
+    let consentVersion: String
+}
+
+struct WearableDailySummaryPayload: Codable {
+    let date: String
+    let stepsTotal: Int?
+    let heartRateAvg: Double?
+    let heartRateMin: Double?
+    let heartRateMax: Double?
+    let restingHeartRateAvg: Double?
+    let source: String
+}
+
+struct WearableHourlySummaryPayload: Codable {
+    let hourStart: String
+    let stepsTotal: Int?
+    let heartRateAvg: Double?
+    let heartRateMax: Double?
+    let source: String
+}
+
+struct WearableConsentResponse: Codable {
+    let id: String
+    let userId: String
+    let platform: String
+    let source: String
+    let stepsEnabled: Bool
+    let heartRateEnabled: Bool
+    let restingHeartRateEnabled: Bool
+    let isActive: Bool
+}
+
+struct WearableDailySummaryResponse: Codable {
+    let id: String
+    let date: String
+    let stepsTotal: Int?
+    let heartRateAvg: Double?
+    let heartRateMax: Double?
+    let restingHeartRateAvg: Double?
+    let source: String
+}
+
+struct PersonalLoadSummary: Codable {
+    let score: Int
+    let level: String
+    let explanations: [String]
+    let reasonCodes: [String]
+}
+
+struct WearableTodayResponse: Codable {
+    let consent: WearableConsentResponse?
+    let dailySummary: WearableDailySummaryResponse?
+    let personalLoad: PersonalLoadSummary?
+}
+
+struct WearableDataDeleteResponse: Codable {
+    let deletedDaily: Int
+    let deletedHourly: Int
+    let consentRevoked: Bool
+}

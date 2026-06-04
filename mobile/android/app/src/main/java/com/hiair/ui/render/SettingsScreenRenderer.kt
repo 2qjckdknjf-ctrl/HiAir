@@ -474,6 +474,36 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(authCard)
 
+        val wearablesCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.wearables.title"))
+            addView(V2Ui.styledSecondaryText(activity, rootShell.settingsViewModel.state.wearableStatus))
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                    rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                    Thread {
+                        rootShell.settingsViewModel.disconnectWearables()
+                        activity.runOnUiThread {
+                            statusText.text = rootShell.settingsViewModel.state.statusText
+                        }
+                    }.start()
+                }
+            })
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                    rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                    Thread {
+                        rootShell.settingsViewModel.deleteWearableData()
+                        activity.runOnUiThread {
+                            statusText.text = rootShell.settingsViewModel.state.statusText
+                        }
+                    }.start()
+                }
+            })
+        }
+        bodyContainer.addView(wearablesCard)
+
         val securityCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))
             addView(userIdInput)

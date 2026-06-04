@@ -58,6 +58,7 @@ HiAir is a wellness support tool and does not provide medical diagnosis.
 | Email/Supabase auth id | yes | account auth/session | yes |
 | Profile sensitivity/location | yes | personalized risk computation | yes |
 | Symptom logs | yes | recommendation personalization | yes |
+| Health activity summaries (steps, heart rate aggregates) | optional (consent) | personal load / wellness risk context | yes (`DELETE /api/v1/wearables/data`) |
 | Risk/recommendation history | yes | user history and guidance | yes |
 | Device token | optional | push notifications | yes |
 | Delivery attempts / webhook / rotation ops logs | ops only | reliability/security auditing | partial (retention policy) |
@@ -78,4 +79,8 @@ HiAir is a wellness support tool and does not provide medical diagnosis.
 - [ ] Screenshot set exported and archived with date/version.
 - [ ] Store descriptions localized as required.
 - [ ] Privacy label answers reviewed by legal/security owner.
+- [ ] **App Store Privacy Labels:** Health (Fitness) — steps, heart rate — linked to user, not used for tracking.
+- [ ] **Google Play Data Safety:** Health & fitness — collected with consent, encrypted in transit, deletable.
+- [ ] Health permission purpose strings verified (iOS `NSHealthShareUsageDescription`, Android Health Connect rationale).
+- [ ] No misleading medical claims in store copy.
 - [ ] Packet signed off by product + release owner.

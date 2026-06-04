@@ -91,6 +91,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiServerCount = 0
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
     @Published var privacyExportSummary = "-"
+    @Published var wearableStatus = "-"
     @Published var statusText = "-"
     @Published var loading = false
 
@@ -254,6 +255,35 @@ final class SettingsViewModel: ObservableObject {
             statusText = l("settings.account_delete_failed")
             return false
         }
+    }
+
+    func refreshWearableStatus() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            if today.consent?.isActive == true {
+                wearableStatus = l("settings.wearables.status") + ": connected"
+            } else {
+                wearableStatus = l("wearable.dashboard.not_connected")
+            }
+        } catch {
+            wearableStatus = l("wearable.dashboard.unavailable")
+        }
+    }
+
+    func disconnectWearables() async {
+        guard !userId.isEmpty else { return }
+        _ = try? await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
+        await HealthKitService.shared.revokeConsent(userId: userId, accessToken: accessToken)
+        await refreshWearableStatus()
+    }
+
+    func deleteWearableData() async {
+        guard !userId.isEmpty else { return }
+        _ = try? await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
+        await HealthKitService.shared.deleteHealthData(userId: userId, accessToken: accessToken)
+        await refreshWearableStatus()
+        statusText = l("settings.wearables.delete")
     }
 
     func loadPlans() async {
@@ -831,6 +861,27 @@ struct SettingsView: View {
                 }
                 .tint(HiAirV2Theme.accentStart)
                 .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.wearables.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(viewModel.wearableStatus)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("settings.wearables.disconnect")) {
+                        Task { await viewModel.disconnectWearables() }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    Button(session.l("settings.wearables.delete")) {
+                        Task { await viewModel.deleteWearableData() }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                }
+                .v2Card()
+                .onAppear {
+                    Task { await viewModel.refreshWearableStatus() }
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.security_privacy"))

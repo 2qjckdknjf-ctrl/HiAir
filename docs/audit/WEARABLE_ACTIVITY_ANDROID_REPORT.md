@@ -1,0 +1,33 @@
+# Wearable Activity — Android Report
+
+## Implementation
+
+| Component | Path |
+|-----------|------|
+| Health Connect service | `mobile/android/.../health/HealthConnectService.kt` |
+| Dashboard card | `DashboardScreenRenderer.kt` |
+| Settings section | `SettingsScreenRenderer.kt` |
+| API client | `ApiClient.kt` wearable endpoints |
+| ViewModel | `DashboardViewModel.kt`, `SettingsState.kt` |
+| Dependency | `androidx.health.connect:connect-client:1.1.0-alpha11` |
+| Manifest | `<queries>` for Health Connect package |
+
+## Capabilities
+
+- StepsRecord aggregate API (no double counting)
+- HeartRateRecord + RestingHeartRateRecord summaries
+- Sync daily aggregates to backend when consent active
+
+## States
+
+- Health Connect unavailable → install prompt intent available
+- Not connected / connected / sync failed — non-blocking
+
+## Parity Notes
+
+- Android has no full onboarding flow; consent via dashboard/settings
+- Permission request contract should be wired in `AppMainActivity` for production v1.1
+
+## Tests
+
+Unit tests not added for Health Connect (requires device with HC installed). Manual QA checklist covers Android paths.
