@@ -276,7 +276,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 )
                 personal_correlations = cur.fetchall()
 
-            health_consents, wearable_daily, wearable_hourly = _fetch_wearable_export_rows(cur, user_id)
+            health_consents, wearable_daily, wearable_hourly = _fetch_wearable_export_rows(conn, cur, user_id)
 
             subscription_webhook_events: list[dict[str, Any]] = []
             if provider_subscription_id:
@@ -343,7 +343,11 @@ def export_user_data(user_id: str) -> dict[str, Any]:
     }
 
 
-def _fetch_wearable_export_rows(cur, user_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+def _fetch_wearable_export_rows(
+    conn,
+    cur,
+    user_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     try:
         cur.execute(
             """
@@ -384,6 +388,7 @@ def _fetch_wearable_export_rows(cur, user_id: str) -> tuple[list[dict[str, Any]]
         )
         wearable_hourly = cur.fetchall()
     except UndefinedTable:
+        conn.rollback()
         return [], [], []
     return health_consents, wearable_daily, wearable_hourly
 
