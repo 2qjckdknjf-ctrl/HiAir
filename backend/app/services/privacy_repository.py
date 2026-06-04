@@ -367,43 +367,43 @@ def _fetch_wearable_export_rows(
         return [], [], []
 
     cur.execute(
-            """
-            SELECT id, platform, source, steps_enabled, heart_rate_enabled,
-                   resting_heart_rate_enabled, hrv_enabled, sleep_enabled,
-                   consent_version, accepted_at, revoked_at, created_at, updated_at
-            FROM health_data_consents
-            WHERE user_id = %s
-            ORDER BY updated_at DESC
-            """,
-            (user_id,),
-        )
-        health_consents = cur.fetchall()
+        """
+        SELECT id, platform, source, steps_enabled, heart_rate_enabled,
+               resting_heart_rate_enabled, hrv_enabled, sleep_enabled,
+               consent_version, accepted_at, revoked_at, created_at, updated_at
+        FROM health_data_consents
+        WHERE user_id = %s
+        ORDER BY updated_at DESC
+        """,
+        (user_id,),
+    )
+    health_consents = cur.fetchall()
 
-        cur.execute(
-            """
-            SELECT id, date, steps_total, steps_goal, heart_rate_avg, heart_rate_min,
-                   heart_rate_max, resting_heart_rate_avg, resting_heart_rate_delta,
-                   hrv_avg, sleep_minutes, source, created_at, updated_at
-            FROM wearable_daily_summaries
-            WHERE user_id = %s
-            ORDER BY date DESC
-            """,
-            (user_id,),
-        )
-        wearable_daily = cur.fetchall()
+    cur.execute(
+        """
+        SELECT id, date, steps_total, steps_goal, heart_rate_avg, heart_rate_min,
+               heart_rate_max, resting_heart_rate_avg, resting_heart_rate_delta,
+               hrv_avg, sleep_minutes, source, created_at, updated_at
+        FROM wearable_daily_summaries
+        WHERE user_id = %s
+        ORDER BY date DESC
+        """,
+        (user_id,),
+    )
+    wearable_daily = cur.fetchall()
 
-        cur.execute(
-            """
-            SELECT id, hour_start, steps_total, heart_rate_avg, heart_rate_max,
-                   source, created_at
-            FROM wearable_hourly_summaries
-            WHERE user_id = %s
-            ORDER BY hour_start DESC
-            LIMIT 500
-            """,
-            (user_id,),
-        )
-        wearable_hourly = cur.fetchall()
+    cur.execute(
+        """
+        SELECT id, hour_start, steps_total, heart_rate_avg, heart_rate_max,
+               source, created_at
+        FROM wearable_hourly_summaries
+        WHERE user_id = %s
+        ORDER BY hour_start DESC
+        LIMIT 500
+        """,
+        (user_id,),
+    )
+    wearable_hourly = cur.fetchall()
     return health_consents, wearable_daily, wearable_hourly
 
 
