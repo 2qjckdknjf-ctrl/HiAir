@@ -3,7 +3,8 @@
 ## Deployment
 
 - [x] Production workflow configured: `.github/workflows/backend-deploy-production.yml`
-- [x] Staging deploy gate validated (GitHub Actions run `26935252617`, 2026-06-04)
+- [x] Staging deploy gate validated (GitHub Actions, 2026-06-04)
+- [x] Production deploy gate validated (GitHub Actions run `26935841530`, 2026-06-04)
 - [x] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN`, `OPENAI_*`, `SUPABASE_*` in GitHub staging + production
 - [ ] `HIAIR_DEPLOY_COMMAND` secret — **blocked on hosting choice** (repo has no Fly/Render/Dockerfile; gate runs verification-only until set)
 - [ ] `HIAIR_ROLLBACK_COMMAND` secret — set with deploy command

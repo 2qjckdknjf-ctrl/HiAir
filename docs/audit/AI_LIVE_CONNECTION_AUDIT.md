@@ -42,8 +42,8 @@
 | Smoke covers AI | `smoke_db_flow.py` → Supabase Admin Auth + `/api/air/current-risk` | **Added** |
 | Backend gate | `run_backend_gate.py` → init_db before AI check | **Fixed** |
 | CI | `backend-ci.yml` — skip-if-unconfigured when no key | **Green path** |
-| Staging deploy | GitHub secrets + workflow run `26935252617` | **PASS** |
-| Production deploy | Secrets wired; workflow ready (`workflow_dispatch`) | **Ready** |
+| Staging deploy | GitHub secrets + run `26935655724` / `26935252617` | **PASS** |
+| Production deploy | GitHub secrets + run `26935841530` | **PASS** |
 | Supabase | `hiair-prod` (`qhxesaemlhzwbunpqjoo`), migration **011** FK fixup | **Applied** |
 | Deploy gate | `deploy_backend.sh` smoke LLM + seed/require-live | **PASS on staging** |
 | Mobile AI UI | Dashboard + Settings observability | **Integrated** |
@@ -162,7 +162,7 @@ cd backend && .venv/bin/python -m pytest tests -q                       # exit 0
 | **AI MODULE ENGINEERING** | **GO** |
 | **LIVE AI PROVIDER (local)** | **GO** |
 | **LIVE AI PROVIDER (staging gate)** | **GO** |
-| **PRODUCTION AI READINESS** | **GO** for verification gate; **CONDITIONAL** for live API host until `HIAIR_DEPLOY_COMMAND` |
+| **PRODUCTION AI READINESS** | **GO** — staging + production verification gates green; live API host pending `HIAIR_DEPLOY_COMMAND` |
 
 **Classification:** **LEVEL 5**  
 **Criteria met:** staging `--require-live`, Supabase remote smoke, secrets automation, rate limits, observability gates, CI gate ordering fix.
