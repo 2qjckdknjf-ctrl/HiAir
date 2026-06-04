@@ -57,10 +57,19 @@ def _premium_entitlement(user_id: str, premium_until: datetime | None, source_su
     )
 
 
+def _as_text(value: object | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, (bytes, bytearray)):
+        return value.decode("utf-8")
+    return str(value)
+
+
 def _row_to_entitlement(row: dict) -> UserEntitlementResponse:
+    plan = _as_text(row.get("plan")) or "free"
     return UserEntitlementResponse(
         user_id=str(row["user_id"]),
-        plan=row["plan"],
+        plan=plan if plan in ("free", "premium") else "free",
         is_premium=bool(row["is_premium"]),
         premium_until=row.get("premium_until"),
         max_profiles=int(row["max_profiles"]),

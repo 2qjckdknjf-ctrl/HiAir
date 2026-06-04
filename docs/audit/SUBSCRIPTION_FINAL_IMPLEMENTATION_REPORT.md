@@ -1,7 +1,9 @@
 # Subscription Final Implementation Report
 
-**Date:** 2026-06-04 (closure pass)  
-**Honest status:** **ARCHITECTURE READY** — Android billing wired to UI; CI builds green; **not** store sandbox verified on device.
+**Date:** 2026-06-04 (post-merge)  
+**Honest status:** **ARCHITECTURE READY** — merged to `main` (`#23`); CI green on PR; **not** store sandbox verified on device.
+
+**Merge:** `13690ff` on `main` (squash). Production DB `hiair-prod` has `012_subscriptions_entitlements` applied (`user_entitlements`, `subscription_plans` present).
 
 ## Status ladder
 

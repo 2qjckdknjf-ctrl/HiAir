@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -29,8 +30,49 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.main import app
-from app.core.settings import settings
+from app.core.settings import _is_protected_env, settings
 from app.services.db import get_connection
+
+
+def _stub_ios_signed_transaction(product_id: str) -> str:
+    payload = {
+        "productId": product_id,
+        "transactionId": f"smoke_{uuid4().hex[:12]}",
+        "originalTransactionId": f"smoke_{uuid4().hex[:12]}",
+        "status": "active",
+    }
+    header = base64.urlsafe_b64encode(b'{"alg":"none"}').decode().rstrip("=")
+    body = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    return f"{header}.{body}.stub"
+
+
+def _ensure_smoke_premium(client: TestClient, auth_headers: dict[str, str]) -> None:
+    """Grant premium for smoke: stub activate locally, store verify stub on staging/production."""
+    use_activate = (
+        settings.subscription_provider == "stub"
+        and not _is_protected_env(settings.app_env)
+    )
+    if use_activate:
+        activate = client.post(
+            "/api/subscriptions/activate",
+            headers=auth_headers,
+            json={"plan_id": "basic_monthly", "use_trial": True},
+        )
+        if activate.status_code == 200:
+            return
+
+    verify = client.post(
+        "/api/subscriptions/ios/verify",
+        headers=auth_headers,
+        json={
+            "product_id": "com.hiair.premium.monthly",
+            "signed_transaction": _stub_ios_signed_transaction("com.hiair.premium.monthly"),
+        },
+    )
+    assert verify.status_code == 200, (
+        f"Could not grant smoke premium (provider={settings.subscription_provider}, "
+        f"app_env={settings.app_env}): {verify.text}"
+    )
 
 
 def _supabase_service_role_key() -> str:
@@ -218,12 +260,7 @@ def run() -> None:
     thresholds = client.get("/api/risk/thresholds")
     assert thresholds.status_code == 200, thresholds.text
 
-    activate_sub = client.post(
-        "/api/subscriptions/activate",
-        headers=auth_headers,
-        json={"plan_id": "basic_monthly", "use_trial": True},
-    )
-    assert activate_sub.status_code == 200, activate_sub.text
+    _ensure_smoke_premium(client, auth_headers)
 
     daily = client.get(
         "/api/recommendations/daily",

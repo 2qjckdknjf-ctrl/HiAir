@@ -18,7 +18,9 @@ export RETENTION_NOTIFICATION_EVENTS_DAYS="${RETENTION_NOTIFICATION_EVENTS_DAYS:
 export RETENTION_SUBSCRIPTION_WEBHOOK_EVENTS_DAYS="${RETENTION_SUBSCRIPTION_WEBHOOK_EVENTS_DAYS:-180}"
 export RETENTION_SECRET_ROTATION_EVENTS_DAYS="${RETENTION_SECRET_ROTATION_EVENTS_DAYS:-365}"
 
-echo "[deploy] environment=${ENVIRONMENT}"
+export APP_ENV="${APP_ENV:-${ENVIRONMENT}}"
+
+echo "[deploy] environment=${ENVIRONMENT} app_env=${APP_ENV}"
 "${PYTHON_BIN}" backend/scripts/check_env_security.py --strict
 "${PYTHON_BIN}" backend/scripts/init_db.py
 "${PYTHON_BIN}" backend/scripts/smoke_db_flow.py
