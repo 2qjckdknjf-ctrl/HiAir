@@ -24,15 +24,22 @@ def _ensure_bridge_enabled() -> None:
 def supabase_email_session(payload: LoginRequest, request: Request) -> AuthResponse:
     """Return a confirmed Supabase session for email/password (TestFlight unblock)."""
     _ensure_bridge_enabled()
+    normalized_email = str(payload.email).strip().lower()
     client_host = request.client.host if request.client else "unknown"
-    if not check_limit(f"supabase-bridge-ip:{client_host}", limit=20, window_seconds=600):
+    # Per-email guard only; shared carrier/NAT IPs must not block TestFlight sign-in.
+    if not check_limit(f"supabase-bridge-email:{normalized_email}", limit=12, window_seconds=900):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many sign-in attempts for this email. Wait 15 minutes and try again.",
+        )
+    if not check_limit(f"supabase-bridge-ip:{client_host}", limit=300, window_seconds=3600):
         raise HTTPException(status_code=429, detail="Too many auth attempts. Please retry later.")
     is_valid, reason = validate_password_policy(payload.password)
     if not is_valid:
         raise HTTPException(status_code=422, detail=reason)
     try:
         session = issue_supabase_password_session(
-            email=str(payload.email).strip().lower(),
+            email=normalized_email,
             password=payload.password,
         )
     except SupabaseAdminAuthError as exc:

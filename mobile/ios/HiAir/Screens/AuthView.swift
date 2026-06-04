@@ -107,9 +107,18 @@ final class AuthViewModel: ObservableObject {
 
     private func apiErrorMessage(_ error: APIError, session: AppSession) -> String {
         switch error {
-        case .serverWithDetail(_, let detail) where !detail.isEmpty:
+        case .serverWithDetail(let code, let detail) where !detail.isEmpty:
+            if code == 429 {
+                return session.l("auth.rate_limited")
+            }
             return detail
         case .server(let code):
+            if code == 429 {
+                return session.l("auth.rate_limited")
+            }
+            if code >= 500 {
+                return session.l("auth.bridge_unreachable")
+            }
             return String(format: session.l("auth.server_error"), code)
         default:
             return session.l("auth.fail")
