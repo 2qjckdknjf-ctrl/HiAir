@@ -10,6 +10,7 @@ from app.core.settings import settings
 SUPABASE_AUTH_MIGRATIONS = {
     "003_supabase_auth_rls.sql",
     "010_public_tables_rls_lockdown.sql",
+    "011_supabase_auth_user_fk_fixup.sql",
 }
 
 
