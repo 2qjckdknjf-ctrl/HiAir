@@ -3,7 +3,11 @@
 **Date:** 2026-06-04 (post-merge)  
 **Honest status:** **ARCHITECTURE READY** — merged to `main` (`#23`); CI green on PR; **not** store sandbox verified on device.
 
-**Merge:** `13690ff` on `main` (squash). Production DB `hiair-prod` has `012_subscriptions_entitlements` applied (`user_entitlements`, `subscription_plans` present).
+**Merge:** `13690ff` on `main` (squash). Production DB `hiair-prod` has `012` + `013` applied (`user_entitlements` FK → `auth.users`).
+
+**Post-merge deploy (2026-06-04):** `Backend Deploy Staging` PASS after `954e934`; `Backend Deploy Production` PASS ([run 26947442321](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/26947442321)).
+
+**Beta artifacts (local):** Android `app-release.aab` built; iOS signed IPA at `mobile/ios/build/export/HiAir.ipa` — upload to TestFlight/Play Console manually (no ASC API key in CI).
 
 ## Status ladder
 
