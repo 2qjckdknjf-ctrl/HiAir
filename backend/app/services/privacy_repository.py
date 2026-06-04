@@ -276,7 +276,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 )
                 personal_correlations = cur.fetchall()
 
-            health_consents, wearable_daily, wearable_hourly = _fetch_wearable_export_rows(conn, cur, user_id)
+            health_consents, wearable_daily, wearable_hourly = _fetch_wearable_export_rows(cur, user_id)
 
             subscription_webhook_events: list[dict[str, Any]] = []
             if provider_subscription_id:
@@ -343,13 +343,30 @@ def export_user_data(user_id: str) -> dict[str, Any]:
     }
 
 
+def _public_table_exists(cur, table_name: str) -> bool:
+    cur.execute(
+        """
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name = %s
+        )
+        """,
+        (table_name,),
+    )
+    row = cur.fetchone()
+    return bool(row[0]) if row else False
+
+
 def _fetch_wearable_export_rows(
-    conn,
     cur,
     user_id: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    try:
-        cur.execute(
+    if not _public_table_exists(cur, "health_data_consents"):
+        return [], [], []
+
+    cur.execute(
             """
             SELECT id, platform, source, steps_enabled, heart_rate_enabled,
                    resting_heart_rate_enabled, hrv_enabled, sleep_enabled,
@@ -387,10 +404,11 @@ def _fetch_wearable_export_rows(
             (user_id,),
         )
         wearable_hourly = cur.fetchall()
-    except UndefinedTable:
-        conn.rollback()
-        return [], [], []
     return health_consents, wearable_daily, wearable_hourly
+
+
+def _recover_missing_relation(exc: Exception) -> bool:
+    return isinstance(exc, UndefinedTable) or "does not exist" in str(exc).lower()
 
 
 def delete_user_data(user_id: str) -> bool:
@@ -417,7 +435,7 @@ def delete_user_data(user_id: str) -> bool:
                     )
                     deleted_any = deleted_any or cur.rowcount > 0
                 except Exception as exc:
-                    if "does not exist" not in str(exc).lower():
+                    if not _recover_missing_relation(exc):
                         raise
             cur.execute(
                 """
@@ -448,7 +466,9 @@ def delete_user_data(user_id: str) -> bool:
                     deleted_any = deleted_any or cur.rowcount > 0
                 except Exception as exc:
                     lowered = str(exc).lower()
-                    if "does not exist" not in lowered and "column" not in lowered:
+                    if _recover_missing_relation(exc):
+                        continue
+                    if "column" not in lowered:
                         raise
 
             for table_name in (
@@ -462,6 +482,12 @@ def delete_user_data(user_id: str) -> bool:
                 "briefing_schedule",
                 "auth_refresh_tokens",
             ):
+                if table_name in {
+                    "wearable_hourly_summaries",
+                    "wearable_daily_summaries",
+                    "health_data_consents",
+                } and not _public_table_exists(cur, table_name):
+                    continue
                 try:
                     cur.execute(
                         f"""
@@ -472,7 +498,7 @@ def delete_user_data(user_id: str) -> bool:
                     )
                     deleted_any = deleted_any or cur.rowcount > 0
                 except Exception as exc:
-                    if "does not exist" not in str(exc).lower():
+                    if not _recover_missing_relation(exc):
                         raise
 
             cur.execute("DELETE FROM profiles WHERE user_id = %s", (user_id,))
