@@ -592,9 +592,7 @@ enum HiAirL10n {
             "settings.ai_failed": "Не удалось загрузить AI наблюдаемость.",
             "settings.ai_request_failed": "Запрос AI наблюдаемости завершился ошибкой.",
             "settings.load_ai_summary": "Загрузить AI сводку",
-            "settings.loading_ai_metrics": "Загружаем AI метрики..."
-            ,
-            "common.close": "Закрыть",
+            "settings.loading_ai_metrics": "Загружаем AI метрики...",
             "guide.title": "Справочник HiAir",
             "guide.what_is_title": "Что такое HiAir",
             "guide.what_is_body": "HiAir — мобильный ассистент по жаре и качеству воздуха. Он показывает риск именно для вашего профиля.",
@@ -990,7 +988,6 @@ enum HiAirL10n {
             "settings.ai_request_failed": "AI observability request failed.",
             "settings.load_ai_summary": "Load AI Summary",
             "settings.loading_ai_metrics": "Loading AI metrics...",
-            "common.close": "Close",
             "guide.title": "HiAir Guide",
             "guide.what_is_title": "What is HiAir",
             "guide.what_is_body": "HiAir is a mobile wellness assistant for heat and air quality. It shows risk tailored to your profile.",
