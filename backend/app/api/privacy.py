@@ -5,6 +5,7 @@ from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
 from app.models.privacy import DeleteAccountRequest, DeleteAccountResponse, PrivacyExportResponse
+import app.services.entitlement_service as entitlement_service
 import app.services.privacy_repository as privacy_repository
 
 router = APIRouter(prefix="/privacy", tags=["privacy"])
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/privacy", tags=["privacy"])
 
 @router.get("/export", response_model=PrivacyExportResponse)
 def export_my_data(user_id: str = Depends(get_current_user_id)) -> PrivacyExportResponse:
+    entitlement_service.require_feature(user_id, "export_reports", "export_reports_enabled")
     try:
         exported = privacy_repository.export_user_data(user_id=user_id)
     except ValueError as exc:

@@ -311,6 +311,43 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, "{}", authHeaders(userId, accessToken))
     }
 
+    fun verifyAndroidSubscription(
+        userId: String,
+        productId: String,
+        purchaseToken: String,
+        accessToken: String? = null
+    ): String {
+        val endpoint = "$baseUrl/api/subscriptions/android/verify"
+        val json = JSONObject().apply {
+            put("product_id", productId)
+            put("purchase_token", purchaseToken)
+        }.toString()
+        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun restoreAndroidSubscriptions(
+        userId: String,
+        purchases: List<Pair<String, String>>,
+        accessToken: String? = null
+    ): String {
+        val endpoint = "$baseUrl/api/subscriptions/restore"
+        val androidPurchases = org.json.JSONArray()
+        purchases.forEach { (productId, token) ->
+            androidPurchases.put(
+                JSONObject().apply {
+                    put("product_id", productId)
+                    put("purchase_token", token)
+                }
+            )
+        }
+        val json = JSONObject().apply {
+            put("platform", "android")
+            put("ios_signed_transactions", org.json.JSONArray())
+            put("android_purchases", androidPurchases)
+        }.toString()
+        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     private fun request(
         method: String,
         endpoint: String,

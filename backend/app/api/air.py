@@ -8,6 +8,7 @@ import app.services.air_repository as air_repository
 import app.services.air_recommendation_engine as air_recommendation_engine
 import app.services.ai_explanation_service as ai_explanation_service
 import app.services.air_risk_engine as air_risk_engine
+import app.services.entitlement_service as entitlement_service
 import app.services.settings_repository as settings_repository
 
 router = APIRouter(prefix="/air", tags=["air"])
@@ -72,6 +73,7 @@ def get_day_plan(
     user_id: str = Depends(get_current_user_id),
 ) -> DayPlanResponse:
     try:
+        entitlement_service.require_feature(user_id, "extended_forecast", "extended_forecast_enabled")
         profile = _resolve_profile_for_user(profileId, user_id)
         environment = air_environment_service.load_environment(profile, force_live=False)
         return air_risk_engine.build_day_plan(profile, environment)

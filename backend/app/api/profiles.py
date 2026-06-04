@@ -3,6 +3,7 @@ from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
 from app.models.user import ProfileCreateRequest, ProfileResponse
+import app.services.entitlement_service as entitlement_service
 import app.services.user_repository as user_repository
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -14,6 +15,7 @@ def create_profile(
     user_id: str = Depends(get_current_user_id),
 ) -> ProfileResponse:
     try:
+        entitlement_service.assert_profile_limit(user_id)
         return user_repository.create_profile(user_id=user_id, payload=payload)
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc

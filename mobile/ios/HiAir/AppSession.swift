@@ -33,6 +33,8 @@ final class AppSession: ObservableObject {
     @Published var checklistCompletedItems: Set<String> = [] { didSet { persist() } }
     @Published var checklistHidden = false { didSet { persist() } }
     @Published var showOnboardingFromSettings = false
+    @Published var showPaywall = false
+    @Published var isPremium = false
     @Published var selectedTab = 0
     private let apiClient = APIClient.live()
     private let keychain = KeychainStore(service: "com.hiair.app.session")
@@ -91,6 +93,7 @@ final class AppSession: ObservableObject {
         }
         Task { @MainActor [weak self] in
             await self?.restoreSupabaseSession()
+            await self?.refreshEntitlement()
         }
     }
 
@@ -134,6 +137,23 @@ final class AppSession: ObservableObject {
     func finishOnboarding() {
         onboardingCompleted = true
         checklistHidden = false
+    }
+
+    func applyEntitlement(_ entitlement: UserEntitlementResponse?) {
+        isPremium = entitlement?.isPremium ?? false
+    }
+
+    func refreshEntitlement() async {
+        guard !userId.isEmpty, !accessToken.isEmpty else {
+            isPremium = false
+            return
+        }
+        do {
+            let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
+            applyEntitlement(status.entitlement)
+        } catch {
+            isPremium = false
+        }
     }
 
     func expireSessionAfterAuthFailure() {
@@ -468,6 +488,25 @@ enum HiAirL10n {
             "settings.loading": "Загрузка...",
             "settings.saving": "Сохраняем...",
             "settings.subscription": "Подписка",
+            "settings.upgrade_premium": "Перейти на Premium",
+            "paywall.nav_title": "Premium",
+            "paywall.title": "HiAir Premium",
+            "paywall.subtitle": "Семейные профили, расширенный прогноз и персональные инсайты.",
+            "paywall.benefit.profiles": "До 6 семейных профилей",
+            "paywall.benefit.forecast": "Почасовой прогноз и безопасные окна",
+            "paywall.benefit.alerts": "Персональные брифинги и алерты",
+            "paywall.benefit.export": "Экспорт данных",
+            "paywall.benefit.insights": "Расширенные инсайты",
+            "paywall.loading": "Загрузка планов…",
+            "paywall.products_unavailable": "Планы недоступны в App Store.",
+            "paywall.retry": "Повторить",
+            "paywall.restore": "Восстановить покупки",
+            "paywall.disclaimer": "HiAir — wellness-напоминания, не медицинский совет.",
+            "paywall.terms": "Условия",
+            "paywall.privacy": "Конфиденциальность",
+            "paywall.success": "Premium активирован.",
+            "paywall.restore_success": "Покупки восстановлены.",
+            "common.close": "Закрыть",
             "settings.security_privacy": "Безопасность и приватность",
             "settings.plan": "План",
             "settings.status": "Статус",
@@ -846,6 +885,25 @@ enum HiAirL10n {
             "settings.loading": "Loading...",
             "settings.saving": "Saving...",
             "settings.subscription": "Subscription",
+            "settings.upgrade_premium": "Upgrade to Premium",
+            "paywall.nav_title": "Premium",
+            "paywall.title": "HiAir Premium",
+            "paywall.subtitle": "Family profiles, extended forecast, and advanced insights.",
+            "paywall.benefit.profiles": "Up to 6 family profiles",
+            "paywall.benefit.forecast": "Hourly forecast and safe windows",
+            "paywall.benefit.alerts": "Custom briefings and alerts",
+            "paywall.benefit.export": "Data export",
+            "paywall.benefit.insights": "Advanced personal insights",
+            "paywall.loading": "Loading plans…",
+            "paywall.products_unavailable": "Plans are unavailable from the App Store.",
+            "paywall.retry": "Retry",
+            "paywall.restore": "Restore purchases",
+            "paywall.disclaimer": "HiAir provides wellness guidance, not medical advice.",
+            "paywall.terms": "Terms",
+            "paywall.privacy": "Privacy",
+            "paywall.success": "Premium activated.",
+            "paywall.restore_success": "Purchases restored.",
+            "common.close": "Close",
             "settings.security_privacy": "Security & Privacy",
             "settings.plan": "Plan",
             "settings.status": "Status",

@@ -6,7 +6,7 @@ from app.models.recommendation import DailyRecommendationResponse
 import app.services.profile_access as profile_access
 import app.services.recommendation_service as recommendation_service
 import app.services.risk_repository as risk_repository
-import app.services.subscription_repository as subscription_repository
+import app.services.entitlement_service as entitlement_service
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
@@ -21,14 +21,13 @@ def daily_recommendation(
             raise HTTPException(status_code=404, detail="Profile not found")
         if not profile_access.profile_belongs_to_user(profile_id, user_id):
             raise HTTPException(status_code=403, detail="Profile does not belong to user")
-        has_access = subscription_repository.has_active_subscription_for_profile(profile_id=profile_id)
+        entitlement_service.require_feature(
+            user_id,
+            "daily_recommendations",
+            "advanced_insights_enabled",
+        )
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
-    if not has_access:
-        raise HTTPException(
-            status_code=402,
-            detail="Active subscription is required for daily recommendations",
-        )
 
     try:
         history = risk_repository.get_risk_history(profile_id=profile_id, limit=1)

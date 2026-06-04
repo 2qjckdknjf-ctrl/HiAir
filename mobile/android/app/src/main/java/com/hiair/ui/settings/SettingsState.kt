@@ -4,6 +4,7 @@ import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
 import com.hiair.network.ApiHttpException
 import com.hiair.network.SupabaseAuthService
+import com.hiair.billing.SubscriptionEntitlementParser
 import com.hiair.ui.i18n.AndroidL10n
 import java.net.ConnectException
 import java.net.SocketException
@@ -29,6 +30,9 @@ data class SettingsState(
     val subscriptionPlans: List<Pair<String, String>> = emptyList(),
     val selectedPlanId: String = "basic_monthly",
     val subscriptionStatus: String = "inactive",
+    val isPremium: Boolean = false,
+    val showPaywall: Boolean = false,
+    val paywallStatusText: String = "",
     val aiSummaryHours: Int = 24,
     val aiSummaryText: String = "-",
     val aiTrendText: String = "-",
@@ -449,22 +453,100 @@ class SettingsViewModel(
     }
 
     fun loadSubscriptionStatus() {
+        refreshEntitlement()
+    }
+
+    fun refreshEntitlement(onComplete: (() -> Unit)? = null) {
         if (state.userId.isBlank()) {
             state = state.copy(statusText = l("settings.user_id_required"))
+            onComplete?.invoke()
             return
         }
         state = state.copy(loading = true)
-        try {
-            val json = JSONObject(apiClient.fetchMySubscription(state.userId, state.accessToken))
-            val planId = if (json.has("plan_id") && !json.isNull("plan_id")) json.getString("plan_id") else state.selectedPlanId
+        Thread {
+            try {
+                val raw = apiClient.fetchMySubscription(state.userId, state.accessToken)
+                applyEntitlementFromSubscriptionJson(raw)
+                val json = JSONObject(raw)
+                val planId = if (json.has("plan_id") && !json.isNull("plan_id")) {
+                    json.getString("plan_id")
+                } else {
+                    state.selectedPlanId
+                }
+                state = state.copy(
+                    loading = false,
+                    selectedPlanId = planId,
+                    subscriptionStatus = json.optString("status", "inactive"),
+                    statusText = l("settings.subscription_loaded")
+                )
+            } catch (_: Exception) {
+                state = state.copy(loading = false, statusText = l("settings.subscription_load_failed"))
+            }
+            onComplete?.invoke()
+        }.start()
+    }
+
+    fun applyEntitlementFromSubscriptionJson(raw: String) {
+        val premium = SubscriptionEntitlementParser.isPremiumFromSubscriptionJson(raw)
+        state = state.copy(isPremium = premium)
+    }
+
+    fun verifyAndroidPurchase(productId: String, purchaseToken: String, onComplete: (() -> Unit)? = null) {
+        if (state.userId.isBlank()) {
+            state = state.copy(paywallStatusText = l("settings.user_id_required"))
+            onComplete?.invoke()
+            return
+        }
+        state = state.copy(loading = true, paywallStatusText = l("paywall.verifying"))
+        Thread {
+            try {
+                apiClient.verifyAndroidSubscription(
+                    userId = state.userId,
+                    productId = productId,
+                    purchaseToken = purchaseToken,
+                    accessToken = state.accessToken
+                )
+                val meRaw = apiClient.fetchMySubscription(state.userId, state.accessToken)
+                applyEntitlementFromSubscriptionJson(meRaw)
+                val json = JSONObject(meRaw)
+                state = state.copy(
+                    loading = false,
+                    subscriptionStatus = json.optString("status", "active"),
+                    paywallStatusText = l("paywall.success"),
+                    statusText = l("settings.subscription_activated")
+                )
+            } catch (_: Exception) {
+                state = state.copy(
+                    loading = false,
+                    paywallStatusText = l("paywall.verify_failed")
+                )
+            }
+            onComplete?.invoke()
+        }.start()
+    }
+
+    fun requestShowPaywall() {
+        state = state.copy(showPaywall = true, paywallStatusText = "")
+    }
+
+    fun dismissPaywall() {
+        state = state.copy(showPaywall = false)
+    }
+
+    fun setPaywallStatus(message: String) {
+        state = state.copy(paywallStatusText = message)
+    }
+
+    fun finalizeRestoreFromStore(onComplete: (() -> Unit)? = null) {
+        refreshEntitlement {
             state = state.copy(
-                loading = false,
-                selectedPlanId = planId,
-                subscriptionStatus = json.getString("status"),
-                statusText = l("settings.subscription_loaded")
+                paywallStatusText = if (state.isPremium) {
+                    l("paywall.restore_success")
+                } else {
+                    l("paywall.restore_empty")
+                }
             )
-        } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = l("settings.subscription_load_failed"))
+            onComplete?.invoke()
         }
     }
 

@@ -51,5 +51,9 @@ struct RootTabView: View {
             OnboardingView(fromSettings: true)
                 .environmentObject(session)
         }
+        .sheet(isPresented: $session.showPaywall) {
+            PaywallView()
+                .environmentObject(session)
+        }
     }
 }

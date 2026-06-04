@@ -1,6 +1,7 @@
 package com.hiair.ui.planner
 
 import com.hiair.network.ApiClient
+import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
 import org.json.JSONObject
 
@@ -8,7 +9,8 @@ data class PlannerState(
     val loading: Boolean = false,
     val statusText: String = "-",
     val safeWindows: List<String> = emptyList(),
-    val hourly: List<String> = emptyList()
+    val hourly: List<String> = emptyList(),
+    val premiumRequired: Boolean = false,
 )
 
 class DailyPlannerViewModel(
@@ -48,12 +50,22 @@ class DailyPlannerViewModel(
                 safeWindows = safeWindowItems,
                 hourly = hourlyItems
             )
+        } catch (error: ApiHttpException) {
+            val premiumRequired = error.statusCode == 402
+            state = state.copy(
+                loading = false,
+                statusText = if (premiumRequired) "Premium required." else "Failed to load planner.",
+                safeWindows = emptyList(),
+                hourly = emptyList(),
+                premiumRequired = premiumRequired,
+            )
         } catch (_: Exception) {
             state = state.copy(
                 loading = false,
                 statusText = "Failed to load planner.",
                 safeWindows = emptyList(),
-                hourly = emptyList()
+                hourly = emptyList(),
+                premiumRequired = false,
             )
         }
     }

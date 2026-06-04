@@ -906,4 +906,52 @@ final class APIClient {
         }
         return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
     }
+
+    func verifyIosSubscription(
+        userId: String,
+        signedTransaction: String,
+        productId: String?,
+        accessToken: String? = nil
+    ) async throws -> SubscriptionStatusResponse {
+        let url = baseURL.appending(path: "/api/subscriptions/ios/verify")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(
+            IosVerifyRequest(signedTransaction: signedTransaction, productId: productId)
+        )
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
+    }
+
+    func restoreSubscriptions(
+        userId: String,
+        platform: String,
+        iosSignedTransactions: [String],
+        accessToken: String? = nil
+    ) async throws -> SubscriptionStatusResponse {
+        let url = baseURL.appending(path: "/api/subscriptions/restore")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(
+            RestoreSubscriptionRequest(
+                platform: platform,
+                iosSignedTransactions: iosSignedTransactions,
+                androidPurchases: []
+            )
+        )
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
+    }
 }
