@@ -39,7 +39,7 @@ ALTER TABLE user_subscriptions
     );
 
 CREATE TABLE IF NOT EXISTS user_entitlements (
-    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID PRIMARY KEY,
     plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'premium')),
     is_premium BOOLEAN NOT NULL DEFAULT FALSE,
     premium_until TIMESTAMPTZ,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS user_entitlements (
 
 CREATE TABLE IF NOT EXISTS provider_transactions (
     id UUID PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
     platform TEXT NOT NULL CHECK (platform IN ('ios', 'android', 'web', 'manual', 'stub')),
     provider TEXT NOT NULL,
     product_id TEXT NOT NULL,
