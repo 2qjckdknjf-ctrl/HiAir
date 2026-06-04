@@ -123,6 +123,44 @@ Vault secret source expects KV v2 data under:
 
 `/v1/<VAULT_KV_MOUNT>/data/<VAULT_KV_PATH>`
 
+## AI / LLM explanation layer
+
+HiAir uses a deterministic risk/recommendation engine as the source of truth. The optional LLM layer (`ai_explanation_service.py`) only explains already-computed structured outputs via OpenAI-compatible chat completions.
+
+Environment variables:
+
+- `OPENAI_API_KEY` — required for live LLM mode; when empty, backend uses template fallback.
+- `OPENAI_MODEL` — default `gpt-4o-mini`
+- `OPENAI_BASE_URL` — default `https://api.openai.com/v1/chat/completions`
+- `OPENAI_PROMPT_VERSION` — audit tag for prompt versioning (default `hiair-expl-v1`)
+
+Primary API entry points:
+
+- `GET /api/air/current-risk?profileId=<id>` — returns `explanation` and `explanationSource` (`llm` or `template_fallback`)
+- `GET /api/observability/ai-summary?hours=24` — admin token required
+- `GET /api/observability/ai-summary-detailed?hours=24` — admin token required
+
+Safe local verification (never prints secrets):
+
+```bash
+.venv/bin/python scripts/check_ai_connection.py
+.venv/bin/python scripts/check_ai_connection.py --require-live
+.venv/bin/python scripts/seed_ai_live_probe.py   # persist one live LLM DB event
+```
+
+Rate/cost controls (optional env):
+
+- `OPENAI_RATE_LIMIT_PER_MINUTE` — per-profile limit (default `60`, `0` disables)
+- `OPENAI_HTTP_TIMEOUT_SECONDS` — default `8`
+- `OPENAI_MAX_TOKENS` — default `120`
+
+Trigger a fallback/template event without a key:
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8000/api/air/current-risk?profileId=<profile-id>"
+```
+
 Notification preview body:
 
 ```json

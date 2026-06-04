@@ -46,6 +46,16 @@ def main() -> int:
         default=None,
         help="Optional dotenv file to preload into environment (defaults to backend/.env.local when present).",
     )
+    parser.add_argument(
+        "--require-ai-live",
+        action="store_true",
+        help="Fail gate unless check_ai_connection.py --require-live passes.",
+    )
+    parser.add_argument(
+        "--skip-ai-check",
+        action="store_true",
+        help="Skip AI connection observability check.",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -63,6 +73,14 @@ def main() -> int:
         commands.append([python_exe, "-m", "pytest", "tests", "-q"])
     else:
         print("[INFO] --skip-tests enabled: skipping pytest.")
+
+    if not args.skip_ai_check:
+        ai_check_cmd = [python_exe, "scripts/check_ai_connection.py", "--skip-if-unconfigured"]
+        if args.require_ai_live:
+            ai_check_cmd.append("--require-live")
+        commands.append(ai_check_cmd)
+    else:
+        print("[INFO] --skip-ai-check enabled: skipping AI connection check.")
 
     commands.extend(
         [

@@ -8,6 +8,7 @@ from app.models.air import RecommendationCard, RiskAssessmentResult, UserProfile
 from app.services.localization import normalize_language, t
 from app.services.ai_observability_repository import ensure_prompt_version, save_explanation_event
 from app.services.observability import record_ai_explanation
+from app.services.request_rate_limiter import check_limit
 
 logger = logging.getLogger("hiair.ai.explanation")
 
@@ -50,6 +51,38 @@ def _is_safe_explanation(text: str) -> bool:
     return not any(phrase in normalized for phrase in FORBIDDEN_PHRASES)
 
 
+def _openai_rate_limit_allowed(profile_id: str) -> bool:
+    limit = settings.openai_rate_limit_per_minute
+    if limit <= 0:
+        return True
+    return check_limit(f"openai:{profile_id}", limit, 60)
+
+
+def _save_fallback_event(
+    profile: UserProfileContext,
+    risk_assessment_id: str | None,
+    fallback_text: str,
+    *,
+    guardrail_blocked: bool,
+    failure_reason: str,
+) -> None:
+    record_ai_explanation(used_fallback=True, guardrail_blocked=guardrail_blocked)
+    try:
+        save_explanation_event(
+            profile_id=profile.profile_id,
+            risk_assessment_id=risk_assessment_id,
+            prompt_key=PROMPT_KEY,
+            prompt_version=settings.openai_prompt_version,
+            model_name=settings.openai_model,
+            used_fallback=True,
+            guardrail_blocked=guardrail_blocked,
+            failure_reason=failure_reason,
+            generated_text=fallback_text,
+        )
+    except Exception:
+        logger.exception("failed_to_save_ai_event")
+
+
 def generate_explanation(
     profile: UserProfileContext,
     risk: RiskAssessmentResult,
@@ -74,21 +107,25 @@ def generate_explanation(
 
     if not settings.openai_api_key:
         fallback_text = _fallback_explanation(risk, recommendation, lang)
-        record_ai_explanation(used_fallback=True, guardrail_blocked=False)
-        try:
-            save_explanation_event(
-                profile_id=profile.profile_id,
-                risk_assessment_id=risk_assessment_id,
-                prompt_key=PROMPT_KEY,
-                prompt_version=settings.openai_prompt_version,
-                model_name=settings.openai_model,
-                used_fallback=True,
-                guardrail_blocked=False,
-                failure_reason="missing_openai_api_key",
-                generated_text=fallback_text,
-            )
-        except Exception:
-            logger.exception("failed_to_save_ai_event")
+        _save_fallback_event(
+            profile,
+            risk_assessment_id,
+            fallback_text,
+            guardrail_blocked=False,
+            failure_reason="missing_openai_api_key",
+        )
+        return fallback_text, "template_fallback"
+
+    if not _openai_rate_limit_allowed(profile.profile_id):
+        logger.warning("openai_rate_limit_exceeded profile_id=%s", profile.profile_id)
+        fallback_text = _fallback_explanation(risk, recommendation, lang)
+        _save_fallback_event(
+            profile,
+            risk_assessment_id,
+            fallback_text,
+            guardrail_blocked=False,
+            failure_reason="llm_rate_limited",
+        )
         return fallback_text, "template_fallback"
 
     prompt_payload = {
@@ -124,7 +161,7 @@ def generate_explanation(
             },
         ],
         "temperature": 0.2,
-        "max_tokens": 120,
+        "max_tokens": settings.openai_max_tokens,
     }
 
     headers = {
@@ -133,7 +170,7 @@ def generate_explanation(
     }
 
     try:
-        with httpx.Client(timeout=8.0) as client:
+        with httpx.Client(timeout=settings.openai_http_timeout_seconds) as client:
             response = client.post(settings.openai_base_url, json=request_body, headers=headers)
             response.raise_for_status()
             payload = response.json()

@@ -1,8 +1,12 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
+_backend_root = Path(__file__).resolve().parents[2]
+load_dotenv(_backend_root / ".env")
+load_dotenv(_backend_root / ".env.local")
 load_dotenv()
 
 
@@ -44,6 +48,9 @@ class Settings:
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_base_url: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1/chat/completions")
     openai_prompt_version: str = os.getenv("OPENAI_PROMPT_VERSION", "hiair-expl-v1")
+    openai_rate_limit_per_minute: int = int(os.getenv("OPENAI_RATE_LIMIT_PER_MINUTE", "60"))
+    openai_http_timeout_seconds: float = float(os.getenv("OPENAI_HTTP_TIMEOUT_SECONDS", "8"))
+    openai_max_tokens: int = int(os.getenv("OPENAI_MAX_TOKENS", "120"))
     notifications_provider_mode: str = os.getenv("NOTIFICATIONS_PROVIDER_MODE", "stub")
     fcm_server_key: str = os.getenv("FCM_SERVER_KEY", "")
     fcm_project_id: str = os.getenv("FCM_PROJECT_ID", "")

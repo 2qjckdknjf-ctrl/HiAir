@@ -79,7 +79,9 @@ def ai_event_summary(hours: int = 24) -> dict[str, int]:
                 SELECT
                     COUNT(*)::int AS total,
                     SUM(CASE WHEN used_fallback THEN 1 ELSE 0 END)::int AS fallback_count,
+                    SUM(CASE WHEN NOT used_fallback THEN 1 ELSE 0 END)::int AS llm_success_count,
                     SUM(CASE WHEN guardrail_blocked THEN 1 ELSE 0 END)::int AS guardrail_block_count,
+                    SUM(CASE WHEN failure_reason = 'missing_openai_api_key' THEN 1 ELSE 0 END)::int AS missing_key_count,
                     SUM(CASE WHEN failure_reason = 'llm_timeout' THEN 1 ELSE 0 END)::int AS timeout_count,
                     SUM(CASE WHEN failure_reason = 'llm_network_error' THEN 1 ELSE 0 END)::int AS network_count,
                     SUM(CASE WHEN failure_reason = 'llm_server_error' THEN 1 ELSE 0 END)::int AS server_count
@@ -93,7 +95,9 @@ def ai_event_summary(hours: int = 24) -> dict[str, int]:
         return {
             "total": 0,
             "fallback_count": 0,
+            "llm_success_count": 0,
             "guardrail_block_count": 0,
+            "missing_key_count": 0,
             "timeout_count": 0,
             "network_count": 0,
             "server_count": 0,
@@ -101,7 +105,9 @@ def ai_event_summary(hours: int = 24) -> dict[str, int]:
     return {
         "total": int(row["total"] or 0),
         "fallback_count": int(row["fallback_count"] or 0),
+        "llm_success_count": int(row["llm_success_count"] or 0),
         "guardrail_block_count": int(row["guardrail_block_count"] or 0),
+        "missing_key_count": int(row["missing_key_count"] or 0),
         "timeout_count": int(row["timeout_count"] or 0),
         "network_count": int(row["network_count"] or 0),
         "server_count": int(row["server_count"] or 0),

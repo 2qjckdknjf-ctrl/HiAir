@@ -1,13 +1,20 @@
 import hashlib
 import hmac
 import json
+import os
 import sys
+from pathlib import Path
 from uuid import UUID
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+# Force legacy auth for isolated Postgres smoke before settings import.
+_db_url = os.getenv("DATABASE_URL", "")
+if os.getenv("HIAIR_SMOKE_LEGACY_AUTH", "").lower() == "true" or "localhost" in _db_url:
+    os.environ["HIAIR_AUTH_PROVIDER"] = "legacy"
+    os.environ["SUPABASE_URL"] = ""
+    os.environ["HIAIR_AUTH_LEGACY_ENABLED"] = "false"
 
-from pathlib import Path
+from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -291,6 +298,40 @@ def run() -> None:
     historical_validation = client.get("/api/validation/risk/historical")
     assert historical_validation.status_code == 200, historical_validation.text
     assert historical_validation.json()["passed"] is True
+
+    current_risk = client.get(
+        "/api/air/current-risk",
+        headers=auth_headers,
+        params={"profileId": profile_id},
+    )
+    assert current_risk.status_code == 200, current_risk.text
+    current_risk_body = current_risk.json()
+    assert current_risk_body["profileId"] == profile_id
+    assert current_risk_body.get("explanation")
+    assert current_risk_body.get("explanationSource") in ("llm", "template_fallback")
+
+    ai_summary = client.get(
+        "/api/observability/ai-summary",
+        headers=ops_headers,
+        params={"hours": 24},
+    )
+    assert ai_summary.status_code == 200, ai_summary.text
+    ai_summary_body = ai_summary.json()
+    assert "total" in ai_summary_body
+    assert "llm_success_count" in ai_summary_body
+    assert "provider_configured" in ai_summary_body
+    if settings.openai_api_key.strip():
+        assert current_risk_body.get("explanationSource") == "llm", current_risk.text
+        assert int(ai_summary_body.get("llm_success_count") or 0) >= 1, ai_summary.text
+
+    ai_summary_detailed = client.get(
+        "/api/observability/ai-summary-detailed",
+        headers=ops_headers,
+        params={"hours": 24},
+    )
+    assert ai_summary_detailed.status_code == 200, ai_summary_detailed.text
+    assert "summary" in ai_summary_detailed.json()
+    assert "breakdown" in ai_summary_detailed.json()
 
     metrics = client.get("/api/observability/metrics", headers=ops_headers)
     assert metrics.status_code == 200, metrics.text

@@ -144,6 +144,17 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
     _check_positive_int(env, checks, "RETENTION_SUBSCRIPTION_WEBHOOK_EVENTS_DAYS")
     _check_positive_int(env, checks, "RETENTION_SECRET_ROTATION_EVENTS_DAYS")
 
+    openai_key = env.get("OPENAI_API_KEY", "").strip()
+    if protected_env and not openai_key:
+        checks.append(
+            CheckResult(
+                "WARN",
+                "OPENAI_API_KEY is empty in protected environment; AI explanations will use template fallback.",
+            )
+        )
+    elif openai_key:
+        checks.append(CheckResult("OK", "OPENAI_API_KEY is configured."))
+
     return checks
 
 
