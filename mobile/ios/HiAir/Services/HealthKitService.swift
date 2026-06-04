@@ -83,7 +83,8 @@ final class HealthKitService: ObservableObject {
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
         let samples = await fetchQuantitySamples(type: type, predicate: predicate)
         guard !samples.isEmpty else { return (nil, nil, nil) }
-        let values = samples.map { $0.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) }
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let values = samples.map { $0.quantity.doubleValue(for: unit) }
         return (values.reduce(0, +) / Double(values.count), values.min(), values.max())
     }
 
@@ -93,7 +94,8 @@ final class HealthKitService: ObservableObject {
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
         let samples = await fetchQuantitySamples(type: type, predicate: predicate)
         guard let latest = samples.last else { return nil }
-        return latest.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        return latest.quantity.doubleValue(for: unit)
     }
 
     func fetchHourlyActivitySummary() async -> [(hourStart: Date, steps: Int, hrAvg: Double?, hrMax: Double?)] {
@@ -113,7 +115,8 @@ final class HealthKitService: ObservableObject {
             if let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) {
                 let hrSamples = await fetchQuantitySamples(type: hrType, predicate: predicate)
                 if !hrSamples.isEmpty {
-                    let values = hrSamples.map { $0.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) }
+                    let unit = HKUnit.count().unitDivided(by: .minute())
+                    let values = hrSamples.map { $0.quantity.doubleValue(for: unit) }
                     hrAvg = values.reduce(0, +) / Double(values.count)
                     hrMax = values.max()
                 }

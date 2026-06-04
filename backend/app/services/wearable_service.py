@@ -2,24 +2,32 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 
+from psycopg.errors import UndefinedTable
+
 from app.models.wearable import PersonalLoadSummary, WearableTodayResponse, WearableSource
 from app.services.personal_load_engine import PersonalLoadInput, compute_personal_load_score
 import app.services.wearable_repository as wearable_repository
 
 
 def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInput:
-    consent = wearable_repository.get_active_consent(user_id)
+    try:
+        consent = wearable_repository.get_active_consent(user_id)
+    except UndefinedTable:
+        return PersonalLoadInput(consent_active=False)
     if consent is None:
         return PersonalLoadInput(consent_active=False)
 
     source = consent.source
     today = date.today()
-    daily = wearable_repository.get_daily_summary(user_id, today, source=source)
-    now = datetime.now(tz=UTC)
-    steps_last_hour = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=1), source=source)
-    steps_last_3h = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=3), source=source)
-    baseline_7d = wearable_repository.resting_hr_baseline(user_id, 7)
-    baseline_30d = wearable_repository.resting_hr_baseline(user_id, 30)
+    try:
+        daily = wearable_repository.get_daily_summary(user_id, today, source=source)
+        now = datetime.now(tz=UTC)
+        steps_last_hour = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=1), source=source)
+        steps_last_3h = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=3), source=source)
+        baseline_7d = wearable_repository.resting_hr_baseline(user_id, 7)
+        baseline_30d = wearable_repository.resting_hr_baseline(user_id, 30)
+    except UndefinedTable:
+        return PersonalLoadInput(consent_active=False)
 
     env_kwargs = {}
     if environment is not None:
