@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from app.services.db import get_connection
+from app.services.profile_access import is_supabase_profile_ownership_mode, profile_owner_user_id
 
 
 def save_notification_event(
@@ -10,15 +11,27 @@ def save_notification_event(
     message: str,
 ) -> str:
     event_id = str(uuid4())
+    owner_user_id = None
+    if profile_id and is_supabase_profile_ownership_mode():
+        owner_user_id = profile_owner_user_id(profile_id)
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO notification_events (id, profile_id, risk_level, should_send, message)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (event_id, profile_id, risk_level, should_send, message),
-            )
+            if owner_user_id:
+                cur.execute(
+                    """
+                    INSERT INTO notification_events (id, profile_id, user_id, risk_level, should_send, message)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (event_id, profile_id, owner_user_id, risk_level, should_send, message),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO notification_events (id, profile_id, risk_level, should_send, message)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (event_id, profile_id, risk_level, should_send, message),
+                )
     return event_id
 
 

@@ -12,6 +12,7 @@ from app.models.air import (
     UserProfileContext,
 )
 from app.services.db import get_connection
+from app.services.profile_access import is_supabase_profile_ownership_mode, profile_owner_user_id
 
 
 PERSONA_TO_PROFILE_TYPE = {
@@ -288,28 +289,61 @@ def create_symptom_entry(
 ) -> SymptomHistoryItem:
     symptom_id = str(uuid4())
     logged_at = datetime.now(timezone.utc)
+    owner_user_id = profile_owner_user_id(profile_id) if is_supabase_profile_ownership_mode() else None
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO symptom_logs (
-                    id,
-                    profile_id,
-                    timestamp_utc,
-                    cough,
-                    wheeze,
-                    headache,
-                    fatigue,
-                    sleep_quality,
-                    symptom_type,
-                    intensity,
-                    note,
-                    logged_at
+            if owner_user_id:
+                cur.execute(
+                    """
+                    INSERT INTO symptom_logs (
+                        id,
+                        profile_id,
+                        user_id,
+                        timestamp_utc,
+                        cough,
+                        wheeze,
+                        headache,
+                        fatigue,
+                        sleep_quality,
+                        symptom_type,
+                        intensity,
+                        note,
+                        logged_at
+                    )
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, FALSE, FALSE, 3, %s, %s, %s, %s)
+                    """,
+                    (
+                        symptom_id,
+                        profile_id,
+                        owner_user_id,
+                        logged_at,
+                        symptom_type,
+                        intensity,
+                        note,
+                        logged_at,
+                    ),
                 )
-                VALUES (%s, %s, %s, FALSE, FALSE, FALSE, FALSE, 3, %s, %s, %s, %s)
-                """,
-                (symptom_id, profile_id, logged_at, symptom_type, intensity, note, logged_at),
-            )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO symptom_logs (
+                        id,
+                        profile_id,
+                        timestamp_utc,
+                        cough,
+                        wheeze,
+                        headache,
+                        fatigue,
+                        sleep_quality,
+                        symptom_type,
+                        intensity,
+                        note,
+                        logged_at
+                    )
+                    VALUES (%s, %s, %s, FALSE, FALSE, FALSE, FALSE, 3, %s, %s, %s, %s)
+                    """,
+                    (symptom_id, profile_id, logged_at, symptom_type, intensity, note, logged_at),
+                )
     return SymptomHistoryItem(
         id=symptom_id,
         profileId=profile_id,

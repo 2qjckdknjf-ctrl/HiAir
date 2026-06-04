@@ -5,6 +5,7 @@ from psycopg.types.json import Jsonb
 
 from app.models.risk import EnvironmentSnapshot, RiskEstimateResponse, SymptomInput
 from app.services.db import get_connection
+from app.services.profile_access import is_supabase_profile_ownership_mode, profile_owner_user_id
 
 
 def save_environment_snapshot(environment: EnvironmentSnapshot) -> str:
@@ -40,22 +41,41 @@ def save_risk_score(
     snapshot_id: str | None,
 ) -> str:
     risk_id = str(uuid4())
+    owner_user_id = profile_owner_user_id(profile_id) if is_supabase_profile_ownership_mode() else None
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO risk_scores (id, profile_id, snapshot_id, score_value, risk_level, recommendations_json)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    risk_id,
-                    profile_id,
-                    snapshot_id,
-                    risk.score,
-                    risk.level,
-                    Jsonb(risk.recommendations),
-                ),
-            )
+            if owner_user_id:
+                cur.execute(
+                    """
+                    INSERT INTO risk_scores
+                    (id, profile_id, user_id, snapshot_id, score_value, risk_level, recommendations_json)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        risk_id,
+                        profile_id,
+                        owner_user_id,
+                        snapshot_id,
+                        risk.score,
+                        risk.level,
+                        Jsonb(risk.recommendations),
+                    ),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO risk_scores (id, profile_id, snapshot_id, score_value, risk_level, recommendations_json)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        risk_id,
+                        profile_id,
+                        snapshot_id,
+                        risk.score,
+                        risk.level,
+                        Jsonb(risk.recommendations),
+                    ),
+                )
     return risk_id
 
 
@@ -89,25 +109,46 @@ def get_risk_history(profile_id: str, limit: int = 20) -> list[dict[str, str | i
 def create_symptom_log(profile_id: str, symptom: SymptomInput) -> dict[str, str]:
     log_id = str(uuid4())
     timestamp_utc = datetime.now(timezone.utc)
+    owner_user_id = profile_owner_user_id(profile_id) if is_supabase_profile_ownership_mode() else None
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO symptom_logs
-                (id, profile_id, timestamp_utc, cough, wheeze, headache, fatigue, sleep_quality)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    log_id,
-                    profile_id,
-                    timestamp_utc,
-                    symptom.cough,
-                    symptom.wheeze,
-                    symptom.headache,
-                    symptom.fatigue,
-                    symptom.sleep_quality,
-                ),
-            )
+            if owner_user_id:
+                cur.execute(
+                    """
+                    INSERT INTO symptom_logs
+                    (id, profile_id, user_id, timestamp_utc, cough, wheeze, headache, fatigue, sleep_quality)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        log_id,
+                        profile_id,
+                        owner_user_id,
+                        timestamp_utc,
+                        symptom.cough,
+                        symptom.wheeze,
+                        symptom.headache,
+                        symptom.fatigue,
+                        symptom.sleep_quality,
+                    ),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO symptom_logs
+                    (id, profile_id, timestamp_utc, cough, wheeze, headache, fatigue, sleep_quality)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        log_id,
+                        profile_id,
+                        timestamp_utc,
+                        symptom.cough,
+                        symptom.wheeze,
+                        symptom.headache,
+                        symptom.fatigue,
+                        symptom.sleep_quality,
+                    ),
+                )
     return {
         "id": log_id,
         "profile_id": profile_id,
