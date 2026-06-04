@@ -38,3 +38,5 @@ mobile/ios/HiAir.xcodeproj/xcuserdata/
 *google-services.json
 backend/.secrets/
 backend/.coverage
+node_modules/
+**/.wrangler/

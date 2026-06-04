@@ -106,7 +106,7 @@ Dashboard `explanation` from `/api/air/current-risk`; Settings AI observability 
 
 ### P1
 
-1. **`HIAIR_DEPLOY_COMMAND`** — no hosting platform in repo; staging/production run **verification-only** migrate/smoke/AI gates until operator sets deploy command for `https://api.hiair.app` host.
+1. **`HIAIR_DEPLOY_COMMAND`** — optional when using Cloudflare Containers on `https://api.hiair.io` (`./scripts/ops/connect_hiair_io.sh deploy-api`).
 2. Mobile LLM vs template badge (P2 UX).
 
 ### P2

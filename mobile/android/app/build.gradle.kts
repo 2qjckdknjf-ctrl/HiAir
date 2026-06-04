@@ -27,7 +27,7 @@ android {
         }
         release {
             isMinifyEnabled = false
-            buildConfigField("String", "API_BASE_URL", "\"https://api.hiair.app\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.hiair.io\"")
             buildConfigField("String", "SUPABASE_URL", "\"https://qhxesaemlhzwbunpqjoo.supabase.co\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw\"")
             buildConfigField("String", "SUPABASE_REDIRECT_URI", "\"hiair://auth/callback\"")

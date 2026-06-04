@@ -52,7 +52,7 @@ from pathlib import Path
 root = Path(os.environ["ROOT_DIR_ENV"])
 text = (root / "mobile/ios/HiAir/Networking/APIClient.swift").read_text(encoding="utf-8")
 assert '#else' in text
-assert 'let defaultBaseURL = "https://api.hiair.app"' in text
+assert 'let defaultBaseURL = "https://api.hiair.io"' in text
 assert 'validatedBaseURL' in text
 PY
 }
