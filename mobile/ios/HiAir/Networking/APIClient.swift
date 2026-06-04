@@ -15,6 +15,17 @@ struct SupabaseAuthSession: Sendable {
     let refreshToken: String
 }
 
+enum SupabaseSignUpResult: Sendable {
+    case session(SupabaseAuthSession)
+    case emailConfirmationRequired(email: String)
+}
+
+struct SupabaseAuthFailure: LocalizedError {
+    let message: String
+
+    var errorDescription: String? { message }
+}
+
 @MainActor
 final class SupabaseAuthService {
     static let shared = SupabaseAuthService()
@@ -38,7 +49,7 @@ final class SupabaseAuthService {
         return nil
     }
 
-    func signUp(email: String, password: String) async throws -> SupabaseAuthSession {
+    func signUp(email: String, password: String) async throws -> SupabaseSignUpResult {
         let payload = ["email": email, "password": password]
         let data = try await request(
             method: "POST",
@@ -46,9 +57,11 @@ final class SupabaseAuthService {
             query: nil,
             body: payload
         )
-        let session = try parseSession(from: data, fallbackEmail: email)
-        notifySessionChanged(session)
-        return session
+        let result = try parseSignUpResponse(from: data, fallbackEmail: email)
+        if case .session(let session) = result {
+            notifySessionChanged(session)
+        }
+        return result
     }
 
     func signIn(email: String, password: String) async throws -> SupabaseAuthSession {
@@ -125,8 +138,12 @@ final class SupabaseAuthService {
         else {
             return false
         }
+        let userId = pairs["user_id"]
+            ?? pairs["sub"]
+            ?? userIdFromAccessToken(accessToken)
+            ?? ""
         let session = SupabaseAuthSession(
-            userId: pairs["user_id"] ?? pairs["sub"] ?? "",
+            userId: userId,
             email: pairs["email"] ?? "",
             accessToken: accessToken,
             refreshToken: refreshToken
@@ -183,9 +200,54 @@ final class SupabaseAuthService {
             throw APIError.invalidResponse
         }
         guard (200...299).contains(http.statusCode) else {
+            let detail = extractSupabaseErrorMessage(from: data)
+            if let detail, !detail.isEmpty {
+                throw SupabaseAuthFailure(message: detail)
+            }
             throw APIError.server(statusCode: http.statusCode)
         }
         return data
+    }
+
+    private func extractSupabaseErrorMessage(from data: Data) -> String? {
+        guard
+            !data.isEmpty,
+            let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return nil
+        }
+        if let msg = payload["msg"] as? String, !msg.isEmpty {
+            return msg
+        }
+        if let description = payload["error_description"] as? String, !description.isEmpty {
+            return description
+        }
+        if let error = payload["error"] as? String, !error.isEmpty {
+            return error
+        }
+        return nil
+    }
+
+    private func parseSignUpResponse(from data: Data, fallbackEmail: String) throws -> SupabaseSignUpResult {
+        guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.invalidResponse
+        }
+        if payload["access_token"] != nil {
+            return .session(try parseSession(from: data, fallbackEmail: fallbackEmail))
+        }
+        let email = (payload["email"] as? String) ?? fallbackEmail
+        if payload["confirmation_sent_at"] != nil {
+            guard !email.isEmpty else {
+                throw APIError.invalidResponse
+            }
+            return .emailConfirmationRequired(email: email)
+        }
+        if let user = payload["user"] as? [String: Any],
+           user["confirmation_sent_at"] != nil {
+            let confirmedEmail = (user["email"] as? String) ?? email
+            return .emailConfirmationRequired(email: confirmedEmail)
+        }
+        throw APIError.invalidResponse
     }
 
     private func parseSession(from data: Data, fallbackEmail: String) throws -> SupabaseAuthSession {
@@ -210,6 +272,27 @@ final class SupabaseAuthService {
             accessToken: accessToken,
             refreshToken: refreshToken
         )
+    }
+
+    private func userIdFromAccessToken(_ accessToken: String) -> String? {
+        let parts = accessToken.split(separator: ".")
+        guard parts.count >= 2 else {
+            return nil
+        }
+        var base64 = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let padding = (4 - base64.count % 4) % 4
+        base64 += String(repeating: "=", count: padding)
+        guard
+            let data = Data(base64Encoded: base64),
+            let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let sub = payload["sub"] as? String,
+            !sub.isEmpty
+        else {
+            return nil
+        }
+        return sub
     }
 
     private func notifySessionChanged(_ session: SupabaseAuthSession) {
@@ -270,7 +353,7 @@ final class APIClient {
         #if DEBUG
         let defaultBaseURL = "http://127.0.0.1:8000"
         #else
-        let defaultBaseURL = "https://api.hiair.app"
+        let defaultBaseURL = "https://api.hiair.io"
         #endif
         let fromEnv = ProcessInfo.processInfo.environment["HIAIR_API_BASE_URL"]?.trimmingCharacters(
             in: .whitespacesAndNewlines

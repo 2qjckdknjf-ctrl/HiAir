@@ -31,26 +31,40 @@ final class AuthViewModel: ObservableObject {
         defer { loading = false }
 
         do {
-            let authSession: SupabaseAuthSession
             if mode == "signup" {
-                authSession = try await supabaseAuth.signUp(email: normalizedEmail, password: password)
+                switch try await supabaseAuth.signUp(email: normalizedEmail, password: password) {
+                case .session(let authSession):
+                    applyAuthSession(authSession, session: session)
+                    statusText = session.l("auth.ok")
+                case .emailConfirmationRequired(let confirmedEmail):
+                    session.authNotice = String(format: session.l("auth.confirm_email"), confirmedEmail)
+                    statusText = session.l("auth.confirm_email_short")
+                }
             } else {
-                authSession = try await supabaseAuth.signIn(email: normalizedEmail, password: password)
+                let authSession = try await supabaseAuth.signIn(email: normalizedEmail, password: password)
+                applyAuthSession(authSession, session: session)
+                statusText = session.l("auth.ok")
             }
-            session.userId = authSession.userId
-            session.email = authSession.email
-            session.accessToken = authSession.accessToken
-            session.refreshToken = authSession.refreshToken
-            session.authNotice = ""
+        } catch is URLError {
+            statusText = session.l("auth.backend_unreachable")
+        } catch let failure as SupabaseAuthFailure {
+            statusText = failure.message
+        } catch {
+            statusText = session.l("auth.fail")
+        }
+    }
+
+    private func applyAuthSession(_ authSession: SupabaseAuthSession, session: AppSession) {
+        session.userId = authSession.userId
+        session.email = authSession.email
+        session.accessToken = authSession.accessToken
+        session.refreshToken = authSession.refreshToken
+        session.authNotice = ""
+        Task {
             let hasProfile = await session.ensureProfileIdIfNeeded()
             if hasProfile {
                 session.markChecklistItem("profile", done: true)
             }
-            statusText = session.l("auth.ok")
-        } catch is URLError {
-            statusText = session.l("auth.backend_unreachable")
-        } catch {
-            statusText = session.l("auth.fail")
         }
     }
 
@@ -59,7 +73,7 @@ final class AuthViewModel: ObservableObject {
         defer { loading = false }
         do {
             try await supabaseAuth.signInWithApple()
-            statusText = session.l("auth.ok")
+            statusText = session.l("auth.oauth_continue")
         } catch {
             statusText = session.l("auth.fail")
         }
@@ -70,7 +84,7 @@ final class AuthViewModel: ObservableObject {
         defer { loading = false }
         do {
             try await supabaseAuth.signInWithGoogle()
-            statusText = session.l("auth.ok")
+            statusText = session.l("auth.oauth_continue")
         } catch {
             statusText = session.l("auth.fail")
         }
