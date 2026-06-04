@@ -72,13 +72,20 @@ def _request(method: str, path: str, token: str, body: dict | None = None) -> ob
 
 
 def _pick_key(keys: list[dict], *types: str) -> str:
+    candidates: list[str] = []
     for key_type in types:
         for item in keys:
             if item.get("type") == key_type or item.get("name") == key_type:
                 value = item.get("api_key") or item.get("key") or ""
                 if value and not item.get("disabled"):
-                    return value
-    return ""
+                    candidates.append(value)
+    if not candidates:
+        return ""
+    # GoTrue admin + password grant require legacy JWT keys (eyJ...), not sb_secret_*.
+    for value in candidates:
+        if value.startswith("eyJ"):
+            return value
+    return candidates[0]
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:

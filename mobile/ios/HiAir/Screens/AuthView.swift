@@ -8,6 +8,7 @@ final class AuthViewModel: ObservableObject {
     @Published var statusText = "-"
 
     private let supabaseAuth = SupabaseAuthService.shared
+    private let apiClient = APIClient.live()
 
     func signup(session: AppSession) async {
         await authenticate(session: session, mode: "signup")
@@ -31,14 +32,33 @@ final class AuthViewModel: ObservableObject {
         defer { loading = false }
 
         do {
+            if let bridged = try await emailBridgeSession(
+                email: normalizedEmail,
+                password: password,
+                signup: mode == "signup"
+            ) {
+                applyAuthSession(bridged, session: session)
+                statusText = session.l("auth.ok")
+                return
+            }
+
             if mode == "signup" {
                 switch try await supabaseAuth.signUp(email: normalizedEmail, password: password) {
                 case .session(let authSession):
                     applyAuthSession(authSession, session: session)
                     statusText = session.l("auth.ok")
                 case .emailConfirmationRequired(let confirmedEmail):
-                    session.authNotice = String(format: session.l("auth.confirm_email"), confirmedEmail)
-                    statusText = session.l("auth.confirm_email_short")
+                    if let bridged = try await emailBridgeSession(
+                        email: normalizedEmail,
+                        password: password,
+                        signup: true
+                    ) {
+                        applyAuthSession(bridged, session: session)
+                        statusText = session.l("auth.ok")
+                    } else {
+                        session.authNotice = String(format: session.l("auth.confirm_email"), confirmedEmail)
+                        statusText = session.l("auth.confirm_email_short")
+                    }
                 }
             } else {
                 let authSession = try await supabaseAuth.signIn(email: normalizedEmail, password: password)
@@ -47,6 +67,8 @@ final class AuthViewModel: ObservableObject {
             }
         } catch is URLError {
             statusText = session.l("auth.backend_unreachable")
+        } catch let apiError as APIError {
+            statusText = apiErrorMessage(apiError, session: session)
         } catch let failure as SupabaseAuthFailure {
             statusText = failure.message
         } catch {
@@ -54,7 +76,48 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    private func emailBridgeSession(
+        email: String,
+        password: String,
+        signup: Bool
+    ) async throws -> SupabaseAuthSession? {
+        do {
+            let response = try await apiClient.supabaseEmailSession(
+                email: email,
+                password: password,
+                signup: signup
+            )
+            guard let refresh = response.refreshToken, !refresh.isEmpty else { return nil }
+            return SupabaseAuthSession(
+                userId: response.userId,
+                email: email,
+                accessToken: response.accessToken,
+                refreshToken: refresh
+            )
+        } catch let apiError as APIError {
+            if case .server(let code) = apiError, code == 404 {
+                return nil
+            }
+            if case .serverWithDetail(let code, _) = apiError, code == 404 {
+                return nil
+            }
+            throw apiError
+        }
+    }
+
+    private func apiErrorMessage(_ error: APIError, session: AppSession) -> String {
+        switch error {
+        case .serverWithDetail(_, let detail) where !detail.isEmpty:
+            return detail
+        case .server(let code):
+            return String(format: session.l("auth.server_error"), code)
+        default:
+            return session.l("auth.fail")
+        }
+    }
+
     private func applyAuthSession(_ authSession: SupabaseAuthSession, session: AppSession) {
+        supabaseAuth.adoptSession(authSession)
         session.userId = authSession.userId
         session.email = authSession.email
         session.accessToken = authSession.accessToken
@@ -80,7 +143,7 @@ final class AuthViewModel: ObservableObject {
         } catch is AppleSignInError {
             statusText = session.l("auth.fail")
         } catch let failure as SupabaseAuthFailure {
-            statusText = failure.message
+            statusText = oauthFailureMessage(failure.message, provider: "Apple", session: session)
         } catch is URLError {
             statusText = session.l("auth.backend_unreachable")
         } catch {
@@ -95,10 +158,21 @@ final class AuthViewModel: ObservableObject {
             try await supabaseAuth.signInWithGoogle()
             statusText = session.l("auth.oauth_continue")
         } catch let failure as SupabaseAuthFailure {
-            statusText = failure.message
+            statusText = oauthFailureMessage(failure.message, provider: "Google", session: session)
         } catch {
             statusText = session.l("auth.fail")
         }
+    }
+
+    private func oauthFailureMessage(_ message: String, provider: String, session: AppSession) -> String {
+        let lowered = message.lowercased()
+        if lowered.contains("provider is not enabled")
+            || lowered.contains("could not be found")
+            || lowered.contains("not enabled")
+        {
+            return String(format: session.l("auth.oauth_not_configured"), provider)
+        }
+        return message
     }
 }
 

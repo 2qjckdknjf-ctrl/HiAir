@@ -35,6 +35,9 @@ class Settings:
     hiair_ios_url_scheme: str = os.getenv("HIAIR_IOS_URL_SCHEME", "hiair").strip()
     hiair_android_url_scheme: str = os.getenv("HIAIR_ANDROID_URL_SCHEME", "hiair").strip()
     hiair_auth_redirect_uri: str = os.getenv("HIAIR_AUTH_REDIRECT_URI", "hiair://auth/callback").strip()
+    hiair_auth_email_bridge_enabled: bool = (
+        os.getenv("HIAIR_AUTH_EMAIL_BRIDGE_ENABLED", "true").strip().lower() == "true"
+    )
     allow_legacy_user_header_auth: bool = (
         os.getenv("ALLOW_LEGACY_USER_HEADER_AUTH", "false").strip().lower() == "true"
     )

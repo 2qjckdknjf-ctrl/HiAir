@@ -51,7 +51,27 @@ Requires `SUPABASE_ACCESS_TOKEN` in `~/.config/hiair/supabase-credentials.env`.
 - Android: same flows (`mobile/android`).
 - Backend: `cd backend && .venv/bin/python -m pytest tests/test_supabase_auth_integration.py -q --no-cov`
 
-## 5) Security hygiene
+## 5) TestFlight email login (backend bridge)
+
+Production API exposes `POST /api/auth/supabase/session` when the backend has **legacy JWT** keys:
+
+- `SUPABASE_ANON_KEY` → `eyJ...` (same as iOS `INFOPLIST_KEY_SUPABASE_ANON_KEY`)
+- `SUPABASE_SERVICE_ROLE_KEY` → `eyJ...` (Dashboard → Project Settings → API → **service_role** legacy)
+
+`sb_publishable_*` / `sb_secret_*` keys do **not** work with GoTrue admin APIs.
+
+**Service role JWT** (not the dashboard PAT): Project Settings → API → legacy **service_role** → store in `backend/.env.local` as `SUPABASE_SERVICE_ROLE_KEY=eyJ...` (same value as iOS anon style JWT). Optional copy path: `~/.config/hiair/supabase-credentials.env` as `SUPABASE_SERVICE_ROLE_JWT`.
+
+Full sync (needs [account PAT](https://supabase.com/dashboard/account/tokens) in `SUPABASE_ACCESS_TOKEN`):
+
+```bash
+python3 backend/scripts/sync_supabase_secrets.py
+./scripts/ops/deploy_hiair_api_cloudflare.sh
+```
+
+Until keys are fixed, use **email signup → confirm link in inbox → Log in** in the TestFlight build.
+
+## 6) Security hygiene
 
 - Rotate database password after any one-shot env bootstrap edge function was used.
 - Delete disabled edge function `hiair-env-bootstrap` in Dashboard → Edge Functions when no longer needed.

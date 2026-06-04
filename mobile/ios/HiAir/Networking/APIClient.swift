@@ -412,6 +412,10 @@ final class SupabaseAuthService {
         return sub
     }
 
+    func adoptSession(_ session: SupabaseAuthSession) {
+        notifySessionChanged(session)
+    }
+
     private func notifySessionChanged(_ session: SupabaseAuthSession) {
         NotificationCenter.default.post(name: Self.sessionDidChange, object: session)
     }
@@ -581,6 +585,16 @@ final class APIClient {
     func login(email: String, password: String) async throws -> AuthResponse {
         let url = baseURL.appending(path: "/api/auth/login")
         var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(AuthRequest(email: email, password: password))
+        return try await executeAuthRequest(request)
+    }
+
+    /// Confirmed Supabase session via backend service role (TestFlight email unblock).
+    func supabaseEmailSession(email: String, password: String, signup: Bool) async throws -> AuthResponse {
+        let path = signup ? "/api/auth/supabase/signup" : "/api/auth/supabase/session"
+        var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(AuthRequest(email: email, password: password))

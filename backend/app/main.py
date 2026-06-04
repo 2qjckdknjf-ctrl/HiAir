@@ -4,6 +4,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from app.api.auth import router as auth_router
+from app.api.auth_supabase_bridge import router as auth_supabase_bridge_router
 from app.api.air import router as air_router
 from app.api.alerts import router as alerts_router
 from app.api.briefings import router as briefings_router
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(auth_supabase_bridge_router, prefix="/api")
     app.include_router(profiles_router, prefix="/api")
     app.include_router(privacy_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")

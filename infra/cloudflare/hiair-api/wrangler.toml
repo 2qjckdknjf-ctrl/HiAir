@@ -1,0 +1,22 @@
+name = "hiair-api"
+main = "src/index.js"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "api.hiair.io", custom_domain = true },
+]
+
+[[containers]]
+class_name = "HiAirApiContainer"
+image = "../../../backend/Dockerfile"
+max_instances = 3
+instance_type = "basic"
+
+[[durable_objects.bindings]]
+name = "HIAIR_API"
+class_name = "HiAirApiContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["HiAirApiContainer"]
