@@ -39,12 +39,8 @@ regenerate_project() {
   xcodegen generate
 }
 
-if project_includes_v2_theme; then
-  echo "==> project.pbxproj already lists HiAirV2Theme — skip XcodeGen"
-else
-  echo "==> project.pbxproj is stale (missing HiAirV2Theme) — run XcodeGen"
-  regenerate_project
-fi
+echo "==> Regenerate Xcode project (picks up new Swift files)"
+regenerate_project
 
 if ! project_includes_v2_theme; then
   echo "error: HiAirV2Theme.swift is still not in Compile Sources after XcodeGen." >&2

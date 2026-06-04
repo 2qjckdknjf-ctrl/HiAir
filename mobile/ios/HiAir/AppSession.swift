@@ -91,6 +91,17 @@ final class AppSession: ObservableObject {
                 self.authNotice = ""
             }
         }
+        NotificationCenter.default.addObserver(
+            forName: SupabaseAuthService.sessionOAuthFailed,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            let message = note.object as? String ?? ""
+            Task { @MainActor [weak self] in
+                guard let self, !message.isEmpty else { return }
+                self.authNotice = message
+            }
+        }
         Task { @MainActor [weak self] in
             await self?.restoreSupabaseSession()
             await self?.refreshEntitlement()
@@ -317,6 +328,7 @@ enum HiAirL10n {
             "auth.confirm_email": "Мы отправили письмо на %@. Откройте ссылку в письме, затем нажмите «Войти» с тем же паролем.",
             "auth.confirm_email_short": "Подтвердите email, затем войдите.",
             "auth.oauth_continue": "Завершите вход в браузере, затем вернитесь в HiAir.",
+            "auth.cancelled": "Вход отменён.",
             "auth.fail": "Ошибка авторизации.",
             "onboarding.title": "Онбординг HiAir",
             "onboarding.persona": "Профиль",
@@ -715,6 +727,7 @@ enum HiAirL10n {
             "auth.confirm_email": "We sent a confirmation link to %@. Open it, then tap Log in with the same password.",
             "auth.confirm_email_short": "Confirm your email, then log in.",
             "auth.oauth_continue": "Finish sign-in in the browser, then return to HiAir.",
+            "auth.cancelled": "Sign-in cancelled.",
             "auth.fail": "Auth failed.",
             "onboarding.title": "HiAir Onboarding",
             "onboarding.persona": "Persona",

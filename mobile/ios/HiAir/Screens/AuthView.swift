@@ -72,8 +72,17 @@ final class AuthViewModel: ObservableObject {
         loading = true
         defer { loading = false }
         do {
-            try await supabaseAuth.signInWithApple()
-            statusText = session.l("auth.oauth_continue")
+            let authSession = try await supabaseAuth.signInWithApple()
+            applyAuthSession(authSession, session: session)
+            statusText = session.l("auth.ok")
+        } catch AppleSignInError.cancelled {
+            statusText = session.l("auth.cancelled")
+        } catch is AppleSignInError {
+            statusText = session.l("auth.fail")
+        } catch let failure as SupabaseAuthFailure {
+            statusText = failure.message
+        } catch is URLError {
+            statusText = session.l("auth.backend_unreachable")
         } catch {
             statusText = session.l("auth.fail")
         }
@@ -85,6 +94,8 @@ final class AuthViewModel: ObservableObject {
         do {
             try await supabaseAuth.signInWithGoogle()
             statusText = session.l("auth.oauth_continue")
+        } catch let failure as SupabaseAuthFailure {
+            statusText = failure.message
         } catch {
             statusText = session.l("auth.fail")
         }

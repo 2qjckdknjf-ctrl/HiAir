@@ -8,6 +8,9 @@ import com.hiair.SessionStore
 import com.hiair.StoredSession
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
+import java.util.Base64
+import kotlin.random.Random
 import org.json.JSONObject
 
 data class SupabaseSession(
@@ -21,6 +24,7 @@ class SupabaseAuthService(
     private val context: Context,
     private val sessionStore: SessionStore
 ) {
+    private var pendingOAuthCodeVerifier: String? = null
     fun restoreSession(): SupabaseSession? {
         val stored = sessionStore.load()
         if (stored.userId.isBlank() || stored.accessToken.isBlank() || stored.refreshToken.isBlank()) {
@@ -92,21 +96,22 @@ class SupabaseAuthService(
         if (data.scheme != "hiair" || data.host != "auth") {
             return null
         }
-        val raw = data.toString()
-        val fragment = raw.substringAfter("#", "")
-        if (fragment.isBlank()) {
-            return null
+        val params = parseAuthParams(data)
+        params["error"]?.let { error ->
+            val description = params["error_description"] ?: error
+            throw ApiHttpException(400, description)
         }
-        val params = fragment
-            .split("&")
-            .mapNotNull { pair ->
-                val idx = pair.indexOf("=")
-                if (idx <= 0) return@mapNotNull null
-                val key = pair.substring(0, idx)
-                val value = Uri.decode(pair.substring(idx + 1))
-                key to value
-            }
-            .toMap()
+        params["code"]?.takeIf { it.isNotBlank() }?.let { code ->
+            val verifier = pendingOAuthCodeVerifier ?: return null
+            pendingOAuthCodeVerifier = null
+            val endpoint = "${AppConfig.supabaseUrl}/auth/v1/token?grant_type=pkce"
+            val body = JSONObject()
+                .put("auth_code", code)
+                .put("code_verifier", verifier)
+                .toString()
+            val payload = request("POST", endpoint, body)
+            return extractSession(payload, fallbackEmail = "").also(::persist)
+        }
         val accessToken = params["access_token"] ?: return null
         val refreshToken = params["refresh_token"] ?: return null
         val userId = params["user_id"] ?: params["sub"] ?: return null
@@ -123,9 +128,49 @@ class SupabaseAuthService(
 
     private fun launchOAuth(provider: String) {
         val redirect = Uri.encode(AppConfig.supabaseRedirectUri)
-        val target = Uri.parse("${AppConfig.supabaseUrl}/auth/v1/authorize?provider=$provider&redirect_to=$redirect")
+        val apiKey = Uri.encode(AppConfig.supabaseAnonKey)
+        val verifier = randomUrlSafeString(64)
+        val challenge = pkceChallenge(verifier)
+        pendingOAuthCodeVerifier = verifier
+        val target = Uri.parse(
+            "${AppConfig.supabaseUrl}/auth/v1/authorize" +
+                "?provider=$provider" +
+                "&redirect_to=$redirect" +
+                "&apikey=$apiKey" +
+                "&code_challenge=$challenge" +
+                "&code_challenge_method=s256"
+        )
         val customTabsIntent = CustomTabsIntent.Builder().build()
         customTabsIntent.launchUrl(context, target)
+    }
+
+    private fun parseAuthParams(data: Uri): Map<String, String> {
+        val params = mutableMapOf<String, String>()
+        data.queryParameterNames.forEach { name ->
+            data.getQueryParameter(name)?.let { params[name] = it }
+        }
+        val fragment = data.fragment.orEmpty()
+        if (fragment.isNotBlank()) {
+            fragment.split("&").forEach { pair ->
+                val idx = pair.indexOf("=")
+                if (idx > 0) {
+                    val key = pair.substring(0, idx)
+                    val value = Uri.decode(pair.substring(idx + 1))
+                    params[key] = value
+                }
+            }
+        }
+        return params
+    }
+
+    private fun randomUrlSafeString(length: Int): String {
+        val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._~"
+        return (1..length).map { charset[Random.nextInt(charset.length)] }.joinToString("")
+    }
+
+    private fun pkceChallenge(verifier: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.UTF_8))
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
     }
 
     private fun persist(session: SupabaseSession) {

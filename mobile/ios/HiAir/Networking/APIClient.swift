@@ -1,3 +1,5 @@
+import AuthenticationServices
+import CryptoKit
 import Foundation
 import UIKit
 
@@ -30,11 +32,14 @@ struct SupabaseAuthFailure: LocalizedError {
 final class SupabaseAuthService {
     static let shared = SupabaseAuthService()
     static let sessionDidChange = Notification.Name("hiair.supabase.session.did.change")
+    static let sessionOAuthFailed = Notification.Name("hiair.supabase.session.oauth.failed")
 
     private let urlSession: URLSession = .shared
     private let supabaseURL: URL?
     private let anonKey: String
     private let redirectURI: String
+    private var pendingOAuthCodeVerifier: String?
+    private let appleSignIn = AppleSignInCoordinator()
 
     private init() {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -77,8 +82,28 @@ final class SupabaseAuthService {
         return session
     }
 
-    func signInWithApple() async throws {
-        try await openOAuth(provider: "apple")
+    /// Native Sign in with Apple (TestFlight/App Store). Requires Apple provider enabled in Supabase.
+    func signInWithApple() async throws -> SupabaseAuthSession {
+        let (credential, rawNonce) = try await appleSignIn.signIn()
+        guard let tokenData = credential.identityToken,
+              let idToken = String(data: tokenData, encoding: .utf8),
+              !idToken.isEmpty
+        else {
+            throw AppleSignInError.missingIdentityToken
+        }
+        let data = try await request(
+            method: "POST",
+            path: "/auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "id_token")],
+            body: [
+                "provider": "apple",
+                "id_token": idToken,
+                "nonce": rawNonce,
+            ]
+        )
+        let session = try parseSession(from: data, fallbackEmail: credential.email ?? "")
+        notifySessionChanged(session)
+        return session
     }
 
     func signInWithGoogle() async throws {
@@ -121,36 +146,80 @@ final class SupabaseAuthService {
     }
 
     func handleCallbackURL(_ url: URL) async -> Bool {
-        let absolute = url.absoluteString
-        guard let hashIdx = absolute.firstIndex(of: "#") else {
+        guard url.scheme?.lowercased() == "hiair", url.host?.lowercased() == "auth" else {
             return false
         }
-        let fragment = String(absolute[absolute.index(after: hashIdx)...])
-        var pairs: [String: String] = [:]
-        for item in fragment.split(separator: "&") {
-            let parts = item.split(separator: "=", maxSplits: 1).map(String.init)
-            guard parts.count == 2 else { continue }
-            pairs[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+
+        let params = Self.parseAuthURLParams(url)
+        if let error = params["error"] ?? params["error_code"] {
+            let description = params["error_description"] ?? params["msg"] ?? error
+            notifyOAuthFailed(description)
+            return false
         }
-        guard
-            let accessToken = pairs["access_token"],
-            let refreshToken = pairs["refresh_token"]
+
+        if let code = params["code"], !code.isEmpty {
+            return await exchangeOAuthCode(code)
+        }
+
+        guard let accessToken = params["access_token"],
+              let refreshToken = params["refresh_token"]
         else {
+            notifyOAuthFailed("Missing OAuth tokens in callback.")
             return false
         }
-        let userId = pairs["user_id"]
-            ?? pairs["sub"]
-            ?? userIdFromAccessToken(accessToken)
-            ?? ""
+        return finalizeOAuthSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userId: params["user_id"] ?? params["sub"],
+            email: params["email"] ?? ""
+        )
+    }
+
+    private func exchangeOAuthCode(_ code: String) async -> Bool {
+        guard let verifier = pendingOAuthCodeVerifier, !verifier.isEmpty else {
+            notifyOAuthFailed("OAuth state expired. Try again.")
+            return false
+        }
+        pendingOAuthCodeVerifier = nil
+        do {
+            let data = try await request(
+                method: "POST",
+                path: "/auth/v1/token",
+                query: [URLQueryItem(name: "grant_type", value: "pkce")],
+                body: [
+                    "auth_code": code,
+                    "code_verifier": verifier,
+                ]
+            )
+            let session = try parseSession(from: data, fallbackEmail: "")
+            notifySessionChanged(session)
+            return true
+        } catch let failure as SupabaseAuthFailure {
+            notifyOAuthFailed(failure.message)
+            return false
+        } catch {
+            notifyOAuthFailed("OAuth sign-in failed.")
+            return false
+        }
+    }
+
+    private func finalizeOAuthSession(
+        accessToken: String,
+        refreshToken: String,
+        userId: String?,
+        email: String
+    ) -> Bool {
+        let resolvedUserId = userId ?? userIdFromAccessToken(accessToken) ?? ""
+        guard !resolvedUserId.isEmpty else {
+            notifyOAuthFailed("OAuth user id missing.")
+            return false
+        }
         let session = SupabaseAuthSession(
-            userId: userId,
-            email: pairs["email"] ?? "",
+            userId: resolvedUserId,
+            email: email,
             accessToken: accessToken,
             refreshToken: refreshToken
         )
-        guard !session.userId.isEmpty else {
-            return false
-        }
         notifySessionChanged(session)
         return true
     }
@@ -159,17 +228,65 @@ final class SupabaseAuthService {
         guard let base = supabaseURL else {
             throw APIError.invalidURL
         }
+        guard !anonKey.isEmpty else {
+            throw SupabaseAuthFailure(message: "Supabase anon key is not configured in the app.")
+        }
+        let verifier = Self.randomURLSafeString(length: 64)
+        let challenge = Self.pkceChallenge(for: verifier)
+        pendingOAuthCodeVerifier = verifier
+
         var components = URLComponents(url: base.appending(path: "/auth/v1/authorize"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "provider", value: provider),
             URLQueryItem(name: "redirect_to", value: redirectURI),
+            URLQueryItem(name: "apikey", value: anonKey),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "code_challenge_method", value: "s256"),
         ]
         guard let target = components?.url else {
             throw APIError.invalidURL
         }
+
         await MainActor.run {
             UIApplication.shared.open(target)
         }
+    }
+
+    private static func parseAuthURLParams(_ url: URL) -> [String: String] {
+        var pairs: [String: String] = [:]
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.queryItems?.forEach { item in
+                if let value = item.value {
+                    pairs[item.name] = value
+                }
+            }
+        }
+        if let fragment = url.fragment, !fragment.isEmpty {
+            for item in fragment.split(separator: "&") {
+                let parts = item.split(separator: "=", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { continue }
+                pairs[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+            }
+        }
+        return pairs
+    }
+
+    private static func randomURLSafeString(length: Int) -> String {
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._~")
+        return String((0..<length).map { _ in charset.randomElement()! })
+    }
+
+    private static func pkceChallenge(for verifier: String) -> String {
+        let digest = SHA256.hash(data: Data(verifier.utf8))
+        return Data(digest)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    private func notifyOAuthFailed(_ message: String) {
+        NotificationCenter.default.post(name: Self.sessionOAuthFailed, object: message)
     }
 
     private func request(
@@ -1036,5 +1153,97 @@ final class APIClient {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
+    }
+}
+
+// MARK: - Native Sign in with Apple
+
+enum AppleSignInError: LocalizedError {
+    case missingIdentityToken
+    case cancelled
+
+    var errorDescription: String? {
+        switch self {
+        case .missingIdentityToken:
+            return "Apple Sign In did not return an identity token."
+        case .cancelled:
+            return "Apple Sign In was cancelled."
+        }
+    }
+}
+
+@MainActor
+final class AppleSignInCoordinator: NSObject {
+    private var continuation: CheckedContinuation<(ASAuthorizationAppleIDCredential, String), Error>?
+    private var currentNonce = ""
+
+    func signIn() async throws -> (credential: ASAuthorizationAppleIDCredential, rawNonce: String) {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(ASAuthorizationAppleIDCredential, String), Error>) in
+            self.continuation = continuation
+            currentNonce = Self.randomNonceString()
+            let provider = ASAuthorizationAppleIDProvider()
+            let request = provider.createRequest()
+            request.requestedScopes = [.email, .fullName]
+            request.nonce = Self.sha256(currentNonce)
+
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            controller.delegate = self
+            controller.presentationContextProvider = self
+            controller.performRequests()
+        }
+    }
+
+    private static func randomNonceString(length: Int = 32) -> String {
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        result.reserveCapacity(length)
+        for _ in 0..<length {
+            result.append(charset.randomElement()!)
+        }
+        return result
+    }
+
+    private static func sha256(_ input: String) -> String {
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            continuation?.resume(throwing: AppleSignInError.missingIdentityToken)
+            continuation = nil
+            return
+        }
+        guard credential.identityToken != nil else {
+            continuation?.resume(throwing: AppleSignInError.missingIdentityToken)
+            continuation = nil
+            return
+        }
+        continuation?.resume(returning: (credential, currentNonce))
+        continuation = nil
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        let nsError = error as NSError
+        if nsError.domain == ASAuthorizationError.errorDomain,
+           nsError.code == ASAuthorizationError.canceled.rawValue {
+            continuation?.resume(throwing: AppleSignInError.cancelled)
+        } else {
+            continuation?.resume(throwing: error)
+        }
+        continuation = nil
+    }
+}
+
+extension AppleSignInCoordinator: ASAuthorizationControllerPresentationContextProviding {
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let keyWindow = scenes.flatMap(\.windows).first { $0.isKeyWindow }
+        return keyWindow ?? ASPresentationAnchor()
     }
 }
