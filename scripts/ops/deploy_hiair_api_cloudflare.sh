@@ -61,6 +61,10 @@ allowed = {
     "NOTIFICATIONS_PROVIDER_MODE",
     "SUBSCRIPTION_PROVIDER",
     "SUBSCRIPTION_WEBHOOK_SECRET",
+    "APPLE_STORE_VERIFIER_MODE",
+    "GOOGLE_PLAY_VERIFIER_MODE",
+    "APPLE_BUNDLE_ID",
+    "GOOGLE_PLAY_PACKAGE_NAME",
     "WEATHER_API_PROVIDER",
     "WEATHER_API_KEY",
     "AQI_API_PROVIDER",
@@ -76,6 +80,10 @@ for raw in Path("${ENV_FILE}").read_text(encoding="utf-8").splitlines():
     if key in allowed and value.strip():
         values[key] = value.strip()
 values.setdefault("APP_ENV", "production")
+values.setdefault("APPLE_STORE_VERIFIER_MODE", "stub")
+values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
+values.setdefault("APPLE_BUNDLE_ID", "com.hiair.app")
+values.setdefault("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
 for key in sorted(values):
     print(f"{key}={values[key]}")

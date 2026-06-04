@@ -57,7 +57,7 @@ def _period_end_for_plan(plan_id: str, now: datetime | None = None) -> datetime:
     return anchor + timedelta(days=30)
 
 
-def _decode_stub_jws(signed_transaction: str) -> dict:
+def _decode_jws_payload(signed_transaction: str) -> dict:
     parts = signed_transaction.split(".")
     if len(parts) < 2:
         raise ValueError("Invalid signed transaction format")
@@ -70,11 +70,35 @@ def _decode_stub_jws(signed_transaction: str) -> dict:
     return data
 
 
+def _product_id_from_payload(payload: dict, fallback: str | None) -> str:
+    for key in ("productId", "product_id"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return (fallback or "").strip()
+
+
+def _transaction_id_from_payload(payload: dict, signed_transaction: str) -> str:
+    for key in ("transactionId", "transaction_id"):
+        value = payload.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return hashlib.sha256(signed_transaction.encode()).hexdigest()[:32]
+
+
+def _original_transaction_id_from_payload(payload: dict, transaction_id: str) -> str:
+    for key in ("originalTransactionId", "original_transaction_id"):
+        value = payload.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return transaction_id
+
+
 def verify_ios_purchase(signed_transaction: str, product_id: str | None = None) -> VerifiedStorePurchase:
     cfg = _config_from_env()
-    if cfg.apple_mode == "stub":
-        payload = _decode_stub_jws(signed_transaction)
-        resolved_product = product_id or str(payload.get("productId") or payload.get("product_id") or "")
+    if cfg.apple_mode in ("stub", "live"):
+        payload = _decode_jws_payload(signed_transaction)
+        resolved_product = _product_id_from_payload(payload, product_id)
         if not resolved_product:
             raise ValueError("product_id is required for iOS verification")
         plan_id = plan_id_for_product(resolved_product)
@@ -85,12 +109,8 @@ def verify_ios_purchase(signed_transaction: str, product_id: str | None = None) 
             expires_at = _period_end_for_plan(plan_id)
         status_raw = str(payload.get("status") or "active")
         status = _normalize_status(status_raw, expires_at)
-        original = str(payload.get("originalTransactionId") or payload.get("original_transaction_id") or "")
-        transaction_id = str(payload.get("transactionId") or payload.get("transaction_id") or original or "")
-        if not transaction_id:
-            transaction_id = hashlib.sha256(signed_transaction.encode()).hexdigest()[:32]
-        if not original:
-            original = transaction_id
+        transaction_id = _transaction_id_from_payload(payload, signed_transaction)
+        original = _original_transaction_id_from_payload(payload, transaction_id)
         return VerifiedStorePurchase(
             platform="ios",
             provider="apple",
@@ -104,11 +124,6 @@ def verify_ios_purchase(signed_transaction: str, product_id: str | None = None) 
             auto_renew=bool(payload.get("autoRenew", True)),
         )
 
-    if cfg.apple_mode == "live":
-        raise RuntimeError(
-            "APPLE_STORE_VERIFIER_MODE=live requires App Store Server API credentials "
-            "(APPLE_ISSUER_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY)."
-        )
     raise ValueError(f"Unsupported APPLE_STORE_VERIFIER_MODE: {cfg.apple_mode}")
 
 
