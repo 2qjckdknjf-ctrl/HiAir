@@ -37,6 +37,8 @@ targets:
               - hiair
         # Export compliance: HTTPS/TLS only (exempt); skips ASC encryption questionnaire.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
+          HiAir uses your location to estimate heat and air-quality risk for your area and personalize local guidance.
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
