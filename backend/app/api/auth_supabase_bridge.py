@@ -32,8 +32,7 @@ def supabase_email_session(payload: LoginRequest, request: Request) -> AuthRespo
             status_code=429,
             detail="Too many sign-in attempts for this email. Wait 15 minutes and try again.",
         )
-    if not check_limit(f"supabase-bridge-ip:{client_host}", limit=300, window_seconds=3600):
-        raise HTTPException(status_code=429, detail="Too many auth attempts. Please retry later.")
+    _ = client_host  # reserved for future abuse heuristics; do not rate-limit by IP (TestFlight NAT).
     is_valid, reason = validate_password_policy(payload.password)
     if not is_valid:
         raise HTTPException(status_code=422, detail=reason)
