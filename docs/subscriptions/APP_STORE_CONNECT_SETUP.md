@@ -22,7 +22,7 @@
 - Restore purchases: Settings → Upgrade → **Restore purchases**
 - Sandbox account required for review
 - Backend verifies StoreKit transactions at `POST /api/subscriptions/ios/verify`
-- Privacy: https://hiair.app/privacy — Terms: https://hiair.app/terms
+- Privacy: https://hiair.io/privacy/ — Terms: https://hiair.io/terms/
 
 ## Sandbox testing
 

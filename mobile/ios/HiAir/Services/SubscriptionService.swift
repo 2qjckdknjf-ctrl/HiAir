@@ -116,6 +116,17 @@ final class SubscriptionService: ObservableObject {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
     }
+
+    func userFacingMessage(for error: APIError) -> String {
+        switch error {
+        case .serverWithDetail(_, let detail):
+            return detail
+        case .server(let code):
+            return "Server error (\(code))"
+        case .invalidURL, .invalidResponse:
+            return "Network error"
+        }
+    }
 }
 
 enum SubscriptionServiceError: LocalizedError {

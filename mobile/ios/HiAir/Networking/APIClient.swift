@@ -1149,7 +1149,7 @@ final class APIClient {
 
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
+            throw subscriptionAPIError(statusCode: httpResponse.statusCode, data: data)
         }
         return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
     }
@@ -1175,9 +1175,16 @@ final class APIClient {
 
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
+            throw subscriptionAPIError(statusCode: httpResponse.statusCode, data: data)
         }
         return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
+    }
+
+    private func subscriptionAPIError(statusCode: Int, data: Data) -> APIError {
+        if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+            return .serverWithDetail(statusCode: statusCode, detail: detail)
+        }
+        return .server(statusCode: statusCode)
     }
 }
 

@@ -672,33 +672,53 @@ struct SettingsView: View {
                     Text(session.l("settings.subscription"))
                         .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
-                    Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
-                        ForEach(viewModel.plans, id: \.planId) { plan in
-                            Text(planLabel(plan)).tag(plan.planId)
+                    Text(
+                        session.isPremium
+                            ? session.l("settings.premium_active")
+                            : session.l("settings.premium_inactive")
+                    )
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("settings.upgrade_premium")) {
+                        session.showPaywall = true
+                    }
+                    .buttonStyle(HiAirGradientButtonStyle())
+                    #if DEBUG
+                    DisclosureGroup(session.l("settings.subscription_dev")) {
+                        Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
+                            ForEach(viewModel.plans, id: \.planId) { plan in
+                                Text(planLabel(plan)).tag(plan.planId)
+                            }
                         }
+                        Text("\(session.l("settings.status")): \(viewModel.localizedSubscriptionStatus())")
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_plans")) {
+                            Task { await viewModel.loadPlans() }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_subscription")) {
+                            Task { await viewModel.loadSubscription() }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.activate_subscription")) {
+                            Task { await viewModel.activateSubscription() }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .disabled(viewModel.loading || viewModel.selectedPlanId.isEmpty)
+                        Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.cancel_subscription")) {
+                            Task { await viewModel.cancelSubscription() }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                     }
-                    Text("\(session.l("settings.status")): \(viewModel.localizedSubscriptionStatus())")
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
-                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_plans")) {
-                        Task { await viewModel.loadPlans() }
+                    .font(AuroraTokens.Typography.caption)
+                    #endif
+                    if !viewModel.statusText.isEmpty && viewModel.statusText != "-" {
+                        Text(viewModel.statusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.load_subscription")) {
-                        Task { await viewModel.loadSubscription() }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.activate_subscription")) {
-                        Task { await viewModel.activateSubscription() }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    .disabled(viewModel.loading || viewModel.selectedPlanId.isEmpty)
-                    Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.cancel_subscription")) {
-                        Task { await viewModel.cancelSubscription() }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
                 }
-                .disabled(viewModel.loading)
                 .tint(HiAirV2Theme.accentStart)
                 .v2Card()
 
@@ -883,9 +903,12 @@ struct SettingsView: View {
             if viewModel.preferredLanguage != session.preferredLanguage {
                 viewModel.preferredLanguage = session.preferredLanguage
             }
+            Task { await session.refreshEntitlement() }
+            #if DEBUG
             if viewModel.plans.isEmpty {
                 Task { await viewModel.loadPlans() }
             }
+            #endif
             if viewModel.aiTrendPoints.isEmpty {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
