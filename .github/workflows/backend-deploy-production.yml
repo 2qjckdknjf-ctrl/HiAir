@@ -1,7 +1,13 @@
 name: Backend Deploy Production
 
+# Manual production verification + optional HIAIR_DEPLOY_COMMAND hook.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/backend-deploy-production.yml"
 
 concurrency:
   group: backend-production-deploy
