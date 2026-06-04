@@ -198,8 +198,8 @@ def test_recommendations_daily(monkeypatch) -> None:
         lambda profile_id, user_id: True,
     )
     monkeypatch.setattr(
-        "app.api.recommendations.subscription_repository.has_active_subscription_for_profile",
-        lambda profile_id: True,
+        "app.api.recommendations.entitlement_service.require_feature",
+        lambda user_id, feature, attr: None,
     )
     monkeypatch.setattr(
         "app.api.recommendations.risk_repository.get_risk_history",
@@ -222,6 +222,10 @@ def test_recommendations_daily(monkeypatch) -> None:
 
 def test_privacy_endpoints(monkeypatch) -> None:
     _enable_auth(monkeypatch)
+    monkeypatch.setattr(
+        "app.api.privacy.entitlement_service.require_feature",
+        lambda user_id, feature, attr: None,
+    )
     monkeypatch.setattr("app.api.privacy.privacy_repository.export_user_data", lambda user_id: {"items": []})
     monkeypatch.setattr("app.api.privacy.privacy_repository.delete_user_data", lambda user_id: True)
     client = TestClient(app)
@@ -340,6 +344,7 @@ def test_insights_personal_patterns(monkeypatch) -> None:
 
 
 def test_planner_and_validation(monkeypatch) -> None:
+    _enable_auth(monkeypatch)
     monkeypatch.setattr(
         "app.api.planner.build_mock_snapshot",
         lambda lat, lon: EnvironmentSnapshot(
@@ -383,7 +388,7 @@ def test_planner_and_validation(monkeypatch) -> None:
         },
     )
     client = TestClient(app)
-    planner_response = client.get("/api/planner/daily")
+    planner_response = client.get("/api/planner/daily", headers=_auth_headers())
     validation_response = client.get("/api/validation/risk/historical")
     assert planner_response.status_code == 200
     assert validation_response.status_code == 200

@@ -101,10 +101,40 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         checks.append(CheckResult("ERROR", "HIAIR_ALLOW_INSECURE_LOCAL_DEV must be false in protected environments."))
 
     subscription_provider = env.get("SUBSCRIPTION_PROVIDER", "stub").strip().lower()
-    if subscription_provider not in ("stub", "stripe"):
-        checks.append(CheckResult("ERROR", "SUBSCRIPTION_PROVIDER must be one of: stub, stripe."))
+    if subscription_provider not in ("stub", "stripe", "apple", "google"):
+        checks.append(
+            CheckResult(
+                "ERROR",
+                "SUBSCRIPTION_PROVIDER must be one of: stub, stripe, apple, google.",
+            )
+        )
     else:
         checks.append(CheckResult("OK", f"SUBSCRIPTION_PROVIDER={subscription_provider}."))
+
+    apple_mode = env.get("APPLE_STORE_VERIFIER_MODE", "stub").strip().lower()
+    if apple_mode not in ("stub", "live"):
+        checks.append(CheckResult("ERROR", "APPLE_STORE_VERIFIER_MODE must be stub or live."))
+    elif protected_env and apple_mode == "live":
+        for key in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"):
+            if not env.get(key, "").strip():
+                checks.append(CheckResult("ERROR", f"{key} is required when APPLE_STORE_VERIFIER_MODE=live."))
+        if all(env.get(k, "").strip() for k in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY")):
+            checks.append(CheckResult("OK", "Apple live verifier credentials present."))
+    else:
+        checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE={apple_mode}."))
+
+    google_mode = env.get("GOOGLE_PLAY_VERIFIER_MODE", "stub").strip().lower()
+    if google_mode not in ("stub", "live"):
+        checks.append(CheckResult("ERROR", "GOOGLE_PLAY_VERIFIER_MODE must be stub or live."))
+    elif protected_env and google_mode == "live" and not env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip():
+        checks.append(
+            CheckResult(
+                "ERROR",
+                "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is required when GOOGLE_PLAY_VERIFIER_MODE=live.",
+            )
+        )
+    else:
+        checks.append(CheckResult("OK", f"GOOGLE_PLAY_VERIFIER_MODE={google_mode}."))
 
     webhook_secret = env.get("SUBSCRIPTION_WEBHOOK_SECRET", "")
     if subscription_provider != "stub":

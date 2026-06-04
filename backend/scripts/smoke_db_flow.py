@@ -344,6 +344,7 @@ def run() -> None:
 
     planner = client.get(
         "/api/planner/daily",
+        headers=auth_headers,
         params={"persona": "asthma", "lat": 41.39, "lon": 2.17, "hours": 12},
     )
     assert planner.status_code == 200, planner.text

@@ -674,7 +674,7 @@ struct SettingsView: View {
                         .foregroundStyle(HiAirV2Theme.primaryText)
                     Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
                         ForEach(viewModel.plans, id: \.planId) { plan in
-                            Text("\(plan.name) - $\(plan.priceUsd, specifier: "%.2f")").tag(plan.planId)
+                            Text(planLabel(plan)).tag(plan.planId)
                         }
                     }
                     Text("\(session.l("settings.status")): \(viewModel.localizedSubscriptionStatus())")
@@ -917,6 +917,16 @@ struct SettingsView: View {
             HiAirAIGuideView()
                 .environmentObject(session)
         }
+    }
+
+    private func planLabel(_ plan: SubscriptionPlan) -> String {
+        if let price = plan.priceUsd {
+            return "\(plan.name) - \(String(format: "$%.2f", price))"
+        }
+        if let iosId = plan.iosProductId {
+            return "\(plan.name) (\(iosId))"
+        }
+        return plan.name
     }
 
     private func aiErrorBreakdownLine() -> String {

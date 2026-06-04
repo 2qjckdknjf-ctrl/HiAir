@@ -1,6 +1,7 @@
 package com.hiair.ui.render
 
 import com.hiair.network.ApiClient
+import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.theme.V2Ui
@@ -53,6 +54,15 @@ internal object InsightsScreenRenderer {
                             }
                         }
                         activity.runOnUiThread { stateText.text = rendered.trim() }
+                    } catch (error: ApiHttpException) {
+                        activity.runOnUiThread {
+                            if (error.statusCode == 402) {
+                                rootShell.settingsViewModel.requestShowPaywall()
+                                ctx.rerender()
+                            } else {
+                                stateText.text = "${ctx.l("insights.failed")} ${ctx.l("insights.retry")}"
+                            }
+                        }
                     } catch (_: Exception) {
                         activity.runOnUiThread { stateText.text = "${ctx.l("insights.failed")} ${ctx.l("insights.retry")}" }
                     }

@@ -22,7 +22,7 @@ def test_manual_subscription_activation_blocked_in_protected_env(monkeypatch) ->
     monkeypatch.setattr(
         subscriptions_api,
         "settings",
-        SimpleNamespace(app_env="production"),
+        SimpleNamespace(app_env="production", subscription_provider="stub"),
     )
     client = TestClient(app)
     response = client.post(
@@ -31,7 +31,8 @@ def test_manual_subscription_activation_blocked_in_protected_env(monkeypatch) ->
         headers={"Authorization": "Bearer token"},
     )
     assert response.status_code == 403
-    assert "Manual activation is disabled" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert "disabled in protected environments" in detail or "Manual activation is disabled" in detail
 
 
 def test_create_app_hides_docs_in_protected_env(monkeypatch) -> None:

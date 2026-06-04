@@ -481,8 +481,11 @@ struct SubscriptionPlan: Codable {
     let planId: String
     let name: String
     let billingCycle: String
-    let priceUsd: Double
+    let priceUsd: Double?
     let trialDays: Int
+    let iosProductId: String?
+    let androidProductId: String?
+    let isPremium: Bool?
 
     enum CodingKeys: String, CodingKey {
         case planId = "plan_id"
@@ -490,6 +493,31 @@ struct SubscriptionPlan: Codable {
         case billingCycle = "billing_cycle"
         case priceUsd = "price_usd"
         case trialDays = "trial_days"
+        case iosProductId = "ios_product_id"
+        case androidProductId = "android_product_id"
+        case isPremium = "is_premium"
+    }
+}
+
+struct UserEntitlementResponse: Codable {
+    let userId: String
+    let plan: String
+    let isPremium: Bool
+    let maxProfiles: Int
+    let extendedForecastEnabled: Bool
+    let customAlertsEnabled: Bool
+    let exportReportsEnabled: Bool
+    let advancedInsightsEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case plan
+        case isPremium = "is_premium"
+        case maxProfiles = "max_profiles"
+        case extendedForecastEnabled = "extended_forecast_enabled"
+        case customAlertsEnabled = "custom_alerts_enabled"
+        case exportReportsEnabled = "export_reports_enabled"
+        case advancedInsightsEnabled = "advanced_insights_enabled"
     }
 }
 
@@ -500,6 +528,7 @@ struct SubscriptionStatusResponse: Codable {
     let startsAt: String?
     let currentPeriodEnd: String?
     let autoRenew: Bool
+    let entitlement: UserEntitlementResponse?
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
@@ -508,6 +537,39 @@ struct SubscriptionStatusResponse: Codable {
         case startsAt = "starts_at"
         case currentPeriodEnd = "current_period_end"
         case autoRenew = "auto_renew"
+        case entitlement
+    }
+}
+
+struct IosVerifyRequest: Codable {
+    let signedTransaction: String
+    let productId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case signedTransaction = "signed_transaction"
+        case productId = "product_id"
+    }
+}
+
+struct RestoreSubscriptionRequest: Codable {
+    let platform: String
+    let iosSignedTransactions: [String]
+    let androidPurchases: [AndroidPurchasePayload]
+
+    enum CodingKeys: String, CodingKey {
+        case platform
+        case iosSignedTransactions = "ios_signed_transactions"
+        case androidPurchases = "android_purchases"
+    }
+}
+
+struct AndroidPurchasePayload: Codable {
+    let productId: String
+    let purchaseToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case productId = "product_id"
+        case purchaseToken = "purchase_token"
     }
 }
 

@@ -9,7 +9,13 @@ final class InsightsViewModel: ObservableObject {
 
     private let apiClient = APIClient.live()
 
-    func refresh(profileId: String, userId: String, accessToken: String, language: String) async {
+    func refresh(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) async {
         loading = true
         defer { loading = false }
         do {
@@ -25,6 +31,14 @@ final class InsightsViewModel: ObservableObject {
             statusText = response.items.isEmpty
                 ? HiAirL10n.t("insights.unlock_more", lang: language)
                 : "\(response.items.count) \(HiAirL10n.t("insights.count", lang: language))"
+        } catch let error as APIError {
+            if case .server(let code) = error, code == 402 {
+                onPremiumRequired?()
+            }
+            items = []
+            let message = HiAirL10n.t("insights.failed", lang: language)
+            statusText = message
+            lastError = message
         } catch {
             items = []
             let message = HiAirL10n.t("insights.failed", lang: language)
@@ -69,7 +83,8 @@ struct InsightsView: View {
                                         profileId: session.profileId,
                                         userId: session.userId,
                                         accessToken: session.accessToken,
-                                        language: session.preferredLanguage
+                                        language: session.preferredLanguage,
+                                        onPremiumRequired: { session.showPaywall = true }
                                     )
                                 }
                             }
@@ -99,7 +114,8 @@ struct InsightsView: View {
                                     profileId: session.profileId,
                                     userId: session.userId,
                                     accessToken: session.accessToken,
-                                    language: session.preferredLanguage
+                                    language: session.preferredLanguage,
+                                    onPremiumRequired: { session.showPaywall = true }
                                 )
                             }
                         }
@@ -147,7 +163,8 @@ struct InsightsView: View {
                             profileId: session.profileId,
                             userId: session.userId,
                             accessToken: session.accessToken,
-                            language: session.preferredLanguage
+                            language: session.preferredLanguage,
+                            onPremiumRequired: { session.showPaywall = true }
                         )
                         session.markChecklistItem("recommendations", done: true)
                     }
@@ -173,7 +190,8 @@ struct InsightsView: View {
                 profileId: session.profileId,
                 userId: session.userId,
                 accessToken: session.accessToken,
-                language: session.preferredLanguage
+                language: session.preferredLanguage,
+                onPremiumRequired: { session.showPaywall = true }
             )
             session.markChecklistItem("recommendations", done: true)
         }

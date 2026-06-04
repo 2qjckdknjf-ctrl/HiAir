@@ -42,6 +42,9 @@
 		CC75F28FB3164D7385880D45 /* HiAirLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF2D2128B6C44474A01B62A4 /* HiAirLaunchView.swift */; };
 		70A8F87DFE874DEDA576B48E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B3C3B104A494938850E3782 /* LaunchScreen.storyboard */; };
 		4D3E8FC37D71417A9DE3169E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 00968E7CB2A94D23BB1DD273 /* Assets.xcassets */; };
+		PAYWALL0001BUILD0000001 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PAYWALL0001FILE00000001 /* PaywallView.swift */; };
+		SUBSVC00001BUILD0000001 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SUBSVC00001FILE00000001 /* SubscriptionService.swift */; };
+		SUBTEST001BUILD0000001 /* SubscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SUBTEST001FILE00000001 /* SubscriptionServiceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,6 +95,9 @@
 		CF2D2128B6C44474A01B62A4 /* HiAirLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLaunchView.swift; sourceTree = "<group>"; };
 		2B3C3B104A494938850E3782 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		00968E7CB2A94D23BB1DD273 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		PAYWALL0001FILE00000001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		SUBSVC00001FILE00000001 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
+		SUBTEST001FILE00000001 /* SubscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,6 +125,7 @@
 				9640182DCA01F1103308A078 /* DesignSystem */,
 				CCCC2230FAE0D5FAC8C9C4DB /* Models */,
 				D6817796DBAD8BF3B3C5061A /* Networking */,
+				SERVICESGRP001000000001 /* Services */,
 				F54A7392756BC05965EECA7B /* Screens */,
 			);
 			path = HiAir;
@@ -158,6 +165,7 @@
 			isa = PBXGroup;
 			children = (
 				3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */,
+				SUBTEST001FILE00000001 /* SubscriptionServiceTests.swift */,
 			);
 			path = HiAirTests;
 			sourceTree = "<group>";
@@ -195,6 +203,14 @@
 			path = Assets;
 			sourceTree = "<group>";
 		};
+		SERVICESGRP001000000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				SUBSVC00001FILE00000001 /* SubscriptionService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 		F54A7392756BC05965EECA7B /* Screens */ = {
 			isa = PBXGroup;
 			children = (
@@ -207,6 +223,7 @@
 				FDED16BD25D90EB9CF5D8303 /* InsightsView.swift */,
 				C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */,
 				8833EA8341D4356991598891 /* RootTabView.swift */,
+				PAYWALL0001FILE00000001 /* PaywallView.swift */,
 				35D1E2C509CFB15ACA399B3D /* SettingsView.swift */,
 				030CBAFA89BD721FF0066134 /* SymptomLogView.swift */,
 			);
@@ -307,6 +324,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */,
+				SUBTEST001BUILD0000001 /* SubscriptionServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,6 +362,8 @@
 				7F485403441144D69E9596F3 /* HiAirResponsiveSpacing.swift in Sources */,
 				87B90992E8F24A91A57025B7 /* HiAirComponents.swift in Sources */,
 				CC75F28FB3164D7385880D45 /* HiAirLaunchView.swift in Sources */,
+				PAYWALL0001BUILD0000001 /* PaywallView.swift in Sources */,
+				SUBSVC00001BUILD0000001 /* SubscriptionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

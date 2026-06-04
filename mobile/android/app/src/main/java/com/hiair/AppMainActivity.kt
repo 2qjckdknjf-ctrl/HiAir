@@ -17,6 +17,7 @@ import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
 import com.hiair.network.ApiClient
 import com.hiair.network.SupabaseAuthService
+import com.hiair.billing.SubscriptionPaywallController
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.theme.V2Ui
 
@@ -27,6 +28,7 @@ class AppMainActivity : AppCompatActivity() {
     private lateinit var titleView: TextView
     private lateinit var bodyContainer: LinearLayout
     private lateinit var screenRenderer: MainScreenRenderer
+    private val paywallController = SubscriptionPaywallController(rootShell.settingsViewModel)
     private lateinit var dashboardButton: Button
     private lateinit var plannerButton: Button
     private lateinit var insightsButton: Button
@@ -163,8 +165,18 @@ class AppMainActivity : AppCompatActivity() {
             rerender = ::renderCurrentScreen
         )
 
+        paywallController.onEntitlementUpdated = { renderCurrentScreen() }
+
         setContentView(root)
         renderCurrentScreen()
+        if (rootShell.settingsViewModel.state.userId.isNotBlank()) {
+            rootShell.settingsViewModel.refreshEntitlement { renderCurrentScreen() }
+        }
+    }
+
+    override fun onDestroy() {
+        paywallController.destroy()
+        super.onDestroy()
     }
 
     private fun restoreSession() {
@@ -191,6 +203,10 @@ class AppMainActivity : AppCompatActivity() {
         bodyContainer.removeAllViews()
         syncNavLabels()
         syncNavSelection()
+        if (rootShell.settingsViewModel.state.showPaywall) {
+            screenRenderer.renderPaywall(paywallController)
+            return
+        }
         when (rootShell.state.currentScreen) {
             AppScreen.DASHBOARD -> screenRenderer.renderDashboard()
             AppScreen.PLANNER -> screenRenderer.renderPlanner()

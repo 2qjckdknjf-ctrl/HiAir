@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from app.api.deps import get_current_user_id
+import app.services.entitlement_service as entitlement_service
 
 from app.models.air import EnvironmentalInput, ProfileType, UserProfileContext
 from app.models.planner import DailyPlannerResponse, HourlyRiskItem, SafeWindow
@@ -69,7 +71,9 @@ def daily_planner(
     lat: float = Query(default=41.39, ge=-90, le=90),
     lon: float = Query(default=2.17, ge=-180, le=180),
     hours: int = Query(default=12, ge=6, le=24),
+    user_id: str = Depends(get_current_user_id),
 ) -> DailyPlannerResponse:
+    entitlement_service.require_feature(user_id, "extended_forecast", "extended_forecast_enabled")
     normalized_persona = _normalize_persona(persona)
     profile_context = UserProfileContext(
         profile_id="planner-virtual",

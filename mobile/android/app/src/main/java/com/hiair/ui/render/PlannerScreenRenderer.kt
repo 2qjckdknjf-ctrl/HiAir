@@ -20,6 +20,23 @@ internal object PlannerScreenRenderer {
         titleView.text = ctx.l("title.planner")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.subtitle")).apply { textSize = 13f })
 
+        if (rootShell.settingsViewModel.state.isPremium) {
+            bodyContainer.addView(
+                V2Ui.styledBodyText(activity, ctx.l("settings.premium_active")).apply {
+                    setTextColor(Tokens.Cta.start)
+                }
+            )
+        } else {
+            bodyContainer.addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.upgrade_premium")).apply {
+                    setOnClickListener {
+                        rootShell.settingsViewModel.requestShowPaywall()
+                        ctx.rerender()
+                    }
+                }
+            )
+        }
+
         val stateText = V2Ui.styledSecondaryText(activity, ctx.l("planner.fetch"))
         val plannerCard = HiAirComponents.cardContainer(activity)
         plannerCard.addView(V2Ui.styledBodyText(activity, ctx.l("planner.summary")))
@@ -53,6 +70,11 @@ internal object PlannerScreenRenderer {
                     val state = rootShell.plannerViewModel.state
                     activity.runOnUiThread {
                         stateText.text = state.statusText
+                        if (state.premiumRequired) {
+                            rootShell.settingsViewModel.requestShowPaywall()
+                            ctx.rerender()
+                            return@runOnUiThread
+                        }
                         renderHeatStrip(activity, heatStrip, state.hourly)
                         keyEvents.text = buildKeyEvents(ctx, state.safeWindows, state.hourly)
                     }

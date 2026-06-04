@@ -512,8 +512,23 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(defaultsCard)
 
+        val upgradePremiumButton = HiAirComponents.primaryButton(activity, ctx.l("settings.upgrade_premium")).apply {
+            setOnClickListener {
+                rootShell.settingsViewModel.requestShowPaywall()
+                ctx.rerender()
+            }
+        }
+
+        val premiumStatusText = V2Ui.styledBodyText(activity, ctx.l("settings.premium_active")).apply {
+            visibility = if (rootShell.settingsViewModel.state.isPremium) View.VISIBLE else View.GONE
+        }
+
         val subscriptionCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.subscription"))
+            addView(premiumStatusText)
+            if (!rootShell.settingsViewModel.state.isPremium) {
+                addView(upgradePremiumButton)
+            }
             addView(subscriptionSpinner)
             addView(loadPlansButton)
             addView(loadSubscriptionButton)

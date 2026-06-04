@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
+import app.services.entitlement_service as entitlement_service
 from app.models.briefing import BriefingScheduleResponse, BriefingScheduleUpdateRequest
 import app.services.air_repository as air_repository
 import app.services.briefing_repository as briefing_repository
@@ -24,6 +25,7 @@ def put_schedule(
     user_id: str = Depends(get_current_user_id),
 ) -> BriefingScheduleResponse:
     try:
+        entitlement_service.require_feature(user_id, "custom_alerts", "custom_alerts_enabled")
         timezone = _resolve_timezone(user_id)
         return briefing_repository.upsert_schedule(user_id=user_id, payload=payload, timezone=timezone)
     except PsycopgError as exc:

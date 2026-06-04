@@ -3,6 +3,7 @@ package com.hiair.ui.render
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.hiair.billing.SubscriptionPaywallController
 import com.hiair.ui.navigation.RootShellViewModel
 
 class MainScreenRenderer(
@@ -33,4 +34,6 @@ class MainScreenRenderer(
     fun renderSymptoms() = SymptomsScreenRenderer.render(ctx)
 
     fun renderSettings() = SettingsScreenRenderer.render(ctx)
+
+    fun renderPaywall(paywall: SubscriptionPaywallController) = PaywallScreenRenderer.render(ctx, paywall)
 }

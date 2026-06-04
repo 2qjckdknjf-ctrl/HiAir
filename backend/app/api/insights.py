@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
+import app.services.entitlement_service as entitlement_service
 from app.models.air import PersonalPatternInsight, PersonalPatternsResponse
 import app.services.air_repository as air_repository
 import app.services.correlation_engine as correlation_engine
@@ -18,6 +19,7 @@ def get_personal_patterns(
     user_id: str = Depends(get_current_user_id),
 ) -> PersonalPatternsResponse:
     try:
+        entitlement_service.require_feature(user_id, "advanced_insights", "advanced_insights_enabled")
         profile = air_repository.get_profile_context(profile_id)
         if profile is None:
             raise HTTPException(status_code=404, detail="Profile not found")

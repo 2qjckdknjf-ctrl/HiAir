@@ -10,7 +10,13 @@ final class DailyPlannerViewModel: ObservableObject {
 
     private let apiClient = APIClient.live()
 
-    func refresh(profileId: String, userId: String, accessToken: String, language: String) async {
+    func refresh(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) async {
         loading = true
         defer { loading = false }
         do {
@@ -25,6 +31,14 @@ final class DailyPlannerViewModel: ObservableObject {
             statusText = language == "en"
                 ? "Loaded \(planner.hourlyRisk.count) hourly slots."
                 : "Загружено \(planner.hourlyRisk.count) почасовых слотов."
+        } catch let error as APIError {
+            if case .server(let code) = error, code == 402 {
+                onPremiumRequired?()
+            }
+            statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+            hourlyItems = []
+            safeWindows = []
+            ventilationWindows = []
         } catch {
             statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             hourlyItems = []
@@ -75,7 +89,8 @@ struct DailyPlannerView: View {
                                         profileId: session.profileId,
                                         userId: session.userId,
                                         accessToken: session.accessToken,
-                                        language: session.preferredLanguage
+                                        language: session.preferredLanguage,
+                                        onPremiumRequired: { session.showPaywall = true }
                                     )
                                 }
                             }
@@ -158,7 +173,8 @@ struct DailyPlannerView: View {
                             profileId: session.profileId,
                             userId: session.userId,
                             accessToken: session.accessToken,
-                            language: session.preferredLanguage
+                            language: session.preferredLanguage,
+                            onPremiumRequired: { session.showPaywall = true }
                         )
                         session.markChecklistItem("hourly", done: true)
                     }
@@ -189,7 +205,8 @@ struct DailyPlannerView: View {
                 profileId: session.profileId,
                 userId: session.userId,
                 accessToken: session.accessToken,
-                language: session.preferredLanguage
+                language: session.preferredLanguage,
+                onPremiumRequired: { session.showPaywall = true }
             )
             session.markChecklistItem("hourly", done: true)
         }
