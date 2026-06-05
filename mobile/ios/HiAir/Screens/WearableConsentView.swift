@@ -24,6 +24,11 @@ struct WearableConsentView: View {
                         .font(HiAirTypography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
                     if showHealthPathHint {
+                        if let errorText = session.lHealthKitError(healthService.lastAuthorizationError) {
+                            Text(errorText)
+                                .font(HiAirTypography.caption)
+                                .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                        }
                         Text(session.l("wearable.dashboard.health_path"))
                             .font(HiAirTypography.caption)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -32,6 +37,9 @@ struct WearableConsentView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                     }
+                    Text(String(format: session.l("wearable.health.build_label"), healthService.diagnostics().buildNumber))
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                     HStack(spacing: 10) {
                         Button(session.l("wearable.consent.skip")) {
                             onComplete?()
@@ -57,9 +65,15 @@ struct WearableConsentView: View {
         working = true
         defer { working = false }
         guard healthService.isHealthDataAvailable() else {
+            healthService.reportAuthorizationIssue("wearable.health.error.unavailable_device")
             healthService.reportConnectionState(.unavailable)
-            onComplete?()
-            if !fromOnboarding { dismiss() }
+            showHealthPathHint = true
+            return
+        }
+        if let issue = healthService.configurationIssueMessage() {
+            healthService.reportAuthorizationIssue(issue)
+            healthService.reportConnectionState(.unavailable)
+            showHealthPathHint = true
             return
         }
         let granted = await healthService.requestAuthorization()

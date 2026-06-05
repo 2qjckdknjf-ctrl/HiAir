@@ -16,6 +16,11 @@ targets:
       - HiAir
     entitlements:
       path: HiAir/HiAir.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     settings:
       base:
         CODE_SIGN_STYLE: Automatic
@@ -23,7 +28,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
         SWIFT_VERSION: 5.0
-        CURRENT_PROJECT_VERSION: 10
+        CURRENT_PROJECT_VERSION: 11
         MARKETING_VERSION: 0.1.0
         INFOPLIST_KEY_CFBundleDisplayName: HiAir
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen

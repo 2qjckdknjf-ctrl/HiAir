@@ -12,12 +12,21 @@ enum WearableConnectionState: String, Equatable {
     case unavailable
 }
 
+struct HealthKitDiagnostics: Equatable {
+    let healthDataAvailable: Bool
+    let shareUsageDescriptionPresent: Bool
+    let updateUsageDescriptionPresent: Bool
+    let readTypeCount: Int
+    let buildNumber: String
+}
+
 @MainActor
 final class HealthKitService: ObservableObject {
     static let shared = HealthKitService()
 
     @Published private(set) var connectionState: WearableConnectionState = .notConnected
     @Published private(set) var lastSyncError: String?
+    @Published private(set) var lastAuthorizationError: String?
 
     private let store = HKHealthStore()
     private let apiClient = APIClient.live()
@@ -41,8 +50,39 @@ final class HealthKitService: ObservableObject {
         connectionState = state
     }
 
+    func reportAuthorizationIssue(_ messageKey: String) {
+        lastAuthorizationError = messageKey
+    }
+
     func isHealthDataAvailable() -> Bool {
         HKHealthStore.isHealthDataAvailable()
+    }
+
+    func diagnostics() -> HealthKitDiagnostics {
+        HealthKitDiagnostics(
+            healthDataAvailable: isHealthDataAvailable(),
+            shareUsageDescriptionPresent: Bundle.main.object(forInfoDictionaryKey: "NSHealthShareUsageDescription") != nil,
+            updateUsageDescriptionPresent: Bundle.main.object(forInfoDictionaryKey: "NSHealthUpdateUsageDescription") != nil,
+            readTypeCount: readTypes.count,
+            buildNumber: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        )
+    }
+
+    func configurationIssueMessage() -> String? {
+        let info = diagnostics()
+        guard info.healthDataAvailable else {
+            return "wearable.health.error.unavailable_device"
+        }
+        guard info.readTypeCount > 0 else {
+            return "wearable.health.error.no_types"
+        }
+        guard info.shareUsageDescriptionPresent else {
+            return "wearable.health.error.missing_plist"
+        }
+        guard info.updateUsageDescriptionPresent else {
+            return "wearable.health.error.missing_plist"
+        }
+        return nil
     }
 
     func refreshAuthorizationState() -> WearableConnectionState {
@@ -63,29 +103,32 @@ final class HealthKitService: ObservableObject {
     }
 
     func requestAuthorization() async -> Bool {
-        guard isHealthDataAvailable() else {
+        lastAuthorizationError = nil
+
+        if let issueKey = configurationIssueMessage() {
+            lastAuthorizationError = issueKey
             connectionState = .unavailable
             return false
         }
+
         connectionState = .permissionRequested
 
-        let shouldPrompt = await withCheckedContinuation { continuation in
-            store.getRequestStatusForAuthorization(toShare: [], read: readTypes) { status, _ in
-                continuation.resume(returning: status == .shouldRequest)
+        let requestError = await withCheckedContinuation { continuation in
+            store.requestAuthorization(toShare: [], read: readTypes) { _, error in
+                continuation.resume(returning: error)
             }
         }
 
-        if shouldPrompt {
-            await withCheckedContinuation { continuation in
-                store.requestAuthorization(toShare: [], read: readTypes) { _, _ in
-                    continuation.resume()
-                }
-            }
+        if let requestError {
+            lastAuthorizationError = Self.userFacingAuthorizationError(requestError)
+            connectionState = .permissionDenied
+            return false
         }
 
-        let granted = hasAnyReadAuthorization()
-        connectionState = granted ? .connected : (allReadTypesExplicitlyDenied() ? .permissionDenied : .notConnected)
-        return granted
+        // Read permission is intentionally opaque; completing requestAuthorization registers
+        // the app in Health → Privacy → Apps even when read grant status stays unknown.
+        connectionState = .connected
+        return true
     }
 
     static func openHealthApp() {
@@ -99,6 +142,24 @@ final class HealthKitService: ObservableObject {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
+    }
+
+    private static func userFacingAuthorizationError(_ error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == "com.apple.healthkit", nsError.code == 4 {
+            return "wearable.health.error.missing_entitlement"
+        }
+        let message = nsError.localizedDescription.lowercased()
+        if message.contains("usage description") || message.contains("info.plist") {
+            return "wearable.health.error.missing_plist"
+        }
+        if message.contains("entitlement") {
+            return "wearable.health.error.missing_entitlement"
+        }
+        if message.contains("authorization") && message.contains("denied") {
+            return "wearable.health.error.denied"
+        }
+        return "wearable.health.error.generic|\(nsError.localizedDescription)"
     }
 
     private func hasAnyReadAuthorization() -> Bool {

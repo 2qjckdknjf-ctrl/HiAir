@@ -16,7 +16,17 @@ final class AppSession: ObservableObject {
         static let preferredLanguage = "session.preferredLanguage"
         static let latitude = "session.latitude"
         static let longitude = "session.longitude"
+        static let dateOfBirth = "session.dateOfBirth"
     }
+
+    private static let birthDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     @Published var onboardingCompleted = false { didSet { persist() } }
     @Published var userId = "" { didSet { persist() } }
@@ -30,6 +40,7 @@ final class AppSession: ObservableObject {
     @Published var preferredLanguage = "ru" { didSet { persist() } }
     @Published var latitude = 41.39 { didSet { persist() } }
     @Published var longitude = 2.17 { didSet { persist() } }
+    @Published var dateOfBirth: Date? { didSet { persist() } }
     @Published var checklistCompletedItems: Set<String> = [] { didSet { persist() } }
     @Published var checklistHidden = false { didSet { persist() } }
     @Published var showOnboardingFromSettings = false
@@ -54,6 +65,9 @@ final class AppSession: ObservableObject {
         preferredLanguage = defaults.string(forKey: Keys.preferredLanguage) ?? "ru"
         latitude = defaults.object(forKey: Keys.latitude) as? Double ?? 41.39
         longitude = defaults.object(forKey: Keys.longitude) as? Double ?? 2.17
+        if let birthRaw = defaults.string(forKey: Keys.dateOfBirth) {
+            dateOfBirth = Self.birthDateFormatter.date(from: birthRaw)
+        }
         checklistCompletedItems = Set(defaults.stringArray(forKey: Keys.checklistCompletedItems) ?? [])
         checklistHidden = defaults.object(forKey: Keys.checklistHidden) as? Bool ?? false
         APIClient.setAuthInvalidatedHandler { [weak self] in
@@ -218,7 +232,8 @@ final class AppSession: ObservableObject {
                     personaType: persona,
                     sensitivityLevel: sensitivity,
                     homeLat: latitude,
-                    homeLon: longitude
+                    homeLon: longitude,
+                    dateOfBirth: dateOfBirth.map { Self.birthDateFormatter.string(from: $0) }
                 ),
                 accessToken: accessToken
             )
@@ -238,6 +253,11 @@ final class AppSession: ObservableObject {
         defaults.set(preferredLanguage, forKey: Keys.preferredLanguage)
         defaults.set(latitude, forKey: Keys.latitude)
         defaults.set(longitude, forKey: Keys.longitude)
+        if let dateOfBirth {
+            defaults.set(Self.birthDateFormatter.string(from: dateOfBirth), forKey: Keys.dateOfBirth)
+        } else {
+            defaults.removeObject(forKey: Keys.dateOfBirth)
+        }
         defaults.set(Array(checklistCompletedItems).sorted(), forKey: Keys.checklistCompletedItems)
         defaults.set(checklistHidden, forKey: Keys.checklistHidden)
         if userId.isEmpty {
@@ -413,6 +433,13 @@ enum HiAirL10n {
             "wearable.dashboard.open_health": "Открыть «Здоровье»",
             "wearable.dashboard.health_path": "В приложении «Здоровье»: Профиль → Конфиденциальность → Приложения → HiAir → включите Шаги и Пульс.",
             "wearable.dashboard.unavailable": "Сегодня пока мало данных. Анализ основан на погоде и качестве воздуха.",
+            "wearable.health.error.unavailable_device": "Apple Health недоступен на этом устройстве.",
+            "wearable.health.error.no_types": "HealthKit не настроен в приложении (нет типов данных).",
+            "wearable.health.error.missing_plist": "В этой сборке нет HealthKit privacy strings. Нужен новый TestFlight build.",
+            "wearable.health.error.missing_entitlement": "Сборка подписана без HealthKit. В Developer Portal включите HealthKit для com.hiair.app, затем пересоберите TestFlight.",
+            "wearable.health.error.denied": "Apple Health не дал доступ. Откройте «Здоровье» и включите данные для HiAir.",
+            "wearable.health.error.generic": "Ошибка Apple Health: %@",
+            "wearable.health.build_label": "Сборка iOS %@",
             "wearable.load.none": "нет данных",
             "wearable.load.low": "низкий",
             "wearable.load.moderate": "средний",
@@ -587,7 +614,12 @@ enum HiAirL10n {
             "paywall.terms": "Условия",
             "paywall.privacy": "Конфиденциальность",
             "paywall.success": "Premium активирован.",
+            "paywall.verify_pending": "Покупка получена. Подтверждаем Premium на сервере…",
             "paywall.restore_success": "Покупки восстановлены.",
+            "settings.date_of_birth": "Дата рождения",
+            "settings.age_years": "Возраст",
+            "onboarding.date_of_birth.title": "Дата рождения",
+            "onboarding.date_of_birth.body": "Нужна для персональных рекомендаций и аналитики риска по возрасту.",
             "common.close": "Закрыть",
             "settings.security_privacy": "Безопасность и приватность",
             "settings.plan": "План",
@@ -860,6 +892,13 @@ enum HiAirL10n {
             "wearable.dashboard.open_health": "Open Health",
             "wearable.dashboard.health_path": "In the Health app: Profile → Privacy → Apps → HiAir → enable Steps and Heart Rate.",
             "wearable.dashboard.unavailable": "Limited health data today. Analysis uses weather and air quality.",
+            "wearable.health.error.unavailable_device": "Apple Health is not available on this device.",
+            "wearable.health.error.no_types": "HealthKit read types are not configured in this app build.",
+            "wearable.health.error.missing_plist": "This build is missing HealthKit privacy strings. Install a newer TestFlight build.",
+            "wearable.health.error.missing_entitlement": "This build was signed without HealthKit. Enable HealthKit for com.hiair.app in Apple Developer, then rebuild TestFlight.",
+            "wearable.health.error.denied": "Apple Health denied access. Open the Health app and enable data for HiAir.",
+            "wearable.health.error.generic": "Apple Health error: %@",
+            "wearable.health.build_label": "iOS build %@",
             "wearable.load.none": "no data",
             "wearable.load.low": "low",
             "wearable.load.moderate": "moderate",
@@ -1034,7 +1073,12 @@ enum HiAirL10n {
             "paywall.terms": "Terms",
             "paywall.privacy": "Privacy",
             "paywall.success": "Premium activated.",
+            "paywall.verify_pending": "Purchase received. Confirming Premium on the server…",
             "paywall.restore_success": "Purchases restored.",
+            "settings.date_of_birth": "Date of birth",
+            "settings.age_years": "Age",
+            "onboarding.date_of_birth.title": "Date of birth",
+            "onboarding.date_of_birth.body": "Used for age-aware health guidance and analytics.",
             "common.close": "Close",
             "settings.security_privacy": "Security & Privacy",
             "settings.plan": "Plan",
@@ -1619,5 +1663,14 @@ enum HiAirL10n {
 extension AppSession {
     func l(_ key: String) -> String {
         HiAirL10n.t(key, lang: preferredLanguage)
+    }
+
+    func lHealthKitError(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        if raw.hasPrefix("wearable.health.error.generic|") {
+            let detail = String(raw.dropFirst("wearable.health.error.generic|".count))
+            return l("wearable.health.error.generic").replacingOccurrences(of: "%@", with: detail)
+        }
+        return l(raw)
     }
 }

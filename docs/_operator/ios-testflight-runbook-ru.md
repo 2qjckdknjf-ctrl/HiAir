@@ -184,7 +184,7 @@ scripts/release/hiair_final_gate.sh
 | Upload failed: version/build duplicate | Увеличь **Build** в Xcode |
 | Missing compliance | App Store Connect → TestFlight → ответь на export compliance |
 | API не отвечает в Release | Проверь `INFOPLIST_KEY_API_BASE_URL` и что backend доступен по HTTPS |
-| HiAir нет в «Здоровье → Приложения» | 1) В Developer Portal включи **HealthKit** на App ID `com.hiair.app`. 2) Пересобери TestFlight с `main` (build ≥ 10). 3) В HiAir нажми «Подключить» — должен появиться системный запрос Apple Health, не «Настройки iOS». 4) После запроса HiAir появится в «Здоровье → Профиль → Конфиденциальность → Приложения». |
+| HiAir нет в «Здоровье → Приложения» | 1) Developer Portal → App ID `com.hiair.app` → **HealthKit** → Save. 2) Удалить старые provisioning profiles для `com.hiair.app` или дождаться новых от Xcode Cloud. 3) TestFlight build ≥ **11** (в Настройках HiAir виден номер сборки). 4) В HiAir → «Подключить Apple Health» — должен появиться системный запрос; если видите «сборка подписана без HealthKit» — профиль подписи без entitlement. 5) Проверка IPA: `bash scripts/ops/validate_ios_healthkit_ipa.sh path/to/HiAir.ipa`. |
 
 ---
 

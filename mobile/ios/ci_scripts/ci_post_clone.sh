@@ -58,6 +58,11 @@ if ! grep -q 'INFOPLIST_KEY_NSHealthShareUsageDescription' "$PBX" 2>/dev/null; t
   exit 1
 fi
 
+if ! grep -q 'com.apple.developer.healthkit' HiAir/HiAir.entitlements 2>/dev/null; then
+  echo "error: com.apple.developer.healthkit missing from HiAir.entitlements after XcodeGen." >&2
+  exit 1
+fi
+
 echo "==> Resolve Swift package dependencies"
 xcodebuild -resolvePackageDependencies \
   -project HiAir.xcodeproj \

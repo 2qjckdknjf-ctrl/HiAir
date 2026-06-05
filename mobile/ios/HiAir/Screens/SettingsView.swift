@@ -52,6 +52,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var profileBasedAlerting = true
     @Published var selectedPersona = "adult"
     @Published var preferredLanguage = "ru"
+    @Published var dateOfBirth = Calendar.current.date(byAdding: .year, value: -30, to: Date()) ?? Date()
+    @Published var profileId = ""
     @Published var plans: [SubscriptionPlan] = []
     @Published var selectedPlanId = "basic_monthly"
     @Published var subscriptionStatus = "inactive"
@@ -102,6 +104,11 @@ final class SettingsViewModel: ObservableObject {
 
     private func l(_ key: String) -> String {
         HiAirL10n.t(key, lang: preferredLanguage)
+    }
+
+    func ageYearsLabel() -> String {
+        let years = Calendar.current.dateComponents([.year], from: dateOfBirth, to: Date()).year ?? 0
+        return "\(max(years, 0))"
     }
 
     func localizedSubscriptionStatus() -> String {
@@ -162,6 +169,15 @@ final class SettingsViewModel: ObservableObject {
         return String(source.prefix(5))
     }
 
+    private static let birthDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
     func load() async {
         guard !userId.isEmpty else {
             statusText = l("settings.user_id_required")
@@ -170,6 +186,14 @@ final class SettingsViewModel: ObservableObject {
         loading = true
         defer { loading = false }
         do {
+            let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
+            if let profile = profiles.first {
+                profileId = profile.id
+                selectedPersona = profile.personaType
+                if let raw = profile.dateOfBirth, let parsed = Self.birthDateFormatter.date(from: raw) {
+                    dateOfBirth = parsed
+                }
+            }
             let response = try await apiClient.fetchUserSettings(userId: userId, accessToken: accessToken)
             pushAlertsEnabled = response.pushAlertsEnabled
             riskThreshold = response.alertThreshold
@@ -213,6 +237,20 @@ final class SettingsViewModel: ObservableObject {
                 payload: BriefingScheduleUpdateRequest(localTime: morningBriefingTime, enabled: morningBriefingEnabled),
                 accessToken: accessToken
             )
+            if !profileId.isEmpty {
+                _ = try await apiClient.updateProfile(
+                    userId: userId,
+                    profileId: profileId,
+                    payload: ProfileUpdatePayload(
+                        personaType: selectedPersona,
+                        sensitivityLevel: nil,
+                        homeLat: nil,
+                        homeLon: nil,
+                        dateOfBirth: Self.birthDateFormatter.string(from: dateOfBirth)
+                    ),
+                    accessToken: accessToken
+                )
+            }
             statusText = l("settings.saved")
         } catch {
             statusText = l("settings.save_failed")
@@ -686,6 +724,16 @@ struct SettingsView: View {
                         Text(session.l("settings.language_fr")).tag("fr")
                     }
                     .pickerStyle(.menu)
+                    DatePicker(
+                        session.l("settings.date_of_birth"),
+                        selection: $viewModel.dateOfBirth,
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                    .environment(\.locale, Locale(identifier: session.preferredLanguage == "ru" ? "ru_RU" : "en_US"))
+                    Text("\(session.l("settings.age_years")): \(viewModel.ageYearsLabel())")
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
                 .v2Card()
 
@@ -704,6 +752,7 @@ struct SettingsView: View {
                                 await viewModel.save()
                                 session.persona = viewModel.selectedPersona
                                 session.preferredLanguage = viewModel.preferredLanguage
+                                session.dateOfBirth = viewModel.dateOfBirth
                             }
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
@@ -887,6 +936,14 @@ struct SettingsView: View {
                     Text(viewModel.wearableStatus)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(String(format: session.l("wearable.health.build_label"), HealthKitService.shared.diagnostics().buildNumber))
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    if let errorText = session.lHealthKitError(HealthKitService.shared.lastAuthorizationError) {
+                        Text(errorText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                    }
                     Button(session.l("settings.wearables.connect")) {
                         showWearableConsent = true
                     }
@@ -975,6 +1032,12 @@ struct SettingsView: View {
             }
             if viewModel.accessToken.isEmpty {
                 viewModel.accessToken = session.accessToken
+            }
+            if viewModel.profileId.isEmpty {
+                viewModel.profileId = session.profileId
+            }
+            if let birth = session.dateOfBirth {
+                viewModel.dateOfBirth = birth
             }
             if viewModel.selectedPersona != session.persona {
                 viewModel.selectedPersona = session.persona
