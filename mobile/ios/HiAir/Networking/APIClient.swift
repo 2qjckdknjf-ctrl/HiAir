@@ -656,6 +656,28 @@ final class APIClient {
         return try JSONDecoder().decode(UserProfile.self, from: data)
     }
 
+    func updateProfile(
+        userId: String,
+        profileId: String,
+        payload: ProfileUpdatePayload,
+        accessToken: String? = nil
+    ) async throws -> UserProfile {
+        let url = baseURL.appending(path: "/api/profiles/\(profileId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(UserProfile.self, from: data)
+    }
+
     private func extractErrorDetail(from data: Data) -> String? {
         guard !data.isEmpty,
               let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

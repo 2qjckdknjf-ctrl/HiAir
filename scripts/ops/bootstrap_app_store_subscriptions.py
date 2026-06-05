@@ -219,6 +219,46 @@ def _patch_review_note(client: httpx.Client, subscription_id: str) -> None:
     r.raise_for_status()
 
 
+def _all_territory_ids(client: httpx.Client) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    url: str | None = "https://api.appstoreconnect.apple.com/v1/territories"
+    params: dict[str, object] | None = {"limit": 200}
+    while url:
+        r = client.get(url, params=params)
+        r.raise_for_status()
+        payload = r.json()
+        for item in payload.get("data") or []:
+            out.append({"type": "territories", "id": item["id"]})
+        url = (payload.get("links") or {}).get("next")
+        params = None
+    return out
+
+
+def _ensure_availability(client: httpx.Client, subscription_id: str, product_id: str) -> None:
+    r = client.get(
+        f"https://api.appstoreconnect.apple.com/v1/subscriptions/{subscription_id}/subscriptionAvailability"
+    )
+    if r.status_code == 200 and r.json().get("data"):
+        print(f"    availability already set")
+        return
+    territories = _all_territory_ids(client)
+    body = {
+        "data": {
+            "type": "subscriptionAvailabilities",
+            "attributes": {"availableInNewTerritories": True},
+            "relationships": {
+                "subscription": {"data": {"type": "subscriptions", "id": subscription_id}},
+                "availableTerritories": {"data": territories},
+            },
+        }
+    }
+    r = client.post("https://api.appstoreconnect.apple.com/v1/subscriptionAvailabilities", json=body)
+    if r.status_code in (201, 409):
+        print(f"    availability {len(territories)} territories")
+        return
+    r.raise_for_status()
+
+
 def _set_usa_price(client: httpx.Client, subscription_id: str, target_usd: float) -> None:
     point_id = _find_usa_price_point(client, subscription_id, target_usd)
     if not point_id:
@@ -254,6 +294,7 @@ def _finalize_subscription(
     for locale, name, description in LOCALES:
         _add_localization(client, subscription_id, locale, name, description)
     _patch_review_note(client, subscription_id)
+    _ensure_availability(client, subscription_id, product_id)
     _set_usa_price(client, subscription_id, target_usd)
 
 

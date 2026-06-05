@@ -84,7 +84,25 @@ def main() -> int:
                 pid = sa.get("productId") or ""
                 state = sa.get("state") or "?"
                 found.add(pid)
-                print(f"  - {pid} state={state} name={sa.get('name', '')}")
+                sub_id = sub["id"]
+                prices = client.get(
+                    f"https://api.appstoreconnect.apple.com/v1/subscriptions/{sub_id}/prices",
+                    params={"limit": 1},
+                )
+                price_count = len(prices.json().get("data") or []) if prices.status_code == 200 else 0
+                screenshot = client.get(
+                    f"https://api.appstoreconnect.apple.com/v1/subscriptions/{sub_id}/appStoreReviewScreenshot"
+                )
+                has_screenshot = screenshot.status_code == 200 and bool(screenshot.json().get("data"))
+                availability = client.get(
+                    f"https://api.appstoreconnect.apple.com/v1/subscriptions/{sub_id}/subscriptionAvailability"
+                )
+                has_availability = availability.status_code == 200 and bool(availability.json().get("data"))
+                print(
+                    f"  - {pid} state={state} name={sa.get('name', '')} "
+                    f"prices={price_count} availability={'yes' if has_availability else 'no'} "
+                    f"review_screenshot={'yes' if has_screenshot else 'no'}"
+                )
 
         missing = [p for p in PRODUCT_IDS if p not in found]
         if missing:

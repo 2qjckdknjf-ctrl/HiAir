@@ -79,7 +79,7 @@ def _product_id_from_payload(payload: dict, fallback: str | None) -> str:
 
 
 def _transaction_id_from_payload(payload: dict, signed_transaction: str) -> str:
-    for key in ("transactionId", "transaction_id"):
+    for key in ("transactionId", "transaction_id", "transaction_id_numeric"):
         value = payload.get(key)
         if value is not None and str(value).strip():
             return str(value).strip()

@@ -1,0 +1,123 @@
+(function () {
+  "use strict";
+
+  const API_BASE =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+      ? "http://127.0.0.1:8000"
+      : "https://api.hiair.io";
+
+  /* Mobile nav */
+  const navToggle = document.querySelector(".nav-toggle");
+  const siteNav = document.getElementById("site-nav");
+
+  if (navToggle && siteNav) {
+    navToggle.addEventListener("click", function () {
+      const open = siteNav.classList.toggle("is-open");
+      navToggle.setAttribute("aria-expanded", String(open));
+      navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    });
+
+    siteNav.querySelectorAll("a").forEach(function (link) {
+      link.addEventListener("click", function () {
+        siteNav.classList.remove("is-open");
+        navToggle.setAttribute("aria-expanded", "false");
+        navToggle.setAttribute("aria-label", "Open menu");
+      });
+    });
+  }
+
+  /* FAQ accordion */
+  document.querySelectorAll(".faq-item").forEach(function (item) {
+    const btn = item.querySelector(".faq-question");
+    if (!btn) return;
+
+    btn.addEventListener("click", function () {
+      const isOpen = item.classList.toggle("is-open");
+      btn.setAttribute("aria-expanded", String(isOpen));
+
+      document.querySelectorAll(".faq-item").forEach(function (other) {
+        if (other !== item && other.classList.contains("is-open")) {
+          other.classList.remove("is-open");
+          const otherBtn = other.querySelector(".faq-question");
+          if (otherBtn) otherBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+    });
+  });
+
+  /* Waitlist form */
+  const form = document.getElementById("waitlist-form");
+  const messageEl = document.getElementById("waitlist-message");
+  const submitBtn = document.getElementById("waitlist-submit");
+
+  function showMessage(text, type) {
+    if (!messageEl) return;
+    messageEl.textContent = text;
+    messageEl.className = "form-message is-visible " + type;
+  }
+
+  if (form) {
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const emailInput = document.getElementById("waitlist-email");
+      const personaSelect = document.getElementById("waitlist-persona");
+      const email = emailInput ? emailInput.value.trim() : "";
+      const persona = personaSelect && personaSelect.value ? personaSelect.value : null;
+
+      if (!email || !email.includes("@")) {
+        showMessage("Please enter a valid email address.", "error");
+        emailInput && emailInput.focus();
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Joining…";
+      }
+      showMessage("", "");
+
+      const payload = { email: email };
+      if (persona) payload.persona = persona;
+
+      try {
+        const response = await fetch(API_BASE + "/api/waitlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json().catch(function () {
+          return {};
+        });
+
+        if (response.ok) {
+          showMessage(
+            data.message || "You're on the list. We'll email you when early access opens.",
+            "success"
+          );
+          form.reset();
+        } else {
+          const detail = data.detail;
+          const errText =
+            typeof detail === "string"
+              ? detail
+              : Array.isArray(detail)
+                ? detail.map(function (d) { return d.msg || d; }).join(" ")
+                : "Something went wrong. Please try again.";
+          showMessage(errText, "error");
+        }
+      } catch (_err) {
+        showMessage(
+          "Could not reach our servers. Please try again in a moment or email hello@hiair.io.",
+          "error"
+        );
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Join early access";
+        }
+      }
+    });
+  }
+})();

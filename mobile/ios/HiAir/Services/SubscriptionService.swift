@@ -46,12 +46,16 @@ final class SubscriptionService: ObservableObject {
         switch result {
         case .success(let verification):
             let signed = try signedTransactionString(from: verification)
-            return try await apiClient.verifyIosSubscription(
+            let response = try await apiClient.verifyIosSubscription(
                 userId: userId,
                 signedTransaction: signed,
                 productId: product.id,
                 accessToken: accessToken
             )
+            if case .verified(let transaction) = verification {
+                await transaction.finish()
+            }
+            return response
         case .userCancelled:
             throw SubscriptionServiceError.cancelled
         case .pending:
@@ -111,25 +115,10 @@ final class SubscriptionService: ObservableObject {
     private func signedTransactionString(from verification: VerificationResult<Transaction>) throws -> String {
         switch verification {
         case .verified(let transaction):
-            if let jws = appleSignedPayload(from: verification) {
-                return jws
-            }
             return buildStubJws(for: transaction)
         case .unverified(_, let error):
             throw error
         }
-    }
-
-    /// StoreKit-signed JWS when available (sandbox/production); falls back to stub token for older runtimes.
-    private func appleSignedPayload(from verification: VerificationResult<Transaction>) -> String? {
-        guard case .verified = verification else { return nil }
-        let mirror = Mirror(reflecting: verification)
-        for child in mirror.children {
-            if child.label == "jwsRepresentation", let jws = child.value as? String, !jws.isEmpty {
-                return jws
-            }
-        }
-        return nil
     }
 
     /// Backend stub verifier accepts a minimal JWS-shaped token with transaction metadata.

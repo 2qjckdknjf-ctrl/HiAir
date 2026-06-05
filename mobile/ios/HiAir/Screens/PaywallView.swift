@@ -166,8 +166,13 @@ struct PaywallView: View {
                 accessToken: session.accessToken
             )
             session.applyEntitlement(status.entitlement)
-            statusMessage = session.l("paywall.success")
-            dismiss()
+            await session.refreshEntitlement()
+            if session.isPremium {
+                statusMessage = session.l("paywall.success")
+                dismiss()
+            } else {
+                statusMessage = session.l("paywall.verify_pending")
+            }
         } catch let error as APIError {
             statusMessage = subscriptionService.userFacingMessage(for: error)
         } catch {

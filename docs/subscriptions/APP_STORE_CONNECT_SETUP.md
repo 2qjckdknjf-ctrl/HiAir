@@ -35,7 +35,12 @@ cd backend && .venv/bin/python ../scripts/ops/bootstrap_app_store_subscriptions.
 
 Requires `backend/.secrets/AuthKey_VCL6R84SP3.p8` and `apple_issuer_id`.
 
-After bootstrap, open App Store Connect → **Subscriptions** → each product → set **Subscription Prices** (USA baseline propagates to other territories) if API pricing returns 409. Then link products to the TestFlight app version under **In-App Purchases**.
+After bootstrap, run `check_app_store_iap.py` and fix any row that shows `prices=0` or `review_screenshot=no`:
+
+1. **Subscription Prices** — App Store Connect → Monetization → Subscriptions → each product → **Subscription Prices** → set USA baseline (e.g. $4.99 monthly / $39.99 yearly). The API key often cannot set prices (409); an account with **Finance** or **Admin** role must do this in the dashboard.
+2. **Review screenshot** — same product page → **App Review Information** → upload any paywall screenshot (required for `READY_TO_SUBMIT`).
+3. **Link to app version** — App Store Connect → your app → **TestFlight** or version → **In-App Purchases and Subscriptions** → add both HiAir Premium products.
+4. Wait 15–60 minutes, then retry Premium in the app (sandbox Apple ID).
 
 ## Sandbox testing
 

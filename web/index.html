@@ -3,46 +3,559 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>HiAir — Breathe better. Live better.</title>
+    <title>HiAir — Know when the air is safe for your body</title>
     <meta
       name="description"
-      content="HiAir helps you understand daily heat and air-quality conditions and adapt your routine."
+      content="HiAir combines heat, humidity, air quality and personal sensitivity into simple daily wellness guidance. Join early access for iOS and Android."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://hiair.io/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://hiair.io/" />
+    <meta property="og:title" content="HiAir — Heat &amp; Air Safety Assistant" />
+    <meta
+      property="og:description"
+      content="Personalized heat and air-quality guidance for families, athletes, and sensitive users. Wellness support — not medical advice."
+    />
+    <meta property="og:site_name" content="HiAir" />
+    <meta property="og:locale" content="en_US" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="HiAir — Heat &amp; Air Safety Assistant" />
+    <meta
+      name="twitter:description"
+      content="Know when the air is safe for your body. Personalized risk scores and daily planning."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "HiAir",
+        "applicationCategory": "HealthApplication",
+        "operatingSystem": "iOS, Android",
+        "description": "Wellness assistant for heat and air quality with personalized risk guidance.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
-  <body>
-    <header>
-      <div class="logo">HiAir</div>
-      <nav>
-        <a href="/privacy/">Privacy</a>
-        <a href="/terms/">Terms</a>
-      </nav>
+  <body class="landing">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/" aria-label="HiAir home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          HiAir
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+          aria-label="Open menu"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <nav id="site-nav" class="site-nav" aria-label="Primary">
+          <a href="#how-it-works">How it works</a>
+          <a href="#who-it-helps">Who it helps</a>
+          <a href="#trust">Trust</a>
+          <a href="#faq">FAQ</a>
+          <a class="btn btn-primary" href="#waitlist">Join early access</a>
+        </nav>
+      </div>
     </header>
-    <main>
-      <section class="hero">
-        <h1>Breathe better. Live better.</h1>
-        <p class="tagline">
-          HiAir is a wellness companion for heat and air quality awareness — personalized
-          risk insights, practical recommendations, and optional alerts.
-        </p>
-        <div class="card">
-          <p>
-            HiAir is available on iOS and Android. This site hosts our legal documents and
-            product information for store review and beta distribution.
-          </p>
-          <p>
-            HiAir is a wellness support tool and does not provide medical diagnosis or
-            treatment.
-          </p>
+
+    <main id="main">
+      <!-- Hero -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <span class="badge">Heat &amp; Air Safety Assistant</span>
+            <h1 id="hero-title">Know when the air is safe for your body</h1>
+            <p class="hero-sub">
+              HiAir combines heat, humidity, air quality, and personal sensitivity into
+              clear daily guidance — so you can plan walks, workouts, ventilation, and
+              outdoor time with confidence.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#waitlist">Join early access</a>
+              <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
+            </div>
+            <p class="hero-note">
+              Wellness guidance only — not medical advice. iOS &amp; Android coming soon.
+            </p>
+          </div>
+
+          <div class="mockup-card" role="img" aria-label="HiAir dashboard preview showing moderate risk score 42, heat index 31°C, AQI 68, and safe outdoor windows">
+            <div class="mockup-header">
+              <span class="mockup-location">Barcelona · Today</span>
+              <span class="badge" style="font-size: 0.65rem; padding: 0.25rem 0.6rem">Live</span>
+            </div>
+            <div class="mockup-risk">
+              <div class="risk-score" aria-hidden="true">42</div>
+              <span class="risk-label">Moderate risk</span>
+            </div>
+            <div class="mockup-metrics">
+              <div class="metric-pill"><span>Heat</span><strong>31°C</strong></div>
+              <div class="metric-pill"><span>AQI</span><strong>68</strong></div>
+              <div class="metric-pill"><span>PM2.5</span><strong>18</strong></div>
+            </div>
+            <div class="mockup-rec">
+              <strong>Today's guidance</strong>
+              <p>
+                Evening walk looks best after 7 PM when heat drops. Keep windows closed
+                until ozone levels ease this afternoon.
+              </p>
+            </div>
+            <div class="safe-windows" aria-label="Safe outdoor windows">
+              <span class="window-chip">7–9 AM safe</span>
+              <span class="window-chip">7–9 PM best</span>
+              <span class="window-chip muted">12–4 PM caution</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Problem -->
+      <section class="section" id="problem" aria-labelledby="problem-title">
+        <div class="container">
+          <header class="section-header center">
+            <p class="section-eyebrow">The gap</p>
+            <h2 class="section-title" id="problem-title">Weather apps show data. They don't answer your question.</h2>
+            <p class="section-lead">
+              Most apps tell you the temperature or AQI number — but not whether it's right
+              for you, your child, or your afternoon run.
+            </p>
+          </header>
+          <div class="card-grid cols-2 cols-4">
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">👶</div>
+              <h3>Can my child play outside?</h3>
+              <p>Heat, humidity, and pollution affect kids differently than adults — timing matters.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">🏃</div>
+              <h3>Is it safe to run tonight?</h3>
+              <p>Ozone and heat index can spike when the sky looks fine. Plans need context.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">🪟</div>
+              <h3>When should I air the room?</h3>
+              <p>Opening windows at the wrong hour can let smoke or traffic pollution in.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">💨</div>
+              <h3>Why does today feel harder?</h3>
+              <p>Combined heat stress and air quality affect breathing comfort — not just one metric.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Solution -->
+      <section class="section" id="how-it-works" aria-labelledby="solution-title">
+        <div class="container">
+          <header class="section-header center">
+            <p class="section-eyebrow">The solution</p>
+            <h2 class="section-title" id="solution-title">One calm view of your personal climate risk</h2>
+            <p class="section-lead">
+              HiAir merges environmental signals with your profile to deliver actionable
+              wellness guidance — without alarmist noise.
+            </p>
+          </header>
+          <div class="card-grid cols-3">
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">🌡️</div>
+              <h3>Heat &amp; humidity</h3>
+              <p>Heat index and thermal stress tuned to how your body experiences the day.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">🫁</div>
+              <h3>Air quality layers</h3>
+              <p>AQI, PM2.5, ozone, and smoke signals combined — not shown in isolation.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">👤</div>
+              <h3>Personal profile</h3>
+              <p>Sensitivity settings and persona type shape your risk score and tips.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">📊</div>
+              <h3>Clear risk score</h3>
+              <p>A single understandable number with explainable reason codes.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">💡</div>
+              <h3>Plain recommendations</h3>
+              <p>Hydration, timing, ventilation, and activity guidance in everyday language.</p>
+            </article>
+            <article class="glass-card">
+              <div class="icon" aria-hidden="true">📅</div>
+              <h3>Daily planner</h3>
+              <p>Safe windows for walks, sport, airing, and family activities.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Risk score flow -->
+      <section class="section flow-section" aria-labelledby="risk-title">
+        <div class="container">
+          <header class="section-header center">
+            <p class="section-eyebrow">Personalized risk</p>
+            <h2 class="section-title" id="risk-title">From raw data to guidance you can use</h2>
+            <p class="section-lead">
+              HiAir's risk engine weighs environment and personal context — then surfaces
+              what to do next.
+            </p>
+          </header>
+          <div class="flow-diagram" role="list">
+            <div class="flow-step" role="listitem">
+              <strong>Weather + Air</strong>
+              <span>Heat, humidity, AQI, PM2.5, ozone, smoke</span>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-step" role="listitem">
+              <strong>Your profile</strong>
+              <span>Sensitivity, persona, daily context</span>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-step" role="listitem">
+              <strong>HiAir Risk Score</strong>
+              <span>Low · Moderate · High · Very high</span>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-step" role="listitem">
+              <strong>Recommendations</strong>
+              <span>Timing, hydration, ventilation, care tips</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Daily planner -->
+      <section class="section" aria-labelledby="planner-title">
+        <div class="container">
+          <header class="section-header">
+            <p class="section-eyebrow">Daily planner</p>
+            <h2 class="section-title" id="planner-title">Pick the right moment — hour by hour</h2>
+            <p class="section-lead">
+              See when outdoor activity, ventilation, and family plans fit best into your day.
+            </p>
+          </header>
+          <div class="timeline" role="list" aria-label="Sample hourly risk timeline">
+            <div class="timeline-row" role="listitem">
+              <span class="timeline-time">7 AM</span>
+              <div class="timeline-bar"><div class="timeline-fill best"></div></div>
+              <span class="timeline-tag safe">Morning walk</span>
+            </div>
+            <div class="timeline-row" role="listitem">
+              <span class="timeline-time">12 PM</span>
+              <div class="timeline-bar"><div class="timeline-fill high"></div></div>
+              <span class="timeline-tag avoid">Avoid peak heat</span>
+            </div>
+            <div class="timeline-row" role="listitem">
+              <span class="timeline-time">3 PM</span>
+              <div class="timeline-bar"><div class="timeline-fill moderate"></div></div>
+              <span class="timeline-tag caution">Close windows</span>
+            </div>
+            <div class="timeline-row" role="listitem">
+              <span class="timeline-time">7 PM</span>
+              <div class="timeline-bar"><div class="timeline-fill low"></div></div>
+              <span class="timeline-tag safe">Evening run OK</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Audience -->
+      <section class="section" id="who-it-helps" aria-labelledby="audience-title">
+        <div class="container">
+          <header class="section-header center">
+            <p class="section-eyebrow">Who it helps</p>
+            <h2 class="section-title" id="audience-title">Built for real lives outdoors</h2>
+          </header>
+          <div class="card-grid cols-3">
+            <article class="glass-card">
+              <h3>Families with children</h3>
+              <p>Plan safer playground time and school commutes when heat or air quality spikes.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Asthma &amp; allergy sensitive</h3>
+              <p>Understand combined triggers — not just pollen counts in isolation.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Runners &amp; cyclists</h3>
+              <p>Find cleaner, cooler windows for outdoor training.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Elderly care</h3>
+              <p>Extra clarity for heat stress and air-quality caution during the day.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Outdoor workers</h3>
+              <p>Schedule breaks and hydration around rising thermal and air stress.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Health-conscious residents</h3>
+              <p>Make informed choices about ventilation, commutes, and city living.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Wearables roadmap -->
+      <section class="section" aria-labelledby="wearables-title">
+        <div class="container">
+          <div class="roadmap-card">
+            <span class="roadmap-badge">Roadmap</span>
+            <h2 class="section-title" id="wearables-title" style="margin-bottom: 0.75rem">
+              Designed to connect environment with personal wellness patterns
+            </h2>
+            <p class="section-lead" style="margin-inline: auto; max-width: 520px">
+              Future premium integrations may include heart rate, sleep, HRV, and recovery
+              context — always as wellness insights, never medical diagnosis.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trust -->
+      <section class="section" id="trust" aria-labelledby="trust-title">
+        <div class="container">
+          <header class="section-header center">
+            <p class="section-eyebrow">Trust &amp; privacy</p>
+            <h2 class="section-title" id="trust-title">Calm guidance. Your data, your control.</h2>
+          </header>
+          <div class="trust-grid">
+            <div class="trust-item">
+              <span class="check" aria-hidden="true">✓</span>
+              <div>
+                <strong>Wellness, not medical advice</strong>
+                <p style="margin: 0.35rem 0 0; color: #4a5878; font-size: 0.925rem">
+                  HiAir supports daily decisions. It does not diagnose, treat, or replace a healthcare professional.
+                </p>
+              </div>
+            </div>
+            <div class="trust-item">
+              <span class="check" aria-hidden="true">✓</span>
+              <div>
+                <strong>Privacy-first by design</strong>
+                <p style="margin: 0.35rem 0 0; color: #4a5878; font-size: 0.925rem">
+                  You control location and notification permissions. Export and delete your data in-app.
+                </p>
+              </div>
+            </div>
+            <div class="trust-item">
+              <span class="check" aria-hidden="true">✓</span>
+              <div>
+                <strong>Minimal data collection</strong>
+                <p style="margin: 0.35rem 0 0; color: #4a5878; font-size: 0.925rem">
+                  We collect only what's needed to personalize guidance — nothing sold to third parties.
+                </p>
+              </div>
+            </div>
+            <div class="trust-item">
+              <span class="check" aria-hidden="true">✓</span>
+              <div>
+                <strong>Transparent permissions</strong>
+                <p style="margin: 0.35rem 0 0; color: #4a5878; font-size: 0.925rem">
+                  Location and alerts are optional. You stay in control of what HiAir can access.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Waitlist -->
+      <section class="section waitlist-section" id="waitlist" aria-labelledby="waitlist-title">
+        <div class="container">
+          <header class="section-header center">
+            <p class="section-eyebrow">Early access</p>
+            <h2 class="section-title" id="waitlist-title">Be first to breathe easier</h2>
+            <p class="section-lead">
+              Join the waitlist for iOS and Android beta. We'll notify you when your region opens.
+            </p>
+          </header>
+          <form class="waitlist-form" id="waitlist-form" novalidate>
+            <div class="form-group">
+              <label for="waitlist-email">Email address</label>
+              <input
+                type="email"
+                id="waitlist-email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="you@example.com"
+                aria-describedby="waitlist-message"
+              />
+            </div>
+            <div class="form-group">
+              <label for="waitlist-persona">I'm interested as (optional)</label>
+              <select id="waitlist-persona" name="persona">
+                <option value="">Select a profile</option>
+                <option value="parent">Parent / family</option>
+                <option value="asthma_allergy">Asthma or allergy sensitive</option>
+                <option value="runner">Runner / outdoor athlete</option>
+                <option value="elderly_care">Elderly care</option>
+                <option value="outdoor_worker">Outdoor worker</option>
+                <option value="health_conscious">Health-conscious city resident</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" type="submit" id="waitlist-submit" style="width: 100%">
+              Join early access
+            </button>
+            <div
+              class="form-message"
+              id="waitlist-message"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="section" id="faq" aria-labelledby="faq-title">
+        <div class="container">
+          <header class="section-header center">
+            <h2 class="section-title" id="faq-title">Questions &amp; answers</h2>
+          </header>
+          <div class="faq-list">
+            <div class="faq-item">
+              <button class="faq-question" type="button" aria-expanded="false">
+                Is HiAir a weather app?
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </button>
+              <div class="faq-answer">
+                <div class="faq-answer-inner">
+                  No. Weather apps show conditions. HiAir interprets heat, humidity, and air
+                  quality together with your personal sensitivity to suggest safer timing and
+                  practical actions for your day.
+                </div>
+              </div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" type="button" aria-expanded="false">
+                Is HiAir medical advice?
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </button>
+              <div class="faq-answer">
+                <div class="faq-answer-inner">
+                  No. HiAir provides wellness guidance to help you plan daily activities. It
+                  is not a medical device and does not diagnose or treat conditions. For
+                  medical concerns, consult a qualified professional.
+                </div>
+              </div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" type="button" aria-expanded="false">
+                What data does HiAir use?
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </button>
+              <div class="faq-answer">
+                <div class="faq-answer-inner">
+                  Environmental data (heat, humidity, air quality), optional location for
+                  local risk, profile sensitivity settings, and optional wellness logs you
+                  choose to enter. See our
+                  <a href="/privacy/">Privacy Policy</a> for details.
+                </div>
+              </div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" type="button" aria-expanded="false">
+                Who is HiAir for?
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </button>
+              <div class="faq-answer">
+                <div class="faq-answer-inner">
+                  Families, athletes, outdoor workers, elderly care partners, and anyone who
+                  wants clearer guidance on heat and air stress — especially if you are
+                  sensitive to pollution or extreme temperatures.
+                </div>
+              </div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" type="button" aria-expanded="false">
+                When will early access be available?
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </button>
+              <div class="faq-answer">
+                <div class="faq-answer-inner">
+                  We are rolling out closed beta on iOS and Android. Join the waitlist above
+                  and we'll email you when your invite is ready — typically in the order sign-ups arrive.
+                </div>
+              </div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" type="button" aria-expanded="false">
+                Will HiAir support wearables?
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </button>
+              <div class="faq-answer">
+                <div class="faq-answer-inner">
+                  Wearable integrations (heart rate, sleep, HRV) are on our roadmap for
+                  premium tiers. They will enrich wellness insights — not provide medical
+                  diagnosis.
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
-    <footer>
-      <nav>
-        <a href="/privacy/">Privacy Policy</a>
-        <a href="/terms/">Terms of Service</a>
-      </nav>
-      <p>&copy; HiAir. All rights reserved.</p>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a class="brand" href="/">
+              <span class="brand-mark" aria-hidden="true"></span>
+              HiAir
+            </a>
+            <p>Breathe better. Live better. Personalized heat and air wellness for everyday life.</p>
+          </div>
+          <div class="footer-links">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#how-it-works">How it works</a></li>
+              <li><a href="#who-it-helps">Who it helps</a></li>
+              <li><a href="#waitlist">Early access</a></li>
+            </ul>
+          </div>
+          <div class="footer-links">
+            <h4>Legal</h4>
+            <ul>
+              <li><a href="/privacy/">Privacy Policy</a></li>
+              <li><a href="/terms/">Terms of Service</a></li>
+              <li><a href="mailto:hello@hiair.io">Contact</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; HiAir. All rights reserved.</p>
+          <p class="footer-disclaimer">
+            HiAir provides wellness guidance and is not a substitute for professional medical advice.
+            In emergencies, contact local emergency services.
+          </p>
+        </div>
+      </div>
     </footer>
+
+    <script src="/js/main.js" defer></script>
   </body>
 </html>

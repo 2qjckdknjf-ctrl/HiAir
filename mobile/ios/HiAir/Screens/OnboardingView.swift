@@ -8,6 +8,7 @@ struct OnboardingView: View {
     let fromSettings: Bool
     @State private var step = 0
     @State private var personaSelection = "adult"
+    @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -30, to: Date()) ?? Date()
     @StateObject private var permissionCoordinator = OnboardingPermissionCoordinator()
     @StateObject private var healthService = HealthKitService.shared
 
@@ -108,6 +109,7 @@ struct OnboardingView: View {
         }
         if isLastStep {
             session.persona = personaSelection
+            session.dateOfBirth = dateOfBirth
             session.finishOnboarding()
             if fromSettings {
                 dismiss()
@@ -146,6 +148,19 @@ struct OnboardingView: View {
             Text(session.l("onboarding.step3.title"))
                 .font(AuroraTokens.Typography.titleMD)
                 .foregroundStyle(HiAirV2Theme.primaryText)
+            Text(session.l("onboarding.date_of_birth.title"))
+                .font(AuroraTokens.Typography.bodyMD.weight(.semibold))
+                .foregroundStyle(HiAirV2Theme.primaryText)
+            Text(session.l("onboarding.date_of_birth.body"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            DatePicker(
+                session.l("settings.date_of_birth"),
+                selection: $dateOfBirth,
+                in: ...Date(),
+                displayedComponents: .date
+            )
+            .environment(\.locale, Locale(identifier: session.preferredLanguage == "ru" ? "ru_RU" : "en_US"))
             personaOption("adult", key: "onboarding.for_self")
             personaOption("child", key: "onboarding.for_child")
             personaOption("elderly", key: "onboarding.for_elderly")

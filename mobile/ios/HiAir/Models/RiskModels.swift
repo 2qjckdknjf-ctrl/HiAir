@@ -468,6 +468,8 @@ struct UserProfile: Codable {
     let sensitivityLevel: String
     let homeLat: Double
     let homeLon: Double
+    let dateOfBirth: String?
+    let ageYears: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -476,6 +478,8 @@ struct UserProfile: Codable {
         case sensitivityLevel = "sensitivity_level"
         case homeLat = "home_lat"
         case homeLon = "home_lon"
+        case dateOfBirth = "date_of_birth"
+        case ageYears = "age_years"
     }
 }
 
@@ -484,12 +488,30 @@ struct ProfileCreatePayload: Codable {
     let sensitivityLevel: String
     let homeLat: Double
     let homeLon: Double
+    let dateOfBirth: String?
 
     enum CodingKeys: String, CodingKey {
         case personaType = "persona_type"
         case sensitivityLevel = "sensitivity_level"
         case homeLat = "home_lat"
         case homeLon = "home_lon"
+        case dateOfBirth = "date_of_birth"
+    }
+}
+
+struct ProfileUpdatePayload: Codable {
+    let personaType: String?
+    let sensitivityLevel: String?
+    let homeLat: Double?
+    let homeLon: Double?
+    let dateOfBirth: String?
+
+    enum CodingKeys: String, CodingKey {
+        case personaType = "persona_type"
+        case sensitivityLevel = "sensitivity_level"
+        case homeLat = "home_lat"
+        case homeLon = "home_lon"
+        case dateOfBirth = "date_of_birth"
     }
 }
 
