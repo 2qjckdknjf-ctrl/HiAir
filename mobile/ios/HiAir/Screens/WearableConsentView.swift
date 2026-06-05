@@ -8,6 +8,7 @@ struct WearableConsentView: View {
 
     @StateObject private var healthService = HealthKitService.shared
     @State private var working = false
+    @State private var showHealthPathHint = false
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
@@ -22,6 +23,15 @@ struct WearableConsentView: View {
                     Text(session.l("wearable.consent.disclaimer"))
                         .font(HiAirTypography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    if showHealthPathHint {
+                        Text(session.l("wearable.dashboard.health_path"))
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("wearable.dashboard.open_health")) {
+                            HealthKitService.openHealthApp()
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                    }
                     HStack(spacing: 10) {
                         Button(session.l("wearable.consent.skip")) {
                             onComplete?()
@@ -61,9 +71,14 @@ struct WearableConsentView: View {
             } catch {
                 healthService.reportConnectionState(.syncFailed)
             }
+            onComplete?()
+            if !fromOnboarding { dismiss() }
+            return
         }
-        onComplete?()
-        if !fromOnboarding { dismiss() }
+        showHealthPathHint = true
+        if healthService.connectionState != .permissionDenied {
+            healthService.reportConnectionState(.permissionDenied)
+        }
     }
 }
 
@@ -108,7 +123,10 @@ struct WearableLoadCardView: View {
             Text(session.l("wearable.dashboard.denied"))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
-            Button(session.l("wearable.dashboard.open_settings"), action: onOpenSettings)
+            Text(session.l("wearable.dashboard.health_path"))
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+            Button(session.l("wearable.dashboard.open_health"), action: onOpenSettings)
                 .buttonStyle(HiAirSecondaryButtonStyle())
         case .dataUnavailable, .syncFailed:
             Text(session.l("wearable.dashboard.unavailable"))

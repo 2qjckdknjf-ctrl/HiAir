@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UIKit
 
 enum WearableConnectionState: String, Equatable {
     case notConnected
@@ -36,12 +37,29 @@ final class HealthKitService: ObservableObject {
         return types
     }
 
+    func reportConnectionState(_ state: WearableConnectionState) {
+        connectionState = state
+    }
+
     func isHealthDataAvailable() -> Bool {
         HKHealthStore.isHealthDataAvailable()
     }
 
-    func reportConnectionState(_ state: WearableConnectionState) {
-        connectionState = state
+    func refreshAuthorizationState() -> WearableConnectionState {
+        guard isHealthDataAvailable() else {
+            connectionState = .unavailable
+            return .unavailable
+        }
+        if hasAnyReadAuthorization() {
+            connectionState = .connected
+            return .connected
+        }
+        if allReadTypesExplicitlyDenied() {
+            connectionState = .permissionDenied
+            return .permissionDenied
+        }
+        connectionState = .notConnected
+        return .notConnected
     }
 
     func requestAuthorization() async -> Bool {
@@ -50,22 +68,45 @@ final class HealthKitService: ObservableObject {
             return false
         }
         connectionState = .permissionRequested
-        return await withCheckedContinuation { continuation in
-            store.requestAuthorization(toShare: [], read: readTypes) { [weak self] success, _ in
-                Task { @MainActor in
-                    guard let self else {
-                        continuation.resume(returning: false)
-                        return
-                    }
-                    if success {
-                        self.connectionState = .connected
-                    } else {
-                        self.connectionState = .permissionDenied
-                    }
-                    continuation.resume(returning: success)
+
+        let shouldPrompt = await withCheckedContinuation { continuation in
+            store.getRequestStatusForAuthorization(toShare: [], read: readTypes) { status, _ in
+                continuation.resume(returning: status == .shouldRequest)
+            }
+        }
+
+        if shouldPrompt {
+            await withCheckedContinuation { continuation in
+                store.requestAuthorization(toShare: [], read: readTypes) { _, _ in
+                    continuation.resume()
                 }
             }
         }
+
+        let granted = hasAnyReadAuthorization()
+        connectionState = granted ? .connected : (allReadTypesExplicitlyDenied() ? .permissionDenied : .notConnected)
+        return granted
+    }
+
+    static func openHealthApp() {
+        if let url = URL(string: "x-apple-health://") {
+            UIApplication.shared.open(url, options: [:]) { success in
+                guard !success, let settings = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(settings)
+            }
+            return
+        }
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func hasAnyReadAuthorization() -> Bool {
+        readTypes.contains { store.authorizationStatus(for: $0) == .sharingAuthorized }
+    }
+
+    private func allReadTypesExplicitlyDenied() -> Bool {
+        !readTypes.isEmpty && readTypes.allSatisfy { store.authorizationStatus(for: $0) == .sharingDenied }
     }
 
     func fetchTodaySteps() async -> Int? {

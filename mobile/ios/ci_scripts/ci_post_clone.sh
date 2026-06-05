@@ -48,6 +48,16 @@ if ! project_includes_v2_theme; then
   exit 1
 fi
 
+if ! grep -q 'HealthKitService.swift in Sources' "$PBX" 2>/dev/null; then
+  echo "error: HealthKitService.swift missing from Compile Sources after XcodeGen." >&2
+  exit 1
+fi
+
+if ! grep -q 'INFOPLIST_KEY_NSHealthShareUsageDescription' "$PBX" 2>/dev/null; then
+  echo "error: NSHealthShareUsageDescription missing from generated project." >&2
+  exit 1
+fi
+
 echo "==> Resolve Swift package dependencies"
 xcodebuild -resolvePackageDependencies \
   -project HiAir.xcodeproj \

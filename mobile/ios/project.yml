@@ -23,7 +23,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
         SWIFT_VERSION: 5.0
-        CURRENT_PROJECT_VERSION: 9
+        CURRENT_PROJECT_VERSION: 10
         MARKETING_VERSION: 0.1.0
         INFOPLIST_KEY_CFBundleDisplayName: HiAir
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
@@ -43,6 +43,8 @@ targets:
           HiAir reads steps and heart rate to estimate personal activity load during heat and poor air quality. HiAir provides wellness guidance, not medical diagnosis.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-
           HiAir connects to Apple Health to read steps and heart rate for personal activity insights. HiAir does not write health data to Apple Health.
+        INFOPLIST_KEY_LSApplicationQueriesSchemes:
+          - x-apple-health
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO

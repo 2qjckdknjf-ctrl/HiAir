@@ -42,7 +42,7 @@ final class DashboardViewModel: ObservableObject {
             async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
             let result = try await riskTask
             wearableToday = try? await wearableTask
-            wearableConnectionState = healthService.connectionState
+            wearableConnectionState = healthService.refreshAuthorizationState()
             riskLevel = result.risk.overallRisk
             explanation = result.explanation
             headline = result.recommendation.headline
@@ -208,9 +208,7 @@ struct DashboardView: View {
             connectionState: viewModel.wearableConnectionState,
             onConnect: { showWearableConsent = true },
             onOpenSettings: {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
+                HealthKitService.openHealthApp()
             }
         )
     }

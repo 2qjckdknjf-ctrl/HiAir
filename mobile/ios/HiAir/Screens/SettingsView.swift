@@ -258,16 +258,33 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func refreshWearableStatus() async {
-        guard !userId.isEmpty else { return }
+        let hkState = HealthKitService.shared.refreshAuthorizationState()
+        guard !userId.isEmpty else {
+            wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
+            return
+        }
         do {
             let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
-            if today.consent?.isActive == true {
-                wearableStatus = l("settings.wearables.status") + ": connected"
-            } else {
-                wearableStatus = l("wearable.dashboard.not_connected")
-            }
+            let consentActive = today.consent?.isActive == true
+            wearableStatus = wearableStatusLabel(for: hkState, consentActive: consentActive)
         } catch {
-            wearableStatus = l("wearable.dashboard.unavailable")
+            wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
+        }
+    }
+
+    private func wearableStatusLabel(for hkState: WearableConnectionState, consentActive: Bool) -> String {
+        let prefix = l("settings.wearables.status")
+        switch hkState {
+        case .connected where consentActive:
+            return "\(prefix): \(l("settings.wearables.connected"))"
+        case .permissionDenied:
+            return "\(prefix): \(l("settings.wearables.denied"))"
+        case .unavailable:
+            return l("wearable.dashboard.unavailable")
+        default:
+            return consentActive
+                ? "\(prefix): \(l("settings.wearables.connected"))"
+                : l("wearable.dashboard.not_connected")
         }
     }
 
@@ -594,6 +611,7 @@ struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @State private var showingGuide = false
     @State private var showingAIGuide = false
+    @State private var showWearableConsent = false
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
@@ -869,6 +887,10 @@ struct SettingsView: View {
                     Text(viewModel.wearableStatus)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("settings.wearables.connect")) {
+                        showWearableConsent = true
+                    }
+                    .buttonStyle(HiAirGradientButtonStyle())
                     Button(session.l("settings.wearables.disconnect")) {
                         Task { await viewModel.disconnectWearables() }
                     }
@@ -881,6 +903,12 @@ struct SettingsView: View {
                 .v2Card()
                 .onAppear {
                     Task { await viewModel.refreshWearableStatus() }
+                }
+                .sheet(isPresented: $showWearableConsent) {
+                    WearableConsentView(fromOnboarding: false) {
+                        Task { await viewModel.refreshWearableStatus() }
+                    }
+                    .environmentObject(session)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {

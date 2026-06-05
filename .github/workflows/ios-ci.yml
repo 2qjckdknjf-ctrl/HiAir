@@ -27,6 +27,13 @@ jobs:
       - name: Generate project
         run: xcodegen
 
+      - name: Verify HealthKit project wiring
+        run: |
+          PBX=HiAir.xcodeproj/project.pbxproj
+          grep -q 'HealthKitService.swift in Sources' "$PBX"
+          grep -q 'INFOPLIST_KEY_NSHealthShareUsageDescription' "$PBX"
+          grep -q 'INFOPLIST_KEY_NSHealthUpdateUsageDescription' "$PBX"
+
       - name: Build simulator target
         run: |
           xcodebuild \
