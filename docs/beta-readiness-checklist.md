@@ -21,6 +21,7 @@ This checklist is used to prepare a closed beta on iOS and Android.
 
 - [ ] Run schema bootstrap:
   - `python scripts/init_db.py`
+  - includes migration `014_wearable_activity.sql`
 - [ ] Run environment security checks:
   - `python scripts/check_env_security.py --strict`
 - [ ] Run retention cleanup dry-run:
@@ -90,3 +91,11 @@ This checklist is used to prepare a closed beta on iOS and Android.
 - [ ] No blocker issues in core flows.
 - [ ] At least one full end-to-end notification dispatch path is verified.
 - [ ] Team acknowledges known risks and follows mitigation notes.
+
+## 8) Wearable & Activity (optional feature)
+
+- [ ] Migration 014 applied on staging Supabase.
+- [ ] `/api/v1/wearables/*` endpoints reachable with auth.
+- [ ] iOS HealthKit usage string present; consent skippable.
+- [ ] Android Health Connect dependency resolves; dashboard works without HC.
+- [ ] `docs/qa-wearable-activity-checklist.md` spot-checked on at least one iOS and one Android device.

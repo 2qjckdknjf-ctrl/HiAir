@@ -70,6 +70,13 @@ Use this checklist for manual QA of the MVP flow.
 - [ ] `/api/observability/metrics` shows growing request counters.
 - [ ] Structured request logs include `request_id`, path, status, latency.
 
+## I. Wearables (optional)
+
+- [ ] Consent save/revoke via `/api/v1/wearables/consent`.
+- [ ] Daily/hourly summary rejected without active consent.
+- [ ] Delete health data clears summaries.
+- [ ] Dashboard load card renders all states (see `docs/qa-wearable-activity-checklist.md`).
+
 ## H. Regression notes
 
 - [ ] Document any failed item with:

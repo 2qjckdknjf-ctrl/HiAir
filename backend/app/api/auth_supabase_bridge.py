@@ -14,6 +14,8 @@ router = APIRouter(prefix="/auth/supabase", tags=["auth"])
 
 
 def _ensure_bridge_enabled() -> None:
+    if not settings.hiair_auth_email_bridge_enabled:
+        raise HTTPException(status_code=404, detail="Supabase email bridge is disabled")
     if settings.hiair_auth_provider != "supabase" or not settings.supabase_url:
         raise HTTPException(status_code=503, detail="Supabase auth is not configured")
     if not settings.supabase_service_role_key:

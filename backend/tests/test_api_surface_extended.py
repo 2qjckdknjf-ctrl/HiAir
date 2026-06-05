@@ -358,7 +358,7 @@ def test_planner_and_validation(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "app.api.planner.air_risk_engine.evaluate_risk",
-        lambda profile, environment: RiskAssessmentResult(
+        lambda profile, environment, personal_load=None: RiskAssessmentResult(
             overallRisk=RiskLevel.LOW,
             heatRisk=RiskLevel.LOW,
             airRisk=RiskLevel.LOW,

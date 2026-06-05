@@ -5,6 +5,7 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import com.hiair.health.WearableHealthHost
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.CheckBox
@@ -473,6 +474,45 @@ internal object SettingsScreenRenderer {
             addView(socialAuthRow)
         }
         bodyContainer.addView(authCard)
+
+        val wearablesCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.wearables.title"))
+            addView(V2Ui.styledSecondaryText(activity, rootShell.settingsViewModel.state.wearableStatus))
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
+                setOnClickListener {
+                    (activity as? WearableHealthHost)?.requestWearableConnect {
+                        rootShell.settingsViewModel.refreshWearableStatus()
+                        ctx.rerender()
+                    }
+                }
+            })
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                    rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                    Thread {
+                        rootShell.settingsViewModel.disconnectWearables()
+                        activity.runOnUiThread {
+                            statusText.text = rootShell.settingsViewModel.state.statusText
+                        }
+                    }.start()
+                }
+            })
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
+                    rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
+                    Thread {
+                        rootShell.settingsViewModel.deleteWearableData()
+                        activity.runOnUiThread {
+                            statusText.text = rootShell.settingsViewModel.state.statusText
+                        }
+                    }.start()
+                }
+            })
+        }
+        bodyContainer.addView(wearablesCard)
+        rootShell.settingsViewModel.refreshWearableStatus()
 
         val securityCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))

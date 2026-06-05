@@ -148,7 +148,11 @@ def test_air_recommendations_returns_payload(monkeypatch) -> None:
         lambda user_id: type("Settings", (), {"preferred_language": "en"})(),
     )
     monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, force_live: _sample_environment())
-    monkeypatch.setattr(air_api.air_risk_engine, "evaluate_risk", lambda profile, environment: _sample_risk())
+    monkeypatch.setattr(
+        air_api.air_risk_engine,
+        "evaluate_risk",
+        lambda profile, environment, personal_load=None: _sample_risk(),
+    )
     monkeypatch.setattr(
         air_api.air_recommendation_engine,
         "generate_recommendation",

@@ -56,6 +56,7 @@ data class SettingsState(
     val aiLastUpdatedLabel: String = "-",
     val aiBreakdownText: String = "-",
     val privacyExportSummary: String = "-",
+    val wearableStatus: String = "-",
     val loading: Boolean = false,
     val statusText: String = "-"
 )
@@ -422,6 +423,45 @@ class SettingsViewModel(
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))
             false
+        }
+    }
+
+    fun refreshWearableStatus() {
+        if (state.userId.isBlank()) return
+        try {
+            val raw = apiClient.fetchWearableToday(state.userId, state.accessToken)
+            val json = JSONObject(raw)
+            val active = json.optJSONObject("consent")?.optBoolean("isActive") == true
+            state = state.copy(
+                wearableStatus = if (active) {
+                    l("settings.wearables.title") + ": connected"
+                } else {
+                    l("wearable.dashboard.not_connected")
+                }
+            )
+        } catch (_: Exception) {
+            state = state.copy(wearableStatus = l("wearable.dashboard.not_connected"))
+        }
+    }
+
+    fun deleteWearableData() {
+        if (state.userId.isBlank()) return
+        try {
+            apiClient.deleteWearableData(state.userId, state.accessToken)
+            state = state.copy(statusText = l("settings.wearables.delete"))
+            refreshWearableStatus()
+        } catch (_: Exception) {
+            state = state.copy(statusText = l("settings.privacy_export_failed"))
+        }
+    }
+
+    fun disconnectWearables() {
+        if (state.userId.isBlank()) return
+        try {
+            apiClient.revokeWearableConsent(state.userId, state.accessToken)
+            refreshWearableStatus()
+        } catch (_: Exception) {
+            state = state.copy(statusText = l("settings.privacy_export_failed"))
         }
     }
 

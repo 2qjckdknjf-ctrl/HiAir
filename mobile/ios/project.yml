@@ -77,3 +77,7 @@ schemes:
     run:
       config: Debug
       storeKitConfiguration: HiAir/Configuration/HiAirPremium.storekit
+    test:
+      config: Debug
+      targets:
+        - HiAirTests

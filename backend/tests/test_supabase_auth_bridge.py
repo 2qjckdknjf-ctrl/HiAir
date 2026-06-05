@@ -28,6 +28,7 @@ def test_supabase_bridge_returns_session(monkeypatch) -> None:
         hiair_auth_email_bridge_enabled=True,
         hiair_auth_provider="supabase",
         supabase_url="https://example.supabase.co",
+        supabase_service_role_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test",
     )
 
     def _issue(email: str, password: str) -> dict[str, str]:

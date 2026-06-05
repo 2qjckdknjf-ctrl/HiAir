@@ -4,6 +4,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.health.WearableHealthHost
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.dailyActionsText
@@ -12,6 +13,7 @@ import com.hiair.ui.theme.V2Ui
 internal object DashboardScreenRenderer {
     fun render(ctx: RenderContext) {
         val activity = ctx.activity
+        (activity as? WearableHealthHost)?.syncWearablesIfPermitted()
         val rootShell = ctx.rootShell
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
@@ -107,6 +109,41 @@ internal object DashboardScreenRenderer {
             addView(riskDetail)
         }
         bodyContainer.addView(dashboardCard)
+
+        val wearableState = ctx.rootShell.dashboardViewModel.state
+        val wearableCard = V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("wearable.dashboard.title")).apply { textSize = 16f })
+            addView(V2Ui.spacer(activity, 6))
+            if (wearableState.wearableConnected && wearableState.wearableSteps != null) {
+                addView(V2Ui.styledSecondaryText(activity, "${ctx.l("wearable.dashboard.steps")}: ${wearableState.wearableSteps}"))
+                addView(V2Ui.styledSecondaryText(activity, "${ctx.l("wearable.dashboard.load_risk")}: ${wearableState.wearableLoadLevel}"))
+                if (wearableState.wearableSummary.isNotBlank() && wearableState.wearableSummary != "-") {
+                    addView(V2Ui.styledSecondaryText(activity, wearableState.wearableSummary))
+                }
+            } else {
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("wearable.dashboard.not_connected")))
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
+                    setOnClickListener {
+                        val host = activity as? WearableHealthHost
+                        host?.requestWearableConnect {
+                            val settings = ctx.rootShell.settingsViewModel.state
+                            val profileId = ctx.rootShell.symptomLogViewModel.state.profileId.ifBlank { null }
+                            host.syncWearablesIfPermitted()
+                            Thread {
+                                ctx.rootShell.dashboardViewModel.refresh(
+                                    userId = settings.userId,
+                                    accessToken = settings.accessToken.ifBlank { null },
+                                    profileId = profileId,
+                                )
+                                activity.runOnUiThread { ctx.rerender() }
+                            }.start()
+                        }
+                    }
+                })
+            }
+        }
+        bodyContainer.addView(wearableCard)
+
         bodyContainer.addView(V2Ui.cardContainer(activity).apply {
             addView(weatherRow)
         })

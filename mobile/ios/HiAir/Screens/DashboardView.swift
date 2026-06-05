@@ -9,8 +9,11 @@ final class DashboardViewModel: ObservableObject {
     @Published var actions: [String] = []
     @Published var nearestSafeWindow = "-"
     @Published var environmental: AirEnvironmentalInput?
+    @Published var wearableToday: WearableTodayResponse?
+    @Published var wearableConnectionState: WearableConnectionState = .notConnected
 
     private let apiClient = APIClient.live()
+    private let healthService = HealthKitService.shared
 
     func refresh(
         userId: String,
@@ -27,14 +30,19 @@ final class DashboardViewModel: ObservableObject {
             actions = []
             nearestSafeWindow = "-"
             environmental = nil
+            wearableToday = nil
             return
         }
         do {
-            let result = try await apiClient.fetchCurrentRisk(
+            async let riskTask = apiClient.fetchCurrentRisk(
                 profileId: profileId,
                 userId: userId,
                 accessToken: accessToken
             )
+            async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            let result = try await riskTask
+            wearableToday = try? await wearableTask
+            wearableConnectionState = healthService.connectionState
             riskLevel = result.risk.overallRisk
             explanation = result.explanation
             headline = result.recommendation.headline
@@ -59,7 +67,9 @@ final class DashboardViewModel: ObservableObject {
 struct DashboardView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var healthService = HealthKitService.shared
     @State private var activeInfoKey: InfoTerm?
+    @State private var showWearableConsent = false
 
     private var riskScore: Int {
         switch viewModel.riskLevel.lowercased() {
@@ -143,6 +153,7 @@ struct DashboardView: View {
                     checklistSection
                     emptyStateSections
                     riskHeroSection(width: width)
+                    wearableLoadSection
                     weatherSection(width: width)
                     environmentalSection
                     recommendationsSection
@@ -175,6 +186,33 @@ struct DashboardView: View {
         .sheet(item: $activeInfoKey) { item in
             InfoTextSheet(text: session.l(item.id), closeTitle: session.l("common.close"))
         }
+        .sheet(isPresented: $showWearableConsent) {
+            WearableConsentView(fromOnboarding: false) {
+                Task {
+                    await viewModel.refresh(
+                        userId: session.userId,
+                        accessToken: session.accessToken,
+                        profileId: session.profileId.isEmpty ? nil : session.profileId,
+                        language: session.preferredLanguage
+                    )
+                }
+            }
+            .environmentObject(session)
+        }
+    }
+
+    @ViewBuilder
+    private var wearableLoadSection: some View {
+        WearableLoadCardView(
+            today: viewModel.wearableToday,
+            connectionState: viewModel.wearableConnectionState,
+            onConnect: { showWearableConsent = true },
+            onOpenSettings: {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+        )
     }
 
     @ViewBuilder

@@ -81,6 +81,13 @@ class SafeWindow(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class PersonalLoadAssessment(BaseModel):
+    score: int = Field(default=0, ge=0, le=100)
+    level: str = "none"
+    explanations: list[str] = Field(default_factory=list)
+    reasonCodes: list[str] = Field(default_factory=list)
+
+
 class RiskAssessmentResult(BaseModel):
     overallRisk: RiskLevel
     heatRisk: RiskLevel
@@ -90,6 +97,7 @@ class RiskAssessmentResult(BaseModel):
     safeWindows: list[SafeWindow]
     recommendationFlags: list[str]
     reasonCodes: list[str]
+    personalLoad: PersonalLoadAssessment | None = None
 
 
 class RecommendationCard(BaseModel):
