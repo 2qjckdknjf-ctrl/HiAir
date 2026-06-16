@@ -131,6 +131,7 @@ final class AuthViewModel: ObservableObject {
         statusText = session.l("auth.ok")
         Task {
             _ = await session.ensureProfileIdIfNeeded()
+            await session.refreshEntitlement()
         }
     }
 

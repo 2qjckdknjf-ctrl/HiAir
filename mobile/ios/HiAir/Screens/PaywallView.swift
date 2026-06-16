@@ -166,6 +166,11 @@ struct PaywallView: View {
                 accessToken: session.accessToken
             )
             session.applyEntitlement(status.entitlement)
+            if status.entitlement?.isPremium == true || session.isPremium {
+                statusMessage = session.l("paywall.success")
+                dismiss()
+                return
+            }
             await session.refreshEntitlement()
             if session.isPremium {
                 statusMessage = session.l("paywall.success")
@@ -195,7 +200,7 @@ struct PaywallView: View {
             )
             session.applyEntitlement(status.entitlement)
             statusMessage = session.l("paywall.restore_success")
-            if status.entitlement?.isPremium == true {
+            if status.entitlement?.isPremium == true || session.isPremium {
                 dismiss()
             }
         } catch let error as APIError {

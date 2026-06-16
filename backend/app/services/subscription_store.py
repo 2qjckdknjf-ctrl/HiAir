@@ -102,7 +102,12 @@ def verify_ios_purchase(signed_transaction: str, product_id: str | None = None) 
         if not resolved_product:
             raise ValueError("product_id is required for iOS verification")
         plan_id = plan_id_for_product(resolved_product)
-        expires_raw = payload.get("expiresDate") or payload.get("expires_at")
+        expires_raw = (
+            payload.get("expiresDate")
+            or payload.get("expires_date")
+            or payload.get("expirationDate")
+            or payload.get("expires_at")
+        )
         if expires_raw:
             expires_at = _parse_ts(expires_raw)
         else:

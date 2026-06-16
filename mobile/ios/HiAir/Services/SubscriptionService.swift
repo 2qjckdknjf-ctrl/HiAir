@@ -28,16 +28,29 @@ final class SubscriptionService: ObservableObject {
         updatesTask?.cancel()
     }
 
-    func loadProducts() async {
+    func loadProducts(maxAttempts: Int = 3) async {
         isLoading = true
         defer { isLoading = false }
-        do {
-            let loaded = try await Product.products(for: Array(Self.productIds))
-            products = loaded.sorted { $0.id < $1.id }
-            lastError = nil
-        } catch {
-            products = []
-            lastError = error.localizedDescription
+
+        for attempt in 1...maxAttempts {
+            do {
+                try await AppStore.sync()
+                let loaded = try await Product.products(for: Array(Self.productIds))
+                if !loaded.isEmpty {
+                    products = loaded.sorted { $0.id < $1.id }
+                    lastError = nil
+                    return
+                }
+                lastError = "App Store products not available yet"
+            } catch {
+                products = []
+                lastError = error.localizedDescription
+            }
+
+            if attempt < maxAttempts {
+                let delayNs = UInt64(attempt) * 2_000_000_000
+                try? await Task.sleep(nanoseconds: delayNs)
+            }
         }
     }
 
@@ -66,6 +79,7 @@ final class SubscriptionService: ObservableObject {
     }
 
     func restorePurchases(userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
+        try await AppStore.sync()
         var signedTransactions: [String] = []
         for await result in Transaction.currentEntitlements {
             if let signed = try? signedTransactionString(from: result) {
@@ -115,13 +129,27 @@ final class SubscriptionService: ObservableObject {
     private func signedTransactionString(from verification: VerificationResult<Transaction>) throws -> String {
         switch verification {
         case .verified(let transaction):
+            if let jws = appleSignedPayload(from: verification) {
+                return jws
+            }
             return buildStubJws(for: transaction)
         case .unverified(_, let error):
             throw error
         }
     }
 
-    /// Backend stub verifier accepts a minimal JWS-shaped token with transaction metadata.
+    private func appleSignedPayload(from verification: VerificationResult<Transaction>) -> String? {
+        let mirror = Mirror(reflecting: verification)
+        for child in mirror.children {
+            guard child.label == "jwsRepresentation", let jws = child.value as? String, !jws.isEmpty else {
+                continue
+            }
+            return jws
+        }
+        return nil
+    }
+
+    /// Backend accepts stub-shaped JWS built from verified StoreKit transaction metadata.
     private func buildStubJws(for transaction: Transaction) -> String {
         var payload: [String: Any] = [
             "productId": transaction.productID,

@@ -196,7 +196,7 @@ final class AppSession: ObservableObject {
             let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
             applyEntitlement(status.entitlement)
         } catch {
-            isPremium = false
+            // Keep current premium flag on transient errors (e.g. right after StoreKit verify).
         }
     }
 

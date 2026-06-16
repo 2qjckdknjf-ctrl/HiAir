@@ -224,7 +224,16 @@ struct OnboardingView: View {
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
             Button(session.l("wearable.consent.connect")) {
                 Task {
-                    if await healthService.requestAuthorization() {
+                    guard healthService.isHealthDataAvailable() else {
+                        step += 1
+                        return
+                    }
+                    if healthService.configurationIssueMessage() != nil {
+                        step += 1
+                        return
+                    }
+                    if await healthService.requestAuthorization(),
+                       !session.userId.isEmpty, !session.accessToken.isEmpty {
                         try? await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
                         await healthService.syncWearableDailySummary(userId: session.userId, accessToken: session.accessToken)
                     }
