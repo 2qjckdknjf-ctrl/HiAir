@@ -6,7 +6,7 @@
 - [x] Staging deploy gate validated (GitHub Actions, 2026-06-04)
 - [x] Production deploy gate validated (GitHub Actions run `26935841530`, 2026-06-04)
 - [x] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN`, `OPENAI_*`, `SUPABASE_*` in GitHub staging + production
-- [ ] `HIAIR_DEPLOY_COMMAND` secret — optional; production API on Cloudflare Containers (`scripts/ops/connect_hiair_io.sh deploy-api`)
+- [ ] `HIAIR_DEPLOY_COMMAND` secret — optional; production API on Cloudflare Containers via `./scripts/ops/connect_hiair_io.sh deploy-api` or GitHub Actions workflow `hiair-api-cloudflare.yml` (push to `backend/**`)
 - [ ] `HIAIR_ROLLBACK_COMMAND` secret — set with deploy command
 
 ## Observability

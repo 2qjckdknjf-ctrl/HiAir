@@ -30,37 +30,30 @@ cd mobile/android && ./gradlew test assembleDebug
 cd mobile/ios && xcodebuild -project HiAir.xcodeproj -scheme HiAir -sdk iphonesimulator -configuration Debug build CODE_SIGNING_ALLOWED=NO
 ```
 
-**Last run (2026-06-04):** all three green.
+**Last run (2026-06-16):** iOS build **12** — entitlement refresh no longer clears Premium on transient errors; StoreKit `AppStore.sync()` + retry; paywall trusts verify response; login refreshes entitlement. IAP in ASC: **READY_TO_SUBMIT** (175 territories, review screenshots complete).
 
-Subscription-focused backend tests:
+### iOS E2E flow (wired)
 
-```bash
-cd backend && ../.venv/bin/python -m pytest tests/test_subscriptions_entitlements.py -q --no-cov
-```
+1. Paywall → StoreKit purchase → `/ios/verify` (stub JWS accepted in dev; real JWS preferred when available).
+2. Restore → `Transaction.currentEntitlements` → `/restore` with `AppStore.sync()`.
+3. `AppSession.refreshEntitlement()` from `/me` — **does not** downgrade Premium on network errors.
+4. TestFlight build **≥12**: Settings → Apple Health → Connect must show **system Health sheet** (not iOS Settings).
 
----
+### Android E2E flow (wired)
+
+1. Settings → **Upgrade to Premium** (or 402 on planner/insights).
+2. Paywall shows monthly/yearly prices from Play `ProductDetails`.
+3. Purchase → acknowledge → `POST /api/subscriptions/android/verify` (Premium from verify response before `/me` refresh).
+4. Restore → `queryPurchasesAsync` → verify each token.
+5. `GET /api/subscriptions/me` → `is_premium` updates UI gates.
 
 ## Platform E2E status
 
 | Platform | Implemented | CI/build | Sandbox purchase verified |
 |----------|-------------|----------|---------------------------|
 | **Backend** | Entitlements + verify + webhooks + guards | pytest green | N/A (use stub verifier in dev) |
-| **iOS** | StoreKit 2 + Paywall + `/ios/verify` + restore | xcodebuild green | **No** — requires App Store Connect + device |
+| **iOS** | StoreKit 2 + Paywall + `/ios/verify` + restore | xcodebuild green (build 12) | **No** — requires sandbox device QA |
 | **Android** | BillingClient + Paywall UI + `/android/verify` + restore | test + assembleDebug green | **No** — requires Play Console + device |
-
-### Android E2E flow (wired)
-
-1. Settings → **Upgrade to Premium** (or 402 on planner/insights).
-2. Paywall shows monthly/yearly prices from Play `ProductDetails`.
-3. Purchase → acknowledge → `POST /api/subscriptions/android/verify`.
-4. Restore → `queryPurchasesAsync` → verify each token.
-5. `GET /api/subscriptions/me` → `is_premium` updates UI gates.
-
-### iOS E2E flow (wired)
-
-1. Paywall → StoreKit purchase → `/ios/verify` (stub JWS in dev, live in prod).
-2. Restore → `Transaction.currentEntitlements` → `/restore`.
-3. `AppSession.refreshEntitlement()` from `/me`.
 
 ---
 
