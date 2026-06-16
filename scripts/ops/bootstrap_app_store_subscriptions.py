@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -259,29 +260,95 @@ def _ensure_availability(client: httpx.Client, subscription_id: str, product_id:
     r.raise_for_status()
 
 
-def _set_usa_price(client: httpx.Client, subscription_id: str, target_usd: float) -> None:
+def _paginate(client: httpx.Client, url: str, params: dict[str, object] | None = None) -> list[dict]:
+    out: list[dict] = []
+    next_url: str | None = url
+    next_params = params
+    while next_url:
+        r = client.get(next_url, params=next_params)
+        r.raise_for_status()
+        payload = r.json()
+        out.extend(payload.get("data") or [])
+        next_url = (payload.get("links") or {}).get("next")
+        next_params = None
+    return out
+
+
+def _territory_from_price_point(point_id: str) -> str:
+    padded = point_id + "=" * (-len(point_id) % 4)
+    decoded = json.loads(base64.urlsafe_b64decode(padded))
+    return str(decoded.get("t") or "USA")
+
+
+def _propagate_equalized_prices(
+    client: httpx.Client,
+    subscription_id: str,
+    target_usd: float,
+) -> None:
+    existing = client.get(
+        f"https://api.appstoreconnect.apple.com/v1/subscriptions/{subscription_id}/prices",
+        params={"limit": 1},
+    )
+    total = ((existing.json().get("meta") or {}).get("paging") or {}).get("total", 0)
+    if isinstance(total, int) and total >= 100:
+        print(f"    prices already propagated ({total} territories)")
+        return
+
     point_id = _find_usa_price_point(client, subscription_id, target_usd)
     if not point_id:
         print(f"    WARN: no USA price point near ${target_usd}")
         return
+    equalizations = _paginate(
+        client,
+        f"https://api.appstoreconnect.apple.com/v1/subscriptionPricePoints/{point_id}/equalizations",
+        {"limit": 200},
+    )
+    if not equalizations:
+        print("    WARN: no equalized price points")
+        return
+
+    relationships: list[dict[str, str]] = []
+    included: list[dict] = []
+    for index, point in enumerate(equalizations):
+        local_id = f"${{price{index}}}"
+        territory = _territory_from_price_point(point["id"])
+        relationships.append({"type": "subscriptionPrices", "id": local_id})
+        included.append(
+            {
+                "type": "subscriptionPrices",
+                "id": local_id,
+                "attributes": {"preserveCurrentPrice": False},
+                "relationships": {
+                    "subscription": {
+                        "data": {"type": "subscriptions", "id": subscription_id}
+                    },
+                    "subscriptionPricePoint": {
+                        "data": {"type": "subscriptionPricePoints", "id": point["id"]}
+                    },
+                    "territory": {"data": {"type": "territories", "id": territory}},
+                },
+            }
+        )
+
     body = {
         "data": {
-            "type": "subscriptionPrices",
-            "attributes": {"preserveCurrentPrice": False},
-            "relationships": {
-                "subscription": {"data": {"type": "subscriptions", "id": subscription_id}},
-                "subscriptionPricePoint": {
-                    "data": {"type": "subscriptionPricePoints", "id": point_id}
-                },
-            },
-        }
+            "type": "subscriptions",
+            "id": subscription_id,
+            "relationships": {"prices": {"data": relationships}},
+        },
+        "included": included,
     }
-    r = client.post("https://api.appstoreconnect.apple.com/v1/subscriptionPrices", json=body)
-    if r.status_code in (409, 422):
-        print(f"    price USA ~${target_usd} (already set or pending)")
-        return
+    r = client.patch(
+        f"https://api.appstoreconnect.apple.com/v1/subscriptions/{subscription_id}",
+        json=body,
+    )
     r.raise_for_status()
-    print(f"    price USA ~${target_usd}")
+    refreshed = client.get(
+        f"https://api.appstoreconnect.apple.com/v1/subscriptions/{subscription_id}/prices",
+        params={"limit": 1},
+    )
+    count = ((refreshed.json().get("meta") or {}).get("paging") or {}).get("total", "?")
+    print(f"    prices propagated to {count} territories (USA ~${target_usd})")
 
 
 def _finalize_subscription(
@@ -295,7 +362,7 @@ def _finalize_subscription(
         _add_localization(client, subscription_id, locale, name, description)
     _patch_review_note(client, subscription_id)
     _ensure_availability(client, subscription_id, product_id)
-    _set_usa_price(client, subscription_id, target_usd)
+    _propagate_equalized_prices(client, subscription_id, target_usd)
 
 
 def main() -> int:

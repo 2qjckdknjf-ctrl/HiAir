@@ -30,17 +30,23 @@ If products are missing in App Store Connect:
 
 ```bash
 cd backend && .venv/bin/python ../scripts/ops/bootstrap_app_store_subscriptions.py
+.venv/bin/python ../scripts/ops/finalize_app_store_subscriptions.py
 .venv/bin/python ../scripts/ops/check_app_store_iap.py
 ```
 
 Requires `backend/.secrets/AuthKey_VCL6R84SP3.p8` and `apple_issuer_id`.
 
-After bootstrap, run `check_app_store_iap.py` and fix any row that shows `prices=0` or `review_screenshot=no`:
+`finalize_app_store_subscriptions.py` propagates USA prices to all territories (required for `READY_TO_SUBMIT`) and uploads the review screenshot (`docs/brand/store-assets/subscription-review-screenshot.png`, 640×920).
 
-1. **Subscription Prices** — App Store Connect → Monetization → Subscriptions → each product → **Subscription Prices** → set USA baseline (e.g. $4.99 monthly / $39.99 yearly). The API key often cannot set prices (409); an account with **Finance** or **Admin** role must do this in the dashboard.
-2. **Review screenshot** — same product page → **App Review Information** → upload any paywall screenshot (required for `READY_TO_SUBMIT`).
-3. **Link to app version** — App Store Connect → your app → **TestFlight** or version → **In-App Purchases and Subscriptions** → add both HiAir Premium products.
-4. Wait 15–60 minutes, then retry Premium in the app (sandbox Apple ID).
+Expected `check_app_store_iap.py` output:
+
+```
+state=READY_TO_SUBMIT prices=175 availability=yes review_screenshot=yes (UPLOAD_COMPLETE)
+```
+
+If products are still `MISSING_METADATA`, re-run `finalize_app_store_subscriptions.py`.
+
+For first App Store submission, link subscriptions to the app version in App Store Connect → **Distribution** → version **1.0** → **In-App Purchases and Subscriptions** (after a build is attached). Sandbox/TestFlight purchases work once state is `READY_TO_SUBMIT`; wait 15–60 minutes after finalize.
 
 ## Sandbox testing
 
