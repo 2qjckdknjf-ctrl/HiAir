@@ -15,7 +15,7 @@
 | **Is OpenAI/LLM live connected** | **YES** — staging deploy `--require-live` **exit 0** |
 | **Is fallback active** | **Degraded mode only** — template fallback when key missing or guardrails block |
 | **Is deterministic risk engine active** | **YES** |
-| **Remaining infra gap** | None for AI path — `https://api.hiair.io` live; Cloudflare deploy wired in `backend-deploy-production.yml` when `CLOUDFLARE_*` secrets set |
+| **Remaining infra gap** | None — Cloudflare auto-deploy enabled via GitHub `CLOUDFLARE_*` secrets; production workflow green |
 
 ### Authoritative gates
 
