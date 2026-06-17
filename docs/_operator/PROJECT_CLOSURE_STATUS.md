@@ -12,7 +12,7 @@
 |------|--------|-------|
 | **Backend / API / AI** | **CLOSED** | Live `https://api.hiair.io`, LLM observability green, production deploy workflow green |
 | **Supabase DB** | **CLOSED (engineering)** | Migrations through `017_rls_subscription_waitlist_lockdown`; security advisor ERRORs on public RLS resolved |
-| **CI / deploy automation** | **CLOSED** | Staging + production gates, Cloudflare container deploy, GitHub secrets synced |
+| **CI / deploy automation** | **CLOSED** | Staging + production gates, Cloudflare container deploy, GitHub secrets synced (incl. weather/AQI/notifications) |
 | **Public store launch** | **OPEN** | EXT-001…005 ledger, device QA, sign-off, sandbox IAP |
 | **Mobile QA on hardware** | **OPEN** | `REAL_DEVICE_QA_REPORT.md` — all rows BLOCKED (owner session required) |
 
@@ -40,7 +40,7 @@
 | EXT-005 | Store metadata completion | Product/Marketing | [#6](https://github.com/2qjckdknjf-ctrl/HiAir/issues/6) |
 | QA-001 | Real device QA matrix | Mobile QA | Fill `docs/release/qa/REAL_DEVICE_QA_REPORT.md` with PASS + evidence |
 | SIG-001 | Release sign-off | All leads | Set `DONE` in `docs/_operator/release-signoff-template.md` |
-| AUTH-001 | Supabase Google/Apple OAuth | Ops | Dashboard + `scripts/ops/configure_supabase_*.py` (needs `SUPABASE_ACCESS_TOKEN` PAT) |
+| AUTH-001 | Supabase Google/Apple OAuth | Ops | **Blocked:** account PAT expired (401); re-issue at [account tokens](https://supabase.com/dashboard/account/tokens) → `~/.config/hiair/supabase-credentials.env`, then run `configure_supabase_auth_production.py` + `configure_supabase_apple_provider.py` |
 | IAP-001 | Store sandbox purchases | Mobile + Backend | `SUBSCRIPTION_QA_CHECKLIST.md`; set verifier modes `live` before prod IAP |
 
 ---

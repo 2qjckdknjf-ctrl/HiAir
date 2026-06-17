@@ -14,7 +14,7 @@
 
 - [ ] `NOTIFICATION_ADMIN_TOKEN` distributed to on-call only
 - [x] `/api/observability/ai-summary` validated on production API
-- [ ] `/api/observability/metrics` access validated from ops network
+- [x] `/api/observability/metrics` access validated from ops network (2026-06-17, admin token)
 - [ ] Alerting policy configured for:
   - [ ] 5xx error spikes
   - [ ] latency degradation
