@@ -15,7 +15,7 @@
 | **Is OpenAI/LLM live connected** | **YES** — staging deploy `--require-live` **exit 0** |
 | **Is fallback active** | **Degraded mode only** — template fallback when key missing or guardrails block |
 | **Is deterministic risk engine active** | **YES** |
-| **Remaining infra gap** | `HIAIR_DEPLOY_COMMAND` unset — backend host push is **verification-only** until a PaaS/VM command is supplied |
+| **Remaining infra gap** | None for AI path — `https://api.hiair.io` live; Cloudflare deploy wired in `backend-deploy-production.yml` when `CLOUDFLARE_*` secrets set |
 
 ### Authoritative gates
 
@@ -45,7 +45,7 @@
 | Staging deploy | GitHub secrets + run `26935655724` / `26935252617` | **PASS** |
 | Production deploy | GitHub secrets + run `26935841530` | **PASS** |
 | Supabase | `hiair-prod` (`qhxesaemlhzwbunpqjoo`), migration **011** FK fixup | **Applied** |
-| Deploy gate | `deploy_backend.sh` smoke LLM + seed/require-live | **PASS on staging** |
+| Remote API smoke | `post_deploy_api_smoke.py --require-live-ai` on `api.hiair.io` | **PASS** |
 | Mobile AI UI | Dashboard + Settings observability | **Integrated** |
 
 ---
@@ -106,7 +106,7 @@ Dashboard `explanation` from `/api/air/current-risk`; Settings AI observability 
 
 ### P1
 
-1. **`HIAIR_DEPLOY_COMMAND`** — optional when using Cloudflare Containers on `https://api.hiair.io` (`./scripts/ops/connect_hiair_io.sh deploy-api`).
+1. **Optional:** add `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` to GitHub production (auto-deploy container after gate); or run `python3 scripts/release/sync_github_env_secrets.py --set-deploy-command` locally with `gh`.
 2. Mobile LLM vs template badge (P2 UX).
 
 ### P2
@@ -162,7 +162,7 @@ cd backend && .venv/bin/python -m pytest tests -q                       # exit 0
 | **AI MODULE ENGINEERING** | **GO** |
 | **LIVE AI PROVIDER (local)** | **GO** |
 | **LIVE AI PROVIDER (staging gate)** | **GO** |
-| **PRODUCTION AI READINESS** | **GO** — staging + production verification gates green; live API host pending `HIAIR_DEPLOY_COMMAND` |
+| **PRODUCTION AI READINESS** | **GO** — live API `api.hiair.io` reports `provider_configured=true`, `llm_success_count>=1` |
 
 **Classification:** **LEVEL 5**  
 **Criteria met:** staging `--require-live`, Supabase remote smoke, secrets automation, rate limits, observability gates, CI gate ordering fix.

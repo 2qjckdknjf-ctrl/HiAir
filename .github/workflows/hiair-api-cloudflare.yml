@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "backend/**"
       - "infra/cloudflare/hiair-api/**"
+      - "backend/Dockerfile"
       - ".github/workflows/hiair-api-cloudflare.yml"
   workflow_dispatch:
 
@@ -129,4 +129,4 @@ jobs:
       - name: Smoke check production API
         if: env.DEPLOY == '1'
         run: |
-          curl -fsS "https://api.hiair.io/api/health" | grep -q '"status":"ok"'
+          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai

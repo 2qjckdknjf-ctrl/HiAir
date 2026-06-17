@@ -146,6 +146,7 @@ Safe local verification (never prints secrets):
 .venv/bin/python scripts/check_ai_connection.py
 .venv/bin/python scripts/check_ai_connection.py --require-live
 .venv/bin/python scripts/seed_ai_live_probe.py   # persist one live LLM DB event
+python3 ../scripts/release/post_deploy_api_smoke.py --require-live-ai   # production API gate
 ```
 
 Rate/cost controls (optional env):

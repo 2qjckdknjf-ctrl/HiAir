@@ -2,16 +2,18 @@
 
 ## Deployment
 
-- [x] Production workflow configured: `.github/workflows/backend-deploy-production.yml`
+- [x] Production workflow configured: `.github/workflows/backend-deploy-production.yml` (DB/AI gate + Cloudflare + API smoke)
 - [x] Staging deploy gate validated (GitHub Actions, 2026-06-04)
 - [x] Production deploy gate validated (GitHub Actions run `26935841530`, 2026-06-04)
+- [x] Live API health + AI observability on `https://api.hiair.io` (`post_deploy_api_smoke.py --require-live-ai`)
 - [x] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN`, `OPENAI_*`, `SUPABASE_*` in GitHub staging + production
-- [ ] `HIAIR_DEPLOY_COMMAND` secret — optional; production API on Cloudflare Containers via `./scripts/ops/connect_hiair_io.sh deploy-api` or GitHub Actions workflow `hiair-api-cloudflare.yml` (push to `backend/**`)
-- [ ] `HIAIR_ROLLBACK_COMMAND` secret — set with deploy command
+- [ ] `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in GitHub production (enables auto container deploy in workflow)
+- [ ] `HIAIR_DEPLOY_COMMAND` / `HIAIR_ROLLBACK_COMMAND` — optional if using built-in Cloudflare step; sync via `scripts/release/sync_github_env_secrets.py --set-deploy-command`
 
 ## Observability
 
 - [ ] `NOTIFICATION_ADMIN_TOKEN` distributed to on-call only
+- [x] `/api/observability/ai-summary` validated on production API
 - [ ] `/api/observability/metrics` access validated from ops network
 - [ ] Alerting policy configured for:
   - [ ] 5xx error spikes
@@ -31,7 +33,8 @@
 
 - [x] `OPENAI_API_KEY` + `OPENAI_MODEL` in GitHub staging/production
 - [x] Staging deploy smoke asserts `explanationSource=llm` when key set
-- [x] `check_ai_connection.py --require-live` passes on staging deploy
+- [x] `check_ai_connection.py --require-live` passes on staging/production deploy gates
+- [x] Production API reports live LLM (`provider_configured`, `llm_success_count>=1`)
 - [x] Rate limits and token caps configured (`OPENAI_RATE_LIMIT_PER_MINUTE`, `OPENAI_MAX_TOKENS`)
 
 ## Release Governance

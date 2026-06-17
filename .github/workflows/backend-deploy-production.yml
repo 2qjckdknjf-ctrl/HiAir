@@ -1,12 +1,17 @@
 name: Backend Deploy Production
 
-# Manual production verification + optional HIAIR_DEPLOY_COMMAND hook.
+# Verification gate + Cloudflare API deploy + live API smoke.
 on:
   workflow_dispatch:
   push:
     branches:
       - main
     paths:
+      - "backend/**"
+      - "infra/cloudflare/hiair-api/**"
+      - "scripts/release/deploy_backend.sh"
+      - "scripts/release/post_deploy_api_smoke.py"
+      - "scripts/ops/deploy_hiair_api_cloudflare.sh"
       - ".github/workflows/backend-deploy-production.yml"
 
 concurrency:
@@ -18,17 +23,26 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
+      APP_ENV: production
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       NOTIFICATION_ADMIN_TOKEN: ${{ secrets.NOTIFICATION_ADMIN_TOKEN }}
       SUBSCRIPTION_PROVIDER: ${{ secrets.SUBSCRIPTION_PROVIDER }}
       SUBSCRIPTION_WEBHOOK_SECRET: ${{ secrets.SUBSCRIPTION_WEBHOOK_SECRET }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+      OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+      OPENAI_PROMPT_VERSION: ${{ secrets.OPENAI_PROMPT_VERSION }}
+      OPENAI_RATE_LIMIT_PER_MINUTE: ${{ secrets.OPENAI_RATE_LIMIT_PER_MINUTE }}
+      OPENAI_HTTP_TIMEOUT_SECONDS: ${{ secrets.OPENAI_HTTP_TIMEOUT_SECONDS }}
+      OPENAI_MAX_TOKENS: ${{ secrets.OPENAI_MAX_TOKENS }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       HIAIR_DEPLOY_COMMAND: ${{ secrets.HIAIR_DEPLOY_COMMAND }}
       HIAIR_ROLLBACK_COMMAND: ${{ secrets.HIAIR_ROLLBACK_COMMAND }}
       RETENTION_NOTIFICATION_DELIVERY_ATTEMPTS_DAYS: "90"
@@ -57,6 +71,102 @@ jobs:
           python scripts/check_env_security.py --strict
           python scripts/validate_risk_historical.py
 
-      - name: Deploy to production
+      - name: Deploy to production (DB smoke + AI gate)
         run: |
           bash scripts/release/deploy_backend.sh production
+
+      - name: Detect Cloudflare deploy credentials
+        id: cloudflare
+        run: |
+          if [[ -n "${CLOUDFLARE_API_TOKEN}" && -n "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "enabled=1" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Cloudflare credentials missing; skipping container deploy."
+            echo "enabled=0" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.cloudflare.outputs.enabled == '1'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Node.js
+        if: steps.cloudflare.outputs.enabled == '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Write Cloudflare deploy env file
+        if: steps.cloudflare.outputs.enabled == '1'
+        run: |
+          python3 <<'PY'
+          import os
+          from pathlib import Path
+
+          allowed = {
+              "APP_ENV",
+              "DATABASE_URL",
+              "DIRECT_DATABASE_URL",
+              "JWT_SECRET",
+              "JWT_ALGORITHM",
+              "HIAIR_AUTH_PROVIDER",
+              "HIAIR_AUTH_LEGACY_ENABLED",
+              "HIAIR_IOS_URL_SCHEME",
+              "HIAIR_ANDROID_URL_SCHEME",
+              "HIAIR_AUTH_REDIRECT_URI",
+              "HIAIR_AUTH_EMAIL_BRIDGE_ENABLED",
+              "ALLOW_LEGACY_USER_HEADER_AUTH",
+              "SUPABASE_URL",
+              "SUPABASE_ANON_KEY",
+              "SUPABASE_SERVICE_ROLE_KEY",
+              "SUPABASE_JWT_SECRET",
+              "OPENAI_API_KEY",
+              "OPENAI_MODEL",
+              "OPENAI_BASE_URL",
+              "OPENAI_PROMPT_VERSION",
+              "OPENAI_RATE_LIMIT_PER_MINUTE",
+              "OPENAI_HTTP_TIMEOUT_SECONDS",
+              "OPENAI_MAX_TOKENS",
+              "NOTIFICATION_ADMIN_TOKEN",
+              "NOTIFICATIONS_PROVIDER_MODE",
+              "SUBSCRIPTION_PROVIDER",
+              "SUBSCRIPTION_WEBHOOK_SECRET",
+              "APPLE_STORE_VERIFIER_MODE",
+              "GOOGLE_PLAY_VERIFIER_MODE",
+              "APPLE_BUNDLE_ID",
+              "GOOGLE_PLAY_PACKAGE_NAME",
+              "WEATHER_API_PROVIDER",
+              "WEATHER_API_KEY",
+              "AQI_API_PROVIDER",
+              "AQI_API_KEY",
+          }
+          defaults = {
+              "APP_ENV": "production",
+              "APPLE_STORE_VERIFIER_MODE": "stub",
+              "GOOGLE_PLAY_VERIFIER_MODE": "stub",
+              "APPLE_BUNDLE_ID": "com.hiair.app",
+              "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+              "HIAIR_AUTH_EMAIL_BRIDGE_ENABLED": "true",
+          }
+          out = Path("/tmp/hiair-api-secrets.env")
+          lines = []
+          for key in sorted(allowed):
+              value = os.environ.get(key, "").strip()
+              if not value and key in defaults:
+                  value = defaults[key]
+              if value:
+                  lines.append(f"{key}={value}")
+          out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(f"Wrote {len(lines)} secrets to {out}")
+          PY
+
+      - name: Deploy API to Cloudflare Containers
+        if: steps.cloudflare.outputs.enabled == '1'
+        run: HIAIR_API_ENV_FILE=/tmp/hiair-api-secrets.env ./scripts/ops/deploy_hiair_api_cloudflare.sh
+
+      - name: Run custom deploy command
+        if: env.HIAIR_DEPLOY_COMMAND != '' && steps.cloudflare.outputs.enabled != '1'
+        run: bash -lc "${HIAIR_DEPLOY_COMMAND}"
+
+      - name: Post-deploy API smoke
+        run: |
+          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai
