@@ -7,7 +7,7 @@
 - [x] Production deploy gate validated (GitHub Actions run `26935841530`, 2026-06-04)
 - [x] Live API health + AI observability on `https://api.hiair.io` (`post_deploy_api_smoke.py --require-live-ai`)
 - [x] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN`, `OPENAI_*`, `SUPABASE_*` in GitHub staging + production
-- [ ] `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in GitHub production (enables auto container deploy in workflow)
+- [x] `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in GitHub production (enables auto container deploy in workflow)
 - [ ] `HIAIR_DEPLOY_COMMAND` / `HIAIR_ROLLBACK_COMMAND` — optional if using built-in Cloudflare step; sync via `scripts/release/sync_github_env_secrets.py --set-deploy-command`
 
 ## Observability
