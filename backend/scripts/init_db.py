@@ -1,11 +1,16 @@
 import sys
+import time
 from pathlib import Path
 
 from psycopg import connect
+from psycopg.errors import DeadlockDetected
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.settings import settings
+
+INIT_DB_LOCK_KEY = 8_314_159_265
+MAX_DEADLOCK_RETRIES = 4
 
 SUPABASE_AUTH_MIGRATIONS = {
     "003_supabase_auth_rls.sql",
@@ -13,6 +18,7 @@ SUPABASE_AUTH_MIGRATIONS = {
     "011_supabase_auth_user_fk_fixup.sql",
     "013_supabase_entitlements_auth_user_fk.sql",
     "014_wearable_activity.sql",
+    "017_rls_subscription_waitlist_lockdown.sql",
 }
 
 
@@ -46,15 +52,11 @@ def _has_auth_schema(cur) -> bool:
     return bool(row[0]) if row else False
 
 
-def main() -> None:
-    sql_dir = Path(__file__).resolve().parents[1] / "sql"
-    sql_files = sorted(sql_dir.glob("*.sql"))
-    if not sql_files:
-        raise RuntimeError(f"No SQL files found in {sql_dir}")
-
+def _apply_pending_migrations(sql_files: list[Path]) -> int:
     applied_count = 0
     with connect(settings.database_url) as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (INIT_DB_LOCK_KEY,))
             _ensure_migrations_table(cur)
             applied = _applied_migrations(cur)
             has_auth_schema = _has_auth_schema(cur)
@@ -73,7 +75,31 @@ def main() -> None:
                 )
                 applied_count += 1
         conn.commit()
-    print(f"Database schema initialized ({applied_count} newly applied migrations).")
+    return applied_count
+
+
+def main() -> None:
+    sql_dir = Path(__file__).resolve().parents[1] / "sql"
+    sql_files = sorted(sql_dir.glob("*.sql"))
+    if not sql_files:
+        raise RuntimeError(f"No SQL files found in {sql_dir}")
+
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_DEADLOCK_RETRIES + 1):
+        try:
+            applied_count = _apply_pending_migrations(sql_files)
+            print(f"Database schema initialized ({applied_count} newly applied migrations).")
+            return
+        except DeadlockDetected as exc:
+            last_error = exc
+            if attempt >= MAX_DEADLOCK_RETRIES:
+                break
+            delay = attempt * 2
+            print(f"init_db deadlock (attempt {attempt}/{MAX_DEADLOCK_RETRIES}); retrying in {delay}s...")
+            time.sleep(delay)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("init_db failed without capturing an error")
 
 
 if __name__ == "__main__":
