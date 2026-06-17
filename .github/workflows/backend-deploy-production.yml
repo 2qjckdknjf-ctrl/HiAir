@@ -43,7 +43,6 @@ jobs:
       SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      HIAIR_DEPLOY_COMMAND: ${{ secrets.HIAIR_DEPLOY_COMMAND }}
       HIAIR_ROLLBACK_COMMAND: ${{ secrets.HIAIR_ROLLBACK_COMMAND }}
       RETENTION_NOTIFICATION_DELIVERY_ATTEMPTS_DAYS: "90"
       RETENTION_NOTIFICATION_EVENTS_DAYS: "180"
@@ -165,6 +164,8 @@ jobs:
 
       - name: Run custom deploy command
         if: env.HIAIR_DEPLOY_COMMAND != '' && steps.cloudflare.outputs.enabled != '1'
+        env:
+          HIAIR_DEPLOY_COMMAND: ${{ secrets.HIAIR_DEPLOY_COMMAND }}
         run: bash -lc "${HIAIR_DEPLOY_COMMAND}"
 
       - name: Post-deploy API smoke
