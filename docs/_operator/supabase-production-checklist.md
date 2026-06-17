@@ -8,6 +8,7 @@ Date: 2026-05-26
 - [ ] Apple provider configured in Supabase Auth
 - [ ] redirect URLs configured (`hiair://auth/callback` and platform-specific callback URLs)
 - [x] RLS enabled for primary user-owned tables (`profiles`, `symptom_logs`, `risk_scores`, `notification_events`, `user_settings`, `push_device_tokens`, `user_subscriptions`, `briefing_schedule`)
+- [x] RLS enabled for subscription/waitlist tables (`017_rls_subscription_waitlist_lockdown`, 2026-06-17)
 - [x] RLS policies tested (`select/insert/update/delete own rows`) on Supabase project `qhxesaemlhzwbunpqjoo` (risk_assessments/ai_recommendations/alert_events/personal_correlations + closed-table visibility check)
 - [x] service_role never shipped to mobile builds (repo scan: no `service_role` / `SERVICE_ROLE` in `mobile/`)
 - [x] privacy export tested for own-data-only behavior (backend API tests on Supabase-backed env)

@@ -257,6 +257,31 @@ def check_contains_all(path: Path, name: str, required_tokens: list[str]) -> Che
     return CheckResult(name=name, status="DONE", detail="All required content markers found")
 
 
+def check_qa_execution(report: Path) -> CheckResult:
+    if not report.exists():
+        return CheckResult(name="REAL_DEVICE_QA_EXECUTION", status="MISSING", detail=f"Missing file: {report}")
+    content = report.read_text(encoding="utf-8")
+    pass_rows = content.count("| PASS |")
+    blocked_rows = content.count("| BLOCKED |")
+    if pass_rows > 0 and blocked_rows == 0:
+        return CheckResult(
+            name="REAL_DEVICE_QA_EXECUTION",
+            status="DONE",
+            detail=f"Real device QA executed ({pass_rows} PASS rows)",
+        )
+    if "Status: BLOCKED" in content or blocked_rows > 0:
+        return CheckResult(
+            name="REAL_DEVICE_QA_EXECUTION",
+            status="BLOCKED",
+            detail=f"Real device QA not executed ({blocked_rows} BLOCKED rows, {pass_rows} PASS)",
+        )
+    return CheckResult(
+        name="REAL_DEVICE_QA_EXECUTION",
+        status="BLOCKED",
+        detail="Real device QA report has no PASS rows",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check external launch blockers readiness.")
     parser.add_argument("--strict", action="store_true", help="Return non-zero if any external blocker is missing.")
@@ -345,6 +370,7 @@ def main() -> int:
             ],
         )
     )
+    qa_results.append(check_qa_execution(qa_report))
 
     # Store handoff artifacts
     store_results.append(check_file_exists(root / "docs/release/store/APP_STORE_HANDOFF.md", "STORE_APPLE_METADATA_CHECKLIST"))

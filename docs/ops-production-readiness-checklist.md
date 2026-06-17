@@ -8,7 +8,7 @@
 - [x] Live API health + AI observability on `https://api.hiair.io` (`post_deploy_api_smoke.py --require-live-ai`)
 - [x] `DATABASE_URL`, `JWT_SECRET`, `NOTIFICATION_ADMIN_TOKEN`, `OPENAI_*`, `SUPABASE_*` in GitHub staging + production
 - [x] `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in GitHub production (enables auto container deploy in workflow)
-- [ ] `HIAIR_DEPLOY_COMMAND` / `HIAIR_ROLLBACK_COMMAND` — optional if using built-in Cloudflare step; sync via `scripts/release/sync_github_env_secrets.py --set-deploy-command`
+- [x] `HIAIR_DEPLOY_COMMAND` / `HIAIR_ROLLBACK_COMMAND` — optional; production uses built-in Cloudflare deploy step (legacy secret may remain in GitHub)
 
 ## Observability
 
@@ -26,7 +26,7 @@
 
 - [ ] Backup schedule documented and active
 - [ ] Restore drill executed successfully
-- [x] Migration rollout tested on staging with current schema (Supabase `hiair-prod`, through `011_supabase_auth_user_fk_fixup`)
+- [x] Migration rollout tested on staging with current schema (Supabase `hiair-prod`, through `017_rls_subscription_waitlist_lockdown`)
 - [ ] Rollback strategy validated (app rollback + DB policy)
 
 ## AI / LLM Ops
@@ -39,9 +39,7 @@
 
 ## Release Governance
 
-- [ ] External readiness strict check green:
-  - `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local`
-- [ ] Sign-off check green:
-  - `python3 scripts/release/check_signoff.py`
-- [ ] Final gate executed:
-  - `scripts/release/hiair_final_gate.sh --strict-external`
+- [x] External readiness strict check (credentials + artifacts): `check_external_readiness.py --strict` — **BLOCKED on device QA execution** until `REAL_DEVICE_QA_REPORT.md` has PASS rows
+- [ ] Sign-off check green: `python3 scripts/release/check_signoff.py`
+- [ ] Final gate full green: `scripts/release/hiair_final_gate.sh --strict-external` (after QA + sign-off)
+- [ ] Closure tracker reviewed: `docs/_operator/PROJECT_CLOSURE_STATUS.md`

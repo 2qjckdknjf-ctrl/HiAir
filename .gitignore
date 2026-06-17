@@ -22,6 +22,7 @@ mobile/android/local.properties
 mobile/android/.gradle/
 mobile/android/app/build/
 mobile/android/build/
+mobile/android/.idea/
 mobile/android/**/*.keystore
 mobile/android/**/*.jks
 mobile/ios/build/

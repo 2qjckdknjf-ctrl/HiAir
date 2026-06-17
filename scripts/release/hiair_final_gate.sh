@@ -124,7 +124,11 @@ else
 fi
 
 if [[ -x "${ROOT_DIR}/mobile/android/gradlew" ]]; then
-  run_step "Android unit tests + debug/release assemble + lint" bash -lc "cd '${ROOT_DIR}/mobile/android' && ./gradlew test assembleDebug assembleRelease lintDebug --no-daemon"
+  if command -v java >/dev/null 2>&1 && java -version >/dev/null 2>&1; then
+    run_step "Android unit tests + debug/release assemble + lint" bash -lc "cd '${ROOT_DIR}/mobile/android' && ./gradlew test assembleDebug assembleRelease lintDebug --no-daemon"
+  else
+    echo "[WARN] Java runtime unavailable; Android checks skipped (CI still validates on ubuntu-latest)."
+  fi
 else
   echo "[WARN] Android gradlew unavailable; Android checks skipped."
 fi
