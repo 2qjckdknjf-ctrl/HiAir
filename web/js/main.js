@@ -6,6 +6,19 @@
       ? "http://127.0.0.1:8000"
       : "https://api.hiair.io";
 
+  /* Liquid Glass — cursor glow on hero mockup */
+  function attachGlow(el) {
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.addEventListener("pointermove", function (e) {
+        var r = el.getBoundingClientRect();
+        el.style.setProperty("--gx", (e.clientX - r.left) + "px");
+        el.style.setProperty("--gy", (e.clientY - r.top) + "px");
+      });
+    }
+  }
+
+  document.querySelectorAll(".lg--glow").forEach(attachGlow);
+
   /* Mobile nav */
   const navToggle = document.querySelector(".nav-toggle");
   const siteNav = document.getElementById("site-nav");

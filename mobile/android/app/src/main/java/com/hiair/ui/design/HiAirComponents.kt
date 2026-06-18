@@ -32,12 +32,7 @@ object HiAirComponents {
                 V2Ui.dp(context, 12),
                 V2Ui.dp(context, 10),
             )
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = V2Ui.dp(context, HiAirRadius.sm + 4).toFloat()
-                setColor(withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.mediumAlpha))
-                setStroke(V2Ui.dp(context, 1), withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha))
-            }
+            background = HiAirLiquidGlass.inputBackground(context)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -114,7 +109,39 @@ object HiAirComponents {
         }
     }
 
+    fun contentCardBackground(context: Context): GradientDrawable {
+        return V2Ui.cardBackground(
+            context,
+            colorHex(TimeOfDayBackground.surfacePrimary()),
+            colorHex(withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha)),
+            HiAirRadius.lg,
+        )
+    }
+
     fun cardContainer(context: Context): LinearLayout {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                V2Ui.dp(context, HiAirSpacing.md),
+                V2Ui.dp(context, HiAirSpacing.md),
+                V2Ui.dp(context, HiAirSpacing.md),
+                V2Ui.dp(context, HiAirSpacing.md),
+            )
+            background = contentCardBackground(context)
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            params.topMargin = V2Ui.dp(context, HiAirSpacing.sm)
+            layoutParams = params
+        }
+    }
+
+    fun glassCardBackground(context: Context): GradientDrawable {
+        return HiAirLiquidGlass.cardBackground(context)
+    }
+
+    fun glassAccentContainer(context: Context): LinearLayout {
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
@@ -133,13 +160,8 @@ object HiAirComponents {
         }
     }
 
-    fun glassCardBackground(context: Context): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = V2Ui.dp(context, HiAirRadius.lg).toFloat()
-            setColor(TimeOfDayBackground.surfacePrimary())
-            setStroke(V2Ui.dp(context, 1), withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha))
-        }
+    fun liquidGlassNavBackground(context: Context): GradientDrawable {
+        return HiAirLiquidGlass.navigationBackground(context)
     }
 
     fun primaryButton(context: Context, label: String): Button {
@@ -169,18 +191,14 @@ object HiAirComponents {
             text = label
             setTextColor(HiAirColors.Text.primary)
             minHeight = V2Ui.dp(context, 48)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = V2Ui.dp(context, HiAirRadius.md).toFloat()
-                setColor(TimeOfDayBackground.surfaceSecondary())
-                setStroke(V2Ui.dp(context, 1), withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha))
-            }
+            background = HiAirLiquidGlass.glassDrawable(context, HiAirRadius.md, HiAirLiquidGlass.Variant.REGULAR)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             )
             params.topMargin = V2Ui.dp(context, HiAirSpacing.xs)
             layoutParams = params
+            HiAirLiquidGlass.applySpringPress(this)
         }
     }
 

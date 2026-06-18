@@ -40,6 +40,8 @@ struct RootTabView: View {
                         }
                 }
                 .tint(HiAirColors.Cta.gradientStart)
+                .toolbarBackground(HiAirLiquidGlass.material(for: .regular), for: .tabBar)
+                .toolbarBackground(.visible, for: .tabBar)
                 .task(id: session.userId) {
                     _ = await session.ensureProfileIdIfNeeded()
                 }

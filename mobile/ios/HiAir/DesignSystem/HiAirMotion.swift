@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum HiAirMotion {
     static let fast: Double = 0.24
@@ -8,4 +9,10 @@ enum HiAirMotion {
     static let orbPulseModerate: Double = 2.8
     static let orbPulseHigh: Double = 2.0
     static let orbPulseVeryHigh: Double = 1.5
+
+    /// Liquid Glass spring curves (snappy press, bouncy appear).
+    static let springBouncy = Animation.spring(response: 0.42, dampingFraction: 0.72)
+    static let springSnappy = Animation.spring(response: 0.28, dampingFraction: 0.86)
+    static let springGentle = Animation.spring(response: 0.55, dampingFraction: 0.92)
+    static let materialize = Animation.spring(response: 0.48, dampingFraction: 0.84)
 }

@@ -465,7 +465,7 @@ internal object SettingsScreenRenderer {
             }
         })
 
-        val authCard = HiAirComponents.cardContainer(activity).apply {
+        val authCard = HiAirComponents.glassAccentContainer(activity).apply {
             addView(sectionTitle("auth.title"))
             addView(emailInput)
             addView(passwordInput)

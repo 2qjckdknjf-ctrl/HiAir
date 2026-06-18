@@ -15,6 +15,8 @@
   --shadow-soft: 0 8px 32px rgba(15, 23, 42, 0.08);
   --shadow-card: 0 4px 24px rgba(15, 23, 42, 0.06);
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
   --max-width: 1120px;
 }
 
@@ -68,14 +70,19 @@ body.legal footer {
 }
 
 body.legal header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 2rem;
+  display: block;
+  padding-top: 1.5rem;
   padding-bottom: 1rem;
 }
 
-body.legal .logo {
+body.legal .legal-header-glass {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+}
+
+body.legal .legal-header-glass .logo {
   font-size: 1.35rem;
   font-weight: 700;
   background: var(--accent-gradient);
@@ -84,13 +91,13 @@ body.legal .logo {
   color: transparent;
 }
 
-body.legal nav {
+body.legal .legal-header-glass nav {
   display: flex;
   gap: 1.25rem;
   font-size: 0.95rem;
 }
 
-body.legal nav a {
+body.legal .legal-header-glass nav a {
   color: #a8b5d1;
 }
 
@@ -150,22 +157,31 @@ body.landing {
   top: 1rem;
 }
 
-/* Header */
+/* Header — Liquid Glass navigation layer */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  backdrop-filter: blur(12px);
-  background: rgba(247, 250, 252, 0.85);
-  border-bottom: 1px solid rgba(26, 39, 68, 0.06);
+  padding-block: 0.65rem;
+  background: transparent;
+  border-bottom: none;
 }
 
 .site-header .container {
+  padding-block: 0;
+}
+
+.site-header__glass {
+  --lg-radius: var(--radius-pill);
+}
+
+.site-header__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-block: 1rem;
+  padding: 0.65rem 1.15rem;
+  position: relative;
 }
 
 .brand {
@@ -223,13 +239,38 @@ body.landing {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border: 1px solid rgba(26, 39, 68, 0.1);
+  border: none;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.8);
+  background: transparent;
   cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  transition: transform 0.25s var(--ease-bouncy);
+}
+
+.nav-toggle:active {
+  transform: scale(0.94);
+}
+
+.nav-toggle__refraction {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.nav-toggle__tint {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--lg-tint-clear, rgba(255, 255, 255, 0.35));
+  border: 1px solid rgba(26, 39, 68, 0.1);
 }
 
 .nav-toggle svg {
+  position: relative;
+  z-index: 1;
   width: 20px;
   height: 20px;
 }
@@ -248,12 +289,15 @@ body.landing {
   display: flex;
   flex-direction: column;
   position: absolute;
-  top: 100%;
+  top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
-  padding: 1rem 1.5rem 1.25rem;
-  background: rgba(255, 255, 255, 0.98);
-  border-bottom: 1px solid rgba(26, 39, 68, 0.08);
+  padding: 1rem 1.15rem 1.25rem;
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(26, 39, 68, 0.08);
   box-shadow: var(--shadow-soft);
 }
 
@@ -287,7 +331,18 @@ body.landing {
 
 .btn:hover {
   text-decoration: none;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary:hover {
   transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
 }
 
 .btn-primary {
@@ -298,7 +353,9 @@ body.landing {
 
 .btn-secondary {
   color: #1a2744;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(26, 39, 68, 0.12);
 }
 
@@ -412,16 +469,15 @@ body.landing {
   margin: 0;
 }
 
-/* Dashboard mockup */
+/* Hero mockup — single Liquid Glass accent on page */
 .mockup-card {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-soft), 0 0 0 1px rgba(26, 39, 68, 0.04);
-  padding: 1.25rem;
+  padding: 0;
   position: relative;
   overflow: hidden;
+}
+
+.mockup-card .lg__content {
+  padding: 1.25rem;
 }
 
 .mockup-card::before {
@@ -433,6 +489,7 @@ body.landing {
   height: 60%;
   background: radial-gradient(circle, rgba(93, 213, 196, 0.25), transparent 70%);
   pointer-events: none;
+  z-index: 2;
 }
 
 .mockup-header {
@@ -569,22 +626,22 @@ body.landing {
   }
 }
 
-.glass-card {
+/* Content cards — opaque (not glass) */
+.content-card {
   padding: 1.35rem;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(26, 39, 68, 0.08);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  transition: transform 0.25s var(--ease-snappy), box-shadow 0.25s var(--ease-snappy);
 }
 
-.glass-card:hover {
+.content-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
 }
 
-.glass-card .icon {
+.content-card .icon {
   width: 44px;
   height: 44px;
   display: flex;
@@ -596,14 +653,14 @@ body.landing {
   margin-bottom: 0.85rem;
 }
 
-.glass-card h3 {
+.content-card h3 {
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
   font-weight: 600;
   color: #1a2744;
 }
 
-.glass-card p {
+.content-card p {
   margin: 0;
   font-size: 0.925rem;
   color: #4a5878;
@@ -817,6 +874,16 @@ body.landing {
   margin-inline: auto;
 }
 
+.waitlist-glass .lg__content {
+  padding: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .waitlist-glass .lg__content {
+    padding: 2rem;
+  }
+}
+
 .form-group {
   margin-bottom: 1rem;
   text-align: left;
@@ -838,9 +905,11 @@ body.landing {
   font-family: inherit;
   border: 1px solid rgba(26, 39, 68, 0.12);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: #1a2744;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s var(--ease-bouncy);
 }
 
 .form-group input:focus,

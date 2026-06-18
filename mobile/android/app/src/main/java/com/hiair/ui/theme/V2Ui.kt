@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.hiair.ui.design.HiAirColors
+import com.hiair.ui.design.HiAirLiquidGlass
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
 
@@ -109,18 +110,14 @@ object V2Ui {
             text = label
             setTextColor(Tokens.Text.primary)
             minHeight = dp(context, 44)
-            background = cardBackground(
-                context,
-                fillHex = colorHex(TimeOfDayBackground.surfaceSecondary()),
-                strokeHex = colorHex(withAlpha(HiAirColors.Text.primary, HiAirColors.Overlay.borderSoftAlpha)),
-                radiusDp = 13
-            )
+            background = HiAirLiquidGlass.glassDrawable(context, Tokens.RadiusDp.md, HiAirLiquidGlass.Variant.REGULAR)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             params.topMargin = dp(context, 6)
             layoutParams = params
+            HiAirLiquidGlass.applySpringPress(this)
         }
     }
 

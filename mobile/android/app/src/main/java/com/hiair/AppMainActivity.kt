@@ -13,6 +13,7 @@ import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.HiAirLiquidGlass
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
 import com.hiair.network.ApiClient
@@ -118,7 +119,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
             setPadding(p, p, p, p)
-            background = HiAirComponents.glassCardBackground(this@AppMainActivity)
+            background = HiAirComponents.liquidGlassNavBackground(this@AppMainActivity)
+            HiAirLiquidGlass.applyNavigationBlur(this)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT

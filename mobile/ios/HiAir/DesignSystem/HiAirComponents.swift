@@ -195,10 +195,11 @@ struct HiAirGradientButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 4)
             .background(HiAirGradients.cta())
-            .clipShape(RoundedRectangle(cornerRadius: HiAirRadius.md))
+            .clipShape(RoundedRectangle(cornerRadius: HiAirRadius.md, style: .continuous))
             .shadow(color: HiAirShadow.ctaGlow, radius: HiAirShadow.ctaRadius, x: 0, y: HiAirShadow.ctaYOffset)
-            .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.99 : 1.0)
+            .opacity(configuration.isPressed ? 0.92 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(HiAirMotion.springSnappy, value: configuration.isPressed)
     }
 }
 
@@ -209,15 +210,10 @@ struct HiAirSecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(HiAirColors.Text.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: HiAirRadius.md)
-                    .fill(TimeOfDayBackground.surfaceSecondary().opacity(0.92))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: HiAirRadius.md)
-                            .stroke(HiAirColors.Overlay.borderSoft, lineWidth: 1)
-                    )
-            )
-            .opacity(configuration.isPressed ? 0.88 : 1.0)
+            .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(HiAirMotion.springSnappy, value: configuration.isPressed)
     }
 }
 
@@ -234,10 +230,10 @@ struct HiAirCard<Content: View>: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: HiAirRadius.lg)
-            .fill(TimeOfDayBackground.surfacePrimary().opacity(0.92))
+        RoundedRectangle(cornerRadius: HiAirRadius.lg, style: .continuous)
+            .fill(TimeOfDayBackground.surfacePrimary().opacity(0.94))
             .overlay(
-                RoundedRectangle(cornerRadius: HiAirRadius.lg)
+                RoundedRectangle(cornerRadius: HiAirRadius.lg, style: .continuous)
                     .stroke(HiAirColors.Overlay.borderSoft, lineWidth: 1)
             )
     }
@@ -249,14 +245,8 @@ struct HiAirGlassCard<Content: View>: View {
     var body: some View {
         content
             .padding(HiAirSpacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: HiAirRadius.lg)
-                    .fill(TimeOfDayBackground.surfaceElevated().opacity(0.88))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: HiAirRadius.lg)
-                            .stroke(HiAirColors.Overlay.borderGlass, lineWidth: 1)
-                    )
-            )
+            .hiAirLiquidGlass(cornerRadius: HiAirRadius.lg, variant: .regular)
+            .hiAirLiquidGlassMaterialize()
     }
 }
 
@@ -535,7 +525,7 @@ extension View {
     }
 
     func hiAirInputSurface() -> some View {
-        background(HiAirColors.Overlay.medium, in: RoundedRectangle(cornerRadius: HiAirRadius.sm + 4))
+        hiAirLiquidGlass(cornerRadius: HiAirRadius.sm + 4, variant: .clear)
     }
 
     func hiAirPageBackground() -> some View {

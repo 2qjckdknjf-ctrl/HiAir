@@ -89,7 +89,7 @@ struct PaywallView: View {
                         .ignoresSafeArea()
                     ProgressView(session.l("paywall.purchasing"))
                         .padding()
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
                 }
             }
             .navigationTitle(session.l("paywall.nav_title"))
