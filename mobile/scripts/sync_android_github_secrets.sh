@@ -10,6 +10,7 @@ SECRETS_DIR="${HIAIR_SECRETS_DIR:-$HOME/.hiair-secrets}"
 SIGNING_ENV="$SECRETS_DIR/signing.env"
 SERVICE_ACCOUNT_JSON="$SECRETS_DIR/play-service-account.json"
 REPO="${GITHUB_REPOSITORY:-2qjckdknjf-ctrl/HiAir}"
+ENVIRONMENT="${GITHUB_ENVIRONMENT:-production}"
 
 if [ -z "${GH_ADMIN_TOKEN:-}" ]; then
   echo "Set GH_ADMIN_TOKEN with secrets write permission."
@@ -33,10 +34,10 @@ set +a
 
 export GH_TOKEN="$GH_ADMIN_TOKEN"
 
-gh secret set ANDROID_KEYSTORE_BASE64 --repo "$REPO" --body "$(base64 -w 0 "$ANDROID_KEYSTORE_PATH")"
-gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$REPO" --body "$ANDROID_KEYSTORE_PASSWORD"
-gh secret set ANDROID_KEY_ALIAS --repo "$REPO" --body "$ANDROID_KEY_ALIAS"
-gh secret set ANDROID_KEY_PASSWORD --repo "$REPO" --body "$ANDROID_KEY_PASSWORD"
-gh secret set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --repo "$REPO" < "$SERVICE_ACCOUNT_JSON"
+gh secret set ANDROID_KEYSTORE_BASE64 --repo "$REPO" --env "$ENVIRONMENT" --body "$(base64 -w 0 "$ANDROID_KEYSTORE_PATH")"
+gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$REPO" --env "$ENVIRONMENT" --body "$ANDROID_KEYSTORE_PASSWORD"
+gh secret set ANDROID_KEY_ALIAS --repo "$REPO" --env "$ENVIRONMENT" --body "$ANDROID_KEY_ALIAS"
+gh secret set ANDROID_KEY_PASSWORD --repo "$REPO" --env "$ENVIRONMENT" --body "$ANDROID_KEY_PASSWORD"
+gh secret set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --repo "$REPO" --env "$ENVIRONMENT" < "$SERVICE_ACCOUNT_JSON"
 
-echo "GitHub secrets synced for $REPO"
+echo "GitHub secrets synced for $REPO environment $ENVIRONMENT"

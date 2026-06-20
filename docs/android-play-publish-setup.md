@@ -46,6 +46,8 @@ Automated sync from a prepared local secrets directory:
 GH_ADMIN_TOKEN=ghp_... bash mobile/scripts/sync_android_github_secrets.sh
 ```
 
+The sync script writes to the `production` environment by default. Override with `GITHUB_ENVIRONMENT=...` if needed.
+
 Generate base64 keystore payload:
 
 ```bash
@@ -53,6 +55,12 @@ base64 -w 0 mobile/android/upload-keystore.jks
 ```
 
 ## 3.1 Local one-command publish
+
+Install the Play uploader dependencies once:
+
+```bash
+python3 -m pip install -r mobile/scripts/requirements-android-publish.txt
+```
 
 Place service account JSON at `~/.hiair-secrets/play-service-account.json`, then:
 
@@ -105,5 +113,6 @@ Output:
 ## Notes
 
 - CI uses `github.run_number` as monotonic `versionCode`.
+- Local `publish_android.sh` defaults `versionCode` to the current Unix timestamp unless `ANDROID_VERSION_CODE` is set.
 - Release builds without signing env vars still compile locally/CI using debug signing (not Play-ready).
 - Manual upload fallback remains documented in `docs/store-upload-last-mile.md`.

@@ -8,17 +8,21 @@ SIGNING_ENV="$SECRETS_DIR/signing.env"
 SERVICE_ACCOUNT_JSON="$SECRETS_DIR/play-service-account.json"
 TRACK="${1:-internal}"
 VERSION_NAME="${ANDROID_VERSION_NAME:-0.1.0}"
-VERSION_CODE="${ANDROID_VERSION_CODE:-1}"
+VERSION_CODE="${ANDROID_VERSION_CODE:-$(date +%s)}"
 
 mkdir -p "$SECRETS_DIR"
 
 if [ ! -f "$SIGNING_ENV" ]; then
+  KEYSTORE_PATH="$SECRETS_DIR/hiair-upload.jks"
+  if [ -f "$KEYSTORE_PATH" ]; then
+    echo "signing.env missing; replacing orphaned keystore at $KEYSTORE_PATH"
+    rm -f "$KEYSTORE_PATH"
+  fi
+
   echo "Generating upload keystore in $SECRETS_DIR"
-  bash "$ROOT_DIR/mobile/android/scripts/generate_upload_keystore.sh" "$SECRETS_DIR/hiair-upload.jks" hiair-upload
   STORE_PASS="$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)"
-  rm -f "$SECRETS_DIR/hiair-upload.jks"
   keytool -genkeypair -v \
-    -keystore "$SECRETS_DIR/hiair-upload.jks" \
+    -keystore "$KEYSTORE_PATH" \
     -alias hiair-upload \
     -keyalg RSA \
     -keysize 2048 \
@@ -27,7 +31,7 @@ if [ ! -f "$SIGNING_ENV" ]; then
     -keypass "$STORE_PASS" \
     -dname "CN=HiAir, OU=Mobile, O=HiAir, L=Unknown, ST=Unknown, C=US"
   cat > "$SIGNING_ENV" <<EOF
-ANDROID_KEYSTORE_PATH=$SECRETS_DIR/hiair-upload.jks
+ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH
 ANDROID_KEYSTORE_PASSWORD=$STORE_PASS
 ANDROID_KEY_ALIAS=hiair-upload
 ANDROID_KEY_PASSWORD=$STORE_PASS
@@ -39,6 +43,13 @@ fi
 set -a
 source "$SIGNING_ENV"
 set +a
+
+if [ -f "$SERVICE_ACCOUNT_JSON" ] && ! python3 -c "import google.oauth2, googleapiclient" >/dev/null 2>&1; then
+  echo "Missing Python dependencies for Google Play upload."
+  echo "Install them with:"
+  echo "  python3 -m pip install -r $ROOT_DIR/mobile/scripts/requirements-android-publish.txt"
+  exit 1
+fi
 
 export ANDROID_VERSION_CODE="$VERSION_CODE"
 export ANDROID_VERSION_NAME="$VERSION_NAME"
