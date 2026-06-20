@@ -1,6 +1,5 @@
 from app.models.insights import PersonalInsightItem, PersonalPatternsResponse
 from app.services.db import get_connection
-import app.services.wearable_repository as wearable_repository
 
 
 MINIMUM_DAYS = 7
@@ -28,16 +27,24 @@ def _symptom_aqi_insight(profile_id: str) -> PersonalInsightItem | None:
             cur.execute(
                 """
                 SELECT
-                    AVG(e.aqi) FILTER (
+                    AVG(matched.aqi) FILTER (
                         WHERE s.cough OR s.wheeze OR s.headache OR s.fatigue
                     ) AS symptom_aqi,
-                    AVG(e.aqi) FILTER (
+                    AVG(matched.aqi) FILTER (
                         WHERE NOT (s.cough OR s.wheeze OR s.headache OR s.fatigue)
                     ) AS clean_aqi,
-                    COUNT(*) AS total
+                    COUNT(matched.aqi) AS total
                 FROM symptom_logs s
-                JOIN risk_scores r ON r.profile_id = s.profile_id
-                JOIN environment_snapshots e ON e.id = r.snapshot_id
+                LEFT JOIN LATERAL (
+                    SELECT e.aqi
+                    FROM risk_scores r
+                    JOIN environment_snapshots e ON e.id = r.snapshot_id
+                    WHERE r.profile_id = s.profile_id
+                      AND e.timestamp_utc BETWEEN s.timestamp_utc - INTERVAL '6 hours'
+                                              AND s.timestamp_utc + INTERVAL '6 hours'
+                    ORDER BY ABS(EXTRACT(EPOCH FROM (e.timestamp_utc - s.timestamp_utc)))
+                    LIMIT 1
+                ) matched ON TRUE
                 WHERE s.profile_id = %s
                   AND s.timestamp_utc >= NOW() - INTERVAL '14 days'
                 """,
@@ -110,27 +117,55 @@ def _time_of_day_insight(profile_id: str) -> PersonalInsightItem | None:
 
 
 def _wearable_heat_insight(user_id: str, profile_id: str) -> PersonalInsightItem | None:
-    metrics = wearable_repository.get_latest_metrics(user_id=user_id, profile_id=profile_id)
-    if metrics is None or metrics.resting_heart_rate_bpm is None:
-        return None
-
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT AVG(temperature_c) AS avg_temp
-                FROM environment_snapshots e
-                JOIN risk_scores r ON r.snapshot_id = e.id
-                WHERE r.profile_id = %s
-                  AND r.created_at >= NOW() - INTERVAL '14 days'
+                WITH daily_env AS (
+                    SELECT
+                        DATE(e.timestamp_utc) AS day,
+                        AVG(e.temperature_c) AS avg_temp
+                    FROM environment_snapshots e
+                    JOIN risk_scores r ON r.snapshot_id = e.id
+                    WHERE r.profile_id = %s
+                      AND e.timestamp_utc >= NOW() - INTERVAL '14 days'
+                    GROUP BY DATE(e.timestamp_utc)
+                ),
+                daily_hr AS (
+                    SELECT
+                        DATE(recorded_at) AS day,
+                        AVG(resting_heart_rate_bpm) AS avg_resting_hr
+                    FROM wearable_metrics
+                    WHERE user_id = %s
+                      AND profile_id = %s
+                      AND recorded_at >= NOW() - INTERVAL '14 days'
+                      AND resting_heart_rate_bpm IS NOT NULL
+                    GROUP BY DATE(recorded_at)
+                ),
+                paired_days AS (
+                    SELECT e.day, e.avg_temp, h.avg_resting_hr
+                    FROM daily_env e
+                    JOIN daily_hr h ON h.day = e.day
+                )
+                SELECT
+                    COUNT(*) FILTER (WHERE avg_temp >= 28) AS hot_days,
+                    COUNT(*) FILTER (WHERE avg_temp < 28) AS cool_days,
+                    AVG(avg_resting_hr) FILTER (WHERE avg_temp >= 28) AS hot_hr,
+                    AVG(avg_resting_hr) FILTER (WHERE avg_temp < 28) AS cool_hr
+                FROM paired_days
                 """,
-                (profile_id,),
+                (profile_id, user_id, profile_id),
             )
             row = cur.fetchone()
-    if not row or row.get("avg_temp") is None:
+    if not row:
         return None
-    avg_temp = float(row["avg_temp"])
-    if avg_temp < 28 or metrics.resting_heart_rate_bpm < 80:
+    hot_days = int(row["hot_days"] or 0)
+    cool_days = int(row["cool_days"] or 0)
+    hot_hr = row.get("hot_hr")
+    cool_hr = row.get("cool_hr")
+    if hot_days < 2 or cool_days < 2 or hot_hr is None or cool_hr is None:
+        return None
+    if float(hot_hr) < 80 or float(hot_hr) <= float(cool_hr) + 5:
         return None
     return PersonalInsightItem(
         insight_type="wearable_heat_correlation",

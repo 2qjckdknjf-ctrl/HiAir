@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models.air import SafeWindowType, UserProfileContext
 from app.models.insights import MorningBriefingResponse
@@ -21,19 +21,76 @@ def _format_window(start_iso: str, end_iso: str) -> str:
         return f"{start_iso}–{end_iso}"
 
 
+def _parse_iso_datetime(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _find_contiguous_window(high_hours: list[str]) -> str | None:
+    best_start: str | None = None
+    best_end: str | None = None
+    best_length = 0
+    current_start: str | None = None
+    current_start_time: datetime | None = None
+    previous_time: datetime | None = None
+
+    for hour_iso in high_hours:
+        current_time = _parse_iso_datetime(hour_iso)
+        if current_time is None:
+            current_start = None
+            current_start_time = None
+            previous_time = None
+            continue
+
+        if previous_time is None or current_time - previous_time > timedelta(hours=1):
+            current_start = hour_iso
+            current_start_time = current_time
+
+        if current_start is None or current_start_time is None:
+            previous_time = current_time
+            continue
+
+        current_length = int((current_time - current_start_time).total_seconds() // 3600) + 1
+        if current_length > best_length:
+            best_start = current_start
+            best_end = hour_iso
+            best_length = current_length
+
+        previous_time = current_time
+
+    if best_start is None or best_end is None:
+        return None
+    return _format_window(best_start, best_end)
+
+
 def _find_avoid_window(hourly) -> str | None:
-    high_hours: list[str] = []
+    high_hours = []
     for item in hourly:
         level = item.overallRisk.value if hasattr(item.overallRisk, "value") else str(item.overallRisk)
         if level in ("high", "very_high"):
-            try:
-                hour = datetime.fromisoformat(item.hour.replace("Z", "+00:00")).strftime("%H:%M")
-                high_hours.append(hour)
-            except ValueError:
-                continue
-    if not high_hours:
-        return None
-    return f"{high_hours[0]}–{high_hours[-1]}"
+            high_hours.append(item.hour)
+    return _find_contiguous_window(high_hours)
+
+
+def persona_for_profile(profile: UserProfileContext) -> PersonaType:
+    profile_type_value = profile.profile_type.value
+    if profile_type_value.startswith("adult"):
+        return PersonaType.ADULT
+    if profile_type_value == "child":
+        return PersonaType.CHILD
+    if profile_type_value == "elderly":
+        return PersonaType.ELDERLY
+    if "asthma" in profile_type_value:
+        return PersonaType.ASTHMA
+    if "allergy" in profile_type_value:
+        return PersonaType.ALLERGY
+    if profile_type_value == "runner":
+        return PersonaType.RUNNER
+    if profile_type_value == "outdoor_worker":
+        return PersonaType.WORKER
+    return PersonaType.ADULT
 
 
 def build_morning_briefing_for_profile(
@@ -44,7 +101,6 @@ def build_morning_briefing_for_profile(
 ) -> MorningBriefingResponse:
     lang = normalize_language(language)
     environment = air_environment_service.load_environment(profile, force_live=False)
-    risk = air_risk_engine.evaluate_risk(profile, environment)
     day_plan = air_risk_engine.build_day_plan(profile, environment)
 
     env_snapshot = EnvironmentSnapshot(
@@ -55,20 +111,7 @@ def build_morning_briefing_for_profile(
         ozone=environment.ozone,
         source=environment.source,
     )
-    persona = PersonaType.ADULT
-    profile_type_value = profile.profile_type.value
-    if profile_type_value.startswith("adult"):
-        persona = PersonaType.ADULT
-    elif profile_type_value == "child":
-        persona = PersonaType.CHILD
-    elif profile_type_value == "elderly":
-        persona = PersonaType.ELDERLY
-    elif "asthma" in profile_type_value:
-        persona = PersonaType.ASTHMA
-    elif "allergy" in profile_type_value:
-        persona = PersonaType.ALLERGY
-    elif profile_type_value == "runner":
-        persona = PersonaType.RUNNER
+    persona = persona_for_profile(profile)
 
     breakdown = build_risk_breakdown(
         profile_id=profile.profile_id,
@@ -84,7 +127,7 @@ def build_morning_briefing_for_profile(
     best_walk = _format_window(walk_windows[0].start, walk_windows[0].end) if walk_windows else None
     avoid_window = _find_avoid_window(day_plan.hourlyRisk)
 
-    risk_label = t(lang, f"briefing.risk.{risk.overallRisk.value}", default=risk.overallRisk.value)
+    risk_label = t(lang, f"briefing.risk.{breakdown.risk_level}", default=breakdown.risk_level)
     summary = t(
         lang,
         "briefing.summary",
@@ -109,7 +152,7 @@ def build_morning_briefing_for_profile(
     return MorningBriefingResponse(
         profile_id=profile.profile_id,
         language=lang,
-        risk_level=risk.overallRisk.value,
+        risk_level=breakdown.risk_level,
         risk_score=breakdown.total_score,
         temperature_c=environment.temperature,
         aqi=environment.aqi,
@@ -153,9 +196,7 @@ def build_morning_briefing_guest(
         walk_window = _format_window(planner.safe_windows[0].start_hour_iso, planner.safe_windows[0].end_hour_iso)
 
     high_hours = [item.hour_iso for item in planner.hourly if item.level in ("high", "very_high")]
-    avoid_window = None
-    if high_hours:
-        avoid_window = _format_window(high_hours[0], high_hours[-1])
+    avoid_window = _find_contiguous_window(high_hours)
 
     risk_label = t(lang, f"briefing.risk.{level}", default=level)
     summary = t(
@@ -179,7 +220,7 @@ def build_morning_briefing_guest(
         profile_id=None,
         language=lang,
         risk_level=level,
-        risk_score=score if score else breakdown.total_score,
+        risk_score=score,
         temperature_c=environment.temperature_c,
         aqi=environment.aqi,
         summary=summary,

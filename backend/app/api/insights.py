@@ -149,7 +149,7 @@ def risk_breakdown(
 
     if profile_id:
         try:
-            _resolve_profile(profile_id, user_id)
+            profile = _resolve_profile(profile_id, user_id)
             symptom_stats = risk_repository.get_recent_symptom_stats(profile_id=profile_id, hours=48)
             sleep_quality = risk_repository.get_latest_sleep_quality(profile_id=profile_id)
             symptoms = SymptomInput(
@@ -160,6 +160,7 @@ def risk_breakdown(
                 sleep_quality=sleep_quality,
             )
             wearable = wearable_repository.get_latest_metrics(user_id=user_id, profile_id=profile_id)
+            persona_enum = morning_briefing_service.persona_for_profile(profile)
         except PsycopgError as exc:
             raise HTTPException(status_code=503, detail="Database unavailable") from exc
 

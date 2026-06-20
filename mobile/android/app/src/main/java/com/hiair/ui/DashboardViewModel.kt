@@ -138,7 +138,7 @@ class DashboardViewModel(
                 lon = lon
             )
         } else {
-            apiClient.fetchMorningBriefingPublic(persona = persona, lat = lat, lon = lon)
+            apiClient.fetchMorningBriefingPublic(persona = persona, lat = lat, lon = lon, language = language)
         }
         val briefingJson = JSONObject(briefingRaw)
         val breakdownRaw = if (!userId.isBlank() && !accessToken.isNullOrBlank()) {

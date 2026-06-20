@@ -40,6 +40,8 @@ class AppMainActivity : AppCompatActivity() {
 
         if (!session.onboardingCompleted) {
             rootShell.startOnboarding()
+        } else {
+            rootShell.completeOnboarding()
         }
 
         val root = LinearLayout(this).apply {
