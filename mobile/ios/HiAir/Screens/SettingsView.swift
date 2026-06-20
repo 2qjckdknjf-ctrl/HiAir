@@ -89,6 +89,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiServerCount = 0
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
     @Published var statusText = "-"
+    @Published var privacyStatusText = "-"
+    @Published var showDeleteConfirmation = false
     @Published var loading = false
 
     private let apiClient = APIClient.live()
@@ -440,6 +442,41 @@ final class SettingsViewModel: ObservableObject {
             }
         }
     }
+
+    private func canUsePrivacyEndpoints(isGuest: Bool) -> Bool {
+        !isGuest && !userId.isEmpty && !accessToken.isEmpty
+    }
+
+    func exportPrivacyData(isGuest: Bool) async {
+        guard canUsePrivacyEndpoints(isGuest: isGuest) else {
+            privacyStatusText = l("privacy.auth_required")
+            return
+        }
+        privacyStatusText = l("dashboard.loading")
+        do {
+            _ = try await apiClient.exportPrivacyData(userId: userId, accessToken: accessToken)
+            privacyStatusText = l("privacy.export_ok")
+        } catch {
+            privacyStatusText = l("privacy.export_failed")
+        }
+    }
+
+    func deletePrivacyData(isGuest: Bool, session: AppSession) async {
+        guard canUsePrivacyEndpoints(isGuest: isGuest) else {
+            privacyStatusText = l("privacy.auth_required")
+            return
+        }
+        privacyStatusText = l("dashboard.loading")
+        do {
+            try await apiClient.deletePrivacyAccount(userId: userId, accessToken: accessToken)
+            privacyStatusText = l("privacy.delete_ok")
+            session.logout()
+            userId = ""
+            accessToken = ""
+        } catch {
+            privacyStatusText = l("privacy.delete_failed")
+        }
+    }
 }
 
 private struct AITrendMiniChart: View {
@@ -715,6 +752,43 @@ struct SettingsView: View {
                     }
                 }
                 .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("privacy.title"))
+                        .font(.headline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("privacy.wellness_notice"))
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(session.l("privacy.health_explanation"))
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(viewModel.privacyStatusText)
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("privacy.export")) {
+                        Task { await viewModel.exportPrivacyData(isGuest: session.isGuest) }
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("privacy.delete")) {
+                        viewModel.showDeleteConfirmation = true
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundStyle(.red)
+                    Link(session.l("privacy.policy"), destination: URL(string: "https://hiair.app/privacy")!)
+                        .font(.footnote)
+                    Link(session.l("privacy.terms"), destination: URL(string: "https://hiair.app/terms")!)
+                        .font(.footnote)
+                }
+                .v2Card()
+                .alert(session.l("privacy.delete_confirm_title"), isPresented: $viewModel.showDeleteConfirmation) {
+                    Button(session.l("privacy.delete_confirm_yes"), role: .destructive) {
+                        Task { await viewModel.deletePrivacyData(isGuest: session.isGuest, session: session) }
+                    }
+                    Button(session.l("privacy.delete_confirm_no"), role: .cancel) {}
+                } message: {
+                    Text(session.l("privacy.delete_confirm_body"))
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.security_privacy"))

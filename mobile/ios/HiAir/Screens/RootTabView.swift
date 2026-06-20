@@ -5,9 +5,11 @@ struct RootTabView: View {
 
     var body: some View {
         Group {
-            if session.userId.isEmpty || session.accessToken.isEmpty {
+            if !session.onboardingCompleted {
+                OnboardingView()
+            } else if !session.isGuest && (session.userId.isEmpty || session.accessToken.isEmpty) {
                 AuthView()
-            } else if session.onboardingCompleted {
+            } else {
                 TabView(selection: $session.selectedTab) {
                     DashboardView()
                         .tag(0)
@@ -34,8 +36,6 @@ struct RootTabView: View {
                         }
                 }
                 .tint(HiAirV2Theme.accentStart)
-            } else {
-                OnboardingView()
             }
         }
     }

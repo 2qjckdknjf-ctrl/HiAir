@@ -4,6 +4,8 @@ import Foundation
 final class AppSession: ObservableObject {
     private enum Keys {
         static let onboardingCompleted = "session.onboardingCompleted"
+        static let isGuest = "session.isGuest"
+        static let healthOptIn = "session.healthOptIn"
         static let userId = "session.userId"
         static let accessToken = "session.accessToken"
         static let profileId = "session.profileId"
@@ -15,6 +17,8 @@ final class AppSession: ObservableObject {
     }
 
     @Published var onboardingCompleted = false { didSet { persist() } }
+    @Published var isGuest = false { didSet { persist() } }
+    @Published var healthOptIn = false { didSet { persist() } }
     @Published var userId = "" { didSet { persist() } }
     @Published var accessToken = "" { didSet { persist() } }
     @Published var profileId = "" { didSet { persist() } }
@@ -28,6 +32,8 @@ final class AppSession: ObservableObject {
     init() {
         let defaults = UserDefaults.standard
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
+        isGuest = defaults.object(forKey: Keys.isGuest) as? Bool ?? false
+        healthOptIn = defaults.object(forKey: Keys.healthOptIn) as? Bool ?? false
         userId = defaults.string(forKey: Keys.userId) ?? ""
         accessToken = defaults.string(forKey: Keys.accessToken) ?? ""
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
@@ -49,6 +55,8 @@ final class AppSession: ObservableObject {
     private func persist() {
         let defaults = UserDefaults.standard
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
+        defaults.set(isGuest, forKey: Keys.isGuest)
+        defaults.set(healthOptIn, forKey: Keys.healthOptIn)
         defaults.set(userId, forKey: Keys.userId)
         defaults.set(accessToken, forKey: Keys.accessToken)
         defaults.set(profileId, forKey: Keys.profileId)
@@ -90,6 +98,61 @@ enum HiAirL10n {
             "onboarding.longitude": "Долгота",
             "onboarding.profile_id": "Profile ID (необязательно)",
             "onboarding.continue": "Продолжить",
+            "onboarding.continue_guest": "Продолжить как гость",
+            "onboarding.skip": "Пропустить",
+            "onboarding.enable_health": "Подключить (optional)",
+            "onboarding.finish": "Перейти в приложение",
+            "onboarding.welcome_headline": "HiAir — wellness-ассистент по жаре и воздуху",
+            "onboarding.welcome_body": "Персональный риск, безопасные окна и ежедневные рекомендации.",
+            "onboarding.value_headline": "Что вы получите",
+            "onboarding.value_body": "HiAir объясняет риск жары и AQI для вашего профиля.",
+            "onboarding.persona_headline": "Кто вы?",
+            "onboarding.persona_body": "Wellness-ориентир, не медицинский диагноз.",
+            "onboarding.location_headline": "Где вы находитесь?",
+            "onboarding.location_body": "Локация нужна для прогноза жары и AQI.",
+            "onboarding.notifications_headline": "Уведомления о риске",
+            "onboarding.notifications_body": "Предупреждения при повышении риска для вашего профиля.",
+            "onboarding.health_headline": "Данные здоровья (optional)",
+            "onboarding.health_body": "Шаги, пульс и сон помогут персонализации позже (foundation).",
+            "onboarding.health_optional": "HiAir — wellness guidance, not medical advice.",
+            "onboarding.first_result_headline": "Ваш первый результат",
+            "onboarding.step.welcome": "Шаг 1 из 7",
+            "onboarding.step.value": "Шаг 2 из 7",
+            "onboarding.step.persona": "Шаг 3 из 7",
+            "onboarding.step.location": "Шаг 4 из 7",
+            "onboarding.step.notifications": "Шаг 5 из 7",
+            "onboarding.step.health": "Шаг 6 из 7",
+            "onboarding.step.first_result": "Шаг 7 из 7",
+            "dashboard.morning_briefing": "Утренний брифинг",
+            "dashboard.risk_breakdown": "Из чего складывается риск",
+            "dashboard.share": "Поделиться",
+            "dashboard.fetch": "Нажмите обновить для загрузки данных.",
+            "dashboard.no_actions": "Нет доступных действий.",
+            "privacy.title": "Приватность",
+            "privacy.export": "Экспорт моих данных",
+            "privacy.delete": "Удалить мои данные",
+            "privacy.wellness_notice": "HiAir — wellness guidance, not medical advice.",
+            "privacy.health_explanation": "Данные HealthKit optional. Сейчас только foundation — чтение метрик после entitlements.",
+            "privacy.policy": "Privacy Policy",
+            "privacy.terms": "Terms of Service",
+            "privacy.auth_required": "Для export/delete нужен вход в аккаунт (не guest).",
+            "privacy.export_ok": "Экспорт выполнен.",
+            "privacy.export_failed": "Не удалось экспортировать данные.",
+            "privacy.delete_ok": "Данные удалены.",
+            "privacy.delete_failed": "Не удалось удалить данные.",
+            "privacy.delete_confirm_title": "Удалить все данные?",
+            "privacy.delete_confirm_body": "Это необратимо. На сервере требуется подтверждение DELETE.",
+            "privacy.delete_confirm_yes": "Удалить",
+            "privacy.delete_confirm_no": "Отмена",
+            "health.foundation_only": "Foundation only: чтение шагов/пульса/сна будет после entitlements и device QA.",
+            "health.skipped": "Данные здоровья не используются.",
+            "health.not_available": "HealthKit недоступен.",
+            "health.permission_needed": "Разрешения HealthKit можно включить позже.",
+            "share.title": "HiAir — air & heat risk",
+            "share.risk": "Риск",
+            "share.best_walk": "Лучшее время для прогулки",
+            "share.warning": "Предупреждение",
+            "share.generated_by": "Generated by HiAir",
             "dashboard.title": "Ежедневный воздушный интеллект",
             "common.city_updated": "Barcelona • Обновлено 2 мин назад",
             "dashboard.subtitle": "Риск, алерты и AI-инсайты в одном месте.",
@@ -268,6 +331,61 @@ enum HiAirL10n {
             "onboarding.longitude": "Longitude",
             "onboarding.profile_id": "Profile ID (optional)",
             "onboarding.continue": "Continue",
+            "onboarding.continue_guest": "Continue as guest",
+            "onboarding.skip": "Skip",
+            "onboarding.enable_health": "Connect (optional)",
+            "onboarding.finish": "Open app",
+            "onboarding.welcome_headline": "HiAir — heat & air wellness assistant",
+            "onboarding.welcome_body": "Personal risk, safe windows, and daily guidance.",
+            "onboarding.value_headline": "What you get",
+            "onboarding.value_body": "HiAir explains heat and AQI risk for your profile.",
+            "onboarding.persona_headline": "Who are you?",
+            "onboarding.persona_body": "Wellness guidance only — not medical advice.",
+            "onboarding.location_headline": "Where are you?",
+            "onboarding.location_body": "Location powers local heat and AQI forecasts.",
+            "onboarding.notifications_headline": "Risk notifications",
+            "onboarding.notifications_body": "Alerts when risk rises for your profile.",
+            "onboarding.health_headline": "Health data (optional)",
+            "onboarding.health_body": "Steps, heart rate and sleep will personalize guidance later (foundation).",
+            "onboarding.health_optional": "HiAir is wellness guidance, not medical advice.",
+            "onboarding.first_result_headline": "Your first result",
+            "onboarding.step.welcome": "Step 1 of 7",
+            "onboarding.step.value": "Step 2 of 7",
+            "onboarding.step.persona": "Step 3 of 7",
+            "onboarding.step.location": "Step 4 of 7",
+            "onboarding.step.notifications": "Step 5 of 7",
+            "onboarding.step.health": "Step 6 of 7",
+            "onboarding.step.first_result": "Step 7 of 7",
+            "dashboard.morning_briefing": "Morning Briefing",
+            "dashboard.risk_breakdown": "Risk breakdown",
+            "dashboard.share": "Share",
+            "dashboard.fetch": "Tap refresh to load data.",
+            "dashboard.no_actions": "No actions available.",
+            "privacy.title": "Privacy",
+            "privacy.export": "Export my data",
+            "privacy.delete": "Delete my data",
+            "privacy.wellness_notice": "HiAir is wellness guidance, not medical advice.",
+            "privacy.health_explanation": "HealthKit data is optional. Foundation only — metric reads ship after entitlements.",
+            "privacy.policy": "Privacy Policy",
+            "privacy.terms": "Terms of Service",
+            "privacy.auth_required": "Sign in required for export/delete (not available in guest mode).",
+            "privacy.export_ok": "Export completed.",
+            "privacy.export_failed": "Export failed.",
+            "privacy.delete_ok": "Data deleted.",
+            "privacy.delete_failed": "Delete failed.",
+            "privacy.delete_confirm_title": "Delete all data?",
+            "privacy.delete_confirm_body": "This is irreversible. Server requires DELETE confirmation.",
+            "privacy.delete_confirm_yes": "Delete",
+            "privacy.delete_confirm_no": "Cancel",
+            "health.foundation_only": "Foundation only: steps/heart rate/sleep reads come after entitlements and device QA.",
+            "health.skipped": "Health data not used.",
+            "health.not_available": "HealthKit unavailable.",
+            "health.permission_needed": "HealthKit permissions can be enabled later.",
+            "share.title": "HiAir — air & heat risk",
+            "share.risk": "Risk",
+            "share.best_walk": "Best walk window",
+            "share.warning": "Warning",
+            "share.generated_by": "Generated by HiAir",
             "dashboard.title": "Daily Air Intelligence",
             "common.city_updated": "Barcelona • Updated 2 min ago",
             "dashboard.subtitle": "Live risk, alerts and AI insights in one place.",

@@ -9,15 +9,15 @@ final class AuthViewModel: ObservableObject {
 
     private let apiClient = APIClient.live()
 
-    func signup(session: AppSession) async {
-        await authenticate(session: session, mode: "signup")
+    func signup(session: AppSession, onSuccess: (() -> Void)? = nil) async {
+        await authenticate(session: session, mode: "signup", onSuccess: onSuccess)
     }
 
-    func login(session: AppSession) async {
-        await authenticate(session: session, mode: "login")
+    func login(session: AppSession, onSuccess: (() -> Void)? = nil) async {
+        await authenticate(session: session, mode: "login", onSuccess: onSuccess)
     }
 
-    private func authenticate(session: AppSession, mode: String) async {
+    private func authenticate(session: AppSession, mode: String, onSuccess: (() -> Void)?) async {
         let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedEmail.isEmpty else {
             statusText = session.l("auth.enter_email")
@@ -40,6 +40,7 @@ final class AuthViewModel: ObservableObject {
             session.userId = response.userId
             session.accessToken = response.accessToken
             statusText = session.l("auth.ok")
+            onSuccess?()
         } catch {
             statusText = session.l("auth.fail")
         }
@@ -49,6 +50,7 @@ final class AuthViewModel: ObservableObject {
 struct AuthView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = AuthViewModel()
+    var onAuthenticated: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 12) {
@@ -66,13 +68,13 @@ struct AuthView: View {
 
             HStack(spacing: 12) {
                 Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
-                    Task { await viewModel.signup(session: session) }
+                    Task { await viewModel.signup(session: session, onSuccess: onAuthenticated) }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.loading)
 
                 Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
-                    Task { await viewModel.login(session: session) }
+                    Task { await viewModel.login(session: session, onSuccess: onAuthenticated) }
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.loading)

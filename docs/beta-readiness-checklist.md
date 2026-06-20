@@ -38,6 +38,10 @@ This checklist is used to prepare a closed beta on iOS and Android.
 
 ## 3) iOS beta readiness (TestFlight)
 
+- [ ] Onboarding flow verified on fresh install (7 steps, guest + auth).
+- [ ] HealthKit usage description present in Info.plist.
+- [ ] Location usage description present.
+
 - [ ] Generate/open project from `mobile/ios/project.yml`.
 - [ ] Build and run on simulator/device without crashes.
 - [ ] Validate app flow:

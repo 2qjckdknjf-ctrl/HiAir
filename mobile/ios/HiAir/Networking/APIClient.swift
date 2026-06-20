@@ -485,4 +485,115 @@ final class APIClient {
         }
         return try JSONDecoder().decode(SubscriptionStatusResponse.self, from: data)
     }
+
+    func fetchMorningBriefing(
+        profileId: String?,
+        persona: String,
+        lat: Double,
+        lon: Double,
+        userId: String,
+        accessToken: String
+    ) async throws -> MorningBriefingResponse {
+        var components = URLComponents(url: baseURL.appending(path: "/api/insights/morning-briefing"), resolvingAgainstBaseURL: false)
+        var items = [
+            URLQueryItem(name: "persona", value: persona),
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "lon", value: String(lon)),
+        ]
+        if let profileId, !profileId.isEmpty {
+            items.append(URLQueryItem(name: "profile_id", value: profileId))
+        }
+        components?.queryItems = items
+        guard let url = components?.url else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(MorningBriefingResponse.self, from: data)
+    }
+
+    func fetchMorningBriefingPublic(persona: String, lat: Double, lon: Double, language: String) async throws -> MorningBriefingResponse {
+        var components = URLComponents(url: baseURL.appending(path: "/api/insights/morning-briefing/public"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "persona", value: persona),
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "lon", value: String(lon)),
+            URLQueryItem(name: "language", value: language),
+        ]
+        guard let url = components?.url else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(for: URLRequest(url: url))
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(MorningBriefingResponse.self, from: data)
+    }
+
+    func fetchRiskBreakdown(
+        profileId: String?,
+        persona: String,
+        lat: Double,
+        lon: Double,
+        userId: String,
+        accessToken: String
+    ) async throws -> RiskBreakdownResponse {
+        var components = URLComponents(url: baseURL.appending(path: "/api/insights/risk-breakdown"), resolvingAgainstBaseURL: false)
+        var items = [
+            URLQueryItem(name: "persona", value: persona),
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "lon", value: String(lon)),
+        ]
+        if let profileId, !profileId.isEmpty {
+            items.append(URLQueryItem(name: "profile_id", value: profileId))
+        }
+        components?.queryItems = items
+        guard let url = components?.url else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(RiskBreakdownResponse.self, from: data)
+    }
+
+    func fetchRiskBreakdownPublic(persona: String, lat: Double, lon: Double) async throws -> RiskBreakdownResponse {
+        var components = URLComponents(url: baseURL.appending(path: "/api/insights/risk-breakdown/public"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "persona", value: persona),
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "lon", value: String(lon)),
+        ]
+        guard let url = components?.url else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(for: URLRequest(url: url))
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(RiskBreakdownResponse.self, from: data)
+    }
+
+    func exportPrivacyData(userId: String, accessToken: String) async throws -> Data {
+        let url = baseURL.appending(path: "/api/privacy/export")
+        var request = URLRequest(url: url)
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return data
+    }
+
+    func deletePrivacyAccount(userId: String, accessToken: String) async throws {
+        let url = baseURL.appending(path: "/api/privacy/delete-account")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["confirmation": "DELETE"])
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+    }
 }

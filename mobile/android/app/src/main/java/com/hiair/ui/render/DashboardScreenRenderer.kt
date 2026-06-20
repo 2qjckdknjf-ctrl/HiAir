@@ -1,12 +1,13 @@
 package com.hiair.ui.render
 
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.ui.DashboardLoadState
 import com.hiair.ui.dailyActionsText
+import com.hiair.ui.safeWindowsText
 import com.hiair.ui.theme.V2Ui
 
 internal object DashboardScreenRenderer {
@@ -15,98 +16,66 @@ internal object DashboardScreenRenderer {
         val rootShell = ctx.rootShell
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
+        val lang = rootShell.settingsViewModel.state.preferredLanguage
 
-        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("dashboard.greeting")
-        val subtitle = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.improving")).apply {
-            textSize = 13f
-        }
-        bodyContainer.addView(subtitle)
+        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("dashboard.subtitle")).apply { textSize = 13f })
 
-        val riskLabel = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.current_risk_title")).apply {
-            textSize = 12f
+        val state = rootShell.dashboardViewModel.state
+        val briefingCard = V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.morning_briefing")).apply { textSize = 16f })
+            addView(V2Ui.spacer(activity, 6))
+            addView(V2Ui.styledSecondaryText(activity, briefingText(state, lang)).apply { textSize = 13f })
         }
+        bodyContainer.addView(briefingCard)
+
+        val riskLabel = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.current_risk_title")).apply { textSize = 12f }
         val badge = TextView(activity).apply {
-            text = ctx.l("dashboard.badge_moderate")
             textSize = 10f
             setTextColor(Color.parseColor("#FDD671"))
             background = V2Ui.cardBackground(activity, "#3A2F17", strokeHex = "#6A5830", radiusDp = 10)
             setPadding(V2Ui.dp(activity, 8), V2Ui.dp(activity, 3), V2Ui.dp(activity, 8), V2Ui.dp(activity, 3))
         }
-        val riskValue = V2Ui.styledBodyText(activity, "58").apply {
-            textSize = 42f
-        }
-        val riskDetail = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.risk_hint")).apply {
-            textSize = 12f
-        }
-        val weatherTitle = V2Ui.styledBodyText(activity, "Sunny 26C")
-        val weatherMood = V2Ui.styledSecondaryText(activity, "Mood: Calm")
-
-        val weatherOrb = View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(V2Ui.dp(activity, 64), V2Ui.dp(activity, 64))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                colors = intArrayOf(Color.parseColor("#52E0B0"), Color.parseColor("#64B8FF"))
-                gradientType = GradientDrawable.RADIAL_GRADIENT
-                gradientRadius = V2Ui.dp(activity, 48).toFloat()
-            }
-        }
-        V2Ui.startWeatherAnimation(activity, weatherOrb, weatherTitle, weatherMood)
-
-        val weatherRow = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(weatherOrb)
-            addView(LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    leftMargin = V2Ui.dp(activity, 12)
-                    weight = 1f
-                }
-                addView(weatherTitle)
-                addView(weatherMood)
-                addView(View(activity).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        V2Ui.dp(activity, 4)
-                    ).apply { topMargin = V2Ui.dp(activity, 8) }
-                    background = V2Ui.cardBackground(activity, "#5378C8", strokeHex = "#5378C8", radiusDp = 12)
-                })
-            })
-        }
+        val riskValue = V2Ui.styledBodyText(activity, riskScoreText(state)).apply { textSize = 42f }
+        val riskDetail = V2Ui.styledSecondaryText(activity, riskDetailText(state, lang)).apply { textSize = 12f }
+        val envLine = V2Ui.styledSecondaryText(activity, envText(state, lang)).apply { textSize = 12f }
 
         val dashboardCard = V2Ui.cardContainer(activity)
         dashboardCard.addView(LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(riskLabel)
-            addView(View(activity).apply {
-                layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-            })
+            addView(View(activity).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
             addView(badge)
         })
         dashboardCard.addView(riskValue)
         dashboardCard.addView(riskDetail)
-        dashboardCard.addView(V2Ui.spacer(activity, 8))
-        dashboardCard.addView(weatherRow)
+        dashboardCard.addView(envLine)
         bodyContainer.addView(dashboardCard)
 
-        val actionText = V2Ui.styledSecondaryText(activity, ctx.l("dashboard.actions"))
+        if (state.breakdownLines.isNotEmpty()) {
+            val breakdownCard = V2Ui.cardContainer(activity).apply {
+                addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.risk_breakdown")).apply { textSize = 16f })
+                addView(V2Ui.spacer(activity, 6))
+                state.breakdownLines.forEach { line ->
+                    addView(V2Ui.styledSecondaryText(activity, line))
+                }
+            }
+            bodyContainer.addView(breakdownCard)
+        }
+
+        val actionText = V2Ui.styledSecondaryText(activity, state.dailyActionsText().ifBlank { ctx.l("dashboard.no_actions") })
         val actionsCard = V2Ui.cardContainer(activity).apply {
             addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.do_now")).apply { textSize = 16f })
-            addView(V2Ui.spacer(activity, 6))
-            addView(V2Ui.styledSecondaryText(activity, "• ${ctx.l("dashboard.action_1")}"))
-            addView(V2Ui.styledSecondaryText(activity, "• ${ctx.l("dashboard.action_2")}"))
-            addView(V2Ui.styledSecondaryText(activity, "• ${ctx.l("dashboard.action_3")}"))
             addView(V2Ui.spacer(activity, 6))
             addView(actionText)
         }
         bodyContainer.addView(actionsCard)
 
-        val safeWindowsText = V2Ui.styledSecondaryText(activity, "• 06:00 - 08:00\n• 16:30 - 19:00")
+        val safeWindowsText = V2Ui.styledSecondaryText(
+            activity,
+            state.safeWindowsText(ctx.l("dashboard.no_safe_window"))
+        )
         val safeCard = V2Ui.cardContainer(activity).apply {
             addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.safe_windows")))
             addView(safeWindowsText)
@@ -114,29 +83,16 @@ internal object DashboardScreenRenderer {
         bodyContainer.addView(safeCard)
 
         val refreshButton = V2Ui.primaryButton(activity, ctx.l("dashboard.recompute")).apply {
-            setOnClickListener {
-                riskDetail.text = ctx.l("common.loading")
-                Thread {
-                    val settings = rootShell.settingsViewModel.state
-                    val profileId = rootShell.symptomLogViewModel.state.profileId.ifBlank { null }
-                    rootShell.dashboardViewModel.refresh(
-                        userId = settings.userId,
-                        accessToken = settings.accessToken.ifBlank { null },
-                        profileId = profileId
-                    )
-                    val state = rootShell.dashboardViewModel.state
-                    activity.runOnUiThread {
-                        riskLabel.text = ctx.l("dashboard.current_risk_title")
-                        riskValue.text = riskScore(state.riskLevel).toString()
-                        badge.text = state.riskLevel.uppercase()
-                        riskDetail.text = "${state.headline}\n${state.explanation}"
-                        safeWindowsText.text = "• ${state.nearestSafeWindow}"
-                        actionText.text = state.dailyActionsText()
-                    }
-                }.start()
-            }
+            setOnClickListener { loadDashboard(ctx, riskValue, badge, riskDetail, envLine, actionText, safeWindowsText) }
         }
         bodyContainer.addView(refreshButton)
+
+        val shareButton = V2Ui.secondaryButton(activity, ctx.l("dashboard.share")).apply {
+            setOnClickListener {
+                com.hiair.share.ShareHelper.shareDashboard(activity, rootShell, lang)
+            }
+        }
+        bodyContainer.addView(shareButton)
 
         val logSymptomsButton = V2Ui.primaryButton(activity, ctx.l("dashboard.log_symptoms")).apply {
             setOnClickListener {
@@ -145,15 +101,85 @@ internal object DashboardScreenRenderer {
             }
         }
         bodyContainer.addView(logSymptomsButton)
+
+        if (state.loadState == DashboardLoadState.IDLE) {
+            loadDashboard(ctx, riskValue, badge, riskDetail, envLine, actionText, safeWindowsText)
+        }
     }
 
-    private fun riskScore(riskLevel: String): Int {
-        return when (riskLevel.lowercase()) {
-            "low" -> 32
-            "medium", "moderate" -> 58
-            "high" -> 78
-            "very_high", "very high" -> 91
-            else -> 58
+    private fun loadDashboard(
+        ctx: RenderContext,
+        riskValue: TextView,
+        badge: TextView,
+        riskDetail: TextView,
+        envLine: TextView,
+        actionText: TextView,
+        safeWindowsText: TextView
+    ) {
+        val activity = ctx.activity
+        val rootShell = ctx.rootShell
+        val lang = rootShell.settingsViewModel.state.preferredLanguage
+        val session = ctx.session
+
+        riskDetail.text = ctx.l("common.loading")
+        Thread {
+            rootShell.dashboardViewModel.refresh(
+                userId = session.userId,
+                accessToken = session.accessToken.ifBlank { null },
+                profileId = session.profileId.ifBlank { null },
+                persona = session.persona,
+                lat = session.homeLat,
+                lon = session.homeLon,
+                language = lang,
+                isGuest = session.isGuest
+            )
+            val state = rootShell.dashboardViewModel.state
+            activity.runOnUiThread {
+                riskValue.text = riskScoreText(state)
+                badge.text = if (state.riskLevel == "-") "—" else state.riskLevel.uppercase()
+                riskDetail.text = riskDetailText(state, lang)
+                envLine.text = envText(state, lang)
+                actionText.text = state.dailyActionsText().ifBlank { ctx.l("dashboard.no_actions") }
+                safeWindowsText.text = state.safeWindowsText(ctx.l("dashboard.no_safe_window"))
+            }
+        }.start()
+    }
+
+    private fun briefingText(state: com.hiair.ui.DashboardState, lang: String): String {
+        return when (state.loadState) {
+            DashboardLoadState.LOADING -> if (lang == "en") "Loading briefing..." else "Загружаем брифинг..."
+            DashboardLoadState.ERROR -> state.errorMessage
+            DashboardLoadState.SUCCESS -> state.morningBriefing.ifBlank {
+                if (lang == "en") "No briefing data yet." else "Данные брифинга пока недоступны."
+            }
+            else -> if (lang == "en") "Tap refresh to load data." else "Нажмите обновить для загрузки данных."
+        }
+    }
+
+    private fun riskScoreText(state: com.hiair.ui.DashboardState): String {
+        return when (state.loadState) {
+            DashboardLoadState.LOADING -> "…"
+            DashboardLoadState.SUCCESS -> state.riskScore?.toString() ?: "—"
+            DashboardLoadState.ERROR -> "!"
+            else -> "—"
+        }
+    }
+
+    private fun riskDetailText(state: com.hiair.ui.DashboardState, lang: String): String {
+        return when (state.loadState) {
+            DashboardLoadState.LOADING -> if (lang == "en") "Loading..." else "Загрузка..."
+            DashboardLoadState.ERROR -> state.errorMessage
+            DashboardLoadState.SUCCESS -> listOf(state.headline, state.explanation).filter { it.isNotBlank() }.joinToString("\n")
+            else -> if (lang == "en") "No data loaded." else "Данные не загружены."
+        }
+    }
+
+    private fun envText(state: com.hiair.ui.DashboardState, lang: String): String {
+        if (state.temperatureC == null || state.aqi == null) return ""
+        return if (lang == "en") {
+            "Temperature ${state.temperatureC}°C • AQI ${state.aqi}"
+        } else {
+            "Температура ${state.temperatureC}°C • AQI ${state.aqi}"
         }
     }
 }
