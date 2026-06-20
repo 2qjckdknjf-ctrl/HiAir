@@ -10,7 +10,9 @@ class MainScreenRenderer(
     private val rootShell: RootShellViewModel,
     private val titleView: TextView,
     private val bodyContainer: LinearLayout,
+    private val session: com.hiair.StoredSession,
     private val persistSession: () -> Unit,
+    private val updateSession: (com.hiair.StoredSession) -> Unit,
     private val clearSession: () -> Unit,
     private val rerender: () -> Unit
 ) {
@@ -19,10 +21,14 @@ class MainScreenRenderer(
         rootShell = rootShell,
         titleView = titleView,
         bodyContainer = bodyContainer,
+        session = session,
         persistSession = persistSession,
+        updateSession = updateSession,
         clearSession = clearSession,
         rerender = rerender
     )
+
+    fun renderOnboarding() = OnboardingScreenRenderer.render(ctx)
 
     fun renderDashboard() = DashboardScreenRenderer.render(ctx)
 

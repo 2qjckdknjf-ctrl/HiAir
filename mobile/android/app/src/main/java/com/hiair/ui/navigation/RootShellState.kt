@@ -1,36 +1,22 @@
 package com.hiair.ui.navigation
 
-import com.hiair.ui.DashboardViewModel
-import com.hiair.ui.planner.DailyPlannerViewModel
-import com.hiair.ui.settings.SettingsViewModel
-import com.hiair.ui.symptoms.SymptomLogViewModel
+enum class AppPhase {
+    ONBOARDING,
+    MAIN
+}
+
+enum class OnboardingStep {
+    WELCOME,
+    VALUE,
+    PERSONA,
+    LOCATION,
+    NOTIFICATIONS,
+    HEALTH,
+    FIRST_RESULT
+}
 
 data class RootShellState(
+    val phase: AppPhase = AppPhase.ONBOARDING,
+    val onboardingStep: OnboardingStep = OnboardingStep.WELCOME,
     val currentScreen: AppScreen = AppScreen.DASHBOARD
 )
-
-class RootShellViewModel(
-    val dashboardViewModel: DashboardViewModel = DashboardViewModel(),
-    val plannerViewModel: DailyPlannerViewModel = DailyPlannerViewModel(),
-    val symptomLogViewModel: SymptomLogViewModel = SymptomLogViewModel(),
-    val settingsViewModel: SettingsViewModel = SettingsViewModel()
-) {
-    var state: RootShellState = RootShellState()
-        private set
-
-    fun openDashboard() {
-        state = state.copy(currentScreen = AppScreen.DASHBOARD)
-    }
-
-    fun openPlanner() {
-        state = state.copy(currentScreen = AppScreen.PLANNER)
-    }
-
-    fun openSymptoms() {
-        state = state.copy(currentScreen = AppScreen.SYMPTOMS)
-    }
-
-    fun openSettings() {
-        state = state.copy(currentScreen = AppScreen.SETTINGS)
-    }
-}

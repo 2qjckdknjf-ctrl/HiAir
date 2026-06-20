@@ -234,6 +234,77 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, "{}", authHeaders(userId, accessToken))
     }
 
+    fun fetchMorningBriefing(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        persona: String,
+        lat: Double,
+        lon: Double
+    ): String {
+        val profileQuery = profileId?.let { "&profile_id=$it" } ?: ""
+        val endpoint =
+            "$baseUrl/api/insights/morning-briefing?persona=$persona&lat=$lat&lon=$lon$profileQuery"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchMorningBriefingPublic(persona: String, lat: Double, lon: Double, language: String = "ru"): String {
+        val endpoint =
+            "$baseUrl/api/insights/morning-briefing/public?persona=$persona&lat=$lat&lon=$lon&language=$language"
+        return requestStrict("GET", endpoint, null)
+    }
+
+    fun fetchRiskBreakdown(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        persona: String,
+        lat: Double,
+        lon: Double
+    ): String {
+        val profileQuery = profileId?.let { "&profile_id=$it" } ?: ""
+        val endpoint =
+            "$baseUrl/api/insights/risk-breakdown?persona=$persona&lat=$lat&lon=$lon$profileQuery"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchRiskBreakdownPublic(persona: String, lat: Double, lon: Double): String {
+        val endpoint = "$baseUrl/api/insights/risk-breakdown/public?persona=$persona&lat=$lat&lon=$lon"
+        return requestStrict("GET", endpoint, null)
+    }
+
+    fun exportPrivacyData(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/privacy/export"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun deletePrivacyAccount(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/privacy/delete-account"
+        val json = JSONObject().apply { put("confirmation", "DELETE") }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun submitWearableMetrics(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        steps: Int?,
+        restingHeartRate: Int?,
+        sleepHours: Double?,
+        sleepQuality: Int?
+    ): String {
+        val endpoint = "$baseUrl/api/wearable/metrics"
+        val json = JSONObject().apply {
+            put("profile_id", profileId)
+            put("steps", steps)
+            put("resting_heart_rate_bpm", restingHeartRate)
+            put("sleep_hours", sleepHours)
+            put("sleep_quality_score", sleepQuality)
+            put("source", "android")
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     private fun request(
         method: String,
         endpoint: String,

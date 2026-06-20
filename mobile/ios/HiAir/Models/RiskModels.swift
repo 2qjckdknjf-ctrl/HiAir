@@ -444,3 +444,59 @@ struct ActivateSubscriptionRequest: Codable {
         case useTrial = "use_trial"
     }
 }
+
+struct RiskBreakdownFactor: Codable {
+    let key: String
+    let labelRu: String
+    let labelEn: String
+    let points: Int
+
+    enum CodingKeys: String, CodingKey {
+        case key
+        case labelRu = "label_ru"
+        case labelEn = "label_en"
+        case points
+    }
+}
+
+struct RiskBreakdownResponse: Codable {
+    let profileId: String?
+    let totalScore: Int
+    let riskLevel: String
+    let factors: [RiskBreakdownFactor]
+
+    enum CodingKeys: String, CodingKey {
+        case profileId = "profile_id"
+        case totalScore = "total_score"
+        case riskLevel = "risk_level"
+        case factors
+    }
+}
+
+struct MorningBriefingResponse: Codable {
+    let profileId: String?
+    let language: String
+    let riskLevel: String
+    let riskScore: Int
+    let temperatureC: Double
+    let aqi: Int
+    let summary: String
+    let bestWalkWindow: String?
+    let avoidOutdoorWindow: String?
+    let personalNote: String
+    let wearableNote: String?
+
+    enum CodingKeys: String, CodingKey {
+        case profileId = "profile_id"
+        case language
+        case riskLevel = "risk_level"
+        case riskScore = "risk_score"
+        case temperatureC = "temperature_c"
+        case aqi
+        case summary
+        case bestWalkWindow = "best_walk_window"
+        case avoidOutdoorWindow = "avoid_outdoor_window"
+        case personalNote = "personal_note"
+        case wearableNote = "wearable_note"
+    }
+}

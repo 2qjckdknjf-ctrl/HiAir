@@ -405,6 +405,73 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(accountCard)
 
+        val privacyStatus = TextView(activity).apply {
+            text = ctx.l("privacy.status_idle")
+            textSize = 14f
+            setTextColor(Color.parseColor("#A6B6D2"))
+        }
+        val privacyCard = V2Ui.cardContainer(activity).apply {
+            addView(sectionTitle("privacy.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("privacy.wellness_notice")))
+            addView(V2Ui.spacer(activity, 8))
+            addView(privacyStatus)
+            addView(V2Ui.secondaryButton(activity, ctx.l("privacy.export")).apply {
+                setOnClickListener {
+                    privacyStatus.text = ctx.l("common.loading")
+                    Thread {
+                        try {
+                            val payload = rootShell.settingsViewModel.exportPrivacyData()
+                            activity.runOnUiThread {
+                                privacyStatus.text = ctx.l("privacy.export_ok")
+                            }
+                        } catch (_: Exception) {
+                            activity.runOnUiThread {
+                                privacyStatus.text = ctx.l("privacy.export_failed")
+                            }
+                        }
+                    }.start()
+                }
+            })
+            addView(V2Ui.secondaryButton(activity, ctx.l("privacy.delete")).apply {
+                setOnClickListener {
+                    androidx.appcompat.app.AlertDialog.Builder(activity)
+                        .setTitle(ctx.l("privacy.delete_confirm_title"))
+                        .setMessage(ctx.l("privacy.delete_confirm_body"))
+                        .setPositiveButton(ctx.l("privacy.delete_confirm_yes")) { _, _ ->
+                            privacyStatus.text = ctx.l("common.loading")
+                            Thread {
+                                try {
+                                    rootShell.settingsViewModel.deletePrivacyAccount()
+                                    activity.runOnUiThread {
+                                        privacyStatus.text = ctx.l("privacy.delete_ok")
+                                        clearSession()
+                                        ctx.rerender()
+                                    }
+                                } catch (_: Exception) {
+                                    activity.runOnUiThread {
+                                        privacyStatus.text = ctx.l("privacy.delete_failed")
+                                    }
+                                }
+                            }.start()
+                        }
+                        .setNegativeButton(ctx.l("privacy.delete_confirm_no"), null)
+                        .show()
+                }
+            })
+            addView(V2Ui.secondaryButton(activity, ctx.l("privacy.policy")).apply {
+                setOnClickListener {
+                    privacyStatus.text = "https://hiair.app/privacy"
+                }
+            })
+            addView(V2Ui.secondaryButton(activity, ctx.l("privacy.terms")).apply {
+                setOnClickListener {
+                    privacyStatus.text = "https://hiair.app/terms"
+                }
+            })
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("privacy.health_explanation")))
+        }
+        bodyContainer.addView(privacyCard)
+
         val notificationsCard = V2Ui.cardContainer(activity).apply {
             addView(sectionTitle("settings.notifications"))
             addView(pushAlertsBox)

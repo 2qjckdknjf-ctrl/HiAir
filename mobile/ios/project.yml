@@ -20,6 +20,8 @@ targets:
         MARKETING_VERSION: 0.1.0
         INFOPLIST_KEY_CFBundleDisplayName: HiAir
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Optional wellness metrics (steps, heart rate, sleep) personalize heat and air guidance. Not medical advice."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Location is used for local heat and air quality forecasts."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone:
@@ -32,3 +34,15 @@ targets:
           INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: YES
         Release:
           INFOPLIST_KEY_API_BASE_URL: https://api.hiair.app
+  HiAirTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - HiAirTests
+    dependencies:
+      - target: HiAir
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0

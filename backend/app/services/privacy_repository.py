@@ -98,6 +98,19 @@ def export_user_data(user_id: str) -> dict[str, Any]:
             )
             delivery_attempts = cur.fetchall()
 
+            cur.execute(
+                """
+                SELECT
+                    id, profile_id, recorded_at, steps, resting_heart_rate_bpm,
+                    hrv_ms, sleep_hours, sleep_quality_score, source, created_at
+                FROM wearable_metrics
+                WHERE user_id = %s
+                ORDER BY recorded_at DESC
+                """,
+                (user_id,),
+            )
+            wearable_metrics = cur.fetchall()
+
             symptoms: list[dict[str, Any]] = []
             risk_history: list[dict[str, Any]] = []
             notification_events: list[dict[str, Any]] = []
@@ -262,6 +275,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "alert_events": _serialize_rows(alert_events),
         "ai_explanation_events": _serialize_rows(ai_explanation_events),
         "device_tokens": _serialize_rows(device_tokens),
+        "wearable_metrics": _serialize_rows(wearable_metrics),
         "notification_delivery_attempts": _serialize_rows(delivery_attempts),
         "subscription_webhook_events": _serialize_rows(subscription_webhook_events),
     }
