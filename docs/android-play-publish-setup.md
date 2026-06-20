@@ -28,7 +28,9 @@ Keep the keystore file outside git. The script prints the base64 command for CI 
 
 Required API: Google Play Android Developer API.
 
-## 3. Add GitHub repository secrets
+## 3. Add GitHub production environment secrets
+
+Add these in **Settings -> Environments -> production**:
 
 | Secret | Description |
 |---|---|
@@ -38,10 +40,24 @@ Required API: Google Play Android Developer API.
 | `ANDROID_KEY_PASSWORD` | Key password |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Full JSON content of service account key |
 
+Automated sync from a prepared local secrets directory:
+
+```bash
+GH_ADMIN_TOKEN=ghp_... bash mobile/scripts/sync_android_github_secrets.sh
+```
+
 Generate base64 keystore payload:
 
 ```bash
 base64 -w 0 mobile/android/upload-keystore.jks
+```
+
+## 3.1 Local one-command publish
+
+Place service account JSON at `~/.hiair-secrets/play-service-account.json`, then:
+
+```bash
+bash mobile/scripts/publish_android.sh internal
 ```
 
 ## 4. Publish from GitHub Actions
