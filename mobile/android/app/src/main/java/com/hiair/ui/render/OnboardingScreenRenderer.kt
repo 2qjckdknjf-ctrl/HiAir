@@ -175,7 +175,7 @@ internal object OnboardingScreenRenderer {
             addView(V2Ui.spacer(ctx.activity, 6))
             addView(V2Ui.styledSecondaryText(ctx.activity, ctx.l("onboarding.health_body")))
             addView(V2Ui.spacer(ctx.activity, 6))
-            addView(V2Ui.styledSecondaryText(ctx.activity, ctx.l("onboarding.health_optional")))
+            addView(V2Ui.styledSecondaryText(ctx.activity, ctx.l("health.foundation_only")))
         }
         ctx.bodyContainer.addView(card)
         ctx.bodyContainer.addView(V2Ui.secondaryButton(ctx.activity, ctx.l("onboarding.skip")).apply {

@@ -40,7 +40,7 @@ class HealthConnectService(private val context: Context) {
         }
         return HealthSnapshot(
             available = false,
-            statusMessage = AndroidL10n.t("health.permission_needed", language)
+            statusMessage = AndroidL10n.t("health.foundation_only", language)
         )
     }
 }

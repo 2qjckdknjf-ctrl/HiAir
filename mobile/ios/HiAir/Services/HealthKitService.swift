@@ -33,7 +33,7 @@ final class HealthKitService {
         }
         return HealthSnapshot(
             available: false,
-            statusMessage: HiAirL10n.t("health.permission_needed", lang: language)
+                statusMessage: HiAirL10n.t("health.foundation_only", lang: language)
         )
     }
 

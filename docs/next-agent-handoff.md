@@ -26,12 +26,19 @@
 - XCTest: `RiskBreakdownParsingTests`
 - Info.plist keys for HealthKit + location via `project.yml`
 
+## Health / Wearable status (honest)
+
+- **HealthKit (iOS)** and **Health Connect (Android)**: foundation only in this PR.
+- UI labels: optional / foundation only — no claim that pulse/sleep are actively read yet.
+- Real metric reads require store entitlements + on-device validation in a follow-up.
+- Wearable **backend** API + DB migration are ready; mobile submit can be wired after health reads land.
+
 ## Next recommended steps
 
-1. Run `backend/sql/006_wearable_metrics.sql` on staging DB.
-2. Wire HealthKit / Health Connect read paths after store entitlement review.
+1. Run `python scripts/init_db.py` (includes `006_wearable_metrics.sql`) on staging DB.
+2. Wire HealthKit / Health Connect read + submit paths after entitlement review.
 3. Manual QA: fresh install flows on iOS/Android (`docs/qa-checklist.md`).
-4. Store upload with updated privacy labels mentioning optional health data.
+4. Run Android/iOS builds on macOS/CI with SDK installed.
 
 ## Validation run (cloud agent)
 

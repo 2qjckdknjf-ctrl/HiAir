@@ -82,6 +82,9 @@ struct OnboardingView: View {
                     Text(session.l("onboarding.health_optional"))
                         .font(.footnote)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(session.l("health.foundation_only"))
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
                     Button(session.l("onboarding.skip")) {
                         session.healthOptIn = false
                         step = .firstResult
