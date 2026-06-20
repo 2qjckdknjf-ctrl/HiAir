@@ -305,6 +305,63 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
+    fun ingestAnalyticsEvents(
+        userId: String?,
+        accessToken: String?,
+        events: JSONArray
+    ) {
+        val endpoint = "$baseUrl/api/analytics/events"
+        val json = JSONObject().apply { put("events", events) }.toString()
+        requestStrict("POST", endpoint, json, authHeaders(userId.orEmpty(), accessToken))
+    }
+
+    fun submitFeedback(
+        userId: String?,
+        accessToken: String?,
+        liked: String,
+        confusing: String,
+        broken: String,
+        contactEmail: String?,
+        platform: String = "android",
+        appVersion: String = "0.1.0"
+    ): String {
+        val endpoint = "$baseUrl/api/feedback"
+        val json = JSONObject().apply {
+            put("liked", liked)
+            put("confusing", confusing)
+            put("broken", broken)
+            put("contact_email", contactEmail)
+            put("platform", platform)
+            put("app_version", appVersion)
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId.orEmpty(), accessToken))
+    }
+
+    fun reportCrash(
+        userId: String?,
+        accessToken: String?,
+        sessionId: String?,
+        message: String,
+        stackTrace: String?,
+        platform: String = "android",
+        appVersion: String = "0.1.0"
+    ) {
+        val endpoint = "$baseUrl/api/crashes/report"
+        val json = JSONObject().apply {
+            put("session_id", sessionId)
+            put("message", message)
+            put("stack_trace", stackTrace)
+            put("platform", platform)
+            put("app_version", appVersion)
+        }.toString()
+        requestStrict("POST", endpoint, json, authHeaders(userId.orEmpty(), accessToken))
+    }
+
+    fun fetchKpiDashboard(userId: String, accessToken: String?, days: Int = 14): String {
+        val endpoint = "$baseUrl/api/analytics/kpi-dashboard?days=$days"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     private fun request(
         method: String,
         endpoint: String,

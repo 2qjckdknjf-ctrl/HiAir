@@ -103,6 +103,11 @@ final class DashboardViewModel: ObservableObject {
                 return "+\(factor.points) \(label)"
             }
             loadState = .success
+            AnalyticsService.shared.track(
+                .morningBriefingOpened,
+                userId: userId.isEmpty ? nil : userId,
+                accessToken: accessToken.isEmpty ? nil : accessToken
+            )
         } catch {
             loadState = .error
             riskLevel = "error"
@@ -221,7 +226,14 @@ struct DashboardView: View {
                 }
                 .buttonStyle(V2PrimaryButtonStyle())
 
-                Button(session.l("dashboard.share")) { sharePresented = true }
+                Button(session.l("dashboard.share")) {
+                    AnalyticsService.shared.track(
+                        .shareCardClicked,
+                        userId: session.userId.isEmpty ? nil : session.userId,
+                        accessToken: session.accessToken.isEmpty ? nil : session.accessToken
+                    )
+                    sharePresented = true
+                }
                     .buttonStyle(.bordered)
 
                 Button(session.l("dashboard.log_symptoms")) { session.selectedTab = 2 }
@@ -236,7 +248,14 @@ struct DashboardView: View {
             }
             .padding()
         }
-        .task { await refresh() }
+        .task {
+            AnalyticsService.shared.track(
+                .dashboardOpened,
+                userId: session.userId.isEmpty ? nil : session.userId,
+                accessToken: session.accessToken.isEmpty ? nil : session.accessToken
+            )
+            await refresh()
+        }
     }
 
     private var briefingText: String {

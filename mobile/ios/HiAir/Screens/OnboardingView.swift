@@ -35,6 +35,11 @@ struct OnboardingView: View {
                         .buttonStyle(V2PrimaryButtonStyle())
                     Button(session.l("onboarding.continue_guest")) {
                         session.isGuest = true
+                        AnalyticsService.shared.track(
+                            .guestModeUsed,
+                            userId: session.userId.isEmpty ? nil : session.userId,
+                            accessToken: session.accessToken.isEmpty ? nil : session.accessToken
+                        )
                         step = .value
                     }
                     .buttonStyle(.bordered)
@@ -112,6 +117,11 @@ struct OnboardingView: View {
             sensitivity = session.sensitivity
             latText = String(session.latitude)
             lonText = String(session.longitude)
+            AnalyticsService.shared.track(
+                .onboardingStarted,
+                userId: session.userId.isEmpty ? nil : session.userId,
+                accessToken: session.accessToken.isEmpty ? nil : session.accessToken
+            )
         }
     }
 
@@ -191,5 +201,10 @@ struct OnboardingView: View {
         session.latitude = Double(latText) ?? session.latitude
         session.longitude = Double(lonText) ?? session.longitude
         session.onboardingCompleted = true
+        AnalyticsService.shared.track(
+            .onboardingCompleted,
+            userId: session.userId.isEmpty ? nil : session.userId,
+            accessToken: session.accessToken.isEmpty ? nil : session.accessToken
+        )
     }
 }

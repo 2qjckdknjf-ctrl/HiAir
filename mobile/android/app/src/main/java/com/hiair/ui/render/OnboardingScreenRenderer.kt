@@ -1,6 +1,7 @@
 package com.hiair.ui.render
 
 import android.Manifest
+import com.hiair.analytics.AnalyticsEvents
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.widget.ArrayAdapter
@@ -231,6 +232,11 @@ internal object OnboardingScreenRenderer {
 
         ctx.bodyContainer.addView(V2Ui.primaryButton(ctx.activity, ctx.l("onboarding.finish")).apply {
             setOnClickListener {
+                ctx.analytics.track(
+                    AnalyticsEvents.ONBOARDING_COMPLETED,
+                    userId = ctx.session.userId.ifBlank { null },
+                    accessToken = ctx.session.accessToken.ifBlank { null }
+                )
                 ctx.updateSession(ctx.session.copy(onboardingCompleted = true))
                 ctx.rootShell.completeOnboarding()
                 ctx.rerender()
@@ -250,6 +256,11 @@ internal object OnboardingScreenRenderer {
         V2Ui.secondaryButton(ctx.activity, ctx.l("onboarding.continue_guest")).apply {
             setOnClickListener {
                 ctx.updateSession(ctx.session.copy(isGuest = true))
+                ctx.analytics.track(
+                    AnalyticsEvents.GUEST_MODE_USED,
+                    userId = ctx.session.userId.ifBlank { null },
+                    accessToken = ctx.session.accessToken.ifBlank { null }
+                )
                 ctx.rootShell.setOnboardingStep(OnboardingStep.VALUE)
                 ctx.rerender()
             }

@@ -306,7 +306,19 @@ enum HiAirL10n {
             "settings.ai_failed": "Не удалось загрузить AI наблюдаемость.",
             "settings.ai_request_failed": "Запрос AI наблюдаемости завершился ошибкой.",
             "settings.load_ai_summary": "Загрузить AI сводку",
-            "settings.loading_ai_metrics": "Загружаем AI метрики..."
+            "settings.loading_ai_metrics": "Загружаем AI метрики...",
+            "feedback.title": "Отправить отзыв",
+            "feedback.subtitle": "Помогите нам улучшить HiAir для первых пользователей.",
+            "feedback.liked": "Что понравилось",
+            "feedback.confusing": "Что непонятно",
+            "feedback.broken": "Что сломалось",
+            "feedback.email_optional": "Email (необязательно)",
+            "feedback.send": "Отправить",
+            "feedback.sent_ok": "Спасибо! Отзыв отправлен.",
+            "feedback.sent_failed": "Не удалось отправить отзыв.",
+            "feedback.empty": "Заполните хотя бы одно поле.",
+            "kpi.load": "KPI (первые пользователи)",
+            "kpi.load_failed": "Не удалось загрузить KPI."
         ],
         "en": [
             "tab.dashboard": "Dashboard",
@@ -539,7 +551,19 @@ enum HiAirL10n {
             "settings.ai_failed": "Failed to load AI observability.",
             "settings.ai_request_failed": "AI observability request failed.",
             "settings.load_ai_summary": "Load AI Summary",
-            "settings.loading_ai_metrics": "Loading AI metrics..."
+            "settings.loading_ai_metrics": "Loading AI metrics...",
+            "feedback.title": "Send Feedback",
+            "feedback.subtitle": "Help us improve HiAir for the first users.",
+            "feedback.liked": "What you liked",
+            "feedback.confusing": "What was confusing",
+            "feedback.broken": "What broke",
+            "feedback.email_optional": "Email (optional)",
+            "feedback.send": "Send",
+            "feedback.sent_ok": "Thanks! Feedback sent.",
+            "feedback.sent_failed": "Failed to send feedback.",
+            "feedback.empty": "Fill at least one field.",
+            "kpi.load": "First-user KPI",
+            "kpi.load_failed": "Failed to load KPI dashboard."
         ]
     ]
 }

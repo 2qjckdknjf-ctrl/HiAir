@@ -4,6 +4,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.hiair.StoredSession
+import com.hiair.analytics.AnalyticsTracker
 import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.RootShellViewModel
 
@@ -13,6 +14,7 @@ data class RenderContext(
     val titleView: TextView,
     val bodyContainer: LinearLayout,
     val session: StoredSession,
+    val analytics: AnalyticsTracker,
     val persistSession: () -> Unit,
     val updateSession: (StoredSession) -> Unit,
     val clearSession: () -> Unit,

@@ -405,6 +405,57 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(accountCard)
 
+        val feedbackStatus = TextView(activity).apply {
+            text = ctx.l("feedback.status_idle")
+            textSize = 14f
+            setTextColor(Color.parseColor("#A6B6D2"))
+        }
+        val likedInput = EditText(activity).apply { hint = ctx.l("feedback.liked") }
+        val confusingInput = EditText(activity).apply { hint = ctx.l("feedback.confusing") }
+        val brokenInput = EditText(activity).apply { hint = ctx.l("feedback.broken") }
+        val emailInput = EditText(activity).apply { hint = ctx.l("feedback.email_optional") }
+        val feedbackCard = V2Ui.cardContainer(activity).apply {
+            addView(sectionTitle("feedback.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("feedback.subtitle")))
+            addView(likedInput)
+            addView(confusingInput)
+            addView(brokenInput)
+            addView(emailInput)
+            addView(feedbackStatus)
+            addView(V2Ui.primaryButton(activity, ctx.l("feedback.send")).apply {
+                setOnClickListener {
+                    feedbackStatus.text = ctx.l("common.loading")
+                    Thread {
+                        try {
+                            val settings = rootShell.settingsViewModel.state
+                            com.hiair.network.ApiClient(com.hiair.network.AppConfig.apiBaseUrl).submitFeedback(
+                                userId = settings.userId.ifBlank { null },
+                                accessToken = settings.accessToken.ifBlank { null },
+                                liked = likedInput.text.toString(),
+                                confusing = confusingInput.text.toString(),
+                                broken = brokenInput.text.toString(),
+                                contactEmail = emailInput.text.toString().ifBlank { null }
+                            )
+                            ctx.analytics.track(
+                                com.hiair.analytics.AnalyticsEvents.FEEDBACK_SUBMITTED,
+                                userId = settings.userId.ifBlank { null },
+                                accessToken = settings.accessToken.ifBlank { null }
+                            )
+                            activity.runOnUiThread {
+                                feedbackStatus.text = ctx.l("feedback.sent_ok")
+                                likedInput.setText("")
+                                confusingInput.setText("")
+                                brokenInput.setText("")
+                            }
+                        } catch (_: Exception) {
+                            activity.runOnUiThread { feedbackStatus.text = ctx.l("feedback.sent_failed") }
+                        }
+                    }.start()
+                }
+            })
+        }
+        bodyContainer.addView(feedbackCard)
+
         val privacyStatus = TextView(activity).apply {
             text = ctx.l("privacy.status_idle")
             textSize = 14f
@@ -417,6 +468,11 @@ internal object SettingsScreenRenderer {
             addView(privacyStatus)
             addView(V2Ui.secondaryButton(activity, ctx.l("privacy.export")).apply {
                 setOnClickListener {
+                    ctx.analytics.track(
+                        com.hiair.analytics.AnalyticsEvents.PRIVACY_EXPORT_REQUESTED,
+                        userId = ctx.session.userId.ifBlank { null },
+                        accessToken = ctx.session.accessToken.ifBlank { null }
+                    )
                     privacyStatus.text = ctx.l("common.loading")
                     Thread {
                         try {
@@ -438,6 +494,11 @@ internal object SettingsScreenRenderer {
                         .setTitle(ctx.l("privacy.delete_confirm_title"))
                         .setMessage(ctx.l("privacy.delete_confirm_body"))
                         .setPositiveButton(ctx.l("privacy.delete_confirm_yes")) { _, _ ->
+                            ctx.analytics.track(
+                                com.hiair.analytics.AnalyticsEvents.PRIVACY_DELETE_REQUESTED,
+                                userId = ctx.session.userId.ifBlank { null },
+                                accessToken = ctx.session.accessToken.ifBlank { null }
+                            )
                             privacyStatus.text = ctx.l("common.loading")
                             Thread {
                                 try {
@@ -469,6 +530,25 @@ internal object SettingsScreenRenderer {
                 }
             })
             addView(V2Ui.styledSecondaryText(activity, ctx.l("privacy.health_explanation")))
+            addView(V2Ui.secondaryButton(activity, ctx.l("kpi.load")).apply {
+                setOnClickListener {
+                    privacyStatus.text = ctx.l("common.loading")
+                    Thread {
+                        try {
+                            val settings = rootShell.settingsViewModel.state
+                            if (settings.userId.isBlank() || settings.accessToken.isBlank()) {
+                                activity.runOnUiThread { privacyStatus.text = ctx.l("privacy.auth_required") }
+                                return@Thread
+                            }
+                            val payload = com.hiair.network.ApiClient(com.hiair.network.AppConfig.apiBaseUrl)
+                                .fetchKpiDashboard(settings.userId, settings.accessToken)
+                            activity.runOnUiThread { privacyStatus.text = payload.take(240) }
+                        } catch (_: Exception) {
+                            activity.runOnUiThread { privacyStatus.text = ctx.l("kpi.load_failed") }
+                        }
+                    }.start()
+                }
+            })
         }
         bodyContainer.addView(privacyCard)
 

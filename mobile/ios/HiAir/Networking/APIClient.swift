@@ -596,4 +596,130 @@ final class APIClient {
             throw APIError.invalidResponse
         }
     }
+
+    func ingestAnalyticsEvents(
+        userId: String?,
+        accessToken: String?,
+        events: [AnalyticsEventPayload]
+    ) async throws {
+        let url = baseURL.appending(path: "/api/analytics/events")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        struct Batch: Codable { let events: [AnalyticsEventPayload] }
+        request.httpBody = try JSONEncoder().encode(Batch(events: events))
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+    }
+
+    func submitFeedback(
+        userId: String?,
+        accessToken: String?,
+        liked: String,
+        confusing: String,
+        broken: String,
+        contactEmail: String?,
+        platform: String = "ios",
+        appVersion: String = "0.1.0"
+    ) async throws {
+        let url = baseURL.appending(path: "/api/feedback")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        struct Payload: Codable {
+            let liked: String
+            let confusing: String
+            let broken: String
+            let contactEmail: String?
+            let platform: String
+            let appVersion: String
+
+            enum CodingKeys: String, CodingKey {
+                case liked
+                case confusing
+                case broken
+                case contactEmail = "contact_email"
+                case platform
+                case appVersion = "app_version"
+            }
+        }
+        request.httpBody = try JSONEncoder().encode(
+            Payload(
+                liked: liked,
+                confusing: confusing,
+                broken: broken,
+                contactEmail: contactEmail,
+                platform: platform,
+                appVersion: appVersion
+            )
+        )
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+    }
+
+    func reportCrash(
+        userId: String?,
+        accessToken: String?,
+        sessionId: String?,
+        message: String,
+        stackTrace: String?,
+        platform: String = "ios",
+        appVersion: String = "0.1.0"
+    ) async throws {
+        let url = baseURL.appending(path: "/api/crashes/report")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        struct Payload: Codable {
+            let sessionId: String?
+            let message: String
+            let stackTrace: String?
+            let platform: String
+            let appVersion: String
+
+            enum CodingKeys: String, CodingKey {
+                case sessionId = "session_id"
+                case message
+                case stackTrace = "stack_trace"
+                case platform
+                case appVersion = "app_version"
+            }
+        }
+        request.httpBody = try JSONEncoder().encode(
+            Payload(
+                sessionId: sessionId,
+                message: message,
+                stackTrace: stackTrace,
+                platform: platform,
+                appVersion: appVersion
+            )
+        )
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+    }
+
+    func fetchKpiDashboard(userId: String, accessToken: String, days: Int = 14) async throws -> Data {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/analytics/kpi-dashboard"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [URLQueryItem(name: "days", value: String(days))]
+        guard let url = components?.url else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return data
+    }
 }

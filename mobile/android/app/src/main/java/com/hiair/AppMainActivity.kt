@@ -11,7 +11,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.hiair.ui.i18n.AndroidL10n
+import com.hiair.analytics.AnalyticsEvents
+import com.hiair.analytics.AnalyticsTracker
+import com.hiair.analytics.CrashReporter
 import com.hiair.ui.navigation.AppPhase
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
@@ -23,6 +25,7 @@ class AppMainActivity : AppCompatActivity() {
     private val rootShell = RootShellViewModel()
     private lateinit var sessionStore: SessionStore
     private lateinit var session: StoredSession
+    private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var titleView: TextView
     private lateinit var bodyContainer: LinearLayout
     private lateinit var navRow: LinearLayout
@@ -36,10 +39,26 @@ class AppMainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
         session = sessionStore.load()
+        analyticsTracker = AnalyticsTracker(this)
         applySessionToViewModels()
 
+        CrashReporter.install(
+            context = this,
+            userIdProvider = { session.userId.ifBlank { null } },
+            accessTokenProvider = { session.accessToken.ifBlank { null } }
+        )
+        analyticsTracker.track(
+            AnalyticsEvents.APP_INSTALL_TRACKED,
+            userId = session.userId.ifBlank { null },
+            accessToken = session.accessToken.ifBlank { null }
+        )
         if (!session.onboardingCompleted) {
             rootShell.startOnboarding()
+            analyticsTracker.track(
+                AnalyticsEvents.ONBOARDING_STARTED,
+                userId = session.userId.ifBlank { null },
+                accessToken = session.accessToken.ifBlank { null }
+            )
         }
 
         val root = LinearLayout(this).apply {
@@ -111,6 +130,7 @@ class AppMainActivity : AppCompatActivity() {
             titleView = titleView,
             bodyContainer = bodyContainer,
             session = session,
+            analytics = analyticsTracker,
             persistSession = ::persistSession,
             updateSession = ::updateSession,
             clearSession = {

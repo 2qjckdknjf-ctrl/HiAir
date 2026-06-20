@@ -33,6 +33,11 @@ final class SymptomLogViewModel: ObservableObject {
                 accessToken: accessToken
             )
             statusText = "\(HiAirL10n.t("symptoms.saved_at", lang: language)) \(result.timestampUtc)"
+            AnalyticsService.shared.track(
+                .symptomLogged,
+                userId: userId.isEmpty ? nil : userId,
+                accessToken: accessToken.isEmpty ? nil : accessToken
+            )
         } catch {
             statusText = HiAirL10n.t("symptoms.save_failed", lang: language)
         }

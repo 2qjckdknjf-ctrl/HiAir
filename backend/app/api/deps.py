@@ -34,6 +34,18 @@ def get_current_user_id(
     raise HTTPException(status_code=401, detail="Missing authentication header")
 
 
+def get_optional_user_id(
+    authorization: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> str | None:
+    try:
+        return get_current_user_id(authorization=authorization, x_user_id=x_user_id)
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            return None
+        raise
+
+
 def require_ops_admin_token(x_admin_token: str | None = Header(default=None)) -> bool:
     if not settings.notification_admin_token:
         return True

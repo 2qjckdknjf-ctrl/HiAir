@@ -11,12 +11,28 @@ import com.hiair.ui.safeWindowsText
 import com.hiair.ui.theme.V2Ui
 
 internal object DashboardScreenRenderer {
+    private var dashboardTracked = false
+
     fun render(ctx: RenderContext) {
         val activity = ctx.activity
         val rootShell = ctx.rootShell
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
         val lang = rootShell.settingsViewModel.state.preferredLanguage
+
+        if (!dashboardTracked) {
+            dashboardTracked = true
+            ctx.analytics.track(
+                com.hiair.analytics.AnalyticsEvents.DASHBOARD_OPENED,
+                userId = ctx.session.userId.ifBlank { null },
+                accessToken = ctx.session.accessToken.ifBlank { null }
+            )
+            ctx.analytics.track(
+                com.hiair.analytics.AnalyticsEvents.MORNING_BRIEFING_OPENED,
+                userId = ctx.session.userId.ifBlank { null },
+                accessToken = ctx.session.accessToken.ifBlank { null }
+            )
+        }
 
         titleView.text = ctx.l("dashboard.greeting")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("dashboard.subtitle")).apply { textSize = 13f })
@@ -89,6 +105,11 @@ internal object DashboardScreenRenderer {
 
         val shareButton = V2Ui.secondaryButton(activity, ctx.l("dashboard.share")).apply {
             setOnClickListener {
+                ctx.analytics.track(
+                    com.hiair.analytics.AnalyticsEvents.SHARE_CARD_CLICKED,
+                    userId = ctx.session.userId.ifBlank { null },
+                    accessToken = ctx.session.accessToken.ifBlank { null }
+                )
                 com.hiair.share.ShareHelper.shareDashboard(activity, rootShell, lang)
             }
         }
