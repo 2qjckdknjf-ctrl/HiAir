@@ -19,7 +19,7 @@ class HealthConnectService(private val context: Context) {
     fun isAvailable(): Boolean {
         return try {
             Class.forName("androidx.health.connect.client.HealthConnectClient")
-            false
+            true
         } catch (_: ClassNotFoundException) {
             false
         }

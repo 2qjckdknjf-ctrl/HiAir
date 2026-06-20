@@ -133,17 +133,33 @@ def build_kpi_dashboard(window_days: int = 14) -> KpiDashboardResponse:
 
             cur.execute(
                 """
+                SELECT COUNT(DISTINCT session_id) AS started
+                FROM product_analytics_events
+                WHERE created_at >= %s
+                  AND event_name = 'onboarding_started'
+                """,
+                (since,),
+            )
+            started_row = cur.fetchone()
+            onboarding_started = int(started_row["started"] or 0) if started_row else 0
+
+            cur.execute(
+                """
                 SELECT COUNT(DISTINCT s.session_id) AS retained
                 FROM product_analytics_events s
-                INNER JOIN product_analytics_events d
-                    ON d.session_id = s.session_id
-                   AND d.event_name = 'dashboard_opened'
-                   AND d.created_at >= %s
                 WHERE s.event_name = 'onboarding_completed'
                   AND s.created_at >= %s
-                  AND s.created_at <= %s
+                  AND s.created_at < %s
+                  AND EXISTS (
+                      SELECT 1
+                      FROM product_analytics_events d
+                      WHERE d.session_id = s.session_id
+                        AND d.event_name = 'dashboard_opened'
+                        AND d.created_at > s.created_at
+                        AND d.created_at <= s.created_at + INTERVAL '24 hours'
+                  )
                 """,
-                (d1_since, since, d1_since),
+                (since, d1_since),
             )
             d1_row = cur.fetchone()
             d1_retained = int(d1_row["retained"] or 0) if d1_row else 0
@@ -161,6 +177,19 @@ def build_kpi_dashboard(window_days: int = 14) -> KpiDashboardResponse:
             onboarding_completed = int(completed_row["completed"] or 0) if completed_row else 0
 
             cur.execute(
+                """
+                SELECT COUNT(DISTINCT session_id) AS completed
+                FROM product_analytics_events
+                WHERE created_at >= %s
+                  AND created_at < %s
+                  AND event_name = 'onboarding_completed'
+                """,
+                (since, d1_since),
+            )
+            d1_completed_row = cur.fetchone()
+            d1_eligible_completed = int(d1_completed_row["completed"] or 0) if d1_completed_row else 0
+
+            cur.execute(
                 "SELECT COUNT(*) AS total FROM product_feedback WHERE created_at >= %s",
                 (since,),
             )
@@ -171,15 +200,13 @@ def build_kpi_dashboard(window_days: int = 14) -> KpiDashboardResponse:
                 (since,),
             )
             crash_total = int(cur.fetchone()["total"] or 0)
-
-    onboarding_started = counts.get("onboarding_started", 0)
     completion_rate = 0.0
     if onboarding_started > 0:
         completion_rate = round((onboarding_completed / onboarding_started) * 100.0, 1)
 
     d1_rate = 0.0
-    if onboarding_completed > 0:
-        d1_rate = round((d1_retained / onboarding_completed) * 100.0, 1)
+    if d1_eligible_completed > 0:
+        d1_rate = round((d1_retained / d1_eligible_completed) * 100.0, 1)
 
     return KpiDashboardResponse(
         window_days=window_days,

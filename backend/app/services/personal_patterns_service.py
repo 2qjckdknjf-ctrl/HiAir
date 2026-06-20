@@ -36,8 +36,16 @@ def _symptom_aqi_insight(profile_id: str) -> PersonalInsightItem | None:
                     ) AS clean_aqi,
                     COUNT(*) AS total
                 FROM symptom_logs s
-                JOIN risk_scores r ON r.profile_id = s.profile_id
-                JOIN environment_snapshots e ON e.id = r.snapshot_id
+                JOIN LATERAL (
+                    SELECT r.snapshot_id
+                    FROM risk_scores r
+                    WHERE r.profile_id = s.profile_id
+                      AND r.snapshot_id IS NOT NULL
+                      AND r.created_at <= s.timestamp_utc
+                    ORDER BY r.created_at DESC
+                    LIMIT 1
+                ) matched_risk ON TRUE
+                JOIN environment_snapshots e ON e.id = matched_risk.snapshot_id
                 WHERE s.profile_id = %s
                   AND s.timestamp_utc >= NOW() - INTERVAL '14 days'
                 """,

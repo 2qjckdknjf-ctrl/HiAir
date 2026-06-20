@@ -15,8 +15,44 @@ from app.models.product_analytics import (
     FeedbackSubmitResponse,
     KpiDashboardResponse,
 )
+from app.services import product_analytics_repository
 
 client = TestClient(app)
+
+
+class _FakeCursor:
+    def __init__(self, fetchall_results, fetchone_results):
+        self._fetchall_results = list(fetchall_results)
+        self._fetchone_results = list(fetchone_results)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, _sql, _params=None):
+        return None
+
+    def fetchall(self):
+        return self._fetchall_results.pop(0)
+
+    def fetchone(self):
+        return self._fetchone_results.pop(0)
+
+
+class _FakeConnection:
+    def __init__(self, cursor: _FakeCursor):
+        self._cursor = cursor
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def cursor(self):
+        return self._cursor
 
 
 def test_analytics_event_ingest_and_kpi():
@@ -141,3 +177,35 @@ def test_privacy_export_includes_launch_tables() -> None:
     assert '"product_feedback": _serialize_rows(product_feedback)' in source
     assert '"product_crash_reports": _serialize_rows(product_crash_reports)' in source
     assert "DELETE FROM product_analytics_events WHERE user_id = %s" in source
+
+
+def test_kpi_dashboard_uses_distinct_onboarding_sessions_and_d1_cohort(monkeypatch) -> None:
+    fake_cursor = _FakeCursor(
+        fetchall_results=[
+            [
+                {"event_name": "onboarding_started", "total": 3},
+                {"event_name": "dashboard_opened", "total": 5},
+            ]
+        ],
+        fetchone_results=[
+            {"installs": 2},
+            {"started": 2},
+            {"retained": 1},
+            {"completed": 2},
+            {"completed": 1},
+            {"total": 0},
+            {"total": 0},
+        ],
+    )
+    monkeypatch.setattr(
+        product_analytics_repository,
+        "get_connection",
+        lambda: _FakeConnection(fake_cursor),
+    )
+
+    result = product_analytics_repository.build_kpi_dashboard(window_days=14)
+
+    assert result.onboarding_started == 2
+    assert result.onboarding_completion_rate_pct == 100.0
+    assert result.onboarding_completed == 2
+    assert result.d1_retention_pct == 100.0

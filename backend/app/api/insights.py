@@ -6,6 +6,7 @@ from app.models.insights import MorningBriefingResponse, PersonalPatternsRespons
 from app.models.risk import EnvironmentSnapshot, PersonaType, SymptomInput
 from app.models.wearable import WearableMetricsLatestResponse, WearableMetricsResponse, WearableMetricsSubmitRequest
 import app.services.air_repository as air_repository
+import app.services.air_environment_service as air_environment_service
 import app.services.morning_briefing_service as morning_briefing_service
 import app.services.personal_patterns_service as personal_patterns_service
 import app.services.profile_access as profile_access
@@ -25,6 +26,18 @@ def _resolve_profile(profile_id: str, user_id: str):
     if profile.user_id != user_id:
         raise HTTPException(status_code=403, detail="Profile does not belong to user")
     return profile
+
+
+def _build_profile_environment(profile) -> EnvironmentSnapshot:
+    environment = air_environment_service.load_environment(profile, force_live=False)
+    return EnvironmentSnapshot(
+        temperature_c=environment.temperature,
+        humidity_percent=environment.humidity,
+        aqi=environment.aqi,
+        pm25=environment.pm25,
+        ozone=environment.ozone,
+        source=environment.source,
+    )
 
 
 @router.post("/wearable/metrics", response_model=WearableMetricsResponse)
@@ -149,7 +162,8 @@ def risk_breakdown(
 
     if profile_id:
         try:
-            _resolve_profile(profile_id, user_id)
+            profile = _resolve_profile(profile_id, user_id)
+            environment = _build_profile_environment(profile)
             symptom_stats = risk_repository.get_recent_symptom_stats(profile_id=profile_id, hours=48)
             sleep_quality = risk_repository.get_latest_sleep_quality(profile_id=profile_id)
             symptoms = SymptomInput(
