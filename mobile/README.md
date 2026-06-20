@@ -41,6 +41,7 @@ This folder contains native client code skeletons for:
      - `./gradlew :app:assembleDebug --no-daemon`
      - `./gradlew :app:bundleRelease --no-daemon`
      - `./gradlew :app:lintDebug --no-daemon`
+   - Play publish automation: `docs/android-play-publish-setup.md`
    - open `mobile/android` in Android Studio and run `app` module
 3. Continue UI wiring:
    - connect navigation shell to real screen composables/views

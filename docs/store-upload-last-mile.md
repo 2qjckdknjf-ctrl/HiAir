@@ -25,6 +25,14 @@ Manifest output:
 
 ## Google Play Internal Test
 
+Automated upload (recommended after secrets are configured):
+
+1. Follow `docs/android-play-publish-setup.md`.
+2. Run GitHub Actions workflow `Android Release` with track `internal`.
+3. Verify release in Play Console and assign testers.
+
+Manual upload fallback:
+
 1. Open Google Play Console -> Internal testing.
 2. Create release and upload `app-release.aab`.
 3. Add testers list.
