@@ -11,6 +11,7 @@ import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class SettingsState(
@@ -19,6 +20,7 @@ data class SettingsState(
     val userId: String = "",
     val accessToken: String = "",
     val refreshToken: String = "",
+    val profileId: String = "",
     val pushAlertsEnabled: Boolean = true,
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
@@ -89,6 +91,60 @@ class SettingsViewModel(
 
     fun setRefreshToken(value: String) {
         state = state.copy(refreshToken = value)
+    }
+
+    fun setProfileId(value: String) {
+        state = state.copy(profileId = value)
+    }
+
+    /**
+     * Resolves the active personalization profile, creating one automatically on
+     * first launch so the dashboard never blocks on manual profile entry. Must be
+     * called from a background thread. Returns the profile id, or null when the
+     * user is not authenticated or the backend is unreachable.
+     */
+    fun ensureProfile(): String? {
+        if (state.profileId.isNotBlank()) {
+            return state.profileId
+        }
+        val current = state
+        if (current.userId.isBlank() || current.accessToken.isBlank()) {
+            return null
+        }
+        return try {
+            val token = current.accessToken.ifBlank { null }
+            val existing = parseFirstProfileId(apiClient.listProfiles(current.userId, token))
+            val resolved = existing ?: parseProfileId(
+                apiClient.createProfile(
+                    userId = current.userId,
+                    accessToken = token,
+                    personaType = current.defaultPersona,
+                    sensitivityLevel = "medium",
+                    homeLat = 0.0,
+                    homeLon = 0.0,
+                )
+            )
+            if (resolved.isNullOrBlank()) {
+                null
+            } else {
+                state = state.copy(profileId = resolved)
+                resolved
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseFirstProfileId(raw: String): String? {
+        val array = JSONArray(raw)
+        if (array.length() == 0) {
+            return null
+        }
+        return array.optJSONObject(0)?.optString("id")?.takeIf { it.isNotBlank() }
+    }
+
+    private fun parseProfileId(raw: String): String? {
+        return JSONObject(raw).optString("id").takeIf { it.isNotBlank() }
     }
 
     fun configureSupabaseAuth(authService: SupabaseAuthService) {

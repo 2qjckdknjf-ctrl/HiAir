@@ -1,6 +1,5 @@
 package com.hiair.network
 
-import com.hiair.models.RiskEstimateRequest
 import com.hiair.models.SymptomLogRequest
 import java.net.HttpURLConnection
 import java.net.URL
@@ -66,27 +65,27 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, json)
     }
 
-    fun fetchDailyPlanner(
-        persona: String = "adult",
-        lat: Double = 41.39,
-        lon: Double = 2.17,
-        hours: Int = 12
-    ): String {
-        val endpoint = "$baseUrl/api/planner/daily?persona=$persona&lat=$lat&lon=$lon&hours=$hours"
-        return request("GET", endpoint, null)
+    fun listProfiles(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/profiles"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
-    fun fetchDashboardOverview(
+    fun createProfile(
         userId: String,
-        accessToken: String? = null,
-        profileId: String? = null,
-        persona: String = "adult",
-        lat: Double = 41.39,
-        lon: Double = 2.17
+        accessToken: String?,
+        personaType: String,
+        sensitivityLevel: String,
+        homeLat: Double,
+        homeLon: Double
     ): String {
-        val profileQuery = if (profileId != null) "&profile_id=$profileId" else ""
-        val endpoint = "$baseUrl/api/dashboard/overview?persona=$persona&lat=$lat&lon=$lon$profileQuery"
-        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+        val endpoint = "$baseUrl/api/profiles"
+        val json = JSONObject().apply {
+            put("persona_type", personaType)
+            put("sensitivity_level", sensitivityLevel)
+            put("home_lat", homeLat)
+            put("home_lon", homeLon)
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
     fun fetchCurrentRisk(
@@ -95,7 +94,7 @@ class ApiClient(private val baseUrl: String) {
         profileId: String
     ): String {
         val endpoint = "$baseUrl/api/air/current-risk?profileId=$profileId"
-        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
     fun fetchAirDayPlan(
@@ -138,41 +137,6 @@ class ApiClient(private val baseUrl: String) {
             put("enabled", enabled)
         }.toString()
         return request("PUT", endpoint, json, authHeaders(userId, accessToken))
-    }
-
-    fun fetchEnvironmentSnapshotMock(lat: Double, lon: Double): String {
-        val endpoint = "$baseUrl/api/environment/snapshot?lat=$lat&lon=$lon&source=mock"
-        return request("GET", endpoint, null)
-    }
-
-    fun estimateRisk(payload: RiskEstimateRequest): String {
-        val endpoint = "$baseUrl/api/risk/estimate"
-        val json = JSONObject().apply {
-            put("persona", payload.persona)
-            put("profile_id", payload.profile_id)
-            put(
-                "symptoms",
-                JSONObject().apply {
-                    put("cough", payload.symptoms.cough)
-                    put("wheeze", payload.symptoms.wheeze)
-                    put("headache", payload.symptoms.headache)
-                    put("fatigue", payload.symptoms.fatigue)
-                    put("sleep_quality", payload.symptoms.sleep_quality)
-                }
-            )
-            put(
-                "environment",
-                JSONObject().apply {
-                    put("temperature_c", payload.environment.temperature_c)
-                    put("humidity_percent", payload.environment.humidity_percent)
-                    put("aqi", payload.environment.aqi)
-                    put("pm25", payload.environment.pm25)
-                    put("ozone", payload.environment.ozone)
-                    put("source", payload.environment.source)
-                }
-            )
-        }.toString()
-        return request("POST", endpoint, json)
     }
 
     fun logSymptom(

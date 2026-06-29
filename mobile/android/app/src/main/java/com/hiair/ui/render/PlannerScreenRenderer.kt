@@ -56,8 +56,10 @@ internal object PlannerScreenRenderer {
             setOnClickListener {
                 stateText.text = ctx.l("common.loading")
                 Thread {
+                    val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
                     val settings = rootShell.settingsViewModel.state
-                    val profileId = rootShell.symptomLogViewModel.state.profileId
+                    val profileId = resolvedProfileId
+                        ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
                     if (profileId.isBlank()) {
                         activity.runOnUiThread { stateText.text = ctx.l("planner.profile_required") }
                         return@Thread

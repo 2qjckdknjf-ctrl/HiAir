@@ -9,7 +9,8 @@ data class StoredSession(
     val email: String,
     val userId: String,
     val accessToken: String,
-    val refreshToken: String
+    val refreshToken: String,
+    val profileId: String
 )
 
 class SessionStore(private val prefs: SharedPreferences) {
@@ -36,6 +37,7 @@ class SessionStore(private val prefs: SharedPreferences) {
             userId = prefs.getString("user_id", "") ?: "",
             accessToken = prefs.getString("access_token", "") ?: "",
             refreshToken = prefs.getString("refresh_token", "") ?: "",
+            profileId = prefs.getString("profile_id", "") ?: "",
         )
     }
 
@@ -45,6 +47,7 @@ class SessionStore(private val prefs: SharedPreferences) {
             .putString("user_id", session.userId)
             .putString("access_token", session.accessToken)
             .putString("refresh_token", session.refreshToken)
+            .putString("profile_id", session.profileId)
             .apply()
     }
 

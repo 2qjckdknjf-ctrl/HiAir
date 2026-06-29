@@ -75,6 +75,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
                         rootShell.settingsViewModel.setUserId("")
                         rootShell.settingsViewModel.setAccessToken("")
                         rootShell.settingsViewModel.setRefreshToken("")
+                        rootShell.settingsViewModel.setProfileId("")
+                        rootShell.dashboardViewModel.reset()
                         rootShell.settingsViewModel.notifySessionExpired()
                         rootShell.openSettings()
                     } else {
@@ -194,6 +196,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
         rootShell.settingsViewModel.setUserId(stored.userId)
         rootShell.settingsViewModel.setAccessToken(stored.accessToken)
         rootShell.settingsViewModel.setRefreshToken(stored.refreshToken)
+        rootShell.settingsViewModel.setProfileId(stored.profileId)
     }
 
     private fun persistSession() {
@@ -203,7 +206,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
                 email = state.email,
                 userId = state.userId,
                 accessToken = state.accessToken,
-                refreshToken = state.refreshToken
+                refreshToken = state.refreshToken,
+                profileId = state.profileId
             )
         )
     }

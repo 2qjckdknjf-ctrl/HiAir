@@ -28,7 +28,14 @@ internal object SymptomsScreenRenderer {
             setPadding(V2Ui.dp(activity, 10), V2Ui.dp(activity, 6), V2Ui.dp(activity, 10), V2Ui.dp(activity, 6))
             background = HiAirComponents.chipBackground(activity)
         })
-        val profileInput = EditText(activity).apply { hint = ctx.l("symptoms.profile_id") }
+        val profileInput = EditText(activity).apply {
+            hint = ctx.l("symptoms.profile_id")
+            val resolvedProfileId = rootShell.settingsViewModel.state.profileId
+                .ifBlank { rootShell.symptomLogViewModel.state.profileId }
+            if (resolvedProfileId.isNotBlank()) {
+                setText(resolvedProfileId)
+            }
+        }
         val coughPill = symptomPill(activity, "💨 ${ctx.l("symptoms.cough")}") { selected ->
             coughSelected = selected
         }

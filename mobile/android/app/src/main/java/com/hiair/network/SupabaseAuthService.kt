@@ -179,7 +179,8 @@ class SupabaseAuthService(
                 email = session.email,
                 userId = session.userId,
                 accessToken = session.accessToken,
-                refreshToken = session.refreshToken
+                refreshToken = session.refreshToken,
+                profileId = sessionStore.load().profileId
             )
         )
     }
