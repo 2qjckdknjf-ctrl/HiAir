@@ -1,7 +1,19 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-04-07  
+Date: 2026-04-07 (status block updated 2026-06-29, P0-B0)
 Owner transfer: current agent -> next development agent
+
+## 0) Live status — first-10-users track (2026-06-29)
+
+Branch `release/mega-sprint-2-first-10-users` (3 commits ahead of `origin/main`, clean fast-forward).
+
+- ✅ **P0 Sprint #1** (`205beed`) — Android live dashboard, no mock content; state machine + auto profile bootstrap.
+- ✅ **P0 Sprint #2** (`631fb2e`) — backend live→cached→sample environmental resolver; source labeling on both apps.
+- ⏳ **P0-B0 Deploy** — `api.hiair.io` **still on old mock-first build** (verified: `source=sample` → 422). Local deploy **blocked** (no Docker/colima/Rosetta for Cloudflare Containers image build; `gh` x86_64/non-functional). **Path:** push branch → `main` triggers `.github/workflows/backend-deploy-production.yml` (CI builds container + post-deploy smoke). Needs production-push authorization + verified GitHub Actions secrets (CLOUDFLARE_API_TOKEN/ACCOUNT_ID, JWT_SECRET, OPENAI_*, WEATHER_API_PROVIDER=openmeteo, AQI_API_PROVIDER=openmeteo).
+- ⏳ **Backend validation (local)**: `compileall` OK, `pytest` 119 passed, `validate_risk_historical` 4/4; `check_env_security --strict` fails only on `JWT_SECRET` absent in shell = EXPECTED LOCAL.
+- ⏳ **Latency**: `/api/health` cold ~4.1s, warm 0.24–0.63s (Cloudflare Containers cold start).
+
+**Correct sequence:** Deploy + smoke → Device QA → Push token → Internal Testing / TestFlight. Do NOT start device QA until `api.hiair.io` serves the new build.
 
 ## 1) Current state (implemented and verified)
 

@@ -2,6 +2,14 @@
 
 This checklist is used to prepare a closed beta on iOS and Android.
 
+## 0) Live environmental backend deploy (P0-B0, 2026-06-29)
+
+- backend live providers deployed: **NO** — `api.hiair.io` still serves old mock-first build (commit `631fb2e` not deployed; local container build blocked by missing Docker/Rosetta, `gh` non-functional).
+- production smoke (new build): **PENDING DEPLOY** — current prod verified on OLD code (`/api/environment/snapshot?source=sample` → 422).
+- source returned by prod: **mock** (old code) — target after deploy: live/cached/sample.
+- latency: `/api/health` cold ~4.1s, warm 0.24–0.63s (container cold start).
+- blockers before device QA: deploy live backend via GitHub Actions (push `main`), confirm CI secrets, verify a coordinate (e.g. Castelldefels 41.28/1.97, not 0,0) returns `source=live`.
+
 ## 1) Environment and secrets
 
 - [ ] `DATABASE_URL` points to staging database.
