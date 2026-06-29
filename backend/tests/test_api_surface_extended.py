@@ -346,14 +346,14 @@ def test_insights_personal_patterns(monkeypatch) -> None:
 def test_planner_and_validation(monkeypatch) -> None:
     _enable_auth(monkeypatch)
     monkeypatch.setattr(
-        "app.api.planner.build_mock_snapshot",
-        lambda lat, lon: EnvironmentSnapshot(
+        "app.api.planner.air_environment_service.resolve_environment_snapshot",
+        lambda lat, lon, **kwargs: EnvironmentSnapshot(
             temperature_c=26.0,
             humidity_percent=55.0,
             aqi=60,
             pm25=11.0,
             ozone=62.0,
-            source="mock",
+            source="live",
         ),
     )
     monkeypatch.setattr(

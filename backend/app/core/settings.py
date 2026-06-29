@@ -47,10 +47,14 @@ class Settings:
     google_play_verifier_mode: str = os.getenv("GOOGLE_PLAY_VERIFIER_MODE", "stub")
     apple_bundle_id: str = os.getenv("APPLE_BUNDLE_ID", "com.hiair.app")
     google_play_package_name: str = os.getenv("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
-    weather_api_provider: str = os.getenv("WEATHER_API_PROVIDER", "openweathermap")
+    weather_api_provider: str = os.getenv("WEATHER_API_PROVIDER", "openmeteo")
     weather_api_key: str = os.getenv("WEATHER_API_KEY", "")
-    aqi_api_provider: str = os.getenv("AQI_API_PROVIDER", "waqi")
+    aqi_api_provider: str = os.getenv("AQI_API_PROVIDER", "openmeteo")
     aqi_api_key: str = os.getenv("AQI_API_KEY", "")
+    environment_cache_ttl_seconds: int = int(os.getenv("ENVIRONMENT_CACHE_TTL_SECONDS", "900"))
+    environment_allow_sample_fallback: bool = (
+        os.getenv("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK", "true").strip().lower() == "true"
+    )
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_base_url: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1/chat/completions")

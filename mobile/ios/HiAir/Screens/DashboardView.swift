@@ -379,6 +379,9 @@ struct DashboardView: View {
                 Text(session.l("dashboard.air_metrics"))
                     .font(HiAirTypography.titleMD)
                     .foregroundStyle(HiAirV2Theme.primaryText)
+                Text(session.l(sourceLabelKey(for: env.source)))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirV2Theme.tertiaryText)
                 metricRow("dashboard.metric.aqi", value: "\(env.aqi)", tooltip: "dashboard.tooltip.aqi")
                 metricRow("dashboard.metric.pm25", value: String(format: "%.1f", env.pm25), tooltip: "dashboard.tooltip.pm25")
                 metricRow("dashboard.metric.ozone", value: String(format: "%.1f", env.ozone), tooltip: "dashboard.tooltip.ozone")
@@ -513,6 +516,17 @@ struct DashboardView: View {
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
         }
         .buttonStyle(.plain)
+    }
+
+    private func sourceLabelKey(for source: String) -> String {
+        switch source.lowercased() {
+        case "live":
+            return "dashboard.source_live"
+        case "cached":
+            return "dashboard.source_cached"
+        default:
+            return "dashboard.source_sample"
+        }
     }
 
     private func metricRow(_ titleKey: String, value: String, tooltip: String) -> some View {

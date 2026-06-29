@@ -28,7 +28,10 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     profile = _resolve_profile_for_user(profile_id, user_id)
     user_settings = settings_repository.get_user_settings(user_id)
     language = user_settings.preferred_language
-    environment = air_environment_service.load_environment(profile, force_live=force_live)
+    environment = air_environment_service.load_environment(
+        profile,
+        force_refresh=force_live,
+    )
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
     risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
@@ -77,7 +80,7 @@ def get_day_plan(
     try:
         entitlement_service.require_feature(user_id, "extended_forecast", "extended_forecast_enabled")
         profile = _resolve_profile_for_user(profileId, user_id)
-        environment = air_environment_service.load_environment(profile, force_live=False)
+        environment = air_environment_service.load_environment(profile)
         return air_risk_engine.build_day_plan(profile, environment)
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
@@ -91,7 +94,7 @@ def get_recommendations(
     try:
         profile = _resolve_profile_for_user(profileId, user_id)
         user_settings = settings_repository.get_user_settings(user_id)
-        environment = air_environment_service.load_environment(profile, force_live=False)
+        environment = air_environment_service.load_environment(profile)
         risk = air_risk_engine.evaluate_risk(profile, environment)
         recommendation = air_recommendation_engine.generate_recommendation(
             profile,

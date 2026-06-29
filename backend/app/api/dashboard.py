@@ -4,7 +4,7 @@ from psycopg import Error as PsycopgError
 from app.api.deps import get_current_user_id
 from app.models.air import ProfileType, UserProfileContext
 from app.models.dashboard import DashboardOverviewResponse
-from app.models.risk import RiskEstimateResponse
+from app.models.risk import EnvironmentSnapshot, RiskEstimateResponse
 import app.services.air_recommendation_engine as air_recommendation_engine
 import app.services.air_risk_engine as air_risk_engine
 import app.services.settings_repository as settings_repository
@@ -14,7 +14,7 @@ import app.services.recommendation_service as recommendation_service
 import app.services.risk_repository as risk_repository
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
-from app.services.environment_service import build_mock_snapshot
+import app.services.air_environment_service as air_environment_service
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -57,7 +57,15 @@ def dashboard_overview(
             "total_logs": 0,
         }
 
-    environment = build_mock_snapshot(lat=lat, lon=lon)
+    snapshot = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
+    environment = EnvironmentSnapshot(
+        temperature_c=snapshot.temperature_c,
+        humidity_percent=snapshot.humidity_percent,
+        aqi=snapshot.aqi,
+        pm25=snapshot.pm25,
+        ozone=snapshot.ozone,
+        source=snapshot.source,
+    )
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
     air_environment = to_air_environment(environment, lat, lon)
     air_risk = air_risk_engine.evaluate_risk(profile_context, air_environment)

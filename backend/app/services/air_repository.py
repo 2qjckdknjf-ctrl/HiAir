@@ -11,6 +11,7 @@ from app.models.air import (
     SymptomHistoryItem,
     UserProfileContext,
 )
+from app.models.risk import EnvironmentSnapshot
 from app.services.db import get_connection
 from app.services.profile_access import is_supabase_profile_ownership_mode, profile_owner_user_id
 
@@ -82,9 +83,55 @@ def _as_text(value: object | None) -> str | None:
     return str(value)
 
 
+def _geo_hash(lat: float, lon: float) -> str:
+    return f"{round(lat, 2)}:{round(lon, 2)}"
+
+
+def get_latest_environment_snapshot(
+    lat: float,
+    lon: float,
+    max_age_seconds: int,
+) -> EnvironmentSnapshot | None:
+    """Return the newest persisted snapshot for a geo cell within the TTL window."""
+    geo_hash = _geo_hash(lat, lon)
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    temperature_c,
+                    humidity_percent,
+                    aqi,
+                    pm25,
+                    ozone,
+                    source,
+                    timestamp_utc
+                FROM environment_snapshots
+                WHERE geo_hash = %s
+                  AND timestamp_utc >= %s
+                  AND source IN ('live', 'cached', 'mock', 'sample')
+                ORDER BY timestamp_utc DESC
+                LIMIT 1
+                """,
+                (geo_hash, cutoff),
+            )
+            row = cur.fetchone()
+    if row is None:
+        return None
+    return EnvironmentSnapshot(
+        temperature_c=float(row["temperature_c"]),
+        humidity_percent=float(row["humidity_percent"]),
+        aqi=int(row["aqi"]),
+        pm25=float(row["pm25"]),
+        ozone=float(row["ozone"]),
+        source=str(row["source"]),
+    )
+
+
 def save_environment_snapshot(environment: EnvironmentalInput) -> str:
     snapshot_id = str(uuid4())
-    geo_hash = f"{round(environment.lat, 2)}:{round(environment.lon, 2)}"
+    geo_hash = _geo_hash(environment.lat, environment.lon)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

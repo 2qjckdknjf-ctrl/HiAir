@@ -6,8 +6,8 @@ from app.core.settings import settings
 from app.models.risk import EnvironmentSnapshot
 
 
-def build_mock_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
-    # Deterministic mock profile for local development.
+def build_sample_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
+    """Deterministic fallback when live providers and cache are unavailable."""
     now = datetime.utcnow()
     base_temp = 24 + (now.hour % 10)
     return EnvironmentSnapshot(
@@ -16,8 +16,13 @@ def build_mock_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         aqi=45 + (abs(int(lon * 10)) % 140),
         pm25=float(8 + (abs(int(lat * lon)) % 50)),
         ozone=float(50 + (now.hour * 2 % 75)),
-        source="mock",
+        source="sample",
     )
+
+
+def build_mock_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
+    """Deprecated alias — use build_sample_snapshot."""
+    return build_sample_snapshot(lat, lon)
 
 
 def _fetch_openweather(lat: float, lon: float) -> tuple[float, float]:

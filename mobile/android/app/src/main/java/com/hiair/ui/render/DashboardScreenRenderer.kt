@@ -184,10 +184,10 @@ internal object DashboardScreenRenderer {
 
     private fun dataSourceLabel(ctx: RenderContext, state: DashboardState): TextView? {
         val source = state.dataSource ?: return null
-        val key = if (source.equals("live", ignoreCase = true)) {
-            "dashboard.source_live"
-        } else {
-            "dashboard.source_sample"
+        val key = when {
+            source.equals("live", ignoreCase = true) -> "dashboard.source_live"
+            source.equals("cached", ignoreCase = true) -> "dashboard.source_cached"
+            else -> "dashboard.source_sample"
         }
         return V2Ui.styledSecondaryText(ctx.activity, ctx.l(key)).apply {
             textSize = 11f

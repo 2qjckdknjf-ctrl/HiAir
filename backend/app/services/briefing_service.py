@@ -38,7 +38,7 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         return "HiAir morning briefing: profile is missing.", None, "no_profile_context"
 
     user_settings = settings_repository.get_user_settings(user_id)
-    environment = air_environment_service.load_environment(profile, force_live=False)
+    environment = air_environment_service.load_environment(profile)
     risk = air_risk_engine.evaluate_risk(profile, environment)
     plan = air_risk_engine.build_day_plan(profile, environment)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=user_settings.preferred_language)

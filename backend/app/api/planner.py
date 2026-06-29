@@ -10,7 +10,7 @@ from app.models.risk import EnvironmentSnapshot
 import app.services.air_risk_engine as air_risk_engine
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
-from app.services.environment_service import build_mock_snapshot
+import app.services.air_environment_service as air_environment_service
 
 router = APIRouter(prefix="/planner", tags=["planner"])
 
@@ -56,7 +56,7 @@ def daily_planner(
         home_lat=lat,
         home_lon=lon,
     )
-    base_env = build_mock_snapshot(lat=lat, lon=lon)
+    base_env = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
 
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     hourly: list[HourlyRiskItem] = []

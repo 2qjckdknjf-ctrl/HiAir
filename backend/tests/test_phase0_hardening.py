@@ -2,15 +2,13 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-import app.api.environment as environment_api
 import app.api.subscriptions as subscriptions_api
 import app.api.deps as deps
 import app.main as main_module
 from app.main import app
 
 
-def test_environment_live_requires_auth_header(monkeypatch) -> None:
-    monkeypatch.setattr(environment_api, "fetch_live_snapshot", lambda lat, lon: None)
+def test_environment_live_requires_auth_header() -> None:
     client = TestClient(app)
     response = client.get("/api/environment/snapshot", params={"lat": 41.39, "lon": 2.17, "source": "live"})
     assert response.status_code == 401

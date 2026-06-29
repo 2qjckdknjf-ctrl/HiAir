@@ -120,7 +120,7 @@ def test_air_day_plan_rejects_foreign_profile(monkeypatch) -> None:
 def test_air_day_plan_returns_payload(monkeypatch) -> None:
     _enable_auth(monkeypatch)
     monkeypatch.setattr(air_api.air_repository, "get_profile_context", lambda profile_id: _sample_profile())
-    monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, force_live: _sample_environment())
+    monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, **kwargs: _sample_environment())
     monkeypatch.setattr(
         air_api.air_risk_engine,
         "build_day_plan",
@@ -147,7 +147,7 @@ def test_air_recommendations_returns_payload(monkeypatch) -> None:
         "get_user_settings",
         lambda user_id: type("Settings", (), {"preferred_language": "en"})(),
     )
-    monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, force_live: _sample_environment())
+    monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, **kwargs: _sample_environment())
     monkeypatch.setattr(
         air_api.air_risk_engine,
         "evaluate_risk",
