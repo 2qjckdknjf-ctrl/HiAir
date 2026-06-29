@@ -1,9 +1,18 @@
 package com.hiair.ui.navigation
 
+import com.hiair.analytics.ProductAnalytics
 import com.hiair.ui.DashboardViewModel
 import com.hiair.ui.planner.DailyPlannerViewModel
 import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.symptoms.SymptomLogViewModel
+
+enum class AppScreen {
+    DASHBOARD,
+    PLANNER,
+    INSIGHTS,
+    SYMPTOMS,
+    SETTINGS
+}
 
 data class RootShellState(
     val currentScreen: AppScreen = AppScreen.DASHBOARD
@@ -20,6 +29,7 @@ class RootShellViewModel(
 
     fun openDashboard() {
         state = state.copy(currentScreen = AppScreen.DASHBOARD)
+        ProductAnalytics.track("dashboard_opened")
     }
 
     fun openPlanner() {

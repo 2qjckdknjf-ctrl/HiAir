@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from psycopg.errors import UndefinedTable
 
-from app.models.wearable import PersonalLoadSummary, WearableTodayResponse, WearableSource
+from app.models.wearable import PersonalLoadSummary, WearableTodayResponse
 from app.services.personal_load_engine import PersonalLoadInput, compute_personal_load_score
 import app.services.wearable_repository as wearable_repository
 

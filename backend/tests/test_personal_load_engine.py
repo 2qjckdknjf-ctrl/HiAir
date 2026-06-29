@@ -1,7 +1,3 @@
-from datetime import UTC, date, datetime
-
-import pytest
-
 from app.services.personal_load_engine import (
     PersonalLoadInput,
     compute_personal_load_score,

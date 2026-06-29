@@ -116,22 +116,27 @@ struct WearableLoadCardView: View {
     @ViewBuilder
     private var content: some View {
         switch connectionState {
-        case .connected where today?.dailySummary != nil:
-            let summary = today!.dailySummary!
-            let load = today?.personalLoad
-            Text("\(session.l("wearable.dashboard.steps")): \(summary.stepsTotal ?? 0)")
-                .font(HiAirTypography.bodyMD)
-            Text(heartRateLabel)
-                .font(HiAirTypography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-            if let load {
-                Text("\(session.l("wearable.dashboard.load_risk")): \(loadLevelLabel(load.level))")
+        case .connected:
+            if let summary = today?.dailySummary {
+                let load = today?.personalLoad
+                Text("\(session.l("wearable.dashboard.steps")): \(summary.stepsTotal ?? 0)")
                     .font(HiAirTypography.bodyMD)
-                if let first = load.explanations.first {
-                    Text(first)
-                        .font(HiAirTypography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                Text(heartRateLabel)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                if let load {
+                    Text("\(session.l("wearable.dashboard.load_risk")): \(loadLevelLabel(load.level))")
+                        .font(HiAirTypography.bodyMD)
+                    if let first = load.explanations.first {
+                        Text(first)
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
                 }
+            } else {
+                Text(session.l("wearable.dashboard.unavailable"))
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
             }
         case .permissionDenied:
             Text(session.l("wearable.dashboard.denied"))

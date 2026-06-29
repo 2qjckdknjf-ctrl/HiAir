@@ -78,6 +78,9 @@ struct OnboardingView: View {
         .hiAirPageBackground()
         .onAppear {
             personaSelection = session.persona
+            if step == 0 && !fromSettings {
+                ProductAnalytics.track("onboarding_started")
+            }
         }
     }
 

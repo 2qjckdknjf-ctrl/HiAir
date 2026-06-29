@@ -172,6 +172,7 @@ struct DashboardView: View {
                 .allowsHitTesting(false)
         )
         .task {
+            ProductAnalytics.track("dashboard_opened")
             if session.profileId.isEmpty {
                 _ = await session.ensureProfileIdIfNeeded()
             }
@@ -385,6 +386,9 @@ struct DashboardView: View {
                 metricRow("dashboard.metric.humidity", value: String(format: "%.0f%%", env.humidity), tooltip: "dashboard.tooltip.heat_index")
             }
             .v2Card()
+            .onAppear {
+                ProductAnalytics.track("risk_breakdown_viewed")
+            }
         } else if !viewModel.loading {
             Text(session.l("dashboard.empty.api_unavailable"))
                 .font(HiAirTypography.bodyMD)

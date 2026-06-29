@@ -37,13 +37,13 @@ Generate secure secrets and paste them into `.env`:
 - `POST http://127.0.0.1:8000/api/auth/login`
 - `POST http://127.0.0.1:8000/api/auth/refresh`
 - `POST http://127.0.0.1:8000/api/auth/logout`
-- `POST http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
-- `GET http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
+- `POST http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>`)
+- `GET http://127.0.0.1:8000/api/profiles` (requires `Authorization: Bearer <token>`)
 - `GET http://127.0.0.1:8000/api/privacy/export` (requires auth)
 - `POST http://127.0.0.1:8000/api/privacy/delete-account` (requires auth + confirmation)
 - `POST http://127.0.0.1:8000/api/symptoms/log` (requires auth; `profile_id` ownership is validated)
-- `GET http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
-- `PUT http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>` or fallback `X-User-Id`)
+- `GET http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>`)
+- `PUT http://127.0.0.1:8000/api/settings` (requires `Authorization: Bearer <token>`)
 - `GET http://127.0.0.1:8000/api/risk/history?profile_id=<id>` (requires auth; ownership validated)
 - `GET http://127.0.0.1:8000/api/recommendations/daily?profile_id=<id>` (requires auth + active subscription)
 - `GET http://127.0.0.1:8000/api/air/current-risk?profileId=<id>` (requires auth)

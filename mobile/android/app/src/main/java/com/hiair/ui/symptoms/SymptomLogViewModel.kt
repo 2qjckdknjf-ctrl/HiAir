@@ -1,5 +1,6 @@
 package com.hiair.ui.symptoms
 
+import com.hiair.analytics.ProductAnalytics
 import com.hiair.models.SymptomInput
 import com.hiair.models.SymptomLogRequest
 import com.hiair.network.ApiClient
@@ -74,6 +75,7 @@ class SymptomLogViewModel(
                 loading = false,
                 statusText = "Saved at ${json.getString("timestamp_utc")}"
             )
+            ProductAnalytics.track("symptom_logged", mapOf("mode" to "form"))
         } catch (_: Exception) {
             state = state.copy(
                 loading = false,
@@ -97,6 +99,7 @@ class SymptomLogViewModel(
                 intensity = state.quickIntensity
             )
             state = state.copy(loading = false, statusText = "Quick symptom saved.")
+            ProductAnalytics.track("symptom_logged", mapOf("mode" to "quick"))
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = "Failed to save quick symptom.")
         }

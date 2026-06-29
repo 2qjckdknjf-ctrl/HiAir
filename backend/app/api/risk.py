@@ -28,7 +28,7 @@ def risk_estimate(
         symptoms=payload.symptoms,
         environment=payload.environment,
     )
-    response = RiskEstimateResponse(
+    result = RiskEstimateResponse(
         score=score,
         level=normalize_legacy_level(level),
         recommendations=recommendations,
@@ -43,12 +43,12 @@ def risk_estimate(
             snapshot_id = risk_repository.save_environment_snapshot(payload.environment)
             risk_repository.save_risk_score(
                 profile_id=payload.profile_id,
-                risk=response,
+                risk=result,
                 snapshot_id=snapshot_id,
             )
         except PsycopgError as exc:
             raise HTTPException(status_code=503, detail="Database unavailable") from exc
-    return response
+    return result
 
 
 @router.get("/history", response_model=list[RiskHistoryItem])

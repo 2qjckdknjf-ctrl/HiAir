@@ -205,6 +205,7 @@ final class SettingsViewModel: ObservableObject {
             let briefing = try await apiClient.fetchBriefingSchedule(userId: userId, accessToken: accessToken)
             morningBriefingEnabled = briefing.enabled
             morningBriefingTime = briefing.localTime
+            ProductAnalytics.track("morning_briefing_viewed", properties: ["enabled": briefing.enabled ? "true" : "false"])
             statusText = l("settings.loaded")
         } catch {
             statusText = l("settings.load_failed")
@@ -270,6 +271,7 @@ final class SettingsViewModel: ObservableObject {
             let sectionCount = data?.keys.count ?? 0
             privacyExportSummary = "\(l("settings.privacy_export_ready")): \(sectionCount)"
             statusText = l("settings.privacy_export_done")
+            ProductAnalytics.track("privacy_export")
         } catch {
             statusText = l("settings.privacy_export_failed")
         }
@@ -285,6 +287,7 @@ final class SettingsViewModel: ObservableObject {
         do {
             try await apiClient.deleteAccount(userId: userId, accessToken: accessToken)
             statusText = l("settings.account_deleted")
+            ProductAnalytics.track("privacy_delete")
             userId = ""
             accessToken = ""
             privacyExportSummary = "-"

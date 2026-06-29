@@ -172,6 +172,7 @@ final class AppSession: ObservableObject {
     func finishOnboarding() {
         onboardingCompleted = true
         checklistHidden = false
+        ProductAnalytics.track("onboarding_completed")
     }
 
     /// Apply Supabase tokens in one shot so `persist()` does not clear API auth mid-update.

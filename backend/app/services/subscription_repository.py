@@ -5,7 +5,6 @@ from app.models.subscription import (
     ProviderWebhookEvent,
     SubscriptionPlan,
     SubscriptionStatusResponse,
-    UserEntitlementResponse,
     VerifiedStorePurchase,
 )
 from app.services import entitlement_service

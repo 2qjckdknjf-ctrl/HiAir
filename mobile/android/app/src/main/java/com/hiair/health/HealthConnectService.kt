@@ -55,10 +55,6 @@ class HealthConnectService(private val context: Context) {
         }
     }
 
-    suspend fun requestPermissions(activity: androidx.activity.ComponentActivity): Boolean {
-        return hasAllPermissions()
-    }
-
     suspend fun fetchTodaySteps(): Long? {
         if (!isHealthConnectAvailable()) return null
         val client = HealthConnectClient.getOrCreate(context)

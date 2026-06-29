@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from app.models.subscription import SubscriptionPlatform, SubscriptionStatus, VerifiedStorePurchase
+from app.models.subscription import SubscriptionStatus, VerifiedStorePurchase
 
 IOS_MONTHLY = "com.hiair.premium.monthly"
 IOS_YEARLY = "com.hiair.premium.yearly"

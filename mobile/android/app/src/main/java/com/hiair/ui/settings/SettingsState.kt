@@ -1,5 +1,6 @@
 package com.hiair.ui.settings
 
+import com.hiair.analytics.ProductAnalytics
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
 import com.hiair.network.ApiHttpException
@@ -269,9 +270,9 @@ class SettingsViewModel(
                 }
             state = state.copy(
                 loading = false,
-                userId = session?.userId ?: "",
-                accessToken = session?.accessToken ?: "",
-                refreshToken = session?.refreshToken ?: "",
+                userId = session.userId,
+                accessToken = session.accessToken,
+                refreshToken = session.refreshToken,
                 statusText = l("settings.signed_up")
             )
         } catch (_: Exception) {
@@ -298,9 +299,9 @@ class SettingsViewModel(
                 }
             state = state.copy(
                 loading = false,
-                userId = session?.userId ?: "",
-                accessToken = session?.accessToken ?: "",
-                refreshToken = session?.refreshToken ?: "",
+                userId = session.userId,
+                accessToken = session.accessToken,
+                refreshToken = session.refreshToken,
                 statusText = l("settings.logged_in")
             )
         } catch (_: Exception) {
@@ -346,6 +347,10 @@ class SettingsViewModel(
                 profileBasedAlerting = json.optBoolean("profile_based_alerting", true),
                 preferredLanguage = json.optString("preferred_language", "ru"),
                 statusText = l("settings.loaded")
+            )
+            ProductAnalytics.track(
+                "morning_briefing_viewed",
+                mapOf("enabled" to briefing.optBoolean("enabled", false).toString())
             )
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.load_failed"))
@@ -396,6 +401,7 @@ class SettingsViewModel(
                 privacyExportSummary = "${l("settings.privacy_export_ready")}: $sectionCount",
                 statusText = l("settings.privacy_export_done")
             )
+            ProductAnalytics.track("privacy_export")
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.privacy_export_failed"))
         }
@@ -419,6 +425,7 @@ class SettingsViewModel(
                 privacyExportSummary = "-",
                 statusText = l("settings.account_deleted")
             )
+            ProductAnalytics.track("privacy_delete")
             true
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))

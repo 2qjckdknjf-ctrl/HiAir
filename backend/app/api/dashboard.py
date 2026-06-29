@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
-from app.models.air import EnvironmentalInput, ProfileType, UserProfileContext
+from app.models.air import ProfileType, UserProfileContext
 from app.models.dashboard import DashboardOverviewResponse
 from app.models.risk import RiskEstimateResponse
 import app.services.air_recommendation_engine as air_recommendation_engine
@@ -13,17 +13,10 @@ import app.services.profile_access as profile_access
 import app.services.recommendation_service as recommendation_service
 import app.services.risk_repository as risk_repository
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
+from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
 from app.services.environment_service import build_mock_snapshot
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-
-
-RISK_LEVEL_TO_SCORE = {
-    "low": 20,
-    "moderate": 45,
-    "high": 70,
-    "very_high": 90,
-}
 
 
 def _build_profile_context(profile_id: str | None, user_id: str, persona: str, lat: float, lon: float) -> UserProfileContext:
@@ -35,26 +28,6 @@ def _build_profile_context(profile_id: str | None, user_id: str, persona: str, l
         age_group=persona,
         home_lat=lat,
         home_lon=lon,
-    )
-
-
-def _to_air_environment(environment, lat: float, lon: float) -> EnvironmentalInput:
-    humidity = float(environment.humidity_percent)
-    return EnvironmentalInput(
-        lat=lat,
-        lon=lon,
-        temperature=float(environment.temperature_c),
-        feels_like=float(environment.temperature_c + (humidity / 20.0)),
-        humidity=humidity,
-        aqi=int(environment.aqi),
-        pm25=float(environment.pm25),
-        pm10=max(1.0, float(environment.pm25) * 1.4),
-        ozone=float(environment.ozone),
-        uv=4.0,
-        wind_speed=2.0,
-        source=environment.source,
-        timestamp="1970-01-01T00:00:00Z",
-        timezone="UTC",
     )
 
 
@@ -86,7 +59,7 @@ def dashboard_overview(
 
     environment = build_mock_snapshot(lat=lat, lon=lon)
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
-    air_environment = _to_air_environment(environment, lat, lon)
+    air_environment = to_air_environment(environment, lat, lon)
     air_risk = air_risk_engine.evaluate_risk(profile_context, air_environment)
     user_settings = settings_repository.get_user_settings(user_id)
     recommendation_card = air_recommendation_engine.generate_recommendation(

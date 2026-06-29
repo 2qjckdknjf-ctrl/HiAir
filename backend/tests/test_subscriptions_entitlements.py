@@ -7,7 +7,6 @@ import app.api.subscriptions as subscriptions_api
 import app.api.deps as deps
 import app.api.profiles as profiles_api
 import app.api.recommendations as recommendations_api
-import app.main as main_module
 from app.main import app
 from app.models.subscription import UserEntitlementResponse
 import app.services.entitlement_service as entitlement_service

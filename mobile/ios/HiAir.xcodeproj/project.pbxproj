@@ -10,6 +10,7 @@
 		079F1318A8584B1939E4E3FE /* HiAirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD707A08B6657EF85395B26 /* HiAirApp.swift */; };
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
+		1BF97FD1C79322D4ED0D3924 /* HiAirLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */; };
 		1E08E28221A8D5D1C20D4941 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5F4A846E176862AF8006820 /* Assets.xcassets */; };
 		1E1AE86A24B33D667114E29C /* SubscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E51B8943BC3F02E49B7FB4D0 /* SubscriptionServiceTests.swift */; };
 		1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F189463A81578D7DA02A429B /* AuthView.swift */; };
@@ -18,10 +19,8 @@
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
 		4D84DF0F1974CDEEF384A0F9 /* HiAirSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */; };
 		543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833EA8341D4356991598891 /* RootTabView.swift */; };
-		550CBAA0A4AFAC40875193A8 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 24FF1ECAE002D133CC37DB22 /* Supabase */; };
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
 		5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB46A64A9D06988894EB3978 /* HiAirMotion.swift */; };
-		2A8C3F1E9B4D6A7E8F0C2D3E /* HiAirLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9D4E2F0A5B8C1D3E6F7A8B /* HiAirLiquidGlass.swift */; };
 		622F96C121C55BFEDC2ACA92 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */; };
 		714BB4A2D60C45C93C508CFD /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 473FF9ADA6A471A1B256FE84 /* PaywallView.swift */; };
 		72B9B45CCF3D3E3C7E8A99B4 /* HiAirResponsiveSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1799C91CB76C7ED1CD7E9FDB /* HiAirResponsiveSpacing.swift */; };
@@ -42,6 +41,7 @@
 		BF994356A47D50BB6E84B94C /* WearableConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097CA85FB80A297417CADC70 /* WearableConsentView.swift */; };
 		E28D30B53EBF55C4AD19399C /* HiAirShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */; };
 		E3FD1B7D4C89BE80F522389A /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */; };
+		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
 		F7796D20327E2DEB59780003 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */; };
@@ -88,11 +88,13 @@
 		9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphericParticles.swift; sourceTree = "<group>"; };
 		A0B75F7FAF52543E6F33F582 /* TimeOfDayBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDayBackground.swift; sourceTree = "<group>"; };
 		A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
+		BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductAnalytics.swift; sourceTree = "<group>"; };
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPlannerView.swift; sourceTree = "<group>"; };
+		D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLiquidGlass.swift; sourceTree = "<group>"; };
 		D9D61A692A21F8137C8C9A0A /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 		DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirRadius.swift; sourceTree = "<group>"; };
@@ -103,21 +105,9 @@
 		F189463A81578D7DA02A429B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		F5F4A846E176862AF8006820 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB46A64A9D06988894EB3978 /* HiAirMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirMotion.swift; sourceTree = "<group>"; };
-		7C9D4E2F0A5B8C1D3E6F7A8B /* HiAirLiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLiquidGlass.swift; sourceTree = "<group>"; };
 		FDED16BD25D90EB9CF5D8303 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		FE64CFDB46618584BD806249 /* HiAirTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirTypography.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		082E9973BB2FF0F010A5E377 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				550CBAA0A4AFAC40875193A8 /* Supabase in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		13361C91597A147BE3EB4C64 /* HiAir */ = {
@@ -161,6 +151,7 @@
 			isa = PBXGroup;
 			children = (
 				5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */,
+				BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */,
 				A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */,
 			);
 			path = Services;
@@ -172,7 +163,7 @@
 				606F94F2339205445B9E3E37 /* HiAirColors.swift */,
 				00BEEF483B33FAEC14EFDD21 /* HiAirComponents.swift */,
 				E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */,
-				7C9D4E2F0A5B8C1D3E6F7A8B /* HiAirLiquidGlass.swift */,
+				D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */,
 				FB46A64A9D06988894EB3978 /* HiAirMotion.swift */,
 				DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */,
 				1799C91CB76C7ED1CD7E9FDB /* HiAirResponsiveSpacing.swift */,
@@ -265,6 +256,8 @@
 				B0DD664084610EC811A455F5 /* PBXTargetDependency */,
 			);
 			name = HiAirTests;
+			packageProductDependencies = (
+			);
 			productName = HiAirTests;
 			productReference = 93EEF3FD465B8193BE67529E /* HiAirTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -275,7 +268,6 @@
 			buildPhases = (
 				A57711667BAF258B49AFFE41 /* Sources */,
 				A5E8F81E1C6A8ACBEC5C18CC /* Resources */,
-				082E9973BB2FF0F010A5E377 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -283,7 +275,6 @@
 			);
 			name = HiAir;
 			packageProductDependencies = (
-				24FF1ECAE002D133CC37DB22 /* Supabase */,
 			);
 			productName = HiAir;
 			productReference = 5D79B00DF93EE905C5824D90 /* HiAir.app */;
@@ -313,9 +304,8 @@
 				en,
 			);
 			mainGroup = 33529DB2F9BE76E8B2A9223A;
-			packageReferences = (
-				5C7BA46821D6ADF33E9C5438 /* XCRemoteSwiftPackageReference "supabase-swift" */,
-			);
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 54;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -365,8 +355,8 @@
 				8EDC00DAEBE8A55D78D3E807 /* HiAirComponents.swift in Sources */,
 				F9902B01523BE5FF472F880D /* HiAirGradients.swift in Sources */,
 				FDB44A73E28090FC8862D9F9 /* HiAirLaunchView.swift in Sources */,
+				1BF97FD1C79322D4ED0D3924 /* HiAirLiquidGlass.swift in Sources */,
 				5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */,
-				2A8C3F1E9B4D6A7E8F0C2D3E /* HiAirLiquidGlass.swift in Sources */,
 				A926FA88A521C2D6C60E7C1C /* HiAirRadius.swift in Sources */,
 				72B9B45CCF3D3E3C7E8A99B4 /* HiAirResponsiveSpacing.swift in Sources */,
 				91795075F03EB3F0A75F008E /* HiAirRiskStyle.swift in Sources */,
@@ -379,6 +369,7 @@
 				622F96C121C55BFEDC2ACA92 /* KeychainStore.swift in Sources */,
 				109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */,
 				714BB4A2D60C45C93C508CFD /* PaywallView.swift in Sources */,
+				EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */,
 				B5875FBC5C5B3032EE02124A /* RiskAccentColor.swift in Sources */,
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
@@ -687,25 +678,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		5C7BA46821D6ADF33E9C5438 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/supabase/supabase-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.7.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		24FF1ECAE002D133CC37DB22 /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5C7BA46821D6ADF33E9C5438 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9DC4C2CEB0ECF82D8DDBA8FF /* Project object */;
 }

@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, Query
 from app.api.deps import get_current_user_id
 import app.services.entitlement_service as entitlement_service
 
-from app.models.air import EnvironmentalInput, ProfileType, UserProfileContext
+from app.models.air import UserProfileContext
 from app.models.planner import DailyPlannerResponse, HourlyRiskItem, SafeWindow
 from app.models.risk import EnvironmentSnapshot
 import app.services.air_risk_engine as air_risk_engine
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
+from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
 from app.services.environment_service import build_mock_snapshot
 
 router = APIRouter(prefix="/planner", tags=["planner"])
@@ -37,34 +38,6 @@ def _shift_env(base: EnvironmentSnapshot, hour_offset: int) -> EnvironmentSnapsh
     )
 
 
-RISK_LEVEL_TO_SCORE = {
-    "low": 20,
-    "moderate": 45,
-    "high": 70,
-    "very_high": 90,
-}
-
-
-def _to_air_environment(environment: EnvironmentSnapshot, lat: float, lon: float, slot_iso: str) -> EnvironmentalInput:
-    humidity = float(environment.humidity_percent)
-    return EnvironmentalInput(
-        lat=lat,
-        lon=lon,
-        temperature=float(environment.temperature_c),
-        feels_like=float(environment.temperature_c + (humidity / 20.0)),
-        humidity=humidity,
-        aqi=int(environment.aqi),
-        pm25=float(environment.pm25),
-        pm10=max(1.0, float(environment.pm25) * 1.4),
-        ozone=float(environment.ozone),
-        uv=4.0,
-        wind_speed=2.0,
-        source=environment.source,
-        timestamp=slot_iso,
-        timezone="UTC",
-    )
-
-
 @router.get("/daily", response_model=DailyPlannerResponse)
 def daily_planner(
     persona: str = Query(default="adult"),
@@ -76,8 +49,8 @@ def daily_planner(
     entitlement_service.require_feature(user_id, "extended_forecast", "extended_forecast_enabled")
     normalized_persona = _normalize_persona(persona)
     profile_context = UserProfileContext(
-        profile_id="planner-virtual",
-        user_id="planner-virtual",
+        profile_id=f"planner-virtual-{user_id}",
+        user_id=user_id,
         profile_type=PERSONA_TO_PROFILE_TYPE[normalized_persona],
         age_group=normalized_persona,
         home_lat=lat,
@@ -91,7 +64,7 @@ def daily_planner(
         slot_time = now + timedelta(hours=hour_offset)
         slot_env = _shift_env(base_env, hour_offset)
         slot_iso = slot_time.isoformat()
-        air_environment = _to_air_environment(slot_env, lat, lon, slot_iso)
+        air_environment = to_air_environment(slot_env, lat, lon, timestamp=slot_iso)
         risk = air_risk_engine.evaluate_risk(profile_context, air_environment)
         level = risk.overallRisk.value
         score = RISK_LEVEL_TO_SCORE[level]

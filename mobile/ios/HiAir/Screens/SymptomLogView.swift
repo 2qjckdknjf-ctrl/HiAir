@@ -33,6 +33,7 @@ final class SymptomLogViewModel: ObservableObject {
                 accessToken: accessToken
             )
             statusText = "\(HiAirL10n.t("symptoms.saved_at", lang: language)) \(result.timestampUtc)"
+            ProductAnalytics.track("symptom_logged", properties: ["mode": "form"])
         } catch {
             statusText = HiAirL10n.t("symptoms.save_failed", lang: language)
         }
@@ -59,6 +60,7 @@ final class SymptomLogViewModel: ObservableObject {
                 accessToken: accessToken
             )
             statusText = HiAirL10n.t("symptoms.quick_saved", lang: language)
+            ProductAnalytics.track("symptom_logged", properties: ["mode": "quick"])
         } catch {
             statusText = HiAirL10n.t("symptoms.quick_failed", lang: language)
         }

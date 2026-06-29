@@ -218,7 +218,7 @@ class SupabaseAuthService(
 
     private fun extractSession(payload: JSONObject, fallbackEmail: String): SupabaseSession {
         val user = payload.optJSONObject("user")
-        val userId = payload.optString("user_id", user?.optString("id")).orEmpty()
+        val userId = payload.optString("user_id", user?.optString("id") ?: "")
         val email = user?.optString("email", fallbackEmail).orEmpty().ifBlank { fallbackEmail }
         val accessToken = payload.optString("access_token", "")
         val refreshToken = payload.optString("refresh_token", "")
