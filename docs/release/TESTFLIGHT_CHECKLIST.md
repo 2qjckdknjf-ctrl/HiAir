@@ -54,10 +54,6 @@ Use `docs/release/store/RELEASE_NOTES.md` and `docs/release/store/REVIEWER_NOTES
 
 ## Known upload blocker (2026-07-07)
 
-Local archive fails until HealthKit is enabled on App ID and profiles refresh:
+~~Local archive fails until HealthKit is enabled on App ID~~ **RESOLVED** — use `-allowProvisioningUpdates` on archive/export (see `archive_and_upload_testflight.sh`).
 
-```
-Provisioning profile doesn't include the HealthKit capability
-```
-
-Fix: `docs/_operator/apple-developer-healthkit-provisioning.md`
+**2026-07-07 Mission #2:** Build **65** uploaded and **VALID** in TestFlight.

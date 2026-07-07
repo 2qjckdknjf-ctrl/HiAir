@@ -36,15 +36,17 @@ xcodebuild \
   -archivePath "$ARCHIVE_PATH" \
   clean archive \
   CODE_SIGN_STYLE=Automatic \
-  DEVELOPMENT_TEAM=43A4KW5BKB
+  DEVELOPMENT_TEAM=43A4KW5BKB \
+  -allowProvisioningUpdates
 
-echo "==> Export IPA (app-store)"
+echo "==> Export IPA (app-store-connect)"
 rm -rf "$EXPORT_PATH"
 xcodebuild \
   -exportArchive \
   -archivePath "$ARCHIVE_PATH" \
   -exportPath "$EXPORT_PATH" \
-  -exportOptionsPlist "$EXPORT_OPTIONS"
+  -exportOptionsPlist "$EXPORT_OPTIONS" \
+  -allowProvisioningUpdates
 
 IPA="$EXPORT_PATH/HiAir.ipa"
 if [[ ! -f "$IPA" ]]; then

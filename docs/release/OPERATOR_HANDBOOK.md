@@ -7,8 +7,8 @@
 
 | Track | Upload readiness | Owner blocker |
 |-------|------------------|---------------|
-| TestFlight | **BLOCKED** | Enable HealthKit on App ID → `docs/_operator/apple-developer-healthkit-provisioning.md` |
-| Play Internal | **BLOCKED** | Create `keystore.properties` + signed AAB → `docs/release/GOOGLE_PLAY_INTERNAL_CHECKLIST.md` |
+| TestFlight | **UPLOADED** | Build 65 VALID in ASC (2026-07-07) |
+| Play Internal | **BLOCKED** | Owner keystore + Play Console upload |
 
 ```bash
 bash scripts/release/build_android_play_internal.sh

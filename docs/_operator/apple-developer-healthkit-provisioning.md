@@ -1,14 +1,10 @@
 # Apple Developer — HealthKit Provisioning for TestFlight
 
-**Symptom:** Archive fails with:
+**Symptom (legacy):** Archive failed with HealthKit provisioning profile error.
 
-```
-Provisioning profile "iOS Team Provisioning Profile: com.hiair.app" doesn't include the HealthKit capability.
-```
+**Fix (automated):** Pass `-allowProvisioningUpdates` to `xcodebuild archive` and `exportArchive`. Xcode refreshes the App ID capability and profile. Verified **2026-07-07** — archive + TestFlight upload SUCCESS.
 
-**Root cause:** App ID `com.hiair.app` in Apple Developer Portal does not have HealthKit enabled, or local provisioning profile is stale.
-
-## Fix (owner, ~5 minutes)
+Manual portal fix (if `-allowProvisioningUpdates` unavailable):
 
 1. Open [Apple Developer → Identifiers](https://developer.apple.com/account/resources/identifiers/list)
 2. Select **App IDs** → `com.hiair.app`

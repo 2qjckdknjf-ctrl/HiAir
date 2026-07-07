@@ -25,6 +25,8 @@
 | Description | See `APP_STORE_HANDOFF.md` | Draft |
 | Review notes | See `REVIEWER_NOTES.md` | Draft |
 | Review account | `APP_REVIEW_TEST_EMAIL` / password in `.env.local` | Owner: create real ASC test user |
+| ASC App ID | `6773610034` | Verified via API |
+| TestFlight build | Build **65** VALID (2026-07-07) | Internal testing ready |
 | Screenshots | See `SCREENSHOT_CHECKLIST.md` | **MISSING** — capture on device |
 | App icon 1024×1024 | `mobile/ios/.../Icon-App-1024x1024@1x.png` | Present |
 

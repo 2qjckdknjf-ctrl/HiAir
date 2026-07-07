@@ -10,7 +10,7 @@ Branch `release/mega-sprint-2-first-10-users` @ `a2123fe` (merged to `main`, pro
 - ✅ **RC-1** — `api.hiair.io` live environmental backend deployed; smoke PASS (`source=live` Castelldefels).
 - ✅ **P0 Sprint #1** (`205beed`) — Android live dashboard state machine + auto profile bootstrap.
 - ✅ **P0 Sprint #2** (`631fb2e`) — live→cached→sample resolver + source labels.
-- ⏳ **Operator Certification Mission #1** — store release assets ready; TestFlight **BLOCKED** (HealthKit provisioning); Play Internal **BLOCKED** (release keystore). See `docs/release/TESTFLIGHT_CHECKLIST.md`, `GOOGLE_PLAY_INTERNAL_CHECKLIST.md`.
+- ✅ **Operator Certification Mission #2** — TestFlight build **65 VALID** uploaded; Play Internal **BLOCKED** (keystore). See `docs/release/MISSION2_OPERATOR_CERTIFICATION.md`.
 
 **Next:** Owner device session → fix iOS fake location strings → `HiAirTests` Info.plist → re-run RC-2 matrix → RC-3 store.
 
