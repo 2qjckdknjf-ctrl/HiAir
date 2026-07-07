@@ -18,8 +18,8 @@ echo ""
 # Application ID & versioning
 rg -q 'applicationId = "com.hiair"' "$GRADLE" || fail "applicationId must be com.hiair"
 pass "applicationId com.hiair"
-rg -q 'versionCode = [0-9]+' "$GRADLE" || fail "versionCode missing"
-rg -q 'versionName = "' "$GRADLE" || fail "versionName missing"
+rg -q 'versionCode\s*=' "$GRADLE" || fail "versionCode missing"
+rg -q 'versionName\s*=' "$GRADLE" || fail "versionName missing"
 pass "versionCode/versionName declared"
 
 # Release API
@@ -34,8 +34,11 @@ pass "release cleartext disabled"
 test -f "$ANDROID_DIR/keystore.properties.example" || fail "keystore.properties.example missing"
 if [[ -f "$ANDROID_DIR/keystore.properties" ]]; then
   pass "keystore.properties present (signed build path)"
+elif [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
+  pass "ANDROID_KEYSTORE_PATH env signing configured"
 else
-  echo "WARN: keystore.properties missing — unsigned AAB only (owner action)"
+  echo "WARN: no signing config — unsigned AAB only (owner action)"
+  bash "$ROOT/scripts/release/investigate_android_keystore.sh" || true
 fi
 
 # Manifest permissions
@@ -61,10 +64,10 @@ pass "bundleRelease + unit tests + lintRelease"
 bash "$ROOT/scripts/release/validate_store_release_builds.sh" android
 
 AAB="$ANDROID_DIR/app/build/outputs/bundle/release/app-release.aab"
-if [[ -f "$ANDROID_DIR/keystore.properties" ]]; then
+if [[ -f "$ANDROID_DIR/keystore.properties" ]] || [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
   bash "$ROOT/scripts/release/validate_signed_android_release.sh"
 else
-  echo "SKIP: signed validation (no keystore.properties)"
+  echo "SKIP: signed validation (no signing config)"
 fi
 
 echo ""

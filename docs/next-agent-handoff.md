@@ -13,7 +13,7 @@ Branch `release/mega-sprint-2-first-10-users` @ `a2123fe` (merged to `main`, pro
 - ✅ **Operator Certification Mission #2** — TestFlight build **65 VALID** uploaded.
 - ✅ **Operator Certification Mission #3** — Android release pipeline ready; Play Internal **WAITING ONLY FOR RELEASE KEYSTORE**. See `docs/release/MISSION3_OPERATOR_CERTIFICATION.md`.
 
-**Next:** Owner supplies `mobile/android/keystore.properties` → signed AAB → Play Internal upload → device QA matrix.
+**Next:** Run `bash scripts/release/investigate_android_keystore.sh`. Supply existing keystore (local, env vars, or GitHub production secrets) → signed AAB → Play Internal. See `docs/release/MISSION4_OPERATOR_CERTIFICATION.md`.
 
 ## 1) Current state (implemented and verified)
 

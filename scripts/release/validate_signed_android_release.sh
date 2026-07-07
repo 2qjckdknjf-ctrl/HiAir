@@ -14,16 +14,12 @@ fail() {
   exit 1
 }
 
-if [[ ! -f "$KEYSTORE_PROPS" ]]; then
+if [[ ! -f "$KEYSTORE_PROPS" && -z "${ANDROID_KEYSTORE_PATH:-}" ]]; then
   cat >&2 <<EOF
-BLOCKED: $KEYSTORE_PROPS missing — cannot validate signed AAB.
+BLOCKED: no signing config — cannot validate signed AAB.
 
-Pipeline is ready. Owner steps:
-  cd mobile/android
-  cp keystore.properties.example keystore.properties
-  # generate hiair-release.keystore (see docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md)
-  bash ../../scripts/release/build_android_play_internal.sh
-  bash ../../scripts/release/validate_signed_android_release.sh
+Run: bash scripts/release/investigate_android_keystore.sh
+See: docs/release/MISSION4_OPERATOR_CERTIFICATION.md
 EOF
   exit 2
 fi

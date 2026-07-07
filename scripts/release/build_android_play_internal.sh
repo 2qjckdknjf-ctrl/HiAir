@@ -8,9 +8,12 @@ cd "$ANDROID_DIR"
 
 if [[ -f keystore.properties ]]; then
   echo "==> keystore.properties found — release AAB will be signed"
+elif [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
+  echo "==> ANDROID_KEYSTORE_PATH set — release AAB will be signed via env vars"
 else
-  echo "warn: keystore.properties missing — AAB will be unsigned (Play Console will reject upload)"
-  echo "  cp keystore.properties.example keystore.properties && edit values"
+  echo "warn: no signing config — AAB will be unsigned (Play Console will reject upload)"
+  echo "  bash scripts/release/investigate_android_keystore.sh"
+  echo "  docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md"
 fi
 
 ./gradlew :app:bundleRelease --no-daemon
