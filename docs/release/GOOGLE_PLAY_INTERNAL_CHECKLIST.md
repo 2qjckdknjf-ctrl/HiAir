@@ -13,6 +13,11 @@
 - [x] Cleartext disabled in release manifest
 - [x] AAB build script: `scripts/release/build_android_play_internal.sh`
 - [x] Signing scaffold: `keystore.properties.example`
+- [x] `storeFile` resolves from `mobile/android/` (`rootProject.file`)
+- [x] Health Connect: `VIEW_PERMISSION_USAGE` + `ACTION_SHOW_PERMISSIONS_RATIONALE`
+- [x] Audit script: `scripts/release/audit_android_release.sh`
+- [x] Signed validation: `scripts/release/validate_signed_android_release.sh`
+- [x] Owner signing guide: `docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md`
 - [ ] **Owner:** Create release keystore + `mobile/android/keystore.properties`
 - [ ] **Owner:** Play Console app created for `com.hiair`
 
@@ -30,7 +35,9 @@ Output: `mobile/android/app/build/outputs/bundle/release/app-release.aab`
 ## Validate before upload
 
 ```bash
+bash scripts/release/audit_android_release.sh
 bash scripts/release/validate_store_release_builds.sh android
+bash scripts/release/validate_signed_android_release.sh   # after keystore
 ```
 
 ## Play Console steps (owner)

@@ -22,7 +22,8 @@ Owner steps (one-time):
   4. Edit keystore.properties with storeFile, passwords, keyAlias
   5. bash scripts/release/build_android_play_internal.sh
 
-See docs/release/GOOGLE_PLAY_INTERNAL_CHECKLIST.md
+See docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md
+See docs/release/GOOGLE_PLAY_INTERNAL_CHECKLIST.md (rollback plan)
 EOF
   exit 1
 fi

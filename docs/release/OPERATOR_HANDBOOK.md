@@ -1,20 +1,23 @@
 # HiAir — Operator Handbook (First 10 Users)
 
 **Updated:** 2026-07-07  
-**Engineering status:** **100% complete — Operator Certification Mission #1 in progress**
+**Engineering status:** **100% complete — Operator Certification Mission #3**
 
-## Mission #1 — TestFlight / Play Internal (2026-07-07)
+## Mission #3 — Android Release / Play Internal (2026-07-07)
 
 | Track | Upload readiness | Owner blocker |
 |-------|------------------|---------------|
-| TestFlight | **UPLOADED** | Build 65 VALID in ASC (2026-07-07) |
-| Play Internal | **BLOCKED** | Owner keystore + Play Console upload |
+| TestFlight | **READY** | Build 65 VALID in ASC |
+| Play Internal | **PIPELINE READY** | Owner keystore + Play upload |
 
 ```bash
-bash scripts/release/build_android_play_internal.sh
-bash scripts/release/validate_store_release_builds.sh all
-bash mobile/ios/scripts/archive_and_upload_testflight.sh   # after portal fix
+bash scripts/release/audit_android_release.sh
+bash scripts/release/build_android_play_internal.sh          # signed after keystore
+bash scripts/release/validate_signed_android_release.sh
+bash scripts/release/upload_play_internal.sh                 # or manual Play Console
 ```
+
+Signing guide: `docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md`
 
 ## What engineering has closed
 
