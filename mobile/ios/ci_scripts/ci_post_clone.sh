@@ -63,6 +63,11 @@ if ! grep -q 'com.apple.developer.healthkit' HiAir/HiAir.entitlements 2>/dev/nul
   exit 1
 fi
 
+if ! test -f HiAir/PrivacyInfo.xcprivacy; then
+  echo "error: HiAir/PrivacyInfo.xcprivacy missing (App Store privacy manifest required)." >&2
+  exit 1
+fi
+
 echo "==> Resolve Swift package dependencies"
 xcodebuild -resolvePackageDependencies \
   -project HiAir.xcodeproj \

@@ -41,6 +41,7 @@
 		BF994356A47D50BB6E84B94C /* WearableConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097CA85FB80A297417CADC70 /* WearableConsentView.swift */; };
 		E28D30B53EBF55C4AD19399C /* HiAirShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */; };
 		E3FD1B7D4C89BE80F522389A /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */; };
+		E8574E435130C15C6FC138B9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */; };
 		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
@@ -90,6 +91,7 @@
 		A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductAnalytics.swift; sourceTree = "<group>"; };
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
+		BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@
 				9BD707A08B6657EF85395B26 /* HiAirApp.swift */,
 				DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */,
 				6B1CF7645DD4B0B92F0CA11F /* LaunchScreen.storyboard */,
+				BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */,
 				E24EEAFCE9B215FCD6269F08 /* Assets */,
 				1D7F9687F1AD9E1C291987E7 /* Configuration */,
 				9640182DCA01F1103308A078 /* DesignSystem */,
@@ -323,6 +326,7 @@
 				1E08E28221A8D5D1C20D4941 /* Assets.xcassets in Resources */,
 				950FC2F499655961DDEFA56A /* HiAirPremium.storekit in Resources */,
 				8C7E9E65CF3BC8D45B3E8274 /* LaunchScreen.storyboard in Resources */,
+				E8574E435130C15C6FC138B9 /* PrivacyInfo.xcprivacy in Resources */,
 				AAEBA1D053A217B36A8011EC /* hiair-ai-guide-avatar.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -400,12 +404,12 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "https://api.hiair.io";
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
-				INFOPLIST_KEY_CFBundleURLTypes = "[[\"CFBundleURLName\": \"com.hiair.app.auth\", \"CFBundleURLSchemes\": [\"hiair\"]]]";
+				INFOPLIST_KEY_CFBundleURLTypes = "[[\"CFBundleURLSchemes\": [\"hiair\"], \"CFBundleURLName\": \"com.hiair.app.auth\"]]";
 				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = (
@@ -463,12 +467,12 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "http://127.0.0.1:8000";
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
-				INFOPLIST_KEY_CFBundleURLTypes = "[[\"CFBundleURLName\": \"com.hiair.app.auth\", \"CFBundleURLSchemes\": [\"hiair\"]]]";
+				INFOPLIST_KEY_CFBundleURLTypes = "[[\"CFBundleURLSchemes\": [\"hiair\"], \"CFBundleURLName\": \"com.hiair.app.auth\"]]";
 				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = (

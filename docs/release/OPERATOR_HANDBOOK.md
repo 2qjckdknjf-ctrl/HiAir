@@ -1,7 +1,20 @@
 # HiAir — Operator Handbook (First 10 Users)
 
 **Updated:** 2026-07-07  
-**Engineering status:** **100% complete — waiting for operator certification**
+**Engineering status:** **100% complete — Operator Certification Mission #1 in progress**
+
+## Mission #1 — TestFlight / Play Internal (2026-07-07)
+
+| Track | Upload readiness | Owner blocker |
+|-------|------------------|---------------|
+| TestFlight | **BLOCKED** | Enable HealthKit on App ID → `docs/_operator/apple-developer-healthkit-provisioning.md` |
+| Play Internal | **BLOCKED** | Create `keystore.properties` + signed AAB → `docs/release/GOOGLE_PLAY_INTERNAL_CHECKLIST.md` |
+
+```bash
+bash scripts/release/build_android_play_internal.sh
+bash scripts/release/validate_store_release_builds.sh all
+bash mobile/ios/scripts/archive_and_upload_testflight.sh   # after portal fix
+```
 
 ## What engineering has closed
 

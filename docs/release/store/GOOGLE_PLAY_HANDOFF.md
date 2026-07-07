@@ -6,6 +6,8 @@
 - Full description: HiAir provides wellness-focused daily planning based on environmental signals and user symptom logs. Includes alerts, personalized insights, and morning briefings.
 - Category: Health & Fitness
 - Application ID: `com.hiair`
+- versionCode: `2` / versionName: `0.1.0`
+- Signing: copy `keystore.properties.example` → `keystore.properties` (gitignored)
 
 ## Data Safety Draft
 - Collects account email and user-submitted wellness data.

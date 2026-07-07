@@ -6,7 +6,8 @@
 - Category: Health & Fitness
 - Primary locale: en-US (RU localized in-app)
 - Bundle ID: `com.hiair.app`
-- Version: `0.1.0` (build number managed in Xcode target settings)
+- Version: `0.1.0` (build **13**)
+- Privacy manifest: `mobile/ios/HiAir/PrivacyInfo.xcprivacy`
 
 ## Description Draft
 HiAir helps users plan daily activity around heat and air quality trends, log symptoms, and receive personalized wellness-oriented suggestions. It is a wellness support app and not a medical device.

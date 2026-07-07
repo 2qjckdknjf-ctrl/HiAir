@@ -1,8 +1,15 @@
 import java.io.File
+import java.util.Properties
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
 android {
@@ -13,8 +20,19 @@ android {
         applicationId = "com.hiair"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -27,6 +45,9 @@ android {
         }
         release {
             isMinifyEnabled = false
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             buildConfigField("String", "API_BASE_URL", "\"https://api.hiair.io\"")
             buildConfigField("String", "SUPABASE_URL", "\"https://qhxesaemlhzwbunpqjoo.supabase.co\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw\"")

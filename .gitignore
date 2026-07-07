@@ -21,6 +21,7 @@ backend/.env.local
 .tools/xcodegen.zip
 *.pdf
 mobile/android/local.properties
+mobile/android/keystore.properties
 mobile/android/.gradle/
 mobile/android/app/build/
 mobile/android/build/

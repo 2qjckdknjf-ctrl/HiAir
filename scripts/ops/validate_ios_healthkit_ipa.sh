@@ -51,4 +51,12 @@ done
 
 BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO" 2>/dev/null || echo '?')"
 echo "OK  CFBundleVersion=$BUILD"
+
+if [[ -f "$APP_PATH/PrivacyInfo.xcprivacy" ]]; then
+  echo "OK  PrivacyInfo.xcprivacy present"
+else
+  echo "FAIL PrivacyInfo.xcprivacy missing from app bundle" >&2
+  exit 1
+fi
+
 echo "==> HealthKit packaging looks valid"
