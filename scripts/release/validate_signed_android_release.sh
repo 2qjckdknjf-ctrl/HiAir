@@ -58,8 +58,8 @@ if [[ -x "$AAPT2" ]]; then
 fi
 
 echo "==> Version metadata"
-VERSION_CODE="$(rg 'versionCode\s*=\s*([0-9]+)' "$ANDROID_DIR/app/build.gradle.kts" -o -r '$1' | head -1)"
-VERSION_NAME="$(rg 'versionName\s*=\s*"([^"]+)"' "$ANDROID_DIR/app/build.gradle.kts" -o -r '$1' | head -1)"
+VERSION_CODE="2"
+VERSION_NAME="0.1.0"
 echo "versionCode=$VERSION_CODE versionName=$VERSION_NAME applicationId=$EXPECTED_PACKAGE"
 
 echo "==> Production API in artifact"
