@@ -20,7 +20,6 @@ internal object SymptomsScreenRenderer {
         var fatigueSelected = false
 
         bodyContainer.addView(HiAirComponents.brandHeader(activity))
-        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.symptoms")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f })
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("symptoms.streak")).apply {

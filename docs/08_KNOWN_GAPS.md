@@ -1,14 +1,15 @@
 # 08 Known Gaps
 
-Updated: 2026-06-29 (P0 Sprint #2 — live environmental data)
+Updated: 2026-07-07 (RC-2 device certification)
 
 ## P0 (block first 10 real users)
 
-- **Production backend not yet running live environmental code.** Commit `631fb2e` (live→cached→sample resolver) is on `release/mega-sprint-2-first-10-users`, 3 commits ahead of `origin/main` (clean fast-forward). `api.hiair.io` still serves the old mock-first build (verified: `/api/environment/snapshot?source=mock` → `"source":"mock"`; `source=sample` → 422). **Deploy blocked locally**: no Docker/colima/Rosetta (Cloudflare Containers image must build via `docker buildx`), and `gh` CLI is x86_64/non-functional. Designed path = push to `main` → `backend-deploy-production.yml` (builds container in CI + post-deploy smoke). Requires production-push authorization + verified GitHub Actions secrets.
+- **RC-2 device certification not completed.** Owner hardware session required (iPhone offline, Android adb/device unavailable). See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Use release mobile builds against production** — debug variants point to localhost (`10.0.2.2` / `127.0.0.1`).
 - **Guest mode not implemented** on iOS or Android (auth wall for all features).
 - **Push notifications not wired on mobile** — `registerDeviceToken` exists in API clients but is never called; Morning Briefing UI without verified APNs/FCM delivery on device. (Sequenced AFTER live data + device QA.)
 - **No dedicated crash SDK** (Crashlytics/Sentry); relies on ASC/Play console symbolicated crashes only.
-- **Manual end-to-end QA not completed** — gated on live backend deploy (device QA without fresh `api.hiair.io` would give false results).
+- **Manual end-to-end QA not completed** — RC-1 unblocked; owner hardware session pending for RC-2.
 - **Android Play release signing** not configured in Gradle (unsigned `app-release-unsigned.apk` only).
 - **Auto-created profiles use coordinates 0,0** (Android bootstrap) until geolocation lands; live data is real but location-generic.
 

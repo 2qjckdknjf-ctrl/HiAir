@@ -17,7 +17,6 @@ internal object InsightsScreenRenderer {
         val bodyContainer = ctx.bodyContainer
 
         bodyContainer.addView(HiAirComponents.brandHeader(activity))
-        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("nav.insights")
         val stateText = V2Ui.styledSecondaryText(activity, ctx.l("insights.loading"))
         val card = HiAirComponents.cardContainer(activity)

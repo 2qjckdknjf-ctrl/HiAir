@@ -70,6 +70,7 @@ targets:
       - target: HiAir
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app.tests
         SWIFT_VERSION: 5.0
 schemes:

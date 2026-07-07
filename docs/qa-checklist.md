@@ -2,6 +2,22 @@
 
 Use this checklist for manual QA of the MVP flow.
 
+## RC-2 device certification (2026-07-07)
+
+**Verdict: BLOCKED (hardware)** — code certification PASS; owner device session pending.
+
+| Gate | Result |
+|------|--------|
+| Production API live data | PASS |
+| Fake production UI removed | PASS |
+| Android build/lint/tests | PASS |
+| iOS build + tests | PASS (4/4) |
+| Backend pytest | PASS (119) |
+| Android device QA | BLOCKED — use release APK |
+| iOS device QA | BLOCKED — iPhone offline, use Release |
+
+Full matrix: `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+
 ## A. Onboarding
 
 - [ ] App launches to onboarding on fresh install.

@@ -56,10 +56,6 @@ struct DailyPlannerView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                Text(session.l("common.city_updated"))
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-
                 Text(session.l("planner.title"))
                     .font(AuroraTokens.Typography.displayLG)
                     .foregroundStyle(HiAirV2Theme.primaryText)

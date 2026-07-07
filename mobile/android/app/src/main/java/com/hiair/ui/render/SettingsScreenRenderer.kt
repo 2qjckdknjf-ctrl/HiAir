@@ -27,7 +27,6 @@ internal object SettingsScreenRenderer {
         val clearSession = ctx.clearSession
 
         bodyContainer.addView(HiAirComponents.brandHeader(activity, tagline = ctx.l("auth.subtitle"), showOrb = true, orbSizeDp = 96))
-        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.settings")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply { textSize = 13f })
         val emailInput = HiAirComponents.inputField(activity, ctx.l("settings.email"))

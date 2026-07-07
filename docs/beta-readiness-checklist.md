@@ -2,13 +2,21 @@
 
 This checklist is used to prepare a closed beta on iOS and Android.
 
-## 0) Live environmental backend deploy (P0-B0, 2026-06-29)
+## 0) RC-1 production backend (CLOSED 2026-07-07)
 
-- backend live providers deployed: **NO** — `api.hiair.io` still serves old mock-first build (commit `631fb2e` not deployed; local container build blocked by missing Docker/Rosetta, `gh` non-functional).
-- production smoke (new build): **PENDING DEPLOY** — current prod verified on OLD code (`/api/environment/snapshot?source=sample` → 422).
-- source returned by prod: **mock** (old code) — target after deploy: live/cached/sample.
-- latency: `/api/health` cold ~4.1s, warm 0.24–0.63s (container cold start).
-- blockers before device QA: deploy live backend via GitHub Actions (push `main`), confirm CI secrets, verify a coordinate (e.g. Castelldefels 41.28/1.97, not 0,0) returns `source=live`.
+- backend live providers deployed: **YES** — `api.hiair.io` on commit `a2123fe` (GitHub Actions run `28367913518` re-run PASS after Cloudflare token refresh).
+- production smoke: **PASS** — `/api/health` 200; `source=sample` 200; Castelldefels `environmental.source=live`.
+- latency: `/api/health` warm ~0.3–0.8s post-deploy; cold start ~60s after container rollout.
+- **RC-1 verdict: READY**
+
+## 0.1) RC-2 device certification (2026-07-07)
+
+- **Code blockers closed:** iOS/Android fake Barcelona/Alex/dashboard actions removed; iOS tests fixed.
+- Android build (debug/release/lint/tests): **PASS** (arm64 JDK 17).
+- iOS build + tests: **PASS** (4/4).
+- Backend pytest: **PASS** (119).
+- Android/iOS **physical device QA**: **BLOCKED** (iPhone offline, no adb). Use **release** builds for prod API.
+- **RC-2 verdict: BLOCKED** (hardware session). **Code path: READY for owner device session.**
 
 ## 1) Environment and secrets
 

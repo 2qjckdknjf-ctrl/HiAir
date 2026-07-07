@@ -1,19 +1,18 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-04-07 (status block updated 2026-06-29, P0-B0)
+Date: 2026-04-07 (status block updated 2026-07-07, RC-2)
 Owner transfer: current agent -> next development agent
 
-## 0) Live status — first-10-users track (2026-06-29)
+## 0) Live status — first-10-users track (2026-07-07)
 
-Branch `release/mega-sprint-2-first-10-users` (3 commits ahead of `origin/main`, clean fast-forward).
+Branch `release/mega-sprint-2-first-10-users` @ `a2123fe` (merged to `main`, production deployed).
 
-- ✅ **P0 Sprint #1** (`205beed`) — Android live dashboard, no mock content; state machine + auto profile bootstrap.
-- ✅ **P0 Sprint #2** (`631fb2e`) — backend live→cached→sample environmental resolver; source labeling on both apps.
-- ⏳ **P0-B0 Deploy** — `api.hiair.io` **still on old mock-first build** (verified: `source=sample` → 422). Local deploy **blocked** (no Docker/colima/Rosetta for Cloudflare Containers image build; `gh` x86_64/non-functional). **Path:** push branch → `main` triggers `.github/workflows/backend-deploy-production.yml` (CI builds container + post-deploy smoke). Needs production-push authorization + verified GitHub Actions secrets (CLOUDFLARE_API_TOKEN/ACCOUNT_ID, JWT_SECRET, OPENAI_*, WEATHER_API_PROVIDER=openmeteo, AQI_API_PROVIDER=openmeteo).
-- ⏳ **Backend validation (local)**: `compileall` OK, `pytest` 119 passed, `validate_risk_historical` 4/4; `check_env_security --strict` fails only on `JWT_SECRET` absent in shell = EXPECTED LOCAL.
-- ⏳ **Latency**: `/api/health` cold ~4.1s, warm 0.24–0.63s (Cloudflare Containers cold start).
+- ✅ **RC-1** — `api.hiair.io` live environmental backend deployed; smoke PASS (`source=live` Castelldefels).
+- ✅ **P0 Sprint #1** (`205beed`) — Android live dashboard state machine + auto profile bootstrap.
+- ✅ **P0 Sprint #2** (`631fb2e`) — live→cached→sample resolver + source labels.
+- ⏳ **RC-2 Device Certification** — **code blockers closed** (fake UI removed, iOS tests PASS). Physical device QA **BLOCKED** (iPhone offline, no adb). Use **release** APK / iOS Release for `api.hiair.io`.
 
-**Correct sequence:** Deploy + smoke → Device QA → Push token → Internal Testing / TestFlight. Do NOT start device QA until `api.hiair.io` serves the new build.
+**Next:** Owner device session → fix iOS fake location strings → `HiAirTests` Info.plist → re-run RC-2 matrix → RC-3 store.
 
 ## 1) Current state (implemented and verified)
 

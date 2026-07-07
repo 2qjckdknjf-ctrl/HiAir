@@ -8,6 +8,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var headline = "-"
     @Published var actions: [String] = []
     @Published var nearestSafeWindow = "-"
+    @Published var safeWindowLabels: [String] = []
     @Published var environmental: AirEnvironmentalInput?
     @Published var wearableToday: WearableTodayResponse?
     @Published var wearableConnectionState: WearableConnectionState = .notConnected
@@ -29,6 +30,7 @@ final class DashboardViewModel: ObservableObject {
             explanation = HiAirL10n.t("dashboard.empty.no_profile.body", lang: language)
             actions = []
             nearestSafeWindow = "-"
+            safeWindowLabels = []
             environmental = nil
             wearableToday = nil
             return
@@ -48,6 +50,9 @@ final class DashboardViewModel: ObservableObject {
             headline = result.recommendation.headline
             actions = result.recommendation.actions
             environmental = result.environmental
+            safeWindowLabels = result.risk.safeWindows.map {
+                "\($0.type): \($0.start) -> \($0.end)"
+            }
             if let firstWindow = result.risk.safeWindows.first {
                 nearestSafeWindow = "\(firstWindow.type): \(firstWindow.start) -> \(firstWindow.end)"
             } else {
@@ -59,6 +64,7 @@ final class DashboardViewModel: ObservableObject {
             explanation = HiAirL10n.t("dashboard.empty.api_unavailable", lang: language)
             actions = []
             nearestSafeWindow = "-"
+            safeWindowLabels = []
             environmental = nil
         }
     }
@@ -90,9 +96,6 @@ struct DashboardView: View {
         RiskAccentColor.color(for: viewModel.riskLevel)
     }
 
-    private var weatherTitle: String {
-        session.l("dashboard.weather_title")
-    }
     private var moodTitle: String {
         switch viewModel.riskLevel.lowercased() {
         case "low":
@@ -109,6 +112,9 @@ struct DashboardView: View {
     }
 
     private var pm25Estimate: Double {
+        if let pm25 = viewModel.environmental?.pm25 {
+            return pm25
+        }
         switch viewModel.riskLevel.lowercased() {
         case "low":
             return 12
@@ -128,10 +134,29 @@ struct DashboardView: View {
     }
 
     private var safeWindows: [String] {
-        if viewModel.nearestSafeWindow == "-" || viewModel.nearestSafeWindow.isEmpty {
-            return ["06:00-08:00", "16:30-19:00", "22:00-23:00"]
+        viewModel.safeWindowLabels
+    }
+
+    private var locationLabel: String {
+        if session.latitude != 0 || session.longitude != 0 {
+            return String(format: "%.2f, %.2f", session.latitude, session.longitude)
         }
-        return [viewModel.nearestSafeWindow, "16:30-19:00", "22:00-23:00"]
+        return session.l("dashboard.location_unknown")
+    }
+
+    private var riskReason: String {
+        let explanation = viewModel.explanation.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !explanation.isEmpty, explanation != "-" {
+            return explanation
+        }
+        return session.l("dashboard.reason_unavailable")
+    }
+
+    private var weatherTitle: String {
+        if let env = viewModel.environmental {
+            return String(format: "%.0f°C", env.temperature)
+        }
+        return session.l("dashboard.weather_unavailable")
     }
 
     private var starterChecklist: [(id: String, titleKey: String)] {
@@ -158,7 +183,6 @@ struct DashboardView: View {
                     environmentalSection
                     recommendationsSection
                     safeWindowsSection
-                    tomorrowHint
                     actionButtons
                 }
                 .hiAirContentWidth(for: width)
@@ -222,7 +246,7 @@ struct DashboardView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "location.fill")
-                    Text(session.l("dashboard.location"))
+                    Text(locationLabel)
                 }
                 .font(HiAirTypography.caption)
                 .foregroundStyle(HiAirV2Theme.primaryText)
@@ -261,11 +285,11 @@ struct DashboardView: View {
             compact: true
         )
 
-        Text(session.l("dashboard.greeting"))
+        Text(session.l("dashboard.greeting_neutral"))
             .font(HiAirTypography.displayLG)
             .foregroundStyle(HiAirV2Theme.primaryText)
 
-        Text(session.l("dashboard.improving"))
+        Text(session.l("dashboard.improving_neutral"))
             .font(HiAirTypography.bodyMD)
             .foregroundStyle(HiAirV2Theme.secondaryText)
     }
@@ -340,7 +364,7 @@ struct DashboardView: View {
                 sectionLabel: session.l("dashboard.current_risk_title"),
                 statusLabel: moodTitle,
                 riskLevel: viewModel.riskLevel == "-" ? "moderate" : viewModel.riskLevel,
-                reason: session.l("dashboard.reason_code"),
+                reason: riskReason,
                 diameter: min(width * 0.52, 220)
             )
         }
@@ -411,11 +435,9 @@ struct DashboardView: View {
             }
 
             if viewModel.actions.isEmpty {
-                Group {
-                    actionTile(icon: "drop.fill", text: session.l("dashboard.action_1"))
-                    actionTile(icon: "cup.and.saucer.fill", text: session.l("dashboard.action_2"))
-                    actionTile(icon: "figure.walk", text: session.l("dashboard.action_3"))
-                }
+                Text(session.l("dashboard.no_actions"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
             } else {
                 ForEach(Array(viewModel.actions.enumerated()), id: \.offset) { index, action in
                     actionTile(
@@ -437,28 +459,26 @@ struct DashboardView: View {
                     .foregroundStyle(HiAirV2Theme.primaryText)
                 infoButton("dashboard.safe_windows_tooltip")
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(safeWindows, id: \.self) { window in
-                        Text(window)
-                            .font(HiAirTypography.caption)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .hiAirChipSurface()
+            if safeWindows.isEmpty {
+                Text(session.l("dashboard.no_safe_windows"))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(safeWindows, id: \.self) { window in
+                            Text(window)
+                                .font(HiAirTypography.caption)
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .hiAirChipSurface()
+                        }
                     }
                 }
             }
         }
         .v2Card()
-    }
-
-    @ViewBuilder
-    private var tomorrowHint: some View {
-        Text(session.l("dashboard.tomorrow_hint"))
-            .font(HiAirTypography.bodyMD)
-            .foregroundStyle(HiAirV2Theme.secondaryText)
-            .padding(.horizontal, 4)
     }
 
     @ViewBuilder

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -296,7 +296,6 @@
 				};
 			};
 			buildConfigurationList = 5BA18F77F6BDEA3C28B32B5F /* Build configuration list for PBXProject "HiAir" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -305,7 +304,8 @@
 			);
 			mainGroup = 33529DB2F9BE76E8B2A9223A;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 54;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D3EF8B731996E2DD6D0E88F5 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -405,14 +405,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "https://api.hiair.io";
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
-				INFOPLIST_KEY_CFBundleURLTypes = (
-					{
-						CFBundleURLName = com.hiair.app.auth;
-						CFBundleURLSchemes = (
-							hiair,
-						);
-					},
-				);
+				INFOPLIST_KEY_CFBundleURLTypes = "[[\"CFBundleURLName\": \"com.hiair.app.auth\", \"CFBundleURLSchemes\": [\"hiair\"]]]";
 				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = (
@@ -446,6 +439,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -474,14 +468,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "http://127.0.0.1:8000";
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
-				INFOPLIST_KEY_CFBundleURLTypes = (
-					{
-						CFBundleURLName = com.hiair.app.auth;
-						CFBundleURLSchemes = (
-							hiair,
-						);
-					},
-				);
+				INFOPLIST_KEY_CFBundleURLTypes = "[[\"CFBundleURLName\": \"com.hiair.app.auth\", \"CFBundleURLSchemes\": [\"hiair\"]]]";
 				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = (
@@ -516,6 +503,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

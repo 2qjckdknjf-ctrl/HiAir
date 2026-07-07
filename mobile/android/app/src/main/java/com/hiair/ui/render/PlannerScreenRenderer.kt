@@ -16,7 +16,6 @@ internal object PlannerScreenRenderer {
         val bodyContainer = ctx.bodyContainer
 
         bodyContainer.addView(HiAirComponents.brandHeader(activity))
-        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("common.city_updated")).apply { textSize = 11f })
         titleView.text = ctx.l("title.planner")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.subtitle")).apply { textSize = 13f })
 
