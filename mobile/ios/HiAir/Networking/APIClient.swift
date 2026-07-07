@@ -687,32 +687,6 @@ final class APIClient {
         return detail.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func fetchMockEnvironment(lat: Double, lon: Double) async throws -> EnvironmentSnapshot {
-        var components = URLComponents(
-            url: baseURL.appending(path: "/api/environment/snapshot"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [
-            URLQueryItem(name: "lat", value: String(lat)),
-            URLQueryItem(name: "lon", value: String(lon)),
-            URLQueryItem(name: "source", value: "mock"),
-        ]
-        guard let url = components?.url else {
-            throw APIError.invalidURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
-        }
-        return try JSONDecoder().decode(EnvironmentSnapshot.self, from: data)
-    }
-
     func estimateRisk(_ payload: RiskEstimateRequest) async throws -> RiskEstimateResponse {
         let url = baseURL.appending(path: "/api/risk/estimate")
         var request = URLRequest(url: url)

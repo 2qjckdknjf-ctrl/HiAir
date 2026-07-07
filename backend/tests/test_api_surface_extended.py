@@ -222,10 +222,6 @@ def test_recommendations_daily(monkeypatch) -> None:
 
 def test_privacy_endpoints(monkeypatch) -> None:
     _enable_auth(monkeypatch)
-    monkeypatch.setattr(
-        "app.api.privacy.entitlement_service.require_feature",
-        lambda user_id, feature, attr: None,
-    )
     monkeypatch.setattr("app.api.privacy.privacy_repository.export_user_data", lambda user_id: {"items": []})
     monkeypatch.setattr("app.api.privacy.privacy_repository.delete_user_data", lambda user_id: True)
     client = TestClient(app)
