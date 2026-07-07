@@ -1,7 +1,8 @@
 # HiAir — Final Release Program Status
 
 **Updated:** 2026-07-07  
-**Branch:** `release/mega-sprint-2-first-10-users` @ pending merge to `main`  
+**Branch:** `main` @ `e02e4dd`  
+**Deploy:** Backend Deploy Production run [#14](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/28868547382) **success**  
 **Verdict:** **ENGINEERING READY — WAITING FOR OPERATOR CERTIFICATION**
 
 ---
@@ -16,7 +17,7 @@
 | Android build/lint/tests | PASS | release APK at `mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk` |
 | iOS build/tests | PASS | 4/4; Release → `https://api.hiair.io` |
 | Production fake UI | REMOVED | No Barcelona/Alex/fake actions in mobile production paths |
-| Privacy export (GDPR baseline) | FIXED | No premium gate on `GET /api/privacy/export` |
+| Privacy export (GDPR baseline) | DEPLOYED | Premium gate removed; `GET /api/privacy/export` → 401 without auth (not 402) |
 | Search audit | PASS | No production fake strings in `.kt`/`.swift` app code |
 
 ## Operator certification required
@@ -42,11 +43,8 @@
 
 Device certification against production **must use release builds**.
 
-## Commits on release branch (not yet on `origin/main`)
+## Commits on `main`
 
+- `e02e4dd` — privacy export gate removal + dead mock client + status doc
 - `b96ea18` — RC-2 fake UI removal + iOS tests
-- pending — privacy export gate removal + dead mock API client method
-
-## Next merge
-
-Push `release/mega-sprint-2-first-10-users` → `main` to deploy privacy export fix and sync mobile hardening.
+- `a2123fe` — live environmental backend deploy
