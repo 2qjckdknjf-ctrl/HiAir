@@ -57,8 +57,29 @@ def main() -> int:
         return 1
     print("health: OK")
 
+    status, sample = _get(
+        f"{base}/api/environment/snapshot?lat=41.28&lon=1.98&source=sample"
+    )
+    if status != 200:
+        print(f"environment-sample: FAIL status={status} body={sample}")
+        return 1
+    if not isinstance(sample, dict) or sample.get("source") != "sample":
+        print(f"environment-sample: FAIL unexpected payload={sample!r}")
+        return 1
+    print("environment-sample: OK")
+
+    status, export_unauth = _get(f"{base}/api/privacy/export")
+    if status == 402:
+        print("privacy-export: FAIL premium gate still active (402)")
+        return 1
+    if status != 401:
+        print(f"privacy-export: FAIL expected 401 without auth, got {status} body={export_unauth}")
+        return 1
+    print("privacy-export: OK (401 without auth, no premium gate)")
+
     if not admin_token:
         print("ai-summary: SKIP (NOTIFICATION_ADMIN_TOKEN not set)")
+        print("post_deploy_api_smoke: PASS")
         return 0
 
     status, summary = _get(

@@ -32,8 +32,22 @@ run_step() {
   fi
 }
 
+resolve_repo_python() {
+  local candidate
+  for candidate in \
+    "${ROOT_DIR}/.venv312/bin/python" \
+    "${ROOT_DIR}/backend/.venv/bin/python" \
+    "${ROOT_DIR}/.venv/bin/python"; do
+    if [[ -x "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 check_android_release_config() {
-  ROOT_DIR_ENV="${ROOT_DIR}" python3 - <<'PY'
+  ROOT_DIR_ENV="${ROOT_DIR}" "${GATE_PYTHON}" - <<'PY'
 import os
 from pathlib import Path
 root = Path(os.environ["ROOT_DIR_ENV"])
@@ -46,7 +60,7 @@ PY
 }
 
 check_ios_release_config() {
-  ROOT_DIR_ENV="${ROOT_DIR}" python3 - <<'PY'
+  ROOT_DIR_ENV="${ROOT_DIR}" "${GATE_PYTHON}" - <<'PY'
 import os
 from pathlib import Path
 root = Path(os.environ["ROOT_DIR_ENV"])
@@ -58,7 +72,7 @@ PY
 }
 
 check_repo_secret_baseline() {
-  ROOT_DIR_ENV="${ROOT_DIR}" python3 - <<'PY'
+  ROOT_DIR_ENV="${ROOT_DIR}" "${GATE_PYTHON}" - <<'PY'
 import os
 import re
 from pathlib import Path
@@ -67,7 +81,19 @@ root = Path(os.environ["ROOT_DIR_ENV"])
 deny = re.compile(
     r'AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA|EC|OPENSSH|PRIVATE) KEY-----\n|ghp_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z\-_]{20,}'
 )
-skip_dirs = {".git", "docs", ".venv", "mobile/android/.gradle", "mobile/android/app/build", "mobile/ios/build"}
+skip_dirs = {
+    ".git",
+    ".tools",
+    ".venv312",
+    ".coverage",
+    "docs",
+    ".venv",
+    "backend/.secrets",
+    "backend/.venv-ci-smoke",
+    "mobile/android/.gradle",
+    "mobile/android/app/build",
+    "mobile/ios/build",
+}
 violations = []
 
 for path in root.rglob("*"):
@@ -95,25 +121,33 @@ PY
 check_external_readiness() {
   local owner_plan_path="${ROOT_DIR}/docs/release/EXTERNAL_OWNER_ACTION_PLAN.md"
   if [[ ${STRICT_EXTERNAL} -eq 1 ]]; then
-    python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --strict --env-file "${ROOT_DIR}/backend/.env.local" --write-owner-plan "${owner_plan_path}"
+    "${GATE_PYTHON}" "${ROOT_DIR}/scripts/release/check_external_readiness.py" --strict --env-file "${ROOT_DIR}/backend/.env.local" --write-owner-plan "${owner_plan_path}"
     return
   fi
-  python3 "${ROOT_DIR}/scripts/release/check_external_readiness.py" --env-file "${ROOT_DIR}/backend/.env.local" --write-owner-plan "${owner_plan_path}"
+  "${GATE_PYTHON}" "${ROOT_DIR}/scripts/release/check_external_readiness.py" --env-file "${ROOT_DIR}/backend/.env.local" --write-owner-plan "${owner_plan_path}"
 }
 
+GATE_PYTHON="$(resolve_repo_python || true)"
+if [[ -z "${GATE_PYTHON}" ]]; then
+  echo "ERROR: No working repo Python found (.venv312, backend/.venv, .venv)." >&2
+  exit 2
+fi
+
 echo "HiAir final gate root: ${ROOT_DIR}"
+echo "HiAir final gate python: ${GATE_PYTHON}"
 
 run_step "Android release config verification" check_android_release_config
 run_step "iOS release config verification" check_ios_release_config
 run_step "Repository secret baseline scan" check_repo_secret_baseline
 run_step "External readiness checklist" check_external_readiness
 
-if command -v python3 >/dev/null 2>&1 && [[ -x "${ROOT_DIR}/backend/.venv/bin/python" ]]; then
-  run_step "Backend full test suite" bash -lc "cd '${ROOT_DIR}/backend' && .venv/bin/python -m pytest tests -q"
-  run_step "Backend strict env check" bash -lc "cd '${ROOT_DIR}/backend' && .venv/bin/python scripts/check_env_security.py --strict --env-file .env.local"
-  run_step "Backend gate (skip-db)" bash -lc "cd '${ROOT_DIR}/backend' && ./run_gate.sh --skip-db"
+REPO_PYTHON="${GATE_PYTHON}"
+if [[ -n "${REPO_PYTHON}" ]]; then
+  run_step "Backend full test suite" bash -lc "cd '${ROOT_DIR}/backend' && '${REPO_PYTHON}' -m pytest tests -q"
+  run_step "Backend strict env check" bash -lc "cd '${ROOT_DIR}/backend' && '${REPO_PYTHON}' scripts/check_env_security.py --strict --env-file .env.local"
+  run_step "Backend gate (skip-db)" bash -lc "cd '${ROOT_DIR}/backend' && HIAIR_GATE_PYTHON='${REPO_PYTHON}' ./run_gate.sh --skip-db"
 else
-  echo "[WARN] backend/.venv unavailable; backend checks skipped."
+  echo "[WARN] No repo Python venv found (.venv312, backend/.venv, .venv); backend checks skipped."
 fi
 
 if command -v xcodebuild >/dev/null 2>&1; then

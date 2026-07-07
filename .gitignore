@@ -5,6 +5,8 @@
 !.env.staging.example
 backend/.env.local
 .venv/
+.venv312/
+.coverage
 **/__pycache__/
 *.pyc
 .pytest_cache/

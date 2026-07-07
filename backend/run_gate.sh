@@ -7,10 +7,12 @@ set -euo pipefail
 BACKEND_ROOT="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$BACKEND_ROOT/.." && pwd)"
 
-PY=""
-if [[ -x "$BACKEND_ROOT/.venv/bin/python" ]]; then
+PY="${HIAIR_GATE_PYTHON:-}"
+if [[ -z "$PY" && -x "$REPO_ROOT/.venv312/bin/python" ]]; then
+  PY="$REPO_ROOT/.venv312/bin/python"
+elif [[ -z "$PY" && -x "$BACKEND_ROOT/.venv/bin/python" ]]; then
   PY="$BACKEND_ROOT/.venv/bin/python"
-elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+elif [[ -z "$PY" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PY="$REPO_ROOT/.venv/bin/python"
 fi
 
@@ -24,9 +26,10 @@ Create a venv and install dependencies (pick one layout):
 
 Or a shared venv at the repository root:
 
-  cd "$REPO_ROOT" && python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
+  cd "$REPO_ROOT" && python3 -m venv .venv312 && .venv312/bin/pip install -r backend/requirements.txt
 
 On macOS with Homebrew Python, global pip fails with PEP 668 — always use a venv.
+On arm64 Macs without Rosetta, prefer a repo-root .venv312 with arm64 CPython 3.12.
 EOF
   exit 1
 fi

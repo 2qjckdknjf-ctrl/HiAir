@@ -10,7 +10,7 @@ Branch `release/mega-sprint-2-first-10-users` @ `a2123fe` (merged to `main`, pro
 - ✅ **RC-1** — `api.hiair.io` live environmental backend deployed; smoke PASS (`source=live` Castelldefels).
 - ✅ **P0 Sprint #1** (`205beed`) — Android live dashboard state machine + auto profile bootstrap.
 - ✅ **P0 Sprint #2** (`631fb2e`) — live→cached→sample resolver + source labels.
-- ⏳ **Final Release Program** — **ENGINEERING READY**; operator certification pending (device QA, TestFlight, Play internal). Privacy export premium gate removed (`b96ea18` + pending). Merge release branch → `main` for deploy.
+- ✅ **ZERO TAILS PROGRAM** — **ENGINEERING COMPLETION 100%**; `hiair_final_gate.sh` PASS; only operator certification remains (device QA, TestFlight, Play internal).
 
 **Next:** Owner device session → fix iOS fake location strings → `HiAirTests` Info.plist → re-run RC-2 matrix → RC-3 store.
 
