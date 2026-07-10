@@ -187,13 +187,15 @@ internal object SettingsScreenRenderer {
                 rootShell.settingsViewModel.setEmail(emailInput.text.toString())
                 rootShell.settingsViewModel.setPassword(passwordInput.text.toString())
                 Thread {
-                    rootShell.settingsViewModel.login()
-                    val state = rootShell.settingsViewModel.state
-                    activity.runOnUiThread {
-                        userIdInput.setText(state.userId)
-                        tokenInput.setText(state.accessToken)
-                        persistSession()
-                        statusText.text = state.statusText
+                    rootShell.settingsViewModel.login {
+                        activity.runOnUiThread {
+                            val state = rootShell.settingsViewModel.state
+                            userIdInput.setText(state.userId)
+                            tokenInput.setText(state.accessToken)
+                            persistSession()
+                            statusText.text = state.statusText
+                            ctx.rerender()
+                        }
                     }
                 }.start()
             }
@@ -308,17 +310,13 @@ internal object SettingsScreenRenderer {
         }
         val logoutButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.log_out")).apply {
             setOnClickListener {
-                rootShell.settingsViewModel.signOutSupabase()
-                rootShell.settingsViewModel.setUserId("")
-                rootShell.settingsViewModel.setAccessToken("")
-                rootShell.settingsViewModel.setRefreshToken("")
-                rootShell.settingsViewModel.setProfileId("")
-                rootShell.settingsViewModel.setPassword("")
+                rootShell.settingsViewModel.resetSessionAfterLogout()
                 rootShell.dashboardViewModel.reset()
                 clearSession()
                 userIdInput.setText("")
                 tokenInput.setText("")
                 statusText.text = ctx.l("settings.logged_out")
+                ctx.rerender()
             }
         }
         val privacyExportSummary = V2Ui.styledSecondaryText(

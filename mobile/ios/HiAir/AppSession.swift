@@ -148,6 +148,7 @@ final class AppSession: ObservableObject {
         refreshToken = ""
         authNotice = ""
         profileId = ""
+        isPremium = false
         selectedTab = 0
         APIClient.setAuthState(nil)
     }
@@ -209,6 +210,7 @@ final class AppSession: ObservableObject {
         accessToken = ""
         refreshToken = ""
         profileId = ""
+        isPremium = false
         selectedTab = 0
         authNotice = l("auth.session_expired")
         APIClient.setAuthState(nil)

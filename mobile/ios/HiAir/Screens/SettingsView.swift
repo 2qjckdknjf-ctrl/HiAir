@@ -57,6 +57,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var plans: [SubscriptionPlan] = []
     @Published var selectedPlanId = "basic_monthly"
     @Published var subscriptionStatus = "inactive"
+    var onEntitlementChanged: ((UserEntitlementResponse?) -> Void)?
     @Published var aiSummaryHours = 24
     @Published var aiSummaryText = "-"
     @Published var aiTrendText = "-"
@@ -374,6 +375,7 @@ final class SettingsViewModel: ObservableObject {
             if let planId = subscription.planId {
                 selectedPlanId = planId
             }
+            onEntitlementChanged?(subscription.entitlement)
             statusText = l("settings.subscription_loaded")
         } catch {
             statusText = l("settings.subscription_load_failed")
@@ -394,6 +396,7 @@ final class SettingsViewModel: ObservableObject {
                 accessToken: accessToken
             )
             subscriptionStatus = subscription.status
+            onEntitlementChanged?(subscription.entitlement)
             statusText = l("settings.subscription_activated")
         } catch {
             statusText = l("settings.subscription_activate_failed")
@@ -413,6 +416,7 @@ final class SettingsViewModel: ObservableObject {
                 accessToken: accessToken
             )
             subscriptionStatus = subscription.status
+            onEntitlementChanged?(subscription.entitlement)
             statusText = l("settings.subscription_canceled")
         } catch {
             statusText = l("settings.subscription_cancel_failed")
@@ -1043,6 +1047,9 @@ struct SettingsView: View {
             }
             if viewModel.preferredLanguage != session.preferredLanguage {
                 viewModel.preferredLanguage = session.preferredLanguage
+            }
+            viewModel.onEntitlementChanged = { entitlement in
+                session.applyEntitlement(entitlement)
             }
             Task { await session.refreshEntitlement() }
             #if DEBUG

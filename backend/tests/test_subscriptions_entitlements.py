@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+import json
 
 from fastapi.testclient import TestClient
 
@@ -8,7 +9,7 @@ import app.api.deps as deps
 import app.api.profiles as profiles_api
 import app.api.recommendations as recommendations_api
 from app.main import app
-from app.models.subscription import UserEntitlementResponse
+from app.models.subscription import UserEntitlementResponse, VerifiedStorePurchase
 import app.services.entitlement_service as entitlement_service
 from app.services.subscription_store import (
     ANDROID_MONTHLY,
@@ -146,6 +147,57 @@ def test_android_verify_grants_premium(monkeypatch) -> None:
 def test_android_expired_token_suffix() -> None:
     purchase = verify_android_purchase(ANDROID_MONTHLY, "tok:expired")
     assert purchase.status == "expired"
+
+
+def test_google_live_requires_service_account(monkeypatch) -> None:
+    monkeypatch.setenv("GOOGLE_PLAY_VERIFIER_MODE", "live")
+    monkeypatch.delenv("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", raising=False)
+    try:
+        verify_android_purchase(ANDROID_MONTHLY, "live-token-abc")
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in str(exc)
+
+
+def test_google_live_active_subscription(monkeypatch) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    import app.services.subscription_store as subscription_store
+
+    monkeypatch.setenv("GOOGLE_PLAY_VERIFIER_MODE", "live")
+    monkeypatch.setenv(
+        "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+        json.dumps(
+            {
+                "client_email": "svc@test.iam.gserviceaccount.com",
+                "private_key": "-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----\n",
+            }
+        ),
+    )
+
+    expiry = (datetime.now(tz=UTC) + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _fake_verify(package_name: str, product_id: str, purchase_token: str):  # noqa: ANN001
+        assert package_name == "com.hiair"
+        assert product_id == ANDROID_MONTHLY
+        assert purchase_token == "play-token-1"
+        return VerifiedStorePurchase(
+            platform="android",
+            provider="google",
+            product_id=product_id,
+            plan_id="premium_monthly",
+            status="active",
+            transaction_id="GPA.1234",
+            original_transaction_id=None,
+            purchase_token=purchase_token,
+            expires_at=datetime.fromisoformat(expiry.replace("Z", "+00:00")),
+            auto_renew=True,
+        )
+
+    monkeypatch.setattr(subscription_store, "_verify_google_play_live", _fake_verify)
+    purchase = verify_android_purchase(ANDROID_MONTHLY, "play-token-1")
+    assert purchase.status == "active"
+    assert purchase.product_id == ANDROID_MONTHLY
 
 
 def test_stub_activate_blocked_in_production(monkeypatch) -> None:

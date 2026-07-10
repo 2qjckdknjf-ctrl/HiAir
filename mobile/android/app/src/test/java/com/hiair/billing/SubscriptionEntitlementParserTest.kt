@@ -18,4 +18,10 @@ class SubscriptionEntitlementParserTest {
     fun entitlementJson_missingEntitlement_isFree() {
         assertFalse(SubscriptionEntitlementParser.isPremiumFromSubscriptionJson("""{"status":"inactive"}"""))
     }
+
+    @Test
+    fun entitlementJson_ignoresNonEntitlementPremiumFlags() {
+        val plansOnly = """{"plans":[{"is_premium":true}],"entitlement":{"is_premium":false}}"""
+        assertFalse(SubscriptionEntitlementParser.isPremiumFromSubscriptionJson(plansOnly))
+    }
 }

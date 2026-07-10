@@ -172,7 +172,10 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
             titleView = titleView,
             bodyContainer = bodyContainer,
             persistSession = ::persistSession,
-            clearSession = { sessionStore.clear() },
+            clearSession = {
+                sessionStore.clear()
+                rootShell.settingsViewModel.clearEntitlementState()
+            },
             rerender = ::renderCurrentScreen
         )
 

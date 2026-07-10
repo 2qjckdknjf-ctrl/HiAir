@@ -307,9 +307,10 @@ class SettingsViewModel(
         return if (hourPart.contains(":")) hourPart else raw.take(5)
     }
 
-    fun signup() {
+    fun signup(onComplete: (() -> Unit)? = null) {
         if (state.email.isBlank() || state.password.length < 12) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
+            onComplete?.invoke()
             return
         }
         state = state.copy(loading = true)
@@ -331,14 +332,17 @@ class SettingsViewModel(
                 refreshToken = session.refreshToken,
                 statusText = l("settings.signed_up")
             )
+            refreshEntitlement(onComplete)
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.signup_failed"))
+            onComplete?.invoke()
         }
     }
 
-    fun login() {
+    fun login(onComplete: (() -> Unit)? = null) {
         if (state.email.isBlank() || state.password.length < 12) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
+            onComplete?.invoke()
             return
         }
         state = state.copy(loading = true)
@@ -360,8 +364,10 @@ class SettingsViewModel(
                 refreshToken = session.refreshToken,
                 statusText = l("settings.logged_in")
             )
+            refreshEntitlement(onComplete)
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.login_failed"))
+            onComplete?.invoke()
         }
     }
 
@@ -379,6 +385,31 @@ class SettingsViewModel(
         } catch (_: Exception) {
             // no-op
         }
+    }
+
+    fun clearEntitlementState() {
+        state = state.copy(
+            isPremium = false,
+            subscriptionStatus = "inactive",
+            showPaywall = false,
+            paywallStatusText = "",
+        )
+    }
+
+    fun resetSessionAfterLogout() {
+        signOutSupabase()
+        state = state.copy(
+            userId = "",
+            email = "",
+            accessToken = "",
+            refreshToken = "",
+            profileId = "",
+            password = "",
+            isPremium = false,
+            subscriptionStatus = "inactive",
+            showPaywall = false,
+            paywallStatusText = "",
+        )
     }
 
     fun loadSettings() {
@@ -691,14 +722,14 @@ class SettingsViewModel(
         }
         state = state.copy(loading = true)
         try {
-            val json = JSONObject(
-                apiClient.activateSubscription(
-                    userId = state.userId,
-                    planId = state.selectedPlanId,
-                    useTrial = true,
-                    accessToken = state.accessToken
-                )
+            val raw = apiClient.activateSubscription(
+                userId = state.userId,
+                planId = state.selectedPlanId,
+                useTrial = true,
+                accessToken = state.accessToken
             )
+            applyEntitlementFromSubscriptionJson(raw)
+            val json = JSONObject(raw)
             state = state.copy(
                 loading = false,
                 subscriptionStatus = json.getString("status"),
@@ -716,7 +747,9 @@ class SettingsViewModel(
         }
         state = state.copy(loading = true)
         try {
-            val json = JSONObject(apiClient.cancelSubscription(state.userId, state.accessToken))
+            val raw = apiClient.cancelSubscription(state.userId, state.accessToken)
+            applyEntitlementFromSubscriptionJson(raw)
+            val json = JSONObject(raw)
             state = state.copy(
                 loading = false,
                 subscriptionStatus = json.getString("status"),

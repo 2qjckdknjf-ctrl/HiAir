@@ -15,6 +15,7 @@ final class AppSessionTests: XCTestCase {
         session.refreshToken = "refresh-token"
         session.profileId = "profile-1"
         session.authNotice = "notice"
+        session.isPremium = true
 
         session.logout()
 
@@ -23,6 +24,26 @@ final class AppSessionTests: XCTestCase {
         XCTAssertEqual(session.refreshToken, "")
         XCTAssertEqual(session.profileId, "")
         XCTAssertEqual(session.authNotice, "")
+        XCTAssertFalse(session.isPremium)
+    }
+
+    @MainActor
+    func testApplyEntitlementUnlocksPremium() {
+        let session = AppSession()
+        let entitlement = UserEntitlementResponse(
+            userId: "user-1",
+            plan: "premium",
+            isPremium: true,
+            maxProfiles: 6,
+            extendedForecastEnabled: true,
+            customAlertsEnabled: true,
+            exportReportsEnabled: true,
+            advancedInsightsEnabled: true
+        )
+        session.applyEntitlement(entitlement)
+        XCTAssertTrue(session.isPremium)
+        session.applyEntitlement(nil)
+        XCTAssertFalse(session.isPremium)
     }
 
     @MainActor

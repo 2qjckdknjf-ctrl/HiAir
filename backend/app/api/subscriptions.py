@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from psycopg import Error as PsycopgError
+import logging
 
 from app.api.deps import get_current_user_id
 from app.core.settings import _is_protected_env, settings
@@ -17,6 +18,7 @@ import app.services.subscription_repository as subscription_repository
 import app.services.subscription_store as subscription_store
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
+logger = logging.getLogger(__name__)
 
 
 def _stub_dev_only(action: str) -> None:
@@ -52,12 +54,27 @@ def verify_ios_subscription(
     payload: IosVerifyRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> SubscriptionStatusResponse:
+    cfg = subscription_store._config_from_env()
+    logger.info(
+        "subscription_ios_verify user_id=%s product_id=%s verifier_mode=%s",
+        user_id,
+        payload.product_id,
+        cfg.apple_mode,
+    )
     try:
         purchase = subscription_store.verify_ios_purchase(
             payload.signed_transaction,
             product_id=payload.product_id,
         )
-        return subscription_repository.apply_verified_purchase(user_id=user_id, purchase=purchase)
+        result = subscription_repository.apply_verified_purchase(user_id=user_id, purchase=purchase)
+        logger.info(
+            "subscription_ios_verify_result user_id=%s status=%s is_premium=%s expires_at=%s",
+            user_id,
+            result.status,
+            bool(getattr(result.entitlement, "is_premium", False) if result.entitlement else False),
+            getattr(result, "current_period_end", None),
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -71,12 +88,27 @@ def verify_android_subscription(
     payload: AndroidVerifyRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> SubscriptionStatusResponse:
+    cfg = subscription_store._config_from_env()
+    logger.info(
+        "subscription_android_verify user_id=%s product_id=%s verifier_mode=%s",
+        user_id,
+        payload.product_id,
+        cfg.google_mode,
+    )
     try:
         purchase = subscription_store.verify_android_purchase(
             payload.product_id,
             payload.purchase_token,
         )
-        return subscription_repository.apply_verified_purchase(user_id=user_id, purchase=purchase)
+        result = subscription_repository.apply_verified_purchase(user_id=user_id, purchase=purchase)
+        logger.info(
+            "subscription_android_verify_result user_id=%s status=%s is_premium=%s expires_at=%s",
+            user_id,
+            result.status,
+            bool(getattr(result.entitlement, "is_premium", False) if result.entitlement else False),
+            getattr(result, "current_period_end", None),
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
