@@ -1,6 +1,18 @@
 # Real Device QA Report
 
-Status: **RC-2 BLOCKED** (2026-07-07) — code blockers closed; owner hardware session pending.
+Status: **SUBSCRIPTION CERTIFICATION** (2026-07-10) — TestFlight build **14** uploaded; sandbox E2E pending owner.
+
+## Subscription certification (2026-07-10)
+
+| Item | Result | Notes |
+|------|--------|-------|
+| Privacy export ≠ Premium | **PASS** | prod: 401 unauth; auth never 402 |
+| Backend subscription tests | **PASS** | incl. privacy + planner regression |
+| Production smoke | **PASS** | `subscription_production_smoke.py` |
+| Backend deploy 5827bed | **FAIL** | Cloudflare step; retry on next push |
+| TestFlight build 14 upload | **PASS** | UUID `a7e38173-b060-4ca7-89cc-f596966b6c28` |
+| iOS sandbox purchase E2E | **BLOCKED** | owner + physical iPhone |
+| Android Play Billing E2E | **EXTERNALLY BLOCKED** | no Play app |
 
 ## Master RC sprint — code certification (2026-07-07)
 

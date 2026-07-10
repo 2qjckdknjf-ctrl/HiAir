@@ -3,7 +3,20 @@
 Date: 2026-04-07 (status block updated 2026-07-07, RC-2)
 Owner transfer: current agent -> next development agent
 
-## 0) Live status — first-10-users track (2026-07-07)
+## 0) Live status — subscription certification (2026-07-10)
+
+Branch `main` @ `5827bed` + certification fixes.
+
+- ✅ **Subscription Recovery** (`5827bed`) — mobile entitlement sync + Google live verifier
+- ⚠️ **Production deploy** — run `29072333018` FAILED (Cloudflare); live API still on 2026-07-07 image; redeploy pending
+- ✅ **Privacy contract** — export/delete auth-only; production never returns 402 for privacy
+- ✅ **TestFlight build 14** uploaded — Delivery UUID `a7e38173-b060-4ca7-89cc-f596966b6c28` (includes `5827bed` client fixes)
+- ⏳ **iOS sandbox E2E** — owner device session required
+- ❌ **Android Play E2E** — EXTERNALLY BLOCKED (no `com.hiair` app)
+
+See `docs/subscriptions/SUBSCRIPTION_PRODUCTION_CERTIFICATION.md`.
+
+## 0b) Prior — first-10-users track (2026-07-07)
 
 Branch `release/mega-sprint-2-first-10-users` @ `a2123fe` (merged to `main`, production deployed).
 

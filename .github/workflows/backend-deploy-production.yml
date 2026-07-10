@@ -165,7 +165,20 @@ jobs:
 
       - name: Deploy API to Cloudflare Containers
         if: steps.cloudflare.outputs.enabled == '1'
-        run: HIAIR_API_ENV_FILE=/tmp/hiair-api-secrets.env ./scripts/ops/deploy_hiair_api_cloudflare.sh
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Cloudflare deploy attempt ${attempt}/3"
+            if HIAIR_API_ENV_FILE=/tmp/hiair-api-secrets.env ./scripts/ops/deploy_hiair_api_cloudflare.sh; then
+              exit 0
+            fi
+            if [[ "${attempt}" -lt 3 ]]; then
+              echo "Cloudflare deploy failed; retrying in 45s..."
+              sleep 45
+            fi
+          done
+          echo "Cloudflare deploy failed after 3 attempts"
+          exit 1
 
       - name: Run custom deploy command
         if: env.HIAIR_DEPLOY_COMMAND != '' && steps.cloudflare.outputs.enabled != '1'

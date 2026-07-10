@@ -39,8 +39,10 @@ Internal plan keys: `premium_monthly`, `premium_yearly` (stub/dev may still acce
 | Basic recommendations | Yes | Yes | None | Dashboard |
 | Extended day plan | No | Yes | `require_feature(extended_forecast)` — `air.py` | DailyPlannerView / Android planner |
 | Planner hourly | No | Yes | `require_feature(extended_forecast)` — `planner.py` | DailyPlannerView |
-| Custom briefing schedule | No | Yes | `require_feature(custom_alerts)` — `briefings.py` | Settings briefing |
-| Privacy export | No | Yes | `require_feature(export_reports)` — `privacy.py` | Settings export |
+| Custom briefing schedule (PUT) | Read free | Write premium | `require_feature(custom_alerts)` — `briefings.py` PUT only | Settings briefing |
+| GDPR privacy export | Yes | Yes | **Auth only** — `privacy.py` GET `/export` (no premium gate) | Settings export |
+| Account deletion | Yes | Yes | **Auth only** — `privacy.py` POST `/delete-account` | Settings delete |
+| Premium exportable reports | No | Yes | `export_reports_enabled` flag (future product surface) | TBD |
 | Advanced insights | No | Yes | `require_feature(advanced_insights)` — `insights.py` | InsightsView |
 | Daily recommendations | No | Yes | `require_feature` via daily rec — `recommendations.py` | Dashboard / insights |
 | Wearable insights | No | Yes (future) | `wearable_insights_enabled` flag | TBD |

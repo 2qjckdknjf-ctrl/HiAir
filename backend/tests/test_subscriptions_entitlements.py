@@ -235,6 +235,43 @@ def test_stub_activate_blocked_when_provider_not_stub(monkeypatch) -> None:
     assert "SUBSCRIPTION_PROVIDER=stub" in response.json()["detail"]
 
 
+def test_privacy_export_free_user_returns_200_not_402(monkeypatch) -> None:
+    import app.api.privacy as privacy_api
+
+    monkeypatch.setattr(deps, "decode_access_token", lambda token: "user-free")
+    monkeypatch.setattr(deps.user_repository, "user_exists", lambda user_id: True)
+    monkeypatch.setattr(
+        privacy_api.privacy_repository,
+        "export_user_data",
+        lambda user_id: {"user": {"id": user_id}, "profiles": []},
+    )
+    client = TestClient(app)
+    response = client.get("/api/privacy/export", headers=_auth_headers())
+    assert response.status_code == 200, response.text
+    assert response.status_code != 402
+
+
+def test_planner_free_user_returns_402(monkeypatch) -> None:
+    import app.api.planner as planner_api
+
+    monkeypatch.setattr(deps, "decode_access_token", lambda token: "user-free")
+    monkeypatch.setattr(deps.user_repository, "user_exists", lambda user_id: True)
+    monkeypatch.setattr(
+        planner_api.entitlement_service,
+        "require_feature",
+        lambda user_id, feature, attr: (_ for _ in ()).throw(
+            __import__("fastapi").HTTPException(status_code=402, detail="Premium subscription required")
+        ),
+    )
+    client = TestClient(app)
+    response = client.get(
+        "/api/planner/daily",
+        params={"profile_id": "profile-1"},
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 402
+
+
 def test_free_user_blocked_from_premium_recommendations(monkeypatch) -> None:
     monkeypatch.setattr(deps, "decode_access_token", lambda token: "user-1")
     monkeypatch.setattr(deps.user_repository, "user_exists", lambda user_id: True)
