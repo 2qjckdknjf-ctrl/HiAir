@@ -8,9 +8,8 @@ Owner transfer: current agent -> next development agent
 Branch `main` @ `5827bed` + certification fixes.
 
 - ✅ **Subscription Recovery** (`5827bed`) — mobile entitlement sync + Google live verifier
-- ⚠️ **Production deploy** — run `29072333018` FAILED (Cloudflare); live API still on 2026-07-07 image; redeploy pending
-- ✅ **Privacy contract** — export/delete auth-only; production never returns 402 for privacy
-- ✅ **TestFlight build 14** uploaded — Delivery UUID `a7e38173-b060-4ca7-89cc-f596966b6c28` (includes `5827bed` client fixes)
+- ⚠️ **Production deploy** — **BLOCKED**: expired `CLOUDFLARE_API_TOKEN` (runs `29072333018`, `29072760859`); runbook `docs/_operator/cloudflare-deploy-token-runbook.md`
+- ✅ **TestFlight ASC build 73** VALID (CFBundleVersion 14, `5827bed` client fixes)
 - ⏳ **iOS sandbox E2E** — owner device session required
 - ❌ **Android Play E2E** — EXTERNALLY BLOCKED (no `com.hiair` app)
 

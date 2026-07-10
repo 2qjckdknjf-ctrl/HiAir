@@ -39,12 +39,14 @@ Mobile subscription client fixes (`5827bed`) are **not** in TestFlight build **6
 
 | Item | Value |
 |------|-------|
-| Target commit | `5827bed` + certification fixes |
-| Workflow | `backend-deploy-production.yml` |
-| Last deploy run | `29072333018` — **FAIL** at "Deploy API to Cloudflare Containers" |
-| Last **successful** deploy | `28872808828` @ `ea66272` (2026-07-07) |
-| Live worker | `hiair-api` modified `2026-07-07T14:14:58Z` |
-| Production smoke | `subscription_production_smoke.py` **PASS** (privacy no 402; planner 402) |
+| Target commits | `5827bed` + certification + deploy recovery |
+| **Root cause** | Expired/invalid **`CLOUDFLARE_API_TOKEN`** (GitHub production) |
+| Failed step | `Deploy API to Cloudflare Containers` → `wrangler secret bulk` |
+| CF API codes | `10000` Authentication error, `9109` Invalid access token |
+| Failed runs | `29072333018`, `29072760859` |
+| Last **success** | `28872808828` @ `ea66272` (2026-07-07) |
+| Production `deploy_git_sha` | **absent** on `/api/health` (old image) |
+| Owner runbook | `docs/_operator/cloudflare-deploy-token-runbook.md` |
 
 ---
 
@@ -69,8 +71,10 @@ Mobile subscription client fixes (`5827bed`) are **not** in TestFlight build **6
 |------|-------|
 | Previous ASC build | **65** @ commit ~`9e82079` (no `5827bed` mobile fixes) |
 | New `CURRENT_PROJECT_VERSION` | **14** (bumped in `project.yml`) |
-| New archive | **UPLOADED** build **14** (0.1.0) — Delivery UUID `a7e38173-b060-4ca7-89cc-f596966b6c28` |
-| ASC processing | **PENDING** — check App Store Connect for build **66+** VALID |
+| New archive | **UPLOADED** — ASC build **73** VALID (uploaded 2026-07-09) |
+| CFBundleVersion | 14 (0.1.0) |
+| Delivery UUID | `a7e38173-b060-4ca7-89cc-f596966b6c28` |
+| Includes mobile fixes | `5827bed` entitlement sync |
 | ASC IAP products | `com.hiair.premium.monthly` / `.yearly` — **READY_TO_SUBMIT**, prices+availability OK |
 
 ---
@@ -129,26 +133,25 @@ Mobile subscription client fixes (`5827bed`) are **not** in TestFlight build **6
 
 ## 11. Remaining Blockers
 
-1. **Redeploy** `5827bed` to Cloudflare (fix/retry failed workflow)
-2. **TestFlight** upload build 14+ including mobile entitlement sync
-3. **Owner device** sandbox purchase E2E on physical iPhone
-4. **ASC IAP** state `READY_TO_SUBMIT` — may need metadata/review for production; sandbox should work on TestFlight
-5. **Play Console** app creation for Android E2E
+1. **Rotate `CLOUDFLARE_API_TOKEN`** in GitHub production (see `docs/_operator/cloudflare-deploy-token-runbook.md`)
+2. Re-run **Backend Deploy Production** workflow → confirm `deploy_git_sha` on `/api/health`
+3. **Owner device** sandbox E2E (TestFlight ASC build **73** VALID)
+4. **Play Console** app creation for Android E2E
 
 ---
 
 ## 12. Final Verdict
 
-# SUBSCRIPTION DEPLOYED — WAITING FOR TESTFLIGHT SANDBOX DEVICE
+# BACKEND DEPLOY STILL BLOCKED
 
-(Production API live on pre-`5827bed` image until Cloudflare redeploy completes; mobile E2E blocked on new TestFlight build + device sandbox purchase.)
+Rotate expired `CLOUDFLARE_API_TOKEN`, redeploy, verify `deploy_git_sha`, then proceed to iOS sandbox E2E on TestFlight build **73**.
 
 ---
 
 ## Owner: iOS Sandbox Runbook
 
 1. Confirm workflow deploy **SUCCESS** after push
-2. Install TestFlight build **≥14** (ASC build number will be **66+**)
+2. Install TestFlight ASC build **73** (CFBundleVersion 14)
 3. Login with test account
 4. Settings → confirm "Premium inactive"
 5. Planner → Upgrade → paywall → products load

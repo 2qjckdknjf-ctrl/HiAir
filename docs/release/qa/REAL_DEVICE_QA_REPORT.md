@@ -9,8 +9,8 @@ Status: **SUBSCRIPTION CERTIFICATION** (2026-07-10) — TestFlight build **14** 
 | Privacy export ≠ Premium | **PASS** | prod: 401 unauth; auth never 402 |
 | Backend subscription tests | **PASS** | incl. privacy + planner regression |
 | Production smoke | **PASS** | `subscription_production_smoke.py` |
-| Backend deploy 5827bed | **FAIL** | Cloudflare step; retry on next push |
-| TestFlight build 14 upload | **PASS** | UUID `a7e38173-b060-4ca7-89cc-f596966b6c28` |
+| Backend deploy 5827bed | **BLOCKED** | expired `CLOUDFLARE_API_TOKEN` — see `docs/_operator/cloudflare-deploy-token-runbook.md` |
+| TestFlight ASC build 73 | **VALID** | CFBundleVersion 14; uploaded 2026-07-09 |
 | iOS sandbox purchase E2E | **BLOCKED** | owner + physical iPhone |
 | Android Play Billing E2E | **EXTERNALLY BLOCKED** | no Play app |
 

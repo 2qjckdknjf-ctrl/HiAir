@@ -22,6 +22,14 @@ if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "[api] verifying Cloudflare API token"
+python3 "${ROOT_DIR}/scripts/ops/verify_cloudflare_deploy_token.py" || {
+  echo "ERROR: Cloudflare deploy token preflight failed." >&2
+  echo "Rotate GitHub production secret CLOUDFLARE_API_TOKEN (Custom API Token)." >&2
+  echo "See docs/_operator/cloudflare-deploy-token-runbook.md" >&2
+  exit 1
+}
+
 echo "[api] installing worker dependencies"
 (
   cd "${API_DIR}"
@@ -65,6 +73,7 @@ allowed = {
     "GOOGLE_PLAY_VERIFIER_MODE",
     "APPLE_BUNDLE_ID",
     "GOOGLE_PLAY_PACKAGE_NAME",
+    "DEPLOY_GIT_SHA",
     "WEATHER_API_PROVIDER",
     "WEATHER_API_KEY",
     "AQI_API_PROVIDER",
@@ -85,6 +94,9 @@ values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
 values.setdefault("APPLE_BUNDLE_ID", "com.hiair.app")
 values.setdefault("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
+deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
+if deploy_sha:
+    values["DEPLOY_GIT_SHA"] = deploy_sha
 for key in sorted(values):
     print(f"{key}={values[key]}")
 PY

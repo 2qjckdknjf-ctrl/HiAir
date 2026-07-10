@@ -138,6 +138,7 @@ jobs:
               "GOOGLE_PLAY_VERIFIER_MODE",
               "APPLE_BUNDLE_ID",
               "GOOGLE_PLAY_PACKAGE_NAME",
+              "DEPLOY_GIT_SHA",
               "WEATHER_API_PROVIDER",
               "WEATHER_API_KEY",
               "AQI_API_PROVIDER",
@@ -157,11 +158,18 @@ jobs:
               value = os.environ.get(key, "").strip()
               if not value and key in defaults:
                   value = defaults[key]
-              if value:
-                  lines.append(f"{key}={value}")
+          if value:
+              lines.append(f"{key}={value}")
+          deploy_sha = os.environ.get("GITHUB_SHA", "").strip()
+          if deploy_sha:
+              lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")
           out.write_text("\n".join(lines) + "\n", encoding="utf-8")
           print(f"Wrote {len(lines)} secrets to {out}")
           PY
+
+      - name: Verify Cloudflare deploy token
+        if: steps.cloudflare.outputs.enabled == '1'
+        run: python3 scripts/ops/verify_cloudflare_deploy_token.py
 
       - name: Deploy API to Cloudflare Containers
         if: steps.cloudflare.outputs.enabled == '1'
