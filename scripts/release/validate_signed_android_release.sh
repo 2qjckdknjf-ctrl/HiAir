@@ -8,6 +8,9 @@ ANDROID_DIR="$ROOT/mobile/android"
 AAB="$ANDROID_DIR/app/build/outputs/bundle/release/app-release.aab"
 KEYSTORE_PROPS="$ANDROID_DIR/keystore.properties"
 EXPECTED_PACKAGE="${GOOGLE_PLAY_PACKAGE_NAME:-com.hiair}"
+JAVA_HOME="${JAVA_HOME:-/Users/alex/Library/Java/JavaVirtualMachines/jbr-17.0.14/Contents/Home}"
+JARSIGNER="$JAVA_HOME/bin/jarsigner"
+KEYTOOL="$JAVA_HOME/bin/keytool"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -32,7 +35,7 @@ fi
 [[ -f "$AAB" ]] || fail "AAB not found at $AAB"
 
 echo "==> jarsigner verify"
-if ! jarsigner -verify -verbose -certs "$AAB" >/tmp/hiair-jarsigner-verify.txt 2>&1; then
+if ! "$JARSIGNER" -verify -verbose -certs "$AAB" >/tmp/hiair-jarsigner-verify.txt 2>&1; then
   cat /tmp/hiair-jarsigner-verify.txt >&2
   fail "AAB is not signed or signature invalid"
 fi
@@ -40,7 +43,7 @@ rg -q "jar verified" /tmp/hiair-jarsigner-verify.txt || fail "jarsigner did not 
 echo "PASS jarsigner"
 
 echo "==> Certificate fingerprints"
-keytool -printcert -jarfile "$AAB" 2>/dev/null | rg -i "Owner:|SHA1:|SHA256:" || true
+"$KEYTOOL" -printcert -jarfile "$AAB" 2>/dev/null | rg -i "Owner:|SHA1:|SHA256:" || true
 
 APKSIGNER="${ANDROID_HOME:-$HOME/Library/Android/sdk}/build-tools/36.1.0/apksigner"
 if [[ -x "$APKSIGNER" ]]; then

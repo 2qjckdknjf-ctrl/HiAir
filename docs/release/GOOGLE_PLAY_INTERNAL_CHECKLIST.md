@@ -2,62 +2,59 @@
 
 **App:** HiAir  
 **Application ID:** `com.hiair`  
-**Version:** 0.1.0 (`versionCode` 2)
+**Version:** 0.1.0 (`versionCode` 2)  
+**Updated:** 2026-07-10 (Mission #5)
 
-## Pre-upload (engineering)
+## Pre-upload (engineering) — DONE
 
 - [x] Release → `https://api.hiair.io` (`build.gradle.kts`)
 - [x] Adaptive launcher icons + splash theme
 - [x] `POST_NOTIFICATIONS` permission (Android 13+)
-- [x] Health Connect permissions declared
+- [x] Health Connect permissions + Play compliance intents
 - [x] Cleartext disabled in release manifest
-- [x] AAB build script: `scripts/release/build_android_play_internal.sh`
-- [x] Signing scaffold: `keystore.properties.example`
-- [x] `storeFile` resolves from `mobile/android/` (`rootProject.file`)
-- [x] Health Connect: `VIEW_PERMISSION_USAGE` + `ACTION_SHOW_PERMISSIONS_RATIONALE`
-- [x] Audit script: `scripts/release/audit_android_release.sh`
-- [x] Signed validation: `scripts/release/validate_signed_android_release.sh`
-- [x] Owner signing guide: `docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md`
-- [ ] **Owner:** Create release keystore + `mobile/android/keystore.properties`
-- [ ] **Owner:** Play Console app created for `com.hiair`
+- [x] Signed AAB: `mobile/android/app/build/outputs/bundle/release/app-release.aab`
+- [x] `validate_signed_android_release.sh` — PASS (2026-07-10)
+- [x] Upload SHA-1: `8A:60:8E:E1:00:D1:54:89:17:76:01:23:65:1C:6A:A9:74:BC:21:DE`
+- [x] Upload scripts: `upload_play_internal.sh` + `upload_play_internal.py`
 
-## Build signed AAB
+## Owner blockers (2026-07-10)
 
-```bash
-cd mobile/android
-cp keystore.properties.example keystore.properties
-# edit storeFile path and passwords
-bash ../../scripts/release/build_android_play_internal.sh
-```
+- [ ] **Create Play Console app** for package `com.hiair` (app not found in account `6120473136332405670`)
+- [ ] Upload signed AAB to **Internal testing** (manual or service account JSON)
+- [ ] Optional: `backend/.secrets/google-play-service-account.json` for automation
+- [ ] Data safety, content rating, store listing (may block rollout)
 
-Output: `mobile/android/app/build/outputs/bundle/release/app-release.aab`
-
-## Validate before upload
+## Build / validate (local)
 
 ```bash
-bash scripts/release/audit_android_release.sh
-bash scripts/release/validate_store_release_builds.sh android
-bash scripts/release/validate_signed_android_release.sh   # after keystore
+export JAVA_HOME="/Users/alex/Library/Java/JavaVirtualMachines/jbr-17.0.14/Contents/Home"
+bash scripts/release/validate_signed_android_release.sh
 ```
 
-## Play Console steps (owner)
+## Automated upload (after JSON)
 
-1. Play Console → HiAir → **Testing → Internal testing**
-2. Create release → Upload AAB
-3. Add release notes from `docs/release/store/RELEASE_NOTES.md`
-4. Complete **Data safety** using `docs/release/store/DATA_SAFETY.md`
-5. Content rating questionnaire
-6. Add internal testers (email list)
+```bash
+# Place JSON at backend/.secrets/google-play-service-account.json
+bash scripts/release/upload_play_internal.sh
+```
 
-## Post-upload device checks
+Track: **internal** only.
 
-See `docs/release/DEVICE_CERTIFICATION_CHECKLIST.md`.
+## Manual Play Console upload
+
+1. [App list](https://play.google.com/console/u/0/developers/6120473136332405670/app-list) → **Создать приложение** (if HiAir missing)
+2. HiAir → **Testing → Internal testing → Create release**
+3. Upload `app-release.aab`
+4. Release notes: `docs/release/store/RELEASE_NOTES.md`
+5. **Review release → Start rollout to Internal testing**
+
+## Post-upload
+
+- Verify upload certificate in **Setup → App integrity**
+- Add internal testers + opt-in link
+- Device QA: `docs/release/DEVICE_CERTIFICATION_CHECKLIST.md`
 
 ## Review credentials
 
-- Email: value from `APP_REVIEW_TEST_EMAIL` in `backend/.env.local`
-- Password: `APP_REVIEW_TEST_PASSWORD` (store in Play App access section)
-
-## Known upload blocker (2026-07-07)
-
-Unsigned AAB builds successfully but **Play Console requires signed AAB**. Owner must provide keystore.
+- Email: `PLAY_REVIEW_TEST_EMAIL` in `backend/.env.local`
+- Password: `PLAY_REVIEW_TEST_PASSWORD`

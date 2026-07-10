@@ -1,23 +1,22 @@
 # HiAir — Operator Handbook (First 10 Users)
 
-**Updated:** 2026-07-07  
-**Engineering status:** **100% complete — Operator Certification Mission #3**
+**Updated:** 2026-07-10  
+**Engineering status:** **Android signed AAB ready — Play upload blocked on owner Play Console setup**
 
-## Mission #3 — Android Release / Play Internal (2026-07-07)
+## Mission #5 — Play Internal Upload (2026-07-10)
 
-| Track | Upload readiness | Owner blocker |
-|-------|------------------|---------------|
-| TestFlight | **READY** | Build 65 VALID in ASC |
-| Play Internal | **PIPELINE READY** | Owner keystore + Play upload |
+| Track | Status | Blocker |
+|-------|--------|---------|
+| TestFlight | **READY** | Build 65 VALID |
+| Play Internal | **BLOCKED** | No `com.hiair` app in Play Console + no service account JSON |
 
 ```bash
-bash scripts/release/audit_android_release.sh
-bash scripts/release/build_android_play_internal.sh          # signed after keystore
+export JAVA_HOME="/Users/alex/Library/Java/JavaVirtualMachines/jbr-17.0.14/Contents/Home"
 bash scripts/release/validate_signed_android_release.sh
-bash scripts/release/upload_play_internal.sh                 # or manual Play Console
+bash scripts/release/upload_play_internal.sh   # after JSON + app created
 ```
 
-Signing guide: `docs/release/ANDROID_RELEASE_SIGNING_GUIDE.md`
+See `docs/release/MISSION5_OPERATOR_CERTIFICATION.md`
 
 ## What engineering has closed
 

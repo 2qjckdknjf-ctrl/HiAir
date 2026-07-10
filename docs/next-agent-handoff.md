@@ -11,9 +11,9 @@ Branch `release/mega-sprint-2-first-10-users` @ `a2123fe` (merged to `main`, pro
 - ✅ **P0 Sprint #1** (`205beed`) — Android live dashboard state machine + auto profile bootstrap.
 - ✅ **P0 Sprint #2** (`631fb2e`) — live→cached→sample resolver + source labels.
 - ✅ **Operator Certification Mission #2** — TestFlight build **65 VALID** uploaded.
-- ✅ **Operator Certification Mission #3** — Android release pipeline ready; Play Internal **WAITING ONLY FOR RELEASE KEYSTORE**. See `docs/release/MISSION3_OPERATOR_CERTIFICATION.md`.
+- ✅ **Operator Certification Mission #5** — Signed AAB PASS; Play upload **BLOCKED** (no `com.hiair` app in Play Console, no service account JSON). See `docs/release/MISSION5_OPERATOR_CERTIFICATION.md`.
 
-**Next:** Run `bash scripts/release/investigate_android_keystore.sh`. Supply existing keystore (local, env vars, or GitHub production secrets) → signed AAB → Play Internal. See `docs/release/MISSION4_OPERATOR_CERTIFICATION.md`.
+**Next:** Owner creates HiAir app in Play Console → Internal testing upload → device QA.
 
 ## 1) Current state (implemented and verified)
 

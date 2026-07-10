@@ -9,6 +9,8 @@ Status: **RC-2 BLOCKED** (2026-07-07) — code blockers closed; owner hardware s
 | Production fake UI (Barcelona/Alex/actions) | **FIXED** | iOS dashboard + l10n; Android secondary screens |
 | iOS `HiAirTests` Info.plist | **FIXED** | `GENERATE_INFOPLIST_FILE: YES` in `project.yml` |
 | Android assembleDebug/Release + lint + tests | **PASS** | arm64 JDK 17 required |
+| Android signed AAB validation | **PASS** | `app-release.aab` versionCode 2; jarsigner OK (2026-07-10) |
+| Play Internal upload | **BLOCKED** | No `com.hiair` app in Play Console; no service account JSON |
 | iOS build + tests | **PASS** | 4/4 tests |
 | Backend pytest | **PASS** | 119 tests |
 | Production API | **PASS** | `source=sample` 200; health warm ~0.28s |
@@ -19,13 +21,13 @@ Status: **RC-2 BLOCKED** (2026-07-07) — code blockers closed; owner hardware s
 
 | Platform | Device | Build | API target | Status |
 |----------|--------|-------|------------|--------|
-| Android | TBD | `app-release-unsigned.apk` | `https://api.hiair.io` | BLOCKED |
+| Android | TBD | signed `app-release.aab` | `https://api.hiair.io` | BLOCKED (Play upload pending) |
 | iOS | iPhone (offline) | Release / TestFlight | `https://api.hiair.io` | BLOCKED |
 | iPad | TBD | — | — | NOT STARTED |
 
 Artifacts:
 
-- `mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk`
+- `mobile/android/app/build/outputs/bundle/release/app-release.aab` (signed, versionCode 2)
 - iOS: archive via Xcode Release scheme
 
 ## Critical flows (all BLOCKED until hardware session)

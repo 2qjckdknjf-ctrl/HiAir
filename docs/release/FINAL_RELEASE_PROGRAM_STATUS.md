@@ -1,9 +1,18 @@
 # HiAir — Final Release Program Status
 
-**Updated:** 2026-07-07  
-**Branch:** `main` @ `e02e4dd`  
-**Deploy:** Backend Deploy Production run [#14](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/28868547382) **success**  
-**Verdict:** **ENGINEERING READY — WAITING FOR OPERATOR CERTIFICATION**
+**Updated:** 2026-07-10  
+**Verdict:** **TESTFLIGHT READY — PLAY INTERNAL WAITING FOR OWNER**
+
+---
+
+## Store certification (2026-07-10)
+
+| Track | Status | Evidence |
+|-------|--------|----------|
+| TestFlight (iOS) | **READY** | ASC build 65 VALID |
+| Play Internal (Android) | **BLOCKED** | Signed AAB PASS; no `com.hiair` in Play Console; no API JSON |
+
+Signed AAB: `mobile/android/app/build/outputs/bundle/release/app-release.aab` (versionCode 2, `com.hiair`)
 
 ---
 
