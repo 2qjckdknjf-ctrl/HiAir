@@ -121,7 +121,7 @@ Backend — единственный источник истины. Premium ра
 |---------|------|--------|----------|--------------|
 | Day plan / planner | 402 | 200 | `session.isPremium` + 402 | `state.isPremium` + 402 |
 | Advanced insights | 402 | 200 | 402 → paywall | 402 → paywall |
-| Privacy export | 402 | 200 | Settings | Settings |
+| Privacy export | **200 (auth)** | 200 | **auth only** — no premium gate | Settings (no gate) |
 | Extra profiles | 402 at limit | 200 | Paywall | Paywall |
 
 Все gates должны читать backend-synced `isPremium` после исправлений.
