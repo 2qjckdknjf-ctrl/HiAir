@@ -39,6 +39,7 @@ echo "[api] installing worker dependencies"
 echo "[api] syncing wrangler secrets from ${ENV_FILE}"
 TMP_SECRETS="$(mktemp)"
 python3 <<PY >"${TMP_SECRETS}"
+import os
 from pathlib import Path
 
 allowed = {
