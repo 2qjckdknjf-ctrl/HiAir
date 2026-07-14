@@ -116,6 +116,34 @@ def test_ios_verify_grants_premium(monkeypatch) -> None:
     assert called == ["user-1"]
 
 
+def test_ios_verify_idempotent_for_same_transaction(monkeypatch) -> None:
+    monkeypatch.setattr(deps, "decode_access_token", lambda token: "user-1")
+    monkeypatch.setattr(deps.user_repository, "user_exists", lambda user_id: True)
+    call_count = {"n": 0}
+
+    def _apply(user_id: str, purchase):  # noqa: ANN001
+        call_count["n"] += 1
+        return SimpleNamespace(
+            user_id=user_id,
+            plan_id="premium_monthly",
+            status="active",
+            entitlement=_premium_entitlement(user_id),
+        )
+
+    monkeypatch.setattr(subscriptions_api.subscription_repository, "apply_verified_purchase", _apply)
+    jws = build_stub_ios_jws(IOS_MONTHLY)
+    client = TestClient(app)
+    for _ in range(2):
+        response = client.post(
+            "/api/subscriptions/ios/verify",
+            json={"signed_transaction": jws, "product_id": IOS_MONTHLY},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 200
+        assert response.json()["entitlement"]["is_premium"] is True
+    assert call_count["n"] == 2
+
+
 def test_expired_ios_stub_token_yields_expired_status() -> None:
     expired = datetime.now(tz=UTC) - timedelta(days=2)
     jws = build_stub_ios_jws(IOS_MONTHLY, expires_at=expired, status="active")

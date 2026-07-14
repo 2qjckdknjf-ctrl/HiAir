@@ -12,9 +12,11 @@
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
 		1BF97FD1C79322D4ED0D3924 /* HiAirLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */; };
+		1C93CBBDDA86CE4492DDC214 /* SubscriptionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */; };
 		1E08E28221A8D5D1C20D4941 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5F4A846E176862AF8006820 /* Assets.xcassets */; };
 		1E1AE86A24B33D667114E29C /* SubscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E51B8943BC3F02E49B7FB4D0 /* SubscriptionServiceTests.swift */; };
 		1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F189463A81578D7DA02A429B /* AuthView.swift */; };
+		21DA068E82B7BCAB678446E2 /* PurchaseSingleFlightGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */; };
 		2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */; };
 		3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */; };
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
@@ -65,11 +67,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionDiagnostics.swift; sourceTree = "<group>"; };
 		00BEEF483B33FAEC14EFDD21 /* HiAirComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirComponents.swift; sourceTree = "<group>"; };
 		030CBAFA89BD721FF0066134 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
 		097CA85FB80A297417CADC70 /* WearableConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentView.swift; sourceTree = "<group>"; };
 		0A2CAE228241EA1938B7BC3D /* hiair-ai-guide-avatar.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "hiair-ai-guide-avatar.png"; sourceTree = "<group>"; };
 		1799C91CB76C7ED1CD7E9FDB /* HiAirResponsiveSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirResponsiveSpacing.swift; sourceTree = "<group>"; };
+		246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseSingleFlightGuard.swift; sourceTree = "<group>"; };
 		28B3153C0DFB174EE1946E54 /* HiAir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HiAir.entitlements; sourceTree = "<group>"; };
 		2EB3578D28A74CD1CFB80995 /* HiAirRiskStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirRiskStyle.swift; sourceTree = "<group>"; };
 		3067FB46BAFE989CA0A16E0E /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -160,6 +164,8 @@
 				5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */,
 				6C80D922CB3152908E2D2892 /* LocationService.swift */,
 				BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */,
+				246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */,
+				009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */,
 				A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */,
 			);
 			path = Services;
@@ -382,10 +388,12 @@
 				109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */,
 				714BB4A2D60C45C93C508CFD /* PaywallView.swift in Sources */,
 				EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */,
+				21DA068E82B7BCAB678446E2 /* PurchaseSingleFlightGuard.swift in Sources */,
 				B5875FBC5C5B3032EE02124A /* RiskAccentColor.swift in Sources */,
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,
+				1C93CBBDDA86CE4492DDC214 /* SubscriptionDiagnostics.swift in Sources */,
 				F7796D20327E2DEB59780003 /* SubscriptionService.swift in Sources */,
 				495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */,
 				9FE7D02DC3FF7325D197975D /* TimeOfDayBackground.swift in Sources */,
@@ -412,7 +420,7 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 80;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "https://api.hiair.io";
@@ -482,7 +490,7 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 80;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "http://127.0.0.1:8000";

@@ -15,9 +15,12 @@ final class SubscriptionService: ObservableObject {
 
     @Published private(set) var products: [Product] = []
     @Published private(set) var isLoading = false
+    @Published private(set) var isPurchaseInProgress = false
     @Published var lastError: String?
 
     private var updatesTask: Task<Void, Never>?
+    private var purchaseGuard = PurchaseSingleFlightGuard()
+    private var processedTransactionIds = Set<UInt64>()
     private let apiClient = APIClient.live()
 
     private init() {
@@ -29,22 +32,38 @@ final class SubscriptionService: ObservableObject {
     }
 
     func loadProducts(maxAttempts: Int = 3) async {
+        guard !isPurchaseInProgress else {
+            SubscriptionDiagnostics.log("products_load_skipped_purchase_in_progress")
+            return
+        }
         isLoading = true
         defer { isLoading = false }
 
+        SubscriptionDiagnostics.log("products_load_started", productId: Self.productIds.sorted().joined(separator: ","))
+
         for attempt in 1...maxAttempts {
+            guard !isPurchaseInProgress else { return }
             do {
-                try await AppStore.sync()
                 let loaded = try await Product.products(for: Array(Self.productIds))
                 if !loaded.isEmpty {
                     products = loaded.sorted { $0.id < $1.id }
                     lastError = nil
+                    SubscriptionDiagnostics.log(
+                        "products_load_succeeded",
+                        productId: loaded.map(\.id).joined(separator: ",")
+                    )
                     return
                 }
                 lastError = "App Store products not available yet"
+                SubscriptionDiagnostics.log("products_load_failed", resultType: "empty_catalog")
             } catch {
                 products = []
                 lastError = error.localizedDescription
+                SubscriptionDiagnostics.log(
+                    "products_load_failed",
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code
+                )
             }
 
             if attempt < maxAttempts {
@@ -55,30 +74,102 @@ final class SubscriptionService: ObservableObject {
     }
 
     func purchase(_ product: Product, userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
+        guard purchaseGuard.begin() else {
+            SubscriptionDiagnostics.log("purchase_request_skipped", productId: product.id, resultType: "already_in_progress")
+            throw SubscriptionServiceError.purchaseInProgress
+        }
+        isPurchaseInProgress = true
+        defer {
+            purchaseGuard.end()
+            isPurchaseInProgress = false
+        }
+
+        let correlationId = UUID().uuidString.prefix(8).lowercased()
+        SubscriptionDiagnostics.log(
+            "purchase_request_started",
+            productId: product.id,
+            correlationId: String(correlationId)
+        )
+
+        if let restored = try await syncVerifiedEntitlementsIfPresent(
+            userId: userId,
+            accessToken: accessToken,
+            correlationId: String(correlationId)
+        ) {
+            SubscriptionDiagnostics.log(
+                "purchase_restored_existing_entitlement",
+                productId: product.id,
+                entitlementActive: restored.entitlement?.isPremium == true,
+                correlationId: String(correlationId)
+            )
+            return restored
+        }
+
         let result = try await product.purchase()
         switch result {
         case .success(let verification):
-            let signed = try signedTransactionString(from: verification)
-            let response = try await apiClient.verifyIosSubscription(
-                userId: userId,
-                signedTransaction: signed,
-                productId: product.id,
-                accessToken: accessToken
-            )
-            if case .verified(let transaction) = verification {
-                await transaction.finish()
+            switch verification {
+            case .verified(let transaction):
+                SubscriptionDiagnostics.log(
+                    "purchase_result_success",
+                    productId: product.id,
+                    resultType: "verified",
+                    verificationState: "verified",
+                    correlationId: String(correlationId)
+                )
+                return try await processVerifiedTransaction(
+                    verification,
+                    transaction: transaction,
+                    userId: userId,
+                    accessToken: accessToken,
+                    correlationId: String(correlationId)
+                )
+            case .unverified(_, let error):
+                SubscriptionDiagnostics.log(
+                    "transaction_unverified",
+                    productId: product.id,
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code,
+                    correlationId: String(correlationId)
+                )
+                throw SubscriptionServiceError.verificationFailed
             }
-            return response
         case .userCancelled:
+            SubscriptionDiagnostics.log(
+                "purchase_result_cancelled",
+                productId: product.id,
+                correlationId: String(correlationId)
+            )
             throw SubscriptionServiceError.cancelled
         case .pending:
+            SubscriptionDiagnostics.log(
+                "purchase_result_pending",
+                productId: product.id,
+                correlationId: String(correlationId)
+            )
             throw SubscriptionServiceError.pending
         @unknown default:
+            SubscriptionDiagnostics.log(
+                "purchase_result_failed",
+                productId: product.id,
+                resultType: "unknown",
+                correlationId: String(correlationId)
+            )
             throw SubscriptionServiceError.unknown
         }
     }
 
     func restorePurchases(userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
+        guard purchaseGuard.begin() else {
+            throw SubscriptionServiceError.purchaseInProgress
+        }
+        isPurchaseInProgress = true
+        defer {
+            purchaseGuard.end()
+            isPurchaseInProgress = false
+        }
+
+        SubscriptionDiagnostics.log("restore_started")
         try await AppStore.sync()
         var signedTransactions: [String] = []
         for await result in Transaction.currentEntitlements {
@@ -86,43 +177,153 @@ final class SubscriptionService: ObservableObject {
                 signedTransactions.append(signed)
             }
         }
-        return try await apiClient.restoreSubscriptions(
+        let response = try await apiClient.restoreSubscriptions(
             userId: userId,
             platform: "ios",
             iosSignedTransactions: signedTransactions,
             accessToken: accessToken
         )
+        SubscriptionDiagnostics.log(
+            "restore_succeeded",
+            entitlementActive: response.entitlement?.isPremium == true
+        )
+        return response
     }
 
     func refreshEntitlement(userId: String, accessToken: String) async throws -> UserEntitlementResponse? {
+        SubscriptionDiagnostics.log("entitlement_refresh_started")
         let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
+        SubscriptionDiagnostics.log(
+            status.entitlement?.isPremium == true ? "entitlement_active" : "entitlement_inactive"
+        )
         return status.entitlement
+    }
+
+    private func syncVerifiedEntitlementsIfPresent(
+        userId: String,
+        accessToken: String,
+        correlationId: String
+    ) async throws -> SubscriptionStatusResponse? {
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result else { continue }
+            guard Self.productIds.contains(transaction.productID) else { continue }
+            guard !processedTransactionIds.contains(transaction.id) else { continue }
+            SubscriptionDiagnostics.log(
+                "existing_entitlement_detected",
+                productId: transaction.productID,
+                correlationId: correlationId
+            )
+            return try await processVerifiedTransaction(
+                result,
+                transaction: transaction,
+                userId: userId,
+                accessToken: accessToken,
+                correlationId: correlationId
+            )
+        }
+        return nil
+    }
+
+    private func processVerifiedTransaction(
+        _ verification: VerificationResult<Transaction>,
+        transaction: Transaction,
+        userId: String,
+        accessToken: String,
+        correlationId: String
+    ) async throws -> SubscriptionStatusResponse {
+        if processedTransactionIds.contains(transaction.id) {
+            SubscriptionDiagnostics.log(
+                "transaction_already_processed",
+                productId: transaction.productID,
+                correlationId: correlationId
+            )
+            let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
+            return status
+        }
+        processedTransactionIds.insert(transaction.id)
+
+        SubscriptionDiagnostics.log(
+            "backend_verify_started",
+            productId: transaction.productID,
+            correlationId: correlationId
+        )
+        let signed = try signedTransactionString(from: verification)
+        do {
+            let response = try await apiClient.verifyIosSubscription(
+                userId: userId,
+                signedTransaction: signed,
+                productId: transaction.productID,
+                accessToken: accessToken
+            )
+            SubscriptionDiagnostics.log(
+                "backend_verify_succeeded",
+                productId: transaction.productID,
+                httpStatus: 200,
+                entitlementActive: response.entitlement?.isPremium == true,
+                correlationId: correlationId
+            )
+            if response.entitlement?.isPremium == true {
+                await transaction.finish()
+                NotificationCenter.default.post(
+                    name: .subscriptionEntitlementDidUpdate,
+                    object: response.entitlement
+                )
+            }
+            return response
+        } catch let error as APIError {
+            processedTransactionIds.remove(transaction.id)
+            let statusCode: Int
+            switch error {
+            case .server(let code), .serverWithDetail(let code, _):
+                statusCode = code
+            default:
+                statusCode = 0
+            }
+            SubscriptionDiagnostics.log(
+                "backend_verify_failed",
+                productId: transaction.productID,
+                httpStatus: statusCode == 0 ? nil : statusCode,
+                correlationId: correlationId
+            )
+            throw error
+        }
     }
 
     private func listenForTransactionUpdates() async {
         for await update in Transaction.updates {
-            guard case .verified(let transaction) = update else { continue }
-            guard let auth = APIClient.getAuthState() else { continue }
-            do {
-                let signed = try signedTransactionString(from: update)
-                let status = try await apiClient.verifyIosSubscription(
-                    userId: auth.userId,
-                    signedTransaction: signed,
-                    productId: transaction.productID,
-                    accessToken: auth.accessToken
-                )
-                NotificationCenter.default.post(
-                    name: .subscriptionEntitlementDidUpdate,
-                    object: status.entitlement
-                )
-            } catch {
-                if let apiError = error as? APIError {
-                    lastError = userFacingMessage(for: apiError)
-                } else {
-                    lastError = error.localizedDescription
+            switch update {
+            case .verified(let transaction):
+                guard Self.productIds.contains(transaction.productID) else {
+                    await transaction.finish()
+                    continue
                 }
+                guard let auth = APIClient.getAuthState() else { continue }
+                SubscriptionDiagnostics.log(
+                    "transaction_verified",
+                    productId: transaction.productID
+                )
+                do {
+                    _ = try await processVerifiedTransaction(
+                        update,
+                        transaction: transaction,
+                        userId: auth.userId,
+                        accessToken: auth.accessToken,
+                        correlationId: "listener"
+                    )
+                } catch {
+                    if let apiError = error as? APIError {
+                        lastError = userFacingMessage(for: apiError)
+                    } else {
+                        lastError = error.localizedDescription
+                    }
+                }
+            case .unverified(_, let error):
+                SubscriptionDiagnostics.log(
+                    "transaction_unverified",
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code
+                )
             }
-            await transaction.finish()
         }
     }
 
@@ -189,6 +390,8 @@ enum SubscriptionServiceError: LocalizedError {
     case cancelled
     case pending
     case unknown
+    case purchaseInProgress
+    case verificationFailed
 
     var errorDescription: String? {
         switch self {
@@ -198,6 +401,10 @@ enum SubscriptionServiceError: LocalizedError {
             return "Purchase pending approval"
         case .unknown:
             return "Unknown purchase result"
+        case .purchaseInProgress:
+            return "Purchase already in progress"
+        case .verificationFailed:
+            return "Purchase verification failed"
         }
     }
 }

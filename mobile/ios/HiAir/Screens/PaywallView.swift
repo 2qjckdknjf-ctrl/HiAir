@@ -4,9 +4,13 @@ import SwiftUI
 struct PaywallView: View {
     @EnvironmentObject var session: AppSession
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var subscriptionService = SubscriptionService.shared
+    @ObservedObject private var subscriptionService = SubscriptionService.shared
     @State private var purchasingProductId: String?
     @State private var statusMessage = ""
+
+    private var purchaseBusy: Bool {
+        purchasingProductId != nil || subscriptionService.isPurchaseInProgress
+    }
 
     var body: some View {
         NavigationStack {
@@ -31,7 +35,7 @@ struct PaywallView: View {
                         .padding()
                         .v2Card()
 
-                        if subscriptionService.isLoading && subscriptionService.products.isEmpty {
+                        if subscriptionService.isLoading && subscriptionService.products.isEmpty && !purchaseBusy {
                             ProgressView(session.l("paywall.loading"))
                                 .frame(maxWidth: .infinity)
                         } else {
@@ -46,7 +50,7 @@ struct PaywallView: View {
                                 subscribeKey: "paywall.subscribe_yearly"
                             )
 
-                            if subscriptionService.products.isEmpty {
+                            if subscriptionService.products.isEmpty && !purchaseBusy {
                                 Text(subscriptionService.lastError ?? session.l("paywall.products_unavailable"))
                                     .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -57,13 +61,14 @@ struct PaywallView: View {
                                     Task { await subscriptionService.loadProducts() }
                                 }
                                 .buttonStyle(.borderedProminent)
+                                .disabled(purchaseBusy)
                             }
                         }
 
                         Button(session.l("paywall.restore")) {
                             Task { await restore() }
                         }
-                        .disabled(purchasingProductId != nil)
+                        .disabled(purchaseBusy)
 
                         Text(session.l("paywall.disclaimer"))
                             .font(AuroraTokens.Typography.caption)
@@ -84,7 +89,7 @@ struct PaywallView: View {
                     .padding()
                 }
 
-                if purchasingProductId != nil {
+                if purchaseBusy {
                     Color.black.opacity(0.25)
                         .ignoresSafeArea()
                     ProgressView(session.l("paywall.purchasing"))
@@ -96,9 +101,11 @@ struct PaywallView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(session.l("common.close")) { dismiss() }
+                        .disabled(purchaseBusy)
                 }
             }
-            .task {
+            .task(id: session.showPaywall) {
+                guard !purchaseBusy else { return }
                 await subscriptionService.loadProducts()
             }
         }
@@ -129,13 +136,14 @@ struct PaywallView: View {
             }
 
             Button {
+                guard !purchaseBusy else { return }
                 Task { await purchase(productId: productId, product: product) }
             } label: {
                 Text(isPurchasing ? session.l("paywall.purchasing") : session.l(subscribeKey))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(HiAirGradientButtonStyle())
-            .disabled(isPurchasing || purchasingProductId != nil)
+            .disabled(purchaseBusy || product == nil)
         }
         .padding()
         .v2Card()
@@ -156,9 +164,15 @@ struct PaywallView: View {
             statusMessage = session.l("paywall.auth_required")
             return
         }
+        guard purchasingProductId == nil, !subscriptionService.isPurchaseInProgress else {
+            statusMessage = session.l("paywall.purchase_in_progress")
+            return
+        }
+
         purchasingProductId = productId
         defer { purchasingProductId = nil }
         statusMessage = session.l("paywall.purchasing")
+
         do {
             let status = try await subscriptionService.purchase(
                 product,
@@ -178,6 +192,14 @@ struct PaywallView: View {
             } else {
                 statusMessage = session.l("paywall.verify_pending")
             }
+        } catch SubscriptionServiceError.cancelled {
+            statusMessage = session.l("paywall.purchase_cancelled")
+        } catch SubscriptionServiceError.pending {
+            statusMessage = session.l("paywall.purchase_pending")
+        } catch SubscriptionServiceError.verificationFailed {
+            statusMessage = session.l("paywall.verification_failed")
+        } catch SubscriptionServiceError.purchaseInProgress {
+            statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
             statusMessage = subscriptionService.userFacingMessage(for: error)
         } catch {
@@ -188,6 +210,10 @@ struct PaywallView: View {
     private func restore() async {
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
             statusMessage = session.l("paywall.auth_required")
+            return
+        }
+        guard !purchaseBusy else {
+            statusMessage = session.l("paywall.purchase_in_progress")
             return
         }
         purchasingProductId = "restore"
@@ -203,6 +229,8 @@ struct PaywallView: View {
             if status.entitlement?.isPremium == true || session.isPremium {
                 dismiss()
             }
+        } catch SubscriptionServiceError.purchaseInProgress {
+            statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
             statusMessage = subscriptionService.userFacingMessage(for: error)
         } catch {
