@@ -134,6 +134,7 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.android.billingclient:billing-ktx:7.1.1")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.1")

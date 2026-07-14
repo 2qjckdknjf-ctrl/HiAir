@@ -43,6 +43,9 @@ struct RootTabView: View {
                 .toolbarBackground(HiAirLiquidGlass.material(for: .regular), for: .tabBar)
                 .toolbarBackground(.visible, for: .tabBar)
                 .task(id: session.userId) {
+                    if !session.hasValidLocation {
+                        _ = await session.bootstrapLocationFromDevice()
+                    }
                     _ = await session.ensureProfileIdIfNeeded()
                 }
             } else {

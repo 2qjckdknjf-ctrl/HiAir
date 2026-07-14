@@ -190,6 +190,9 @@ struct DailyPlannerView: View {
         }
         .hiAirPageBackground()
         .task {
+            if !session.hasValidLocation {
+                _ = await session.bootstrapLocationFromDevice()
+            }
             if session.profileId.isEmpty {
                 _ = await session.ensureProfileIdIfNeeded()
             }
@@ -205,6 +208,18 @@ struct DailyPlannerView: View {
                 onPremiumRequired: { session.showPaywall = true }
             )
             session.markChecklistItem("hourly", done: true)
+        }
+        .onChange(of: session.locationRevision) { _ in
+            Task {
+                guard !session.profileId.isEmpty else { return }
+                await viewModel.refresh(
+                    profileId: session.profileId,
+                    userId: session.userId,
+                    accessToken: session.accessToken,
+                    language: session.preferredLanguage,
+                    onPremiumRequired: { session.showPaywall = true }
+                )
+            }
         }
     }
 

@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreLocation
 import UserNotifications
 
 struct OnboardingView: View {
@@ -9,8 +8,8 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var personaSelection = "adult"
     @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -30, to: Date()) ?? Date()
-    @StateObject private var permissionCoordinator = OnboardingPermissionCoordinator()
     @StateObject private var healthService = HealthKitService.shared
+    @StateObject private var locationService = LocationService.shared
 
     init(fromSettings: Bool = false) {
         self.fromSettings = fromSettings
@@ -102,7 +101,10 @@ struct OnboardingView: View {
 
     private func handlePrimaryAction() async {
         if step == 4 {
-            await permissionCoordinator.requestAll()
+            locationService.requestWhenInUseAuthorization()
+            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            _ = await session.bootstrapLocationFromDevice(locationService: locationService)
             step += 1
             return
         }
@@ -288,19 +290,5 @@ struct OnboardingView: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
-    }
-}
-
-final class OnboardingPermissionCoordinator: NSObject, ObservableObject, CLLocationManagerDelegate {
-    private let locationManager = CLLocationManager()
-
-    override init() {
-        super.init()
-        locationManager.delegate = self
-    }
-
-    func requestAll() async {
-        locationManager.requestWhenInUseAuthorization()
-        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
     }
 }

@@ -1,6 +1,8 @@
 package com.hiair.ui.settings
 
 import com.hiair.analytics.ProductAnalytics
+import com.hiair.location.GeoCoordinates
+import com.hiair.location.LocationSource
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
 import com.hiair.network.ApiHttpException
@@ -61,7 +63,11 @@ data class SettingsState(
     val privacyExportSummary: String = "-",
     val wearableStatus: String = "-",
     val loading: Boolean = false,
-    val statusText: String = "-"
+    val statusText: String = "-",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val locationSource: String = LocationSource.UNKNOWN.raw,
+    val locationRevision: Int = 0,
 )
 
 class SettingsViewModel(
@@ -97,11 +103,62 @@ class SettingsViewModel(
         state = state.copy(profileId = value)
     }
 
+    fun hasValidLocation(): Boolean = GeoCoordinates.isValid(state.latitude, state.longitude)
+
+    fun applyDeviceLocation(lat: Double, lon: Double): Boolean {
+        if (!GeoCoordinates.isValid(lat, lon)) {
+            return false
+        }
+        state = state.copy(
+            latitude = lat,
+            longitude = lon,
+            locationSource = LocationSource.DEVICE.raw,
+            locationRevision = state.locationRevision + 1,
+        )
+        return syncProfileLocationIfNeeded()
+    }
+
+    fun hydrateProfileLocation(profileJson: JSONObject) {
+        val lat = profileJson.optDouble("home_lat", 0.0)
+        val lon = profileJson.optDouble("home_lon", 0.0)
+        if (!GeoCoordinates.isValid(lat, lon)) {
+            return
+        }
+        if (state.locationSource == LocationSource.DEVICE.raw && hasValidLocation()) {
+            return
+        }
+        state = state.copy(
+            latitude = lat,
+            longitude = lon,
+            locationSource = LocationSource.CACHED.raw,
+            locationRevision = state.locationRevision + 1,
+        )
+    }
+
+    fun syncProfileLocationIfNeeded(): Boolean {
+        if (!hasValidLocation() || state.userId.isBlank() || state.accessToken.isBlank()) {
+            return false
+        }
+        if (state.profileId.isBlank()) {
+            return ensureProfile() != null
+        }
+        return try {
+            apiClient.updateProfileLocation(
+                userId = state.userId,
+                accessToken = state.accessToken,
+                profileId = state.profileId,
+                homeLat = state.latitude,
+                homeLon = state.longitude,
+            )
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /**
-     * Resolves the active personalization profile, creating one automatically on
-     * first launch so the dashboard never blocks on manual profile entry. Must be
-     * called from a background thread. Returns the profile id, or null when the
-     * user is not authenticated or the backend is unreachable.
+     * Resolves the active personalization profile. Creates one only when valid
+     * device coordinates are available — never with null island (0,0).
      */
     fun ensureProfile(): String? {
         if (state.profileId.isNotBlank()) {
@@ -113,22 +170,38 @@ class SettingsViewModel(
         }
         return try {
             val token = current.accessToken.ifBlank { null }
-            val existing = parseFirstProfileId(apiClient.listProfiles(current.userId, token))
-            val resolved = existing ?: parseProfileId(
-                apiClient.createProfile(
-                    userId = current.userId,
-                    accessToken = token,
-                    personaType = current.defaultPersona,
-                    sensitivityLevel = "medium",
-                    homeLat = 0.0,
-                    homeLon = 0.0,
-                )
-            )
-            if (resolved.isNullOrBlank()) {
-                null
+            val profilesRaw = apiClient.listProfiles(current.userId, token)
+            val array = JSONArray(profilesRaw)
+            if (array.length() > 0) {
+                val profile = array.getJSONObject(0)
+                val resolved = profile.optString("id").takeIf { it.isNotBlank() }
+                if (resolved.isNullOrBlank()) {
+                    null
+                } else {
+                    hydrateProfileLocation(profile)
+                    state = state.copy(profileId = resolved)
+                    resolved
+                }
             } else {
-                state = state.copy(profileId = resolved)
-                resolved
+                if (!hasValidLocation()) {
+                    return null
+                }
+                val resolved = parseProfileId(
+                    apiClient.createProfile(
+                        userId = current.userId,
+                        accessToken = token,
+                        personaType = current.defaultPersona,
+                        sensitivityLevel = "medium",
+                        homeLat = state.latitude,
+                        homeLon = state.longitude,
+                    )
+                )
+                if (resolved.isNullOrBlank()) {
+                    null
+                } else {
+                    state = state.copy(profileId = resolved, locationRevision = state.locationRevision + 1)
+                    resolved
+                }
             }
         } catch (_: Exception) {
             null

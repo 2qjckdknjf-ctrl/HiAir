@@ -1,8 +1,9 @@
 from datetime import date
 from uuid import uuid4
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+from app.core.geo_coordinates import validate_home_coordinates
 from app.models.risk import PersonaType
 
 
@@ -51,6 +52,11 @@ class ProfileCreateRequest(BaseModel):
     def validate_dob(cls, value: date | None) -> date | None:
         return _validate_date_of_birth(value)
 
+    @model_validator(mode="after")
+    def validate_coordinates(self) -> "ProfileCreateRequest":
+        validate_home_coordinates(self.home_lat, self.home_lon)
+        return self
+
 
 class ProfileUpdateRequest(BaseModel):
     persona_type: PersonaType | None = None
@@ -63,6 +69,12 @@ class ProfileUpdateRequest(BaseModel):
     @classmethod
     def validate_dob(cls, value: date | None) -> date | None:
         return _validate_date_of_birth(value)
+
+    @model_validator(mode="after")
+    def validate_partial_coordinates(self) -> "ProfileUpdateRequest":
+        if self.home_lat is not None and self.home_lon is not None:
+            validate_home_coordinates(self.home_lat, self.home_lon)
+        return self
 
 
 class ProfileResponse(ProfileCreateRequest):

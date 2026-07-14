@@ -74,6 +74,7 @@ struct DashboardView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DashboardViewModel()
     @StateObject private var healthService = HealthKitService.shared
+    @StateObject private var locationService = LocationService.shared
     @State private var activeInfoKey: InfoTerm?
     @State private var showWearableConsent = false
 
@@ -138,10 +139,22 @@ struct DashboardView: View {
     }
 
     private var locationLabel: String {
-        if session.latitude != 0 || session.longitude != 0 {
-            return String(format: "%.2f, %.2f", session.latitude, session.longitude)
+        if session.hasValidLocation {
+            return session.l("dashboard.location")
         }
         return session.l("dashboard.location_unknown")
+    }
+
+    private func reloadDashboard() async {
+        if session.profileId.isEmpty {
+            _ = await session.ensureProfileIdIfNeeded()
+        }
+        await viewModel.refresh(
+            userId: session.userId,
+            accessToken: session.accessToken,
+            profileId: session.profileId.isEmpty ? nil : session.profileId,
+            language: session.preferredLanguage
+        )
     }
 
     private var riskReason: String {
@@ -197,16 +210,17 @@ struct DashboardView: View {
         )
         .task {
             ProductAnalytics.track("dashboard_opened")
-            if session.profileId.isEmpty {
-                _ = await session.ensureProfileIdIfNeeded()
+            if !session.hasValidLocation {
+                _ = await session.bootstrapLocationFromDevice(locationService: locationService)
             }
-            await viewModel.refresh(
-                userId: session.userId,
-                accessToken: session.accessToken,
-                profileId: session.profileId.isEmpty ? nil : session.profileId,
-                language: session.preferredLanguage
-            )
+            await reloadDashboard()
             session.markChecklistItem("risk", done: true)
+        }
+        .onChange(of: session.locationRevision) { _ in
+            Task { await reloadDashboard() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { _ in
+            Task { await reloadDashboard() }
         }
         .sheet(item: $activeInfoKey) { item in
             InfoTextSheet(text: session.l(item.id), closeTitle: session.l("common.close"))
@@ -242,7 +256,13 @@ struct DashboardView: View {
     private var dashboardHeader: some View {
         HStack(spacing: HiAirSpacing.xs) {
             Button {
-                // Placeholder for location picker stage.
+                Task {
+                    if locationService.authorizationStatus == .denied || locationService.authorizationStatus == .restricted {
+                        locationService.openAppSettings()
+                    } else {
+                        _ = await session.bootstrapLocationFromDevice(locationService: locationService)
+                    }
+                }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "location.fill")
@@ -325,13 +345,43 @@ struct DashboardView: View {
         }
     }
 
+    private var locationStatusMessage: String {
+        switch locationService.serviceState {
+        case .servicesDisabled:
+            return session.l("location.services_disabled")
+        case .timeout:
+            return session.l("location.timeout")
+        case .denied, .restricted:
+            return session.l("location.denied.body")
+        default:
+            return session.l("dashboard.empty.location_missing")
+        }
+    }
+
     @ViewBuilder
     private var emptyStateSections: some View {
-        if session.latitude == 0 && session.longitude == 0 {
-            Text(session.l("dashboard.empty.location_missing"))
-                .font(HiAirTypography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-                .v2Card()
+        if !session.hasValidLocation {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(session.l("location.denied.title"))
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirV2Theme.primaryText)
+                Text(locationStatusMessage)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                HStack(spacing: 10) {
+                    Button(session.l("location.retry")) {
+                        Task { _ = await session.bootstrapLocationFromDevice(locationService: locationService) }
+                    }
+                    .buttonStyle(HiAirGradientButtonStyle())
+                    if locationService.authorizationStatus == .denied || locationService.authorizationStatus == .restricted {
+                        Button(session.l("location.open_settings")) {
+                            locationService.openAppSettings()
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                    }
+                }
+            }
+            .v2Card()
         }
 
         if session.profileId.isEmpty {

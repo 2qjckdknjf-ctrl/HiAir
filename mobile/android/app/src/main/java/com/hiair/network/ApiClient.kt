@@ -88,6 +88,21 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
+    fun updateProfileLocation(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        homeLat: Double,
+        homeLon: Double,
+    ): String {
+        val endpoint = "$baseUrl/api/profiles/$profileId"
+        val json = JSONObject().apply {
+            put("home_lat", homeLat)
+            put("home_lon", homeLon)
+        }.toString()
+        return requestStrict("PATCH", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun fetchCurrentRisk(
         userId: String,
         accessToken: String? = null,

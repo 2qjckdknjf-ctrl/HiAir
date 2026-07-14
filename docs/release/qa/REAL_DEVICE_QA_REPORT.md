@@ -1,17 +1,32 @@
 # Real Device QA Report
 
-Status: **SUBSCRIPTION CERTIFICATION** (2026-07-10) — TestFlight build **14** uploaded; sandbox E2E pending owner.
+Status: **GEOLOCATION RECOVERY** (2026-07-14) — engineering fixed; device E2E pending.
 
-## Subscription certification (2026-07-10)
+## Geolocation (2026-07-14)
+
+| Item | Result | Notes |
+|------|--------|-------|
+| Root cause | **CONFIRMED** | iOS: permission only, no GPS read, Barcelona defaults; Android: no location stack, profile `0,0` |
+| iOS LocationService | **IMPLEMENTED** | `requestLocation`, profile PATCH, dashboard reload |
+| Android LocationController | **IMPLEMENTED** | runtime permissions, FusedLocation, no `0,0` bootstrap |
+| Backend `(0,0)` policy | **IMPLEMENTED** | reject on create/patch |
+| iOS unit tests | **PASS** | GeoCoordinatesTests 5/5 |
+| Android unit tests | **PASS** | GeoCoordinatesTest |
+| Backend tests | **PASS** | test_profile_coordinates 6/6 |
+| TestFlight build 15 | **PENDING UPLOAD** | CFBundleVersion 15; build 73 lacks fix |
+| Physical iPhone E2E | **NOT RUN** | owner session required |
+
+## Subscription certification (2026-07-14)
 
 | Item | Result | Notes |
 |------|--------|-------|
 | Privacy export ≠ Premium | **PASS** | prod: 401 unauth; auth never 402 |
 | Backend subscription tests | **PASS** | incl. privacy + planner regression |
-| Production smoke | **PASS** | `subscription_production_smoke.py` |
-| Backend deploy 5827bed | **BLOCKED** | expired `CLOUDFLARE_API_TOKEN` — see `docs/_operator/cloudflare-deploy-token-runbook.md` |
-| TestFlight ASC build 73 | **VALID** | CFBundleVersion 14; uploaded 2026-07-09 |
-| iOS sandbox purchase E2E | **BLOCKED** | owner + physical iPhone |
+| Production smoke | **PASS** | `subscription_production_smoke.py` on current prod (`ea66272`) |
+| Backend deploy `86354b4` | **BLOCKED** | run `29073242041` — token preflight 401 |
+| Production `deploy_git_sha` | **ABSENT** | old image; subscription backend fixes not live |
+| TestFlight ASC build 73 | **VALID** | CFBundleVersion 14; IAP products READY_TO_SUBMIT |
+| iOS sandbox purchase E2E | **BLOCKED** | owner + physical iPhone; after green deploy |
 | Android Play Billing E2E | **EXTERNALLY BLOCKED** | no Play app |
 
 ## Master RC sprint — code certification (2026-07-07)

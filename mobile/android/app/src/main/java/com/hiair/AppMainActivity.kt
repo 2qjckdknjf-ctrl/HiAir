@@ -22,11 +22,13 @@ import com.hiair.billing.SubscriptionPaywallController
 import com.hiair.health.HealthConnectService
 import com.hiair.health.WearableHealthController
 import com.hiair.health.WearableHealthHost
+import com.hiair.location.LocationBootstrapHost
+import com.hiair.location.LocationController
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
-class AppMainActivity : AppCompatActivity(), WearableHealthHost {
+class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstrapHost {
     private val rootShell = RootShellViewModel()
     private lateinit var sessionStore: SessionStore
     private lateinit var titleView: TextView
@@ -41,12 +43,14 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
     private lateinit var supabaseAuth: SupabaseAuthService
     private lateinit var healthConnectService: HealthConnectService
     private lateinit var wearableHealthController: WearableHealthController
+    private lateinit var locationController: LocationController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
         healthConnectService = HealthConnectService(this)
         wearableHealthController = WearableHealthController(this, healthConnectService)
+        locationController = LocationController(this, rootShell.settingsViewModel)
         supabaseAuth = SupabaseAuthService(this, sessionStore)
         rootShell.settingsViewModel.configureSupabaseAuth(supabaseAuth)
         restoreSession()
@@ -272,6 +276,10 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost {
             userId = state.userId,
             accessToken = state.accessToken.ifBlank { null },
         )
+    }
+
+    override fun bootstrapLocation(onComplete: () -> Unit) {
+        locationController.bootstrapLocation(onComplete)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

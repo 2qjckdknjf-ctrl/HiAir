@@ -16,6 +16,7 @@ final class AppSession: ObservableObject {
         static let preferredLanguage = "session.preferredLanguage"
         static let latitude = "session.latitude"
         static let longitude = "session.longitude"
+        static let locationSource = "session.locationSource"
         static let dateOfBirth = "session.dateOfBirth"
     }
 
@@ -38,8 +39,10 @@ final class AppSession: ObservableObject {
     @Published var persona = "adult" { didSet { persist() } }
     @Published var sensitivity = "medium" { didSet { persist() } }
     @Published var preferredLanguage = "ru" { didSet { persist() } }
-    @Published var latitude = 41.39 { didSet { persist() } }
-    @Published var longitude = 2.17 { didSet { persist() } }
+    @Published var latitude = 0.0 { didSet { persist() } }
+    @Published var longitude = 0.0 { didSet { persist() } }
+    @Published var locationSource: LocationSource = .unknown { didSet { persist() } }
+    @Published var locationRevision = 0
     @Published var dateOfBirth: Date? { didSet { persist() } }
     @Published var checklistCompletedItems: Set<String> = [] { didSet { persist() } }
     @Published var checklistHidden = false { didSet { persist() } }
@@ -63,8 +66,14 @@ final class AppSession: ObservableObject {
         persona = defaults.string(forKey: Keys.persona) ?? "adult"
         sensitivity = defaults.string(forKey: Keys.sensitivity) ?? "medium"
         preferredLanguage = defaults.string(forKey: Keys.preferredLanguage) ?? "ru"
-        latitude = defaults.object(forKey: Keys.latitude) as? Double ?? 41.39
-        longitude = defaults.object(forKey: Keys.longitude) as? Double ?? 2.17
+        latitude = defaults.object(forKey: Keys.latitude) as? Double ?? 0.0
+        longitude = defaults.object(forKey: Keys.longitude) as? Double ?? 0.0
+        if let rawSource = defaults.string(forKey: Keys.locationSource),
+           let parsed = LocationSource(rawValue: rawSource) {
+            locationSource = parsed
+        } else {
+            locationSource = .unknown
+        }
         if let birthRaw = defaults.string(forKey: Keys.dateOfBirth) {
             dateOfBirth = Self.birthDateFormatter.date(from: birthRaw)
         }
@@ -150,6 +159,10 @@ final class AppSession: ObservableObject {
         profileId = ""
         isPremium = false
         selectedTab = 0
+        latitude = 0.0
+        longitude = 0.0
+        locationSource = .unknown
+        locationRevision = 0
         APIClient.setAuthState(nil)
     }
 
@@ -216,6 +229,84 @@ final class AppSession: ObservableObject {
         APIClient.setAuthState(nil)
     }
 
+    var hasValidLocation: Bool {
+        GeoCoordinates.isValid(lat: latitude, lon: longitude)
+    }
+
+    func hydrateProfileLocation(from profile: UserProfile) {
+        guard GeoCoordinates.isValid(lat: profile.homeLat, lon: profile.homeLon) else {
+            return
+        }
+        if locationSource == .device && hasValidLocation {
+            return
+        }
+        latitude = profile.homeLat
+        longitude = profile.homeLon
+        locationSource = .cached
+        locationRevision += 1
+    }
+
+    @discardableResult
+    func applyDeviceLocation(lat: Double, lon: Double) async -> Bool {
+        guard GeoCoordinates.isValid(lat: lat, lon: lon) else {
+            return false
+        }
+        latitude = lat
+        longitude = lon
+        locationSource = .device
+        locationRevision += 1
+        return await syncProfileLocationIfNeeded()
+    }
+
+    func syncProfileLocationIfNeeded() async -> Bool {
+        guard hasValidLocation, !userId.isEmpty, !accessToken.isEmpty else {
+            return false
+        }
+        if profileId.isEmpty {
+            return await ensureProfileIdIfNeeded()
+        }
+        do {
+            _ = try await apiClient.updateProfile(
+                userId: userId,
+                profileId: profileId,
+                payload: ProfileUpdatePayload(
+                    personaType: nil,
+                    sensitivityLevel: nil,
+                    homeLat: latitude,
+                    homeLon: longitude,
+                    dateOfBirth: nil
+                ),
+                accessToken: accessToken
+            )
+            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func bootstrapLocationFromDevice(locationService: LocationProviding = LocationService.shared) async -> Bool {
+        locationService.refreshAuthorizationStatus()
+        switch locationService.authorizationStatus {
+        case .notDetermined:
+            locationService.requestWhenInUseAuthorization()
+            return false
+        case .denied, .restricted:
+            return false
+        default:
+            break
+        }
+        do {
+            let location = try await locationService.fetchCurrentLocation()
+            return await applyDeviceLocation(
+                lat: location.coordinate.latitude,
+                lon: location.coordinate.longitude
+            )
+        } catch {
+            return false
+        }
+    }
+
     func ensureProfileIdIfNeeded() async -> Bool {
         if !profileId.isEmpty {
             return true
@@ -227,7 +318,11 @@ final class AppSession: ObservableObject {
             let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
             if let existing = profiles.first {
                 profileId = existing.id
+                hydrateProfileLocation(from: existing)
                 return true
+            }
+            guard hasValidLocation else {
+                return false
             }
             let created = try await apiClient.createProfile(
                 userId: userId,
@@ -241,6 +336,7 @@ final class AppSession: ObservableObject {
                 accessToken: accessToken
             )
             profileId = created.id
+            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
             return true
         } catch {
             return false
@@ -256,6 +352,7 @@ final class AppSession: ObservableObject {
         defaults.set(preferredLanguage, forKey: Keys.preferredLanguage)
         defaults.set(latitude, forKey: Keys.latitude)
         defaults.set(longitude, forKey: Keys.longitude)
+        defaults.set(locationSource.rawValue, forKey: Keys.locationSource)
         if let dateOfBirth {
             defaults.set(Self.birthDateFormatter.string(from: dateOfBirth), forKey: Keys.dateOfBirth)
         } else {
@@ -411,7 +508,7 @@ enum HiAirL10n {
             "onboarding.look.notifications": "Уведомления предупреждают заранее",
             "onboarding.step5.title": "Почему нужны разрешения",
             "onboarding.permissions.location.title": "Геолокация",
-            "onboarding.permissions.location.body": "Геолокация нужна, чтобы считать риск по вашему району.",
+            "onboarding.permissions.location.body": "HiAir использует местоположение, чтобы рассчитывать риск жары и качества воздуха для вашей текущей зоны.",
             "onboarding.permissions.notifications.title": "Уведомления",
             "onboarding.permissions.notifications.body": "Уведомления нужны, чтобы предупредить о жаре или плохом воздухе заранее.",
             "onboarding.permissions.allow": "Разрешить",
@@ -480,7 +577,13 @@ enum HiAirL10n {
             "dashboard.empty.no_profile.body": "Без профиля невозможно персонально рассчитать риск и безопасные окна.",
             "dashboard.empty.no_profile.cta": "Создать профиль автоматически",
             "dashboard.empty.api_unavailable": "Данные временно недоступны. Проверьте интернет и попробуйте снова.",
-            "dashboard.empty.location_missing": "Геолокация не задана. Укажите район в onboarding или настройках.",
+            "dashboard.empty.location_missing": "Доступ к геолокации выключен. Включите его в Настройках или повторите запрос.",
+            "location.denied.title": "Геолокация выключена",
+            "location.denied.body": "HiAir использует ваше местоположение, чтобы рассчитывать риск жары и качества воздуха для текущей зоны.",
+            "location.open_settings": "Открыть настройки",
+            "location.retry": "Повторить",
+            "location.services_disabled": "Службы геолокации отключены на устройстве.",
+            "location.timeout": "Не удалось определить местоположение. Попробуйте ещё раз.",
             "dashboard.recommended_actions": "Рекомендуемые действия",
             "dashboard.no_actions": "Нет доступных действий.",
             "dashboard.safe_window": "Безопасное окно",
@@ -873,7 +976,7 @@ enum HiAirL10n {
             "onboarding.look.notifications": "Notifications warn you in advance",
             "onboarding.step5.title": "Why permissions matter",
             "onboarding.permissions.location.title": "Location",
-            "onboarding.permissions.location.body": "Location helps calculate risk for your area.",
+            "onboarding.permissions.location.body": "HiAir uses your location to estimate heat and air-quality risk for your current area.",
             "onboarding.permissions.notifications.title": "Notifications",
             "onboarding.permissions.notifications.body": "Notifications help warn you early about heat or poor air.",
             "onboarding.permissions.allow": "Allow",
@@ -942,7 +1045,13 @@ enum HiAirL10n {
             "dashboard.empty.no_profile.body": "Without profile HiAir cannot calculate personalized risk and safe windows.",
             "dashboard.empty.no_profile.cta": "Create profile automatically",
             "dashboard.empty.api_unavailable": "Data is temporarily unavailable. Check your connection and retry.",
-            "dashboard.empty.location_missing": "Location is missing. Set your area in onboarding or settings.",
+            "dashboard.empty.location_missing": "Location access is off. Enable it in Settings or try again.",
+            "location.denied.title": "Location access is off",
+            "location.denied.body": "HiAir uses your location to estimate heat and air-quality risk for your current area.",
+            "location.open_settings": "Open Settings",
+            "location.retry": "Retry",
+            "location.services_disabled": "Location services are disabled on this device.",
+            "location.timeout": "Could not determine your location. Please try again.",
             "dashboard.recommended_actions": "Recommended actions",
             "dashboard.no_actions": "No actions available.",
             "dashboard.safe_window": "Safe window",

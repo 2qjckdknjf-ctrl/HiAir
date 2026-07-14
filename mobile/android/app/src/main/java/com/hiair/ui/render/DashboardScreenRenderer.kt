@@ -6,6 +6,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.hiair.health.WearableHealthHost
+import com.hiair.location.LocationBootstrapHost
 import com.hiair.ui.DashboardState
 import com.hiair.ui.DashboardStatus
 import com.hiair.ui.DashboardViewModel
@@ -47,20 +48,28 @@ internal object DashboardScreenRenderer {
     private fun triggerLoad(ctx: RenderContext, isRetry: Boolean) {
         val rootShell = ctx.rootShell
         val activity = ctx.activity
-        Thread {
-            val profileId = rootShell.settingsViewModel.ensureProfile()
-            val settings = rootShell.settingsViewModel.state
-            rootShell.dashboardViewModel.load(
-                userId = settings.userId,
-                accessToken = settings.accessToken.ifBlank { null },
-                profileId = profileId,
-                isRetry = isRetry,
-            )
-            activity.runOnUiThread {
-                ctx.persistSession()
-                ctx.rerender()
-            }
-        }.start()
+        val startLoad = Runnable {
+            Thread {
+                val profileId = rootShell.settingsViewModel.ensureProfile()
+                val settings = rootShell.settingsViewModel.state
+                rootShell.dashboardViewModel.load(
+                    userId = settings.userId,
+                    accessToken = settings.accessToken.ifBlank { null },
+                    profileId = profileId,
+                    isRetry = isRetry,
+                )
+                activity.runOnUiThread {
+                    ctx.persistSession()
+                    ctx.rerender()
+                }
+            }.start()
+        }
+        val host = activity as? LocationBootstrapHost
+        if (host != null && !rootShell.settingsViewModel.hasValidLocation()) {
+            host.bootstrapLocation { startLoad.run() }
+        } else {
+            startLoad.run()
+        }
     }
 
     private fun renderLoading(ctx: RenderContext) {

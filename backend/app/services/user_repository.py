@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from app.core.geo_coordinates import validate_home_coordinates
 from app.models.user import (
     ProfileCreateRequest,
     ProfileResponse,
@@ -121,6 +122,7 @@ def update_profile(user_id: str, profile_id: str, payload: ProfileUpdateRequest)
     sensitivity_level = payload.sensitivity_level or existing.sensitivity_level
     home_lat = payload.home_lat if payload.home_lat is not None else existing.home_lat
     home_lon = payload.home_lon if payload.home_lon is not None else existing.home_lon
+    validate_home_coordinates(home_lat, home_lon)
     date_of_birth = payload.date_of_birth if payload.date_of_birth is not None else existing.date_of_birth
     age_group = age_group_from_date_of_birth(date_of_birth, persona_value)
     with get_connection() as conn:

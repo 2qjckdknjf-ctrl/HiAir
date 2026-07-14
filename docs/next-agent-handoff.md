@@ -3,15 +3,21 @@
 Date: 2026-04-07 (status block updated 2026-07-07, RC-2)
 Owner transfer: current agent -> next development agent
 
-## 0) Live status — subscription certification (2026-07-10)
+## 0) Live status — geolocation recovery (2026-07-14)
 
-Branch `main` @ `5827bed` + certification fixes.
+Branch `main` (geolocation sprint in progress).
 
-- ✅ **Subscription Recovery** (`5827bed`) — mobile entitlement sync + Google live verifier
-- ⚠️ **Production deploy** — **BLOCKED**: expired `CLOUDFLARE_API_TOKEN` (runs `29072333018`, `29072760859`); runbook `docs/_operator/cloudflare-deploy-token-runbook.md`
-- ✅ **TestFlight ASC build 73** VALID (CFBundleVersion 14, `5827bed` client fixes)
-- ⏳ **iOS sandbox E2E** — owner device session required
-- ❌ **Android Play E2E** — EXTERNALLY BLOCKED (no `com.hiair` app)
+- ✅ **Production backend deploy** — run `29309386546` @ `ab99967` (subscription + deploy recovery)
+- ✅ **Geolocation engineering** — iOS `LocationService`, profile sync, no Barcelona/`0,0` defaults; Android permissions + `LocationController`; backend `(0,0)` rejection
+- ⏳ **TestFlight build 15** — CFBundleVersion bumped; **upload pending** (build 73 does not include geo fix)
+- ⏳ **Device verification** — owner physical iPhone E2E required (permission → coords → dashboard live)
+- ⏳ **iOS sandbox subscription E2E** — after TestFlight 15 + device geo proof
+- ❌ **Android Play E2E** — EXTERNALLY BLOCKED
+
+## 0a) Prior — subscription deploy (2026-07-14)
+
+- ✅ Subscription backend on prod @ `ab99967`; smoke PASS
+- ✅ TestFlight ASC build **73** VALID (no geolocation fix)
 
 See `docs/subscriptions/SUBSCRIPTION_PRODUCTION_CERTIFICATION.md`.
 

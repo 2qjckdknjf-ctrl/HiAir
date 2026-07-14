@@ -11,7 +11,7 @@ Updated: 2026-07-07 (RC-2 device certification)
 - **No dedicated crash SDK** (Crashlytics/Sentry); relies on ASC/Play console symbolicated crashes only.
 - **Manual end-to-end QA not completed** — RC-1 unblocked; owner hardware session pending for RC-2.
 - **Android Play release signing** not configured in Gradle (unsigned `app-release-unsigned.apk` only).
-- **Auto-created profiles use coordinates 0,0** (Android bootstrap) until geolocation lands; live data is real but location-generic.
+- **Auto-created profiles use coordinates 0,0** — **FIXED (2026-07-14)** Android/iOS bootstrap now requires valid device coordinates; backend rejects `(0,0)`.
 
 ## P1 (important before wider beta)
 
