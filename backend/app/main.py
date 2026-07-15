@@ -12,10 +12,12 @@ from fastapi import Request
 
 from app.api.environment import router as environment_router
 from app.api.health import router as health_router
+from app.api.insights import router as insights_router
 from app.api.notifications import router as notifications_router
 from app.api.observability import router as observability_router
 from app.api.planner import router as planner_router
 from app.api.privacy import router as privacy_router
+from app.api.product_analytics import router as product_analytics_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
 from app.api.risk import router as risk_router
@@ -70,6 +72,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api")
     app.include_router(profiles_router, prefix="/api")
     app.include_router(privacy_router, prefix="/api")
+    app.include_router(insights_router, prefix="/api")
+    app.include_router(product_analytics_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")
     app.include_router(planner_router, prefix="/api")
     app.include_router(environment_router, prefix="/api")

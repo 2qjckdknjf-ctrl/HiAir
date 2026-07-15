@@ -234,6 +234,134 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, "{}", authHeaders(userId, accessToken))
     }
 
+    fun fetchMorningBriefing(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        persona: String,
+        lat: Double,
+        lon: Double
+    ): String {
+        val profileQuery = profileId?.let { "&profile_id=$it" } ?: ""
+        val endpoint =
+            "$baseUrl/api/insights/morning-briefing?persona=$persona&lat=$lat&lon=$lon$profileQuery"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchMorningBriefingPublic(persona: String, lat: Double, lon: Double, language: String = "ru"): String {
+        val endpoint =
+            "$baseUrl/api/insights/morning-briefing/public?persona=$persona&lat=$lat&lon=$lon&language=$language"
+        return requestStrict("GET", endpoint, null)
+    }
+
+    fun fetchRiskBreakdown(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        persona: String,
+        lat: Double,
+        lon: Double
+    ): String {
+        val profileQuery = profileId?.let { "&profile_id=$it" } ?: ""
+        val endpoint =
+            "$baseUrl/api/insights/risk-breakdown?persona=$persona&lat=$lat&lon=$lon$profileQuery"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchRiskBreakdownPublic(persona: String, lat: Double, lon: Double): String {
+        val endpoint = "$baseUrl/api/insights/risk-breakdown/public?persona=$persona&lat=$lat&lon=$lon"
+        return requestStrict("GET", endpoint, null)
+    }
+
+    fun exportPrivacyData(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/privacy/export"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun deletePrivacyAccount(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/privacy/delete-account"
+        val json = JSONObject().apply { put("confirmation", "DELETE") }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun submitWearableMetrics(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        steps: Int?,
+        restingHeartRate: Int?,
+        sleepHours: Double?,
+        sleepQuality: Int?
+    ): String {
+        val endpoint = "$baseUrl/api/wearable/metrics"
+        val json = JSONObject().apply {
+            put("profile_id", profileId)
+            put("steps", steps)
+            put("resting_heart_rate_bpm", restingHeartRate)
+            put("sleep_hours", sleepHours)
+            put("sleep_quality_score", sleepQuality)
+            put("source", "android")
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun ingestAnalyticsEvents(
+        userId: String?,
+        accessToken: String?,
+        events: JSONArray
+    ) {
+        val endpoint = "$baseUrl/api/analytics/events"
+        val json = JSONObject().apply { put("events", events) }.toString()
+        requestStrict("POST", endpoint, json, authHeaders(userId.orEmpty(), accessToken))
+    }
+
+    fun submitFeedback(
+        userId: String?,
+        accessToken: String?,
+        liked: String,
+        confusing: String,
+        broken: String,
+        contactEmail: String?,
+        platform: String = "android",
+        appVersion: String = "0.1.0"
+    ): String {
+        val endpoint = "$baseUrl/api/feedback"
+        val json = JSONObject().apply {
+            put("liked", liked)
+            put("confusing", confusing)
+            put("broken", broken)
+            put("contact_email", contactEmail)
+            put("platform", platform)
+            put("app_version", appVersion)
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId.orEmpty(), accessToken))
+    }
+
+    fun reportCrash(
+        userId: String?,
+        accessToken: String?,
+        sessionId: String?,
+        message: String,
+        stackTrace: String?,
+        platform: String = "android",
+        appVersion: String = "0.1.0"
+    ) {
+        val endpoint = "$baseUrl/api/crashes/report"
+        val json = JSONObject().apply {
+            put("session_id", sessionId)
+            put("message", message)
+            put("stack_trace", stackTrace)
+            put("platform", platform)
+            put("app_version", appVersion)
+        }.toString()
+        requestStrict("POST", endpoint, json, authHeaders(userId.orEmpty(), accessToken))
+    }
+
+    fun fetchKpiDashboard(userId: String, accessToken: String?, days: Int = 14): String {
+        val endpoint = "$baseUrl/api/analytics/kpi-dashboard?days=$days"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     private fun request(
         method: String,
         endpoint: String,

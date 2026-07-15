@@ -3,6 +3,7 @@ package com.hiair.ui.render
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.hiair.analytics.AnalyticsTracker
 import com.hiair.ui.navigation.RootShellViewModel
 
 class MainScreenRenderer(
@@ -10,7 +11,10 @@ class MainScreenRenderer(
     private val rootShell: RootShellViewModel,
     private val titleView: TextView,
     private val bodyContainer: LinearLayout,
+    private val session: com.hiair.StoredSession,
+    private val analytics: AnalyticsTracker,
     private val persistSession: () -> Unit,
+    private val updateSession: (com.hiair.StoredSession) -> Unit,
     private val clearSession: () -> Unit,
     private val rerender: () -> Unit
 ) {
@@ -19,10 +23,15 @@ class MainScreenRenderer(
         rootShell = rootShell,
         titleView = titleView,
         bodyContainer = bodyContainer,
+        session = session,
+        analytics = analytics,
         persistSession = persistSession,
+        updateSession = updateSession,
         clearSession = clearSession,
         rerender = rerender
     )
+
+    fun renderOnboarding() = OnboardingScreenRenderer.render(ctx)
 
     fun renderDashboard() = DashboardScreenRenderer.render(ctx)
 

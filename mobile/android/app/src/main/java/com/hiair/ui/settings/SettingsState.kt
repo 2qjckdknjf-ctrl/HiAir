@@ -552,4 +552,20 @@ class SettingsViewModel(
             )
         }
     }
+
+    fun deletePrivacyAccount() {
+        val current = state
+        if (current.userId.isBlank() || current.accessToken.isBlank()) {
+            throw IllegalStateException("Auth required")
+        }
+        apiClient.deletePrivacyAccount(current.userId, current.accessToken)
+    }
+
+    fun exportPrivacyData(): String {
+        val current = state
+        if (current.userId.isBlank() || current.accessToken.isBlank()) {
+            throw IllegalStateException("Auth required")
+        }
+        return apiClient.exportPrivacyData(current.userId, current.accessToken)
+    }
 }

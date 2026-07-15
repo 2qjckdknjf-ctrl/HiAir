@@ -12,10 +12,15 @@ def normalize_language(value: str | None) -> str:
     return "ru"
 
 
-def t(language: str, key: str, **kwargs: object) -> str:
+def t(language: str, key: str, default: str | None = None, **kwargs: object) -> str:
     lang = normalize_language(language)
-    template = MESSAGES.get(lang, MESSAGES["ru"]).get(key) or MESSAGES["ru"].get(key, key)
-    return template.format(**kwargs)
+    template = MESSAGES.get(lang, MESSAGES["ru"]).get(key) or MESSAGES["ru"].get(key) or default or key
+    if kwargs:
+        try:
+            return template.format(**kwargs)
+        except KeyError:
+            return template
+    return template
 
 
 MESSAGES: dict[str, dict[str, str]] = {
@@ -47,6 +52,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "alert.duplicate.body": "Похожий алерт был отправлен недавно.",
         "expl.fallback": "Сейчас для вас уровень риска: {risk}. {summary} Начните с действия: {action}",
         "expl.prompt.language": "Russian",
+        "briefing.risk.low": "низкий",
+        "briefing.risk.medium": "средний",
+        "briefing.risk.moderate": "средний",
+        "briefing.risk.high": "высокий",
+        "briefing.risk.very_high": "очень высокий",
+        "briefing.no_walk_window": "нет безопасного окна",
+        "briefing.no_avoid_window": "нет явного пика риска",
+        "briefing.summary": "Сегодня риск {risk}. Температура {temp}°C, AQI {aqi}. Лучшее время для прогулки: {walk}. Избегайте улицы: {avoid}.",
+        "briefing.personal_note": "Сегодня риск {risk}. Лучшее время для прогулки: {walk}. После {avoid} риск может быть выше из-за жары и качества воздуха.",
+        "briefing.wearable_context": "Учтены optional данные с носимого устройства (wellness, не медицина).",
     },
     "en": {
         "rec.low.headline": "Conditions are favorable for normal activity",
@@ -76,5 +91,15 @@ MESSAGES: dict[str, dict[str, str]] = {
         "alert.duplicate.body": "A similar alert was sent recently.",
         "expl.fallback": "Your current risk level is {risk}. {summary} Start with: {action}",
         "expl.prompt.language": "English",
+        "briefing.risk.low": "low",
+        "briefing.risk.medium": "moderate",
+        "briefing.risk.moderate": "moderate",
+        "briefing.risk.high": "high",
+        "briefing.risk.very_high": "very high",
+        "briefing.no_walk_window": "no safe window",
+        "briefing.no_avoid_window": "no clear peak",
+        "briefing.summary": "Today's risk is {risk}. Temperature {temp}°C, AQI {aqi}. Best walk window: {walk}. Avoid outdoors: {avoid}.",
+        "briefing.personal_note": "Today's risk is {risk}. Best walk window: {walk}. After {avoid} risk may rise due to heat and air quality.",
+        "briefing.wearable_context": "Optional wearable data included (wellness guidance, not medical advice).",
     },
 }

@@ -5,12 +5,16 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.hiair.ui.i18n.AndroidL10n
+import com.hiair.analytics.AnalyticsEvents
+import com.hiair.analytics.AnalyticsTracker
+import com.hiair.analytics.CrashReporter
+import com.hiair.ui.navigation.AppPhase
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.render.MainScreenRenderer
@@ -20,8 +24,11 @@ import com.hiair.ui.theme.V2Ui
 class AppMainActivity : AppCompatActivity() {
     private val rootShell = RootShellViewModel()
     private lateinit var sessionStore: SessionStore
+    private lateinit var session: StoredSession
+    private lateinit var analyticsTracker: AnalyticsTracker
     private lateinit var titleView: TextView
     private lateinit var bodyContainer: LinearLayout
+    private lateinit var navRow: LinearLayout
     private lateinit var screenRenderer: MainScreenRenderer
     private lateinit var dashboardButton: Button
     private lateinit var plannerButton: Button
@@ -31,7 +38,28 @@ class AppMainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
-        restoreSession()
+        session = sessionStore.load()
+        analyticsTracker = AnalyticsTracker(this)
+        applySessionToViewModels()
+
+        CrashReporter.install(
+            context = this,
+            userIdProvider = { session.userId.ifBlank { null } },
+            accessTokenProvider = { session.accessToken.ifBlank { null } }
+        )
+        analyticsTracker.track(
+            AnalyticsEvents.APP_INSTALL_TRACKED,
+            userId = session.userId.ifBlank { null },
+            accessToken = session.accessToken.ifBlank { null }
+        )
+        if (!session.onboardingCompleted) {
+            rootShell.startOnboarding()
+            analyticsTracker.track(
+                AnalyticsEvents.ONBOARDING_STARTED,
+                userId = session.userId.ifBlank { null },
+                accessToken = session.accessToken.ifBlank { null }
+            )
+        }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -47,14 +75,13 @@ class AppMainActivity : AppCompatActivity() {
         }
 
         titleView = TextView(this).apply {
-            text = AndroidL10n.t("title.dashboard", rootShell.settingsViewModel.state.preferredLanguage)
             textSize = 30f
             setTextColor(Color.parseColor("#EAF1FB"))
             setTypeface(typeface, Typeface.BOLD)
         }
         root.addView(titleView)
 
-        val navRow = LinearLayout(this).apply {
+        navRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
             setPadding(p, p, p, p)
@@ -102,8 +129,15 @@ class AppMainActivity : AppCompatActivity() {
             rootShell = rootShell,
             titleView = titleView,
             bodyContainer = bodyContainer,
+            session = session,
+            analytics = analyticsTracker,
             persistSession = ::persistSession,
-            clearSession = { sessionStore.clear() },
+            updateSession = ::updateSession,
+            clearSession = {
+                sessionStore.clear()
+                session = StoredSession()
+                applySessionToViewModels()
+            },
             rerender = ::renderCurrentScreen
         )
 
@@ -111,26 +145,36 @@ class AppMainActivity : AppCompatActivity() {
         renderCurrentScreen()
     }
 
-    private fun restoreSession() {
-        val stored = sessionStore.load()
-        rootShell.settingsViewModel.setEmail(stored.email)
-        rootShell.settingsViewModel.setUserId(stored.userId)
-        rootShell.settingsViewModel.setAccessToken(stored.accessToken)
+    private fun applySessionToViewModels() {
+        rootShell.settingsViewModel.setEmail(session.email)
+        rootShell.settingsViewModel.setUserId(session.userId)
+        rootShell.settingsViewModel.setAccessToken(session.accessToken)
+        rootShell.settingsViewModel.setPreferredLanguage(session.preferredLanguage)
+        if (session.profileId.isNotBlank()) {
+            rootShell.symptomLogViewModel.updateProfileId(session.profileId)
+        }
     }
 
     private fun persistSession() {
-        val state = rootShell.settingsViewModel.state
-        sessionStore.save(
-            StoredSession(
-                email = state.email,
-                userId = state.userId,
-                accessToken = state.accessToken
-            )
-        )
+        sessionStore.save(session)
+        applySessionToViewModels()
+    }
+
+    private fun updateSession(updated: StoredSession) {
+        session = updated
+        persistSession()
     }
 
     private fun renderCurrentScreen() {
         bodyContainer.removeAllViews()
+        val inOnboarding = rootShell.state.phase == AppPhase.ONBOARDING
+        navRow.visibility = if (inOnboarding) View.GONE else View.VISIBLE
+
+        if (inOnboarding) {
+            screenRenderer.renderOnboarding()
+            return
+        }
+
         syncNavLabels()
         syncNavSelection()
         when (rootShell.state.currentScreen) {

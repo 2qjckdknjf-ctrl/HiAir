@@ -89,6 +89,14 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiServerCount = 0
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
     @Published var statusText = "-"
+    @Published var privacyStatusText = "-"
+    @Published var showDeleteConfirmation = false
+    @Published var feedbackLiked = ""
+    @Published var feedbackConfusing = ""
+    @Published var feedbackBroken = ""
+    @Published var feedbackEmail = ""
+    @Published var feedbackStatusText = "-"
+    @Published var kpiStatusText = "-"
     @Published var loading = false
 
     private let apiClient = APIClient.live()
@@ -440,6 +448,97 @@ final class SettingsViewModel: ObservableObject {
             }
         }
     }
+
+    private func canUsePrivacyEndpoints(isGuest: Bool) -> Bool {
+        !isGuest && !userId.isEmpty && !accessToken.isEmpty
+    }
+
+    func exportPrivacyData(isGuest: Bool) async {
+        guard canUsePrivacyEndpoints(isGuest: isGuest) else {
+            privacyStatusText = l("privacy.auth_required")
+            return
+        }
+        AnalyticsService.shared.track(
+            .privacyExportRequested,
+            userId: userId,
+            accessToken: accessToken
+        )
+        privacyStatusText = l("dashboard.loading")
+        do {
+            _ = try await apiClient.exportPrivacyData(userId: userId, accessToken: accessToken)
+            privacyStatusText = l("privacy.export_ok")
+        } catch {
+            privacyStatusText = l("privacy.export_failed")
+        }
+    }
+
+    func deletePrivacyData(isGuest: Bool, session: AppSession) async {
+        guard canUsePrivacyEndpoints(isGuest: isGuest) else {
+            privacyStatusText = l("privacy.auth_required")
+            return
+        }
+        AnalyticsService.shared.track(
+            .privacyDeleteRequested,
+            userId: userId,
+            accessToken: accessToken
+        )
+        privacyStatusText = l("dashboard.loading")
+        do {
+            try await apiClient.deletePrivacyAccount(userId: userId, accessToken: accessToken)
+            privacyStatusText = l("privacy.delete_ok")
+            session.logout()
+            userId = ""
+            accessToken = ""
+        } catch {
+            privacyStatusText = l("privacy.delete_failed")
+        }
+    }
+
+    func submitFeedback() async {
+        if feedbackLiked.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && feedbackConfusing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && feedbackBroken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            feedbackStatusText = l("feedback.empty")
+            return
+        }
+        feedbackStatusText = l("dashboard.loading")
+        do {
+            try await apiClient.submitFeedback(
+                userId: userId.isEmpty ? nil : userId,
+                accessToken: accessToken.isEmpty ? nil : accessToken,
+                liked: feedbackLiked,
+                confusing: feedbackConfusing,
+                broken: feedbackBroken,
+                contactEmail: feedbackEmail.isEmpty ? nil : feedbackEmail
+            )
+            AnalyticsService.shared.track(
+                .feedbackSubmitted,
+                userId: userId.isEmpty ? nil : userId,
+                accessToken: accessToken.isEmpty ? nil : accessToken
+            )
+            feedbackStatusText = l("feedback.sent_ok")
+            feedbackLiked = ""
+            feedbackConfusing = ""
+            feedbackBroken = ""
+        } catch {
+            feedbackStatusText = l("feedback.sent_failed")
+        }
+    }
+
+    func loadKpiDashboard() async {
+        guard !userId.isEmpty, !accessToken.isEmpty else {
+            kpiStatusText = l("privacy.auth_required")
+            return
+        }
+        kpiStatusText = l("dashboard.loading")
+        do {
+            let data = try await apiClient.fetchKpiDashboard(userId: userId, accessToken: accessToken)
+            let preview = String(data: data.prefix(240), encoding: .utf8) ?? "-"
+            kpiStatusText = preview
+        } catch {
+            kpiStatusText = l("kpi.load_failed")
+        }
+    }
 }
 
 private struct AITrendMiniChart: View {
@@ -715,6 +814,75 @@ struct SettingsView: View {
                     }
                 }
                 .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("feedback.title"))
+                        .font(.headline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("feedback.subtitle"))
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    TextField(session.l("feedback.liked"), text: $viewModel.feedbackLiked, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                    TextField(session.l("feedback.confusing"), text: $viewModel.feedbackConfusing, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                    TextField(session.l("feedback.broken"), text: $viewModel.feedbackBroken, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                    TextField(session.l("feedback.email_optional"), text: $viewModel.feedbackEmail)
+                        .textFieldStyle(.roundedBorder)
+                    Text(viewModel.feedbackStatusText)
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("feedback.send")) {
+                        Task { await viewModel.submitFeedback() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("privacy.title"))
+                        .font(.headline)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("privacy.wellness_notice"))
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(session.l("privacy.health_explanation"))
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(viewModel.privacyStatusText)
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Button(session.l("privacy.export")) {
+                        Task { await viewModel.exportPrivacyData(isGuest: session.isGuest) }
+                    }
+                    .buttonStyle(.bordered)
+                    Button(session.l("privacy.delete")) {
+                        viewModel.showDeleteConfirmation = true
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundStyle(.red)
+                    Link(session.l("privacy.policy"), destination: URL(string: "https://hiair.app/privacy")!)
+                        .font(.footnote)
+                    Link(session.l("privacy.terms"), destination: URL(string: "https://hiair.app/terms")!)
+                        .font(.footnote)
+                    Button(session.l("kpi.load")) {
+                        Task { await viewModel.loadKpiDashboard() }
+                    }
+                    .buttonStyle(.bordered)
+                    Text(viewModel.kpiStatusText)
+                        .font(.footnote)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
+                .v2Card()
+                .alert(session.l("privacy.delete_confirm_title"), isPresented: $viewModel.showDeleteConfirmation) {
+                    Button(session.l("privacy.delete_confirm_yes"), role: .destructive) {
+                        Task { await viewModel.deletePrivacyData(isGuest: session.isGuest, session: session) }
+                    }
+                    Button(session.l("privacy.delete_confirm_no"), role: .cancel) {}
+                } message: {
+                    Text(session.l("privacy.delete_confirm_body"))
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.security_privacy"))

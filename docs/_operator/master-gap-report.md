@@ -1,6 +1,14 @@
 # HiAir Master Gap Report
 
-Last updated: 2026-04-18
+Last updated: 2026-06-20
+
+## Recent closures (first-user experience sprint)
+
+- GAP-014: Android onboarding flow aligned with iOS (welcome → value → persona → permissions → first result → tabs).
+- Android dashboard hardcoded risk 58 / fake safe windows removed; loading/error/empty states added.
+- Morning Briefing, Explainable Risk breakdown, Personal Patterns foundation, Wearable metrics API added.
+- Mobile privacy UI wired to `/api/privacy/export` and `/api/privacy/delete-account` (iOS/Android).
+- Share card MVP (native share intent / share sheet) without private health data.
 
 ## Gap list
 

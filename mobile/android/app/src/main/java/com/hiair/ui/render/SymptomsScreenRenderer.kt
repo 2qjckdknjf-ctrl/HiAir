@@ -50,6 +50,13 @@ internal object SymptomsScreenRenderer {
                         accessToken = settings.accessToken.ifBlank { null }
                     )
                     val state = rootShell.symptomLogViewModel.state
+                    if (!state.statusText.contains("fail", ignoreCase = true) && state.statusText != "-") {
+                        ctx.analytics.track(
+                            com.hiair.analytics.AnalyticsEvents.SYMPTOM_LOGGED,
+                            userId = settings.userId.ifBlank { null },
+                            accessToken = settings.accessToken.ifBlank { null }
+                        )
+                    }
                     activity.runOnUiThread { stateText.text = state.statusText }
                 }.start()
             }

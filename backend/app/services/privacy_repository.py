@@ -98,6 +98,53 @@ def export_user_data(user_id: str) -> dict[str, Any]:
             )
             delivery_attempts = cur.fetchall()
 
+            cur.execute(
+                """
+                SELECT
+                    id, profile_id, recorded_at, steps, resting_heart_rate_bpm,
+                    hrv_ms, sleep_hours, sleep_quality_score, source, created_at
+                FROM wearable_metrics
+                WHERE user_id = %s
+                ORDER BY recorded_at DESC
+                """,
+                (user_id,),
+            )
+            wearable_metrics = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT
+                    id, session_id, event_name, properties, platform, app_version, created_at
+                FROM product_analytics_events
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            product_analytics_events = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT id, platform, liked, confusing, broken, contact_email, app_version, created_at
+                FROM product_feedback
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            product_feedback = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT id, session_id, platform, message, stack_trace, app_version, created_at
+                FROM product_crash_reports
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            product_crash_reports = cur.fetchall()
+
             symptoms: list[dict[str, Any]] = []
             risk_history: list[dict[str, Any]] = []
             notification_events: list[dict[str, Any]] = []
@@ -262,6 +309,10 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "alert_events": _serialize_rows(alert_events),
         "ai_explanation_events": _serialize_rows(ai_explanation_events),
         "device_tokens": _serialize_rows(device_tokens),
+        "wearable_metrics": _serialize_rows(wearable_metrics),
+        "product_analytics_events": _serialize_rows(product_analytics_events),
+        "product_feedback": _serialize_rows(product_feedback),
+        "product_crash_reports": _serialize_rows(product_crash_reports),
         "notification_delivery_attempts": _serialize_rows(delivery_attempts),
         "subscription_webhook_events": _serialize_rows(subscription_webhook_events),
     }
@@ -296,6 +347,9 @@ def delete_user_data(user_id: str) -> bool:
                 """,
                 (user_id,),
             )
+            cur.execute("DELETE FROM product_analytics_events WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM product_feedback WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM product_crash_reports WHERE user_id = %s", (user_id,))
             cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
             deleted = cur.rowcount > 0
     return deleted

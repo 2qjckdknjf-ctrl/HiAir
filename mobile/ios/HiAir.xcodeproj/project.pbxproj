@@ -18,6 +18,9 @@
 		BA5EEFEA16CA6962363CB004 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3067FB46BAFE989CA0A16E0E /* DashboardView.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		FD5992A72A475C761562967F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C556E4BD33D299DF71C4B0E6 /* APIClient.swift */; };
+		BB0000010000000000000001 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000001 /* AnalyticsService.swift */; };
+		BB0000020000000000000002 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000020000000000000002 /* HealthKitService.swift */; };
+		BB0000030000000000000003 /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000030000000000000003 /* HiAirV2Theme.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +36,9 @@
 		D9D61A692A21F8137C8C9A0A /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 		E5D318EFA32CAF512F14BCAD /* RiskModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskModels.swift; sourceTree = "<group>"; };
 		F189463A81578D7DA02A429B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		AA0000010000000000000001 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
+		AA0000020000000000000002 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
+		AA0000030000000000000003 /* HiAirV2Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirV2Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -43,6 +49,7 @@
 				9BD707A08B6657EF85395B26 /* HiAirApp.swift */,
 				CCCC2230FAE0D5FAC8C9C4DB /* Models */,
 				D6817796DBAD8BF3B3C5061A /* Networking */,
+				CC0000010000000000000001 /* Services */,
 				F54A7392756BC05965EECA7B /* Screens */,
 			);
 			path = HiAir;
@@ -80,6 +87,15 @@
 			path = Networking;
 			sourceTree = "<group>";
 		};
+		CC0000010000000000000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000010000000000000001 /* AnalyticsService.swift */,
+				AA0000020000000000000002 /* HealthKitService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 		F54A7392756BC05965EECA7B /* Screens */ = {
 			isa = PBXGroup;
 			children = (
@@ -90,6 +106,7 @@
 				8833EA8341D4356991598891 /* RootTabView.swift */,
 				35D1E2C509CFB15ACA399B3D /* SettingsView.swift */,
 				030CBAFA89BD721FF0066134 /* SymptomLogView.swift */,
+				AA0000030000000000000003 /* HiAirV2Theme.swift */,
 			);
 			path = Screens;
 			sourceTree = "<group>";
@@ -159,6 +176,9 @@
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,
 				495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */,
+				BB0000010000000000000001 /* AnalyticsService.swift in Sources */,
+				BB0000020000000000000002 /* HealthKitService.swift in Sources */,
+				BB0000030000000000000003 /* HiAirV2Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
