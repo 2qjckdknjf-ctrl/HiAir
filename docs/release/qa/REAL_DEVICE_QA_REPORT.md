@@ -26,7 +26,9 @@ Status: **STOREKIT PRODUCTS NOT LOADING** (2026-07-17) — build 80 physical ret
 | Item | Value |
 |------|-------|
 | Target build | **81** |
-| Commit | pending upload |
+| Commit | `5e95731` |
+| ASC status | **VALID** |
+| Delivery UUID | `74841ab8-f8ae-410b-a3e4-0c4a42c27666` |
 | Changes | EnvironmentObject ownership; catalog states; service-owned load; canonical `StoreProductIDs` |
 
 ## Build 79 (prior)
