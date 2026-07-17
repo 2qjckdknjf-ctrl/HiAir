@@ -3,8 +3,8 @@ import SwiftUI
 
 struct PaywallView: View {
     @EnvironmentObject var session: AppSession
+    @EnvironmentObject var subscriptionService: SubscriptionService
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var subscriptionService = SubscriptionService.shared
     @State private var purchasingProductId: String?
     @State private var statusMessage = ""
 
@@ -35,35 +35,7 @@ struct PaywallView: View {
                         .padding()
                         .v2Card()
 
-                        if subscriptionService.isLoading && subscriptionService.products.isEmpty && !purchaseBusy {
-                            ProgressView(session.l("paywall.loading"))
-                                .frame(maxWidth: .infinity)
-                        } else {
-                            planOffer(
-                                productId: SubscriptionService.monthlyProductId,
-                                titleKey: "paywall.plan_monthly",
-                                subscribeKey: "paywall.subscribe_monthly"
-                            )
-                            planOffer(
-                                productId: SubscriptionService.yearlyProductId,
-                                titleKey: "paywall.plan_yearly",
-                                subscribeKey: "paywall.subscribe_yearly"
-                            )
-
-                            if subscriptionService.products.isEmpty && !purchaseBusy {
-                                Text(subscriptionService.lastError ?? session.l("paywall.products_unavailable"))
-                                    .font(AuroraTokens.Typography.bodyMD)
-                                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                                Text(session.l("paywall.asc_hint"))
-                                    .font(AuroraTokens.Typography.caption)
-                                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-                                Button(session.l("paywall.retry")) {
-                                    Task { await subscriptionService.loadProducts() }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .disabled(purchaseBusy)
-                            }
-                        }
+                        catalogContent
 
                         Button(session.l("paywall.restore")) {
                             Task { await restore() }
@@ -92,6 +64,7 @@ struct PaywallView: View {
                 if purchaseBusy {
                     Color.black.opacity(0.25)
                         .ignoresSafeArea()
+                        .allowsHitTesting(true)
                     ProgressView(session.l("paywall.purchasing"))
                         .padding()
                         .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
@@ -104,18 +77,71 @@ struct PaywallView: View {
                         .disabled(purchaseBusy)
                 }
             }
-            .task(id: session.showPaywall) {
-                guard !purchaseBusy else { return }
-                await subscriptionService.loadProducts()
+            .onAppear {
+                SubscriptionDiagnostics.log("paywall_appeared", resultType: "\(subscriptionService.catalogState)")
+                subscriptionService.loadProducts()
             }
         }
     }
 
     @ViewBuilder
-    private func planOffer(productId: String, titleKey: String, subscribeKey: String) -> some View {
-        let product = subscriptionService.products.first { $0.id == productId }
-        let priceText = product?.displayPrice ?? session.l("paywall.price_pending")
-        let isPurchasing = purchasingProductId == productId
+    private var catalogContent: some View {
+        switch subscriptionService.catalogState {
+        case .idle, .loading:
+            ProgressView(session.l("paywall.loading"))
+                .frame(maxWidth: .infinity)
+        case .loaded, .purchasing:
+            if let monthly = subscriptionService.monthlyProduct {
+                planOffer(product: monthly, titleKey: "paywall.plan_monthly", subscribeKey: "paywall.subscribe_monthly")
+            }
+            if let yearly = subscriptionService.yearlyProduct {
+                planOffer(product: yearly, titleKey: "paywall.plan_yearly", subscribeKey: "paywall.subscribe_yearly")
+            }
+            if subscriptionService.products.isEmpty {
+                emptyCatalogBlock
+            }
+        case .empty:
+            emptyCatalogBlock
+        case .failed:
+            failedCatalogBlock
+        }
+    }
+
+    private var emptyCatalogBlock: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            Text(session.l("paywall.products_unavailable"))
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(session.l("paywall.asc_hint"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+            Button(session.l("paywall.retry")) {
+                SubscriptionDiagnostics.log("products_retry_tapped")
+                subscriptionService.loadProducts()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(purchaseBusy || subscriptionService.isLoading)
+        }
+    }
+
+    private var failedCatalogBlock: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            Text(subscriptionService.lastError ?? session.l("paywall.products_unavailable"))
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Button(session.l("paywall.retry")) {
+                SubscriptionDiagnostics.log("products_retry_tapped")
+                subscriptionService.loadProducts()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(purchaseBusy || subscriptionService.isLoading)
+        }
+    }
+
+    @ViewBuilder
+    private func planOffer(product: Product, titleKey: String, subscribeKey: String) -> some View {
+        let isPurchasing = purchasingProductId == product.id
+        let disabledReason = subscribeDisabledReason(for: product)
 
         VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
             HStack {
@@ -123,30 +149,47 @@ struct PaywallView: View {
                     Text(session.l(titleKey))
                         .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
-                    if let product {
-                        Text(product.description)
-                            .font(AuroraTokens.Typography.caption)
-                            .foregroundStyle(HiAirV2Theme.secondaryText)
-                    }
+                    Text(product.description)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
                 Spacer()
-                Text(priceText)
+                Text(product.displayPrice)
                     .font(AuroraTokens.Typography.titleMD)
                     .foregroundStyle(HiAirV2Theme.primaryText)
             }
 
             Button {
-                guard !purchaseBusy else { return }
-                Task { await purchase(productId: productId, product: product) }
+                handleSubscribeTap(product: product, disabledReason: disabledReason)
             } label: {
                 Text(isPurchasing ? session.l("paywall.purchasing") : session.l(subscribeKey))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(HiAirGradientButtonStyle())
-            .disabled(purchaseBusy || product == nil)
+            .disabled(disabledReason != nil)
         }
         .padding()
         .v2Card()
+    }
+
+    private func subscribeDisabledReason(for product: Product) -> String? {
+        if session.isPremium { return "entitlement_active" }
+        if subscriptionService.isLoading { return "loading" }
+        if purchaseBusy { return "purchase_in_progress" }
+        if product.displayPrice.isEmpty { return "no_product" }
+        return nil
+    }
+
+    private func handleSubscribeTap(product: Product, disabledReason: String?) {
+        if let disabledReason {
+            SubscriptionDiagnostics.log(
+                "subscribe_blocked_\(disabledReason)",
+                productId: product.id
+            )
+            return
+        }
+        SubscriptionDiagnostics.log("subscribe_button_tapped", productId: product.id)
+        Task { await purchase(product: product) }
     }
 
     private func benefitRow(_ text: String) -> some View {
@@ -155,21 +198,18 @@ struct PaywallView: View {
             .foregroundStyle(HiAirV2Theme.primaryText)
     }
 
-    private func purchase(productId: String, product: Product?) async {
-        guard let product else {
-            statusMessage = subscriptionService.lastError ?? session.l("paywall.products_unavailable")
-            return
-        }
+    private func purchase(product: Product) async {
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
             statusMessage = session.l("paywall.auth_required")
             return
         }
         guard purchasingProductId == nil, !subscriptionService.isPurchaseInProgress else {
+            SubscriptionDiagnostics.log("subscribe_blocked_purchase_in_progress", productId: product.id)
             statusMessage = session.l("paywall.purchase_in_progress")
             return
         }
 
-        purchasingProductId = productId
+        purchasingProductId = product.id
         defer { purchasingProductId = nil }
         statusMessage = session.l("paywall.purchasing")
 

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootTabView: View {
     @EnvironmentObject var session: AppSession
+    @EnvironmentObject var subscriptionService: SubscriptionService
 
     var body: some View {
         Group {
@@ -55,10 +56,12 @@ struct RootTabView: View {
         .fullScreenCover(isPresented: $session.showOnboardingFromSettings) {
             OnboardingView(fromSettings: true)
                 .environmentObject(session)
+                .environmentObject(subscriptionService)
         }
         .sheet(isPresented: $session.showPaywall) {
             PaywallView()
                 .environmentObject(session)
+                .environmentObject(subscriptionService)
         }
     }
 }

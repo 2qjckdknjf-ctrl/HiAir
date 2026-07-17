@@ -13,7 +13,8 @@ enum SubscriptionDiagnostics {
         verificationState: String? = nil,
         httpStatus: Int? = nil,
         entitlementActive: Bool? = nil,
-        correlationId: String? = nil
+        correlationId: String? = nil,
+        pricePresent: Bool? = nil
     ) {
         var parts: [String] = ["event=\(event)"]
         if let productId { parts.append("product_id=\(productId)") }
@@ -24,6 +25,7 @@ enum SubscriptionDiagnostics {
         if let httpStatus { parts.append("http_status=\(httpStatus)") }
         if let entitlementActive { parts.append("entitlement_active=\(entitlementActive)") }
         if let correlationId { parts.append("correlation_id=\(correlationId)") }
+        if let pricePresent { parts.append("price_present=\(pricePresent)") }
         logger.info("\(parts.joined(separator: " "), privacy: .public)")
     }
 }

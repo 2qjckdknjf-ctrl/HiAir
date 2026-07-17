@@ -1,42 +1,36 @@
 # Real Device QA Report
 
-Status: **STOREKIT PURCHASE FLOW FAILED** (2026-07-15) — physical iPhone session started; password authentication loop on build 79.
+Status: **STOREKIT PRODUCTS NOT LOADING** (2026-07-17) — build 80 physical retest FAIL.
 
-## StoreKit purchase failure (2026-07-15)
+## Build 80 physical retest (2026-07-17)
 
 | Item | Result | Notes |
 |------|--------|-------|
-| Physical iPhone session | **STARTED** | TestFlight build 79 |
-| StoreKit purchase | **FAIL** | Apple ID password sheet loops; purchase never completes |
-| Premium entitlement | **NOT ACTIVE** | backend not reached (pre-backend failure class) |
-| Planner unlock | **FAIL** | paywall remains |
-| Root cause (suspected) | **CODE** | concurrent `AppStore.sync()` during paywall load + purchase; fix in progress |
-| Fix build | **PENDING** | build 80 with single-flight guard + no sync on product load |
+| Physical iPhone session | **STARTED / FAIL** | TestFlight build 80 |
+| Paywall opened | **PASS** | from Planner |
+| Localized price | **MISSING** | showed pending / no StoreKit price |
+| Subscribe button | **NON-RESPONSIVE** | disabled without Product |
+| Native purchase sheet | **NOT OPENED** | |
+| Backend verification | **NOT REACHED** | |
+| Entitlement | **INACTIVE** | |
+| Failure class | **PRODUCTS / PAYWALL STATE** | Case A pre-backend |
 
-## Geolocation device (build 79)
+## Root cause (code, build 80)
 
-| Scenario | Result | Notes |
-|----------|--------|-------|
-| Physical session started | **YES** | same device session as subscription test |
-| StoreKit purchase | **FAIL** | blocks full geo+subscription integration proof |
+1. `@ObservedObject private var subscriptionService = SubscriptionService.shared` — unreliable SwiftUI observation of singleton `@Published` updates.
+2. Paywall rendered plan cards with `product == nil` → Subscribe `.disabled(true)` and placeholder price — looked “dead” without a clear empty-state CTA.
+3. `.task`-scoped load could cancel before `Product.products` completed; load now owned by `SubscriptionService`.
 
-## Subscription device scenarios
+## Fix build
 
-| Scenario | Result | Notes |
-|----------|--------|-------|
-| Products load (assumed) | **LIKELY PASS** | paywall opened; purchase sheet appeared |
-| Sandbox purchase | **FAIL** | password loop |
-| Backend verify | **NOT REACHED** | no entitlement activation |
-| Planner unlock | **FAIL** | |
-| Restart / re-login / restore | **NOT RUN** | blocked on purchase |
+| Item | Value |
+|------|-------|
+| Target build | **81** |
+| Commit | pending upload |
+| Changes | EnvironmentObject ownership; catalog states; service-owned load; canonical `StoreProductIDs` |
 
-## Engineering status
+## Build 79 (prior)
 
-| Item | Result |
-|------|--------|
-| Production @ `07d5849` | PASS |
-| TestFlight build 79 | VALID (obsolete after fix) |
-| Automated tests | PASS (pre-fix) |
-| ASC IAP products | READY_TO_SUBMIT |
+Password authentication loop — fixed in 80; superseded by products/paywall FAIL on 80.
 
-Do not record exact coordinates, Apple IDs, receipts, or tokens in this document.
+Do not record Apple IDs, receipts, JWS, or exact coordinates.

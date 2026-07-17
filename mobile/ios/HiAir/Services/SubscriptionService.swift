@@ -9,61 +9,156 @@ extension Notification.Name {
 final class SubscriptionService: ObservableObject {
     static let shared = SubscriptionService()
 
-    static let monthlyProductId = "com.hiair.premium.monthly"
-    static let yearlyProductId = "com.hiair.premium.yearly"
-    private static let productIds: Set<String> = [monthlyProductId, yearlyProductId]
+    static nonisolated var monthlyProductId: String { StoreProductIDs.monthly }
+    static nonisolated var yearlyProductId: String { StoreProductIDs.yearly }
 
     @Published private(set) var products: [Product] = []
+    @Published private(set) var catalogState: PaywallCatalogState = .idle
     @Published private(set) var isLoading = false
     @Published private(set) var isPurchaseInProgress = false
     @Published var lastError: String?
 
     private var updatesTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
     private var purchaseGuard = PurchaseSingleFlightGuard()
     private var processedTransactionIds = Set<UInt64>()
     private let apiClient = APIClient.live()
+    private let productFetcher: any StoreProductFetching
 
-    private init() {
+    private init(productFetcher: any StoreProductFetching = AppStoreProductFetcher()) {
+        self.productFetcher = productFetcher
         updatesTask = Task { await listenForTransactionUpdates() }
+    }
+
+    /// Test seam — do not use in production UI.
+    init(testingFetcher: any StoreProductFetching) {
+        self.productFetcher = testingFetcher
+        updatesTask = nil
     }
 
     deinit {
         updatesTask?.cancel()
+        loadTask?.cancel()
     }
 
-    func loadProducts(maxAttempts: Int = 3) async {
-        guard !isPurchaseInProgress else {
+    var monthlyProduct: Product? {
+        products.first { $0.id == StoreProductIDs.monthly }
+    }
+
+    var yearlyProduct: Product? {
+        products.first { $0.id == StoreProductIDs.yearly }
+    }
+
+    /// Device diagnostic: fetch products without purchasing. Safe fields only.
+    func probeProducts() async -> (count: Int, ids: [String], monthlyPrice: Bool, yearlyPrice: Bool, errorDomain: String?, errorCode: Int?) {
+        do {
+            let loaded = try await productFetcher.fetchProducts(ids: StoreProductIDs.all)
+            let ids = loaded.map(\.id).sorted()
+            SubscriptionDiagnostics.log(
+                "products_probe_succeeded",
+                productId: ids.joined(separator: ","),
+                resultType: "count=\(loaded.count)"
+            )
+            return (
+                count: loaded.count,
+                ids: ids,
+                monthlyPrice: loaded.contains { $0.id == StoreProductIDs.monthly && !$0.displayPrice.isEmpty },
+                yearlyPrice: loaded.contains { $0.id == StoreProductIDs.yearly && !$0.displayPrice.isEmpty },
+                errorDomain: nil,
+                errorCode: nil
+            )
+        } catch {
+            let ns = error as NSError
+            SubscriptionDiagnostics.log(
+                "products_probe_failed",
+                errorDomain: ns.domain,
+                errorCode: ns.code
+            )
+            return (0, [], false, false, ns.domain, ns.code)
+        }
+    }
+
+    func loadProducts(maxAttempts: Int = 3) {
+        if isPurchaseInProgress {
             SubscriptionDiagnostics.log("products_load_skipped_purchase_in_progress")
             return
         }
-        isLoading = true
-        defer { isLoading = false }
+        if let loadTask, !loadTask.isCancelled {
+            SubscriptionDiagnostics.log("products_load_skipped_already_running")
+            return
+        }
+        loadTask = Task { await performLoadProducts(maxAttempts: maxAttempts) }
+    }
 
-        SubscriptionDiagnostics.log("products_load_started", productId: Self.productIds.sorted().joined(separator: ","))
+    func loadProductsAndWait(maxAttempts: Int = 3) async {
+        loadProducts(maxAttempts: maxAttempts)
+        await loadTask?.value
+    }
+
+    private func performLoadProducts(maxAttempts: Int) async {
+        guard !isPurchaseInProgress else { return }
+        isLoading = true
+        catalogState = .loading
+        lastError = nil
+        defer {
+            isLoading = false
+            loadTask = nil
+        }
+
+        let requested = StoreProductIDs.sorted.joined(separator: ",")
+        SubscriptionDiagnostics.log("products_load_started", productId: requested)
+        SubscriptionDiagnostics.log("products_requested", productId: requested)
 
         for attempt in 1...maxAttempts {
+            if Task.isCancelled { return }
             guard !isPurchaseInProgress else { return }
             do {
-                let loaded = try await Product.products(for: Array(Self.productIds))
+                let loaded = try await productFetcher.fetchProducts(ids: StoreProductIDs.all)
                 if !loaded.isEmpty {
                     products = loaded.sorted { $0.id < $1.id }
                     lastError = nil
+                    catalogState = .loaded
                     SubscriptionDiagnostics.log(
                         "products_load_succeeded",
-                        productId: loaded.map(\.id).joined(separator: ",")
+                        productId: loaded.map(\.id).joined(separator: ","),
+                        resultType: "count=\(loaded.count)"
                     )
+                    if monthlyProduct != nil {
+                        SubscriptionDiagnostics.log(
+                            "product_monthly_available",
+                            productId: StoreProductIDs.monthly,
+                            resultType: "price_present=\(!(monthlyProduct?.displayPrice.isEmpty ?? true))"
+                        )
+                    }
+                    if yearlyProduct != nil {
+                        SubscriptionDiagnostics.log(
+                            "product_yearly_available",
+                            productId: StoreProductIDs.yearly,
+                            resultType: "price_present=\(!(yearlyProduct?.displayPrice.isEmpty ?? true))"
+                        )
+                    }
+                    SubscriptionDiagnostics.log("paywall_state_updated", resultType: "loaded")
                     return
                 }
+                products = []
                 lastError = "App Store products not available yet"
-                SubscriptionDiagnostics.log("products_load_failed", resultType: "empty_catalog")
+                catalogState = .empty
+                SubscriptionDiagnostics.log("products_load_empty", productId: requested, resultType: "count=0")
+                SubscriptionDiagnostics.log("paywall_state_updated", resultType: "empty")
+            } catch is CancellationError {
+                return
             } catch {
                 products = []
                 lastError = error.localizedDescription
+                catalogState = .failed
+                let ns = error as NSError
                 SubscriptionDiagnostics.log(
                     "products_load_failed",
-                    errorDomain: (error as NSError).domain,
-                    errorCode: (error as NSError).code
+                    productId: requested,
+                    errorDomain: ns.domain,
+                    errorCode: ns.code
                 )
+                SubscriptionDiagnostics.log("paywall_state_updated", resultType: "failed")
             }
 
             if attempt < maxAttempts {
@@ -79,9 +174,13 @@ final class SubscriptionService: ObservableObject {
             throw SubscriptionServiceError.purchaseInProgress
         }
         isPurchaseInProgress = true
+        catalogState = .purchasing
         defer {
             purchaseGuard.end()
             isPurchaseInProgress = false
+            if !products.isEmpty {
+                catalogState = .loaded
+            }
         }
 
         let correlationId = UUID().uuidString.prefix(8).lowercased()
@@ -206,7 +305,7 @@ final class SubscriptionService: ObservableObject {
     ) async throws -> SubscriptionStatusResponse? {
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
-            guard Self.productIds.contains(transaction.productID) else { continue }
+            guard StoreProductIDs.all.contains(transaction.productID) else { continue }
             guard !processedTransactionIds.contains(transaction.id) else { continue }
             SubscriptionDiagnostics.log(
                 "existing_entitlement_detected",
@@ -293,7 +392,7 @@ final class SubscriptionService: ObservableObject {
         for await update in Transaction.updates {
             switch update {
             case .verified(let transaction):
-                guard Self.productIds.contains(transaction.productID) else {
+                guard StoreProductIDs.all.contains(transaction.productID) else {
                     await transaction.finish()
                     continue
                 }
@@ -350,7 +449,6 @@ final class SubscriptionService: ObservableObject {
         return nil
     }
 
-    /// Backend accepts stub-shaped JWS built from verified StoreKit transaction metadata.
     private func buildStubJws(for transaction: Transaction) -> String {
         var payload: [String: Any] = [
             "productId": transaction.productID,

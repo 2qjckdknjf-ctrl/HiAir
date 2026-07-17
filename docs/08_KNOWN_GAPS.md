@@ -1,11 +1,12 @@
 # 08 Known Gaps
 
-Updated: 2026-07-15 (StoreKit purchase password loop)
+Updated: 2026-07-17 (StoreKit products not loading on build 80)
 
 ## P0 (block first 10 real users)
 
-- **StoreKit sandbox purchase FAILED on physical iPhone** (build 79): Apple ID password authentication loop; Premium never unlocks. Fix build 80 in progress. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
-- **Physical iPhone session STARTED** — geolocation + subscription certification no longer "not run".
+- **StoreKit products / paywall FAILED on physical iPhone** (build 80): no localized price; Subscribe non-responsive; purchase sheet never opened. Fix build **81**. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Prior build 79:** password authentication loop (addressed in 80; superseded by products FAIL).
+- **Physical iPhone session STARTED** — certification no longer "not run".
 - **Use release mobile builds against production** — debug variants point to localhost (`10.0.2.2` / `127.0.0.1`).
 - **Guest mode not implemented** on iOS or Android (auth wall for all features).
 - **Push notifications not wired on mobile** — `registerDeviceToken` exists in API clients but is never called; Morning Briefing UI without verified APNs/FCM delivery on device. (Sequenced AFTER live data + device QA.)

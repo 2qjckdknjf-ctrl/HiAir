@@ -1,41 +1,42 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-07-14 (FINAL P0 device certification)
+Date: 2026-07-17 (StoreKit products not loading)
 
-## 0) Live status — StoreKit password loop recovery (2026-07-15)
+## 0) Live status — StoreKit products / paywall (2026-07-17)
 
-Branch `main` — fix in progress for StoreKit purchase authentication loop.
+Branch `main` — product loading + paywall observation fix for TestFlight **build 81**.
 
-- ✅ **Physical iPhone session STARTED** — TestFlight build 79
-- ❌ **StoreKit purchase FAIL** — Apple ID password sheet loops; entitlement never activates
-- 🔧 **Fix** — remove `AppStore.sync()` from product load; single-flight purchase guard; build **80** upload pending
-- ⏳ **Physical retest** — owner one controlled purchase on build 80 after VALID
-- ✅ Production backend @ `07d5849`; geo engineering closed
+- ❌ **Build 80 physical retest FAIL** — paywall opens; **no price**; Subscribe **non-responsive**; purchase sheet never opens; backend not reached
+- 🔧 **Fix** — `SubscriptionService` via `EnvironmentObject`; service-owned product load; honest catalog states (loading/loaded/empty/failed); canonical `StoreProductIDs`; no dead subscribe buttons without Product
+- ⏳ **Physical retest** — install build **81**; first checkpoint: prices + button + Apple sheet
+- ✅ Production backend @ `07d5849` (unchanged for this defect)
 - ❌ **Android Play E2E** — EXTERNALLY BLOCKED
 
-**Verdict:** `STOREKIT CODE FIXED — WAITING FOR PHYSICAL RETEST` (after build 80 upload)
+**Verdict:** `CODE FIXED — WAITING FOR PHYSICAL PAYWALL RETEST` (after build 81 VALID)
 
-### Owner device checklist (build 79)
+### Owner device checklist (build 81)
 
-1. Delete old HiAir → install TestFlight **79**
-2. Login → onboarding → Allow location → verify dashboard live for actual area (city-level only in notes)
-3. Planner paywall (402) before purchase
-4. Sandbox monthly purchase → wait for backend `is_premium=true` → Planner opens
-5. Kill app → Premium persists
-6. Logout → login same account → Premium restored
-7. Logout → different free account → no Premium leak
-8. Restore Purchases on purchased Apple ID
+1. Delete HiAir → install TestFlight **81**
+2. Console: `subsystem:com.hiair.app category:subscription`
+3. Planner → paywall → wait for loading → confirm `displayPrice` for monthly/yearly
+4. One tap monthly → native Apple sheet must open (stop if not)
+5. Only then complete purchase → entitlement → Planner unlock
 
 See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
 
-## 0a) Prior — subscription deploy (2026-07-14)
+## 0a) Prior — password loop (2026-07-15)
+
+- Build 79: password loop FAIL
+- Build 80: attempted sync/single-flight fix; products/paywall then failed
+
+## 0b) Prior — subscription deploy (2026-07-14)
 
 - ✅ Subscription backend on prod; smoke PASS
 - TestFlight build 73 VALID but **obsolete** (no geo fix)
 
 See `docs/subscriptions/SUBSCRIPTION_PRODUCTION_CERTIFICATION.md`.
 
-## 0b) Prior — first-10-users track
+## 0c) Prior — first-10-users track
 
 Branch `release/mega-sprint-2-first-10-users` merged; live environmental backend deployed.
 

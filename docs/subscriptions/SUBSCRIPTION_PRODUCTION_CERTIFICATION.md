@@ -1,49 +1,41 @@
-# Subscription Production Certification — 2026-07-15
+# Subscription Production Certification — 2026-07-17
 
-**Production SHA:** `07d584959db412553f70800c4a49ae109021eb25`  
-**Verdict:** **STOREKIT PURCHASE FLOW FAILED ON PHYSICAL IPHONE — FIX IN PROGRESS**
+**Production SHA:** `07d584959db412553f70800c4a49ae109021eb25` (backend unchanged for this defect)  
+**Verdict:** **STOREKIT PRODUCTS NOT LOADING ON BUILD 80 — FIX BUILD 81**
 
 ---
 
-## Physical device evidence (2026-07-15)
+## Physical retest evidence (build 80)
 
-| Event | Result |
+| Check | Result |
 |-------|--------|
-| Physical iPhone session | **STARTED** |
-| TestFlight build 79 | Installed |
-| Paywall → monthly purchase | Password sheet loops |
-| StoreKit terminal success | **NOT OBSERVED** |
-| Backend `/api/subscriptions/ios/verify` | **NOT REACHED** |
-| `is_premium=true` | **NO** |
+| Paywall opened | PASS |
+| Products / price displayed | **FAIL** |
+| Subscribe button | **NON-RESPONSIVE** |
+| Native purchase sheet | **NOT OPENED** |
+| Backend `/ios/verify` | **NOT REACHED** |
+| Entitlement active | **NO** |
 | Planner unlock | **NO** |
 
-**Failure class:** Case A — pre-backend (StoreKit / concurrent auth prompts).
-
-**Suspected root cause:** `AppStore.sync()` called up to 3× on paywall open (`loadProducts`) overlapping `product.purchase()` authentication.
-
-**Fix:** build 80 — remove sync from product load; single-flight purchase guard; restore existing entitlements before repurchase; structured diagnostics.
+Previous status “waiting for physical retest” is obsolete — retest ran and **FAILED**.
 
 ---
 
-## Backend contract (unchanged, verified in automation)
+## ASC products (API audit 2026-07-17)
 
-| Endpoint | Free | Premium |
-|----------|------|---------|
-| `GET /api/privacy/export` | never 402 | never 402 |
-| `GET /api/planner/daily` | 402 | 200 |
-| `POST /api/subscriptions/ios/verify` | — | grants entitlement |
+| Product | State | Prices | Availability | Localizations |
+|---------|-------|--------|--------------|---------------|
+| `com.hiair.premium.monthly` | READY_TO_SUBMIT | 175 | yes | 2 |
+| `com.hiair.premium.yearly` | READY_TO_SUBMIT | 175 | yes | 2 |
 
----
+Note: build **79** previously opened the Apple purchase sheet (password loop), so ASC catalog can return products. Build **80** failure aligns with client observation/UX regression, not a sudden product-ID mismatch.
 
-## ASC IAP
+## Agreements
 
-| Product | ASC state |
-|---------|-----------|
-| `com.hiair.premium.monthly` | READY_TO_SUBMIT, prices + availability |
-| `com.hiair.premium.yearly` | READY_TO_SUBMIT, prices + availability |
+ASC Management API `/v1/agreements` not available with current key. Owner must confirm in App Store Connect → Business → Agreements / Tax / Banking that **Paid Apps Agreement** is Active. If inactive, StoreKit may return empty catalogs.
 
 ---
 
 ## Honest status ladder
 
-**ARCHITECTURE READY** — not **STORE SANDBOX READY** until physical retest passes on fix build.
+Still **ARCHITECTURE READY** — not STORE SANDBOX READY until build 81+ shows prices, opens purchase sheet, verifies entitlement, unlocks Planner.

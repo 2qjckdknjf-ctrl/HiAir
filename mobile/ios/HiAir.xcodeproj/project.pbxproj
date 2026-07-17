@@ -11,6 +11,7 @@
 		079F1318A8584B1939E4E3FE /* HiAirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD707A08B6657EF85395B26 /* HiAirApp.swift */; };
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
+		1A92F62E0EC617E5AEF0DD14 /* StoreProductIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81AEC3B255250F766121E890 /* StoreProductIDs.swift */; };
 		1BF97FD1C79322D4ED0D3924 /* HiAirLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */; };
 		1C93CBBDDA86CE4492DDC214 /* SubscriptionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */; };
 		1E08E28221A8D5D1C20D4941 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5F4A846E176862AF8006820 /* Assets.xcassets */; };
@@ -18,6 +19,7 @@
 		1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F189463A81578D7DA02A429B /* AuthView.swift */; };
 		21DA068E82B7BCAB678446E2 /* PurchaseSingleFlightGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */; };
 		2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */; };
+		3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */ = {isa = PBXBuildFile; fileRef = A364D644D684423921A0EDAA /* StoreProductFetching.swift */; };
 		3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */; };
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
 		4D84DF0F1974CDEEF384A0F9 /* HiAirSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */; };
@@ -90,11 +92,13 @@
 		6B1CF7645DD4B0B92F0CA11F /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		6C80D922CB3152908E2D2892 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		81AEC3B255250F766121E890 /* StoreProductIDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreProductIDs.swift; sourceTree = "<group>"; };
 		8833EA8341D4356991598891 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		93EEF3FD465B8193BE67529E /* HiAirTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BD707A08B6657EF85395B26 /* HiAirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirApp.swift; sourceTree = "<group>"; };
 		9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphericParticles.swift; sourceTree = "<group>"; };
 		A0B75F7FAF52543E6F33F582 /* TimeOfDayBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDayBackground.swift; sourceTree = "<group>"; };
+		A364D644D684423921A0EDAA /* StoreProductFetching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreProductFetching.swift; sourceTree = "<group>"; };
 		A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductAnalytics.swift; sourceTree = "<group>"; };
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
@@ -165,6 +169,8 @@
 				6C80D922CB3152908E2D2892 /* LocationService.swift */,
 				BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */,
 				246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */,
+				A364D644D684423921A0EDAA /* StoreProductFetching.swift */,
+				81AEC3B255250F766121E890 /* StoreProductIDs.swift */,
 				009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */,
 				A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */,
 			);
@@ -393,6 +399,8 @@
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,
+				3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */,
+				1A92F62E0EC617E5AEF0DD14 /* StoreProductIDs.swift in Sources */,
 				1C93CBBDDA86CE4492DDC214 /* SubscriptionDiagnostics.swift in Sources */,
 				F7796D20327E2DEB59780003 /* SubscriptionService.swift in Sources */,
 				495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */,
@@ -420,7 +428,7 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 80;
+				CURRENT_PROJECT_VERSION = 81;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "https://api.hiair.io";
@@ -490,7 +498,7 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 80;
+				CURRENT_PROJECT_VERSION = 81;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_API_BASE_URL = "http://127.0.0.1:8000";

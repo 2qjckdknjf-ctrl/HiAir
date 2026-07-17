@@ -156,14 +156,28 @@ Backend — единственный источник истины. Premium ра
 
 ---
 
+## Update 2026-07-17 — Products not loading (build 80)
+
+Physical retest on TestFlight **build 80**: paywall opened, **prices missing**, Subscribe **non-responsive**, Apple sheet never opened, backend not reached.
+
+Confirmed client defects addressed in build **81**:
+- singleton observation via `EnvironmentObject` (not inline `@ObservedObject = .shared`)
+- service-owned product load (survives view `.task` cancellation)
+- honest catalog UI (no dead Subscribe without `Product`)
+- canonical `StoreProductIDs`
+
+ASC products remain `READY_TO_SUBMIT` with prices/availability. Owner: confirm Paid Apps Agreement Active; retest build 81 for prices + sheet before full purchase E2E.
+
+---
+
 ## Owner Checklists
 
 ### iOS TestFlight sandbox
 
 1. ASC: `com.hiair.premium.monthly` / `.yearly` in subscription group for `com.hiair.app`
 2. Sandbox tester account
-3. TestFlight build ≥ 65
-4. Flow: login → paywall → purchase → verify Settings shows Premium → Planner unlocks → kill app → reopen → logout/login → restore
+3. TestFlight build ≥ **81**
+4. Flow: login → paywall → **prices visible** → purchase sheet → verify Settings shows Premium → Planner unlocks → kill app → reopen → logout/login → restore
 
 ### Android Play Internal
 
@@ -178,3 +192,4 @@ Backend — единственный источник истины. Premium ра
 - Verify returns 200 but UI locked → check `GET /api/subscriptions/me` entitlement.is_premium; force `refreshEntitlement`
 - Android 503 on verify → `GOOGLE_PLAY_VERIFIER_MODE=live` without service account
 - iOS verify_pending → decode/apply failure; check API error in paywall status (no receipt logged)
+- Paywall no price / dead Subscribe → Console `subsystem:com.hiair.app category:subscription` for `products_load_*`; confirm build ≥ 81; ASC Paid Apps Agreement
