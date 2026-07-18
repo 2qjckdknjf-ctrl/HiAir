@@ -32,7 +32,7 @@ Previous status “waiting for physical paywall retest” is obsolete — retest
 | Item | Value |
 |------|-------|
 | Target | **82** |
-| Commit | pending |
+| Commit | `dc26890` |
 | ASC | **VALID** |
 | Delivery UUID | `ce491fb6-8af8-464a-9f23-01da982e79c2` |
 | Changes | `Task.detached` StoreKit fetch; cancel retry; friendly error copy; scheme StoreKit config removed from Run |
