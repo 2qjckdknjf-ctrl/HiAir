@@ -58,11 +58,19 @@ jobs:
 
       - name: Run iOS unit tests
         run: |
+          # Prefer a concrete simulator; fall back to first available iPhone if name drifts (e.g. 16→17).
+          DEST="platform=iOS Simulator,name=iPhone 17"
+          if ! xcrun simctl list devices available | grep -q "iPhone 17"; then
+            PHONE=$(xcrun simctl list devices available | awk -F'[()]' '/iPhone/{gsub(/^[[:space:]]+/,"",$1); print $1; exit}')
+            DEST="platform=iOS Simulator,name=${PHONE}"
+          fi
+          echo "Using destination: ${DEST}"
           xcodebuild \
             -project HiAir.xcodeproj \
             -scheme HiAir \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -destination "${DEST}" \
             test \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES
