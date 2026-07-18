@@ -156,6 +156,14 @@ Backend — единственный источник истины. Premium ра
 
 ---
 
+## Update 2026-07-18 — Request Canceled (build 81)
+
+Physical retest on TestFlight **81**: paywall shows unavailable + **Request Canceled**; catalog empty on device; backend not reached.
+
+ASC API still shows READY_TO_SUBMIT with full prices/availability. Code fix in build **82**: detached `Product.products`, cancel retry, honest copy. Owner must confirm Paid Apps Agreement / Tax / Banking Active.
+
+---
+
 ## Update 2026-07-17 — Products not loading (build 80)
 
 Physical retest on TestFlight **build 80**: paywall opened, **prices missing**, Subscribe **non-responsive**, Apple sheet never opened, backend not reached.
@@ -176,7 +184,7 @@ ASC products remain `READY_TO_SUBMIT` with prices/availability. Owner: confirm P
 
 1. ASC: `com.hiair.premium.monthly` / `.yearly` in subscription group for `com.hiair.app`
 2. Sandbox tester account
-3. TestFlight build ≥ **81**
+3. TestFlight build ≥ **82**
 4. Flow: login → paywall → **prices visible** → purchase sheet → verify Settings shows Premium → Planner unlocks → kill app → reopen → logout/login → restore
 
 ### Android Play Internal
@@ -192,4 +200,5 @@ ASC products remain `READY_TO_SUBMIT` with prices/availability. Owner: confirm P
 - Verify returns 200 but UI locked → check `GET /api/subscriptions/me` entitlement.is_premium; force `refreshEntitlement`
 - Android 503 on verify → `GOOGLE_PLAY_VERIFIER_MODE=live` without service account
 - iOS verify_pending → decode/apply failure; check API error in paywall status (no receipt logged)
-- Paywall no price / dead Subscribe → Console `subsystem:com.hiair.app category:subscription` for `products_load_*`; confirm build ≥ 81; ASC Paid Apps Agreement
+- Paywall **Request Canceled** → install build ≥ 82; Console `products_load_failed`; confirm Paid Apps Agreement Active
+- Paywall no price / dead Subscribe → Console `subsystem:com.hiair.app category:subscription` for `products_load_*`; confirm build ≥ 82; ASC Paid Apps Agreement

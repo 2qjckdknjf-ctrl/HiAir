@@ -55,6 +55,27 @@ final class SubscriptionServiceTests: XCTestCase {
         XCTAssertEqual(fetcher.fetchCallCount, 1)
         XCTAssertFalse(fetcher.didCallSync)
     }
+
+    func testRequestCanceledIsRetriedThenFailedWithFriendlyMessage() async {
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled, userInfo: [
+            NSLocalizedDescriptionKey: "Request Canceled"
+        ])
+        let fetcher = MockProductFetcher(result: .failure(error))
+        let service = await MainActor.run { SubscriptionService(testingFetcher: fetcher) }
+        await service.loadProductsAndWait(maxAttempts: 2)
+        let state = await MainActor.run { service.catalogState }
+        let message = await MainActor.run { service.lastError ?? "" }
+        let calls = fetcher.fetchCallCount
+        XCTAssertEqual(state, .failed)
+        XCTAssertEqual(calls, 2)
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("Request Canceled"))
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("App Store"))
+    }
+
+    func testCanonicalProductIdsMatchBackendPlans() {
+        XCTAssertEqual(StoreProductIDs.monthly, "com.hiair.premium.monthly")
+        XCTAssertEqual(StoreProductIDs.yearly, "com.hiair.premium.yearly")
+    }
 }
 
 private final class MockProductFetcher: StoreProductFetching, @unchecked Sendable {

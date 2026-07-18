@@ -5,9 +5,14 @@ protocol StoreProductFetching: Sendable {
     func fetchProducts(ids: Set<String>) async throws -> [Product]
 }
 
+/// Fetches App Store products off the main actor so SwiftUI view updates
+/// (e.g. swapping to a ProgressView) cannot cancel the StoreKit request.
 struct AppStoreProductFetcher: StoreProductFetching {
     func fetchProducts(ids: Set<String>) async throws -> [Product] {
-        try await Product.products(for: Array(ids))
+        let idList = Array(ids)
+        return try await Task.detached(priority: .userInitiated) {
+            try await Product.products(for: idList)
+        }.value
     }
 }
 

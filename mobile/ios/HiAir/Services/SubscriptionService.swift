@@ -78,7 +78,7 @@ final class SubscriptionService: ObservableObject {
         }
     }
 
-    func loadProducts(maxAttempts: Int = 3) {
+    func loadProducts(maxAttempts: Int = 2) {
         if isPurchaseInProgress {
             SubscriptionDiagnostics.log("products_load_skipped_purchase_in_progress")
             return
@@ -87,10 +87,11 @@ final class SubscriptionService: ObservableObject {
             SubscriptionDiagnostics.log("products_load_skipped_already_running")
             return
         }
+        // Unstructured task owned by the service — not cancelled by SwiftUI view lifetime.
         loadTask = Task { await performLoadProducts(maxAttempts: maxAttempts) }
     }
 
-    func loadProductsAndWait(maxAttempts: Int = 3) async {
+    func loadProductsAndWait(maxAttempts: Int = 2) async {
         loadProducts(maxAttempts: maxAttempts)
         await loadTask?.value
     }
@@ -108,64 +109,123 @@ final class SubscriptionService: ObservableObject {
         let requested = StoreProductIDs.sorted.joined(separator: ",")
         SubscriptionDiagnostics.log("products_load_started", productId: requested)
         SubscriptionDiagnostics.log("products_requested", productId: requested)
+        await logStorefrontIfAvailable()
 
         for attempt in 1...maxAttempts {
-            if Task.isCancelled { return }
             guard !isPurchaseInProgress else { return }
             do {
                 let loaded = try await productFetcher.fetchProducts(ids: StoreProductIDs.all)
+                SubscriptionDiagnostics.log(
+                    "returned_product_count",
+                    resultType: "count=\(loaded.count)"
+                )
                 if !loaded.isEmpty {
                     products = loaded.sorted { $0.id < $1.id }
                     lastError = nil
                     catalogState = .loaded
+                    let ids = loaded.map(\.id)
                     SubscriptionDiagnostics.log(
                         "products_load_succeeded",
-                        productId: loaded.map(\.id).joined(separator: ","),
+                        productId: ids.joined(separator: ","),
                         resultType: "count=\(loaded.count)"
                     )
-                    if monthlyProduct != nil {
+                    SubscriptionDiagnostics.log("returned_product_ids", productId: ids.joined(separator: ","))
+                    if let monthly = monthlyProduct {
                         SubscriptionDiagnostics.log(
-                            "product_monthly_available",
+                            "monthly_product_available",
                             productId: StoreProductIDs.monthly,
-                            resultType: "price_present=\(!(monthlyProduct?.displayPrice.isEmpty ?? true))"
+                            pricePresent: !monthly.displayPrice.isEmpty
+                        )
+                        SubscriptionDiagnostics.log(
+                            "monthly_price_available",
+                            productId: StoreProductIDs.monthly,
+                            pricePresent: !monthly.displayPrice.isEmpty
                         )
                     }
-                    if yearlyProduct != nil {
+                    if let yearly = yearlyProduct {
                         SubscriptionDiagnostics.log(
-                            "product_yearly_available",
+                            "yearly_product_available",
                             productId: StoreProductIDs.yearly,
-                            resultType: "price_present=\(!(yearlyProduct?.displayPrice.isEmpty ?? true))"
+                            pricePresent: !yearly.displayPrice.isEmpty
+                        )
+                        SubscriptionDiagnostics.log(
+                            "yearly_price_available",
+                            productId: StoreProductIDs.yearly,
+                            pricePresent: !yearly.displayPrice.isEmpty
                         )
                     }
                     SubscriptionDiagnostics.log("paywall_state_updated", resultType: "loaded")
                     return
                 }
                 products = []
-                lastError = "App Store products not available yet"
+                lastError = nil
                 catalogState = .empty
                 SubscriptionDiagnostics.log("products_load_empty", productId: requested, resultType: "count=0")
                 SubscriptionDiagnostics.log("paywall_state_updated", resultType: "empty")
-            } catch is CancellationError {
-                return
             } catch {
-                products = []
-                lastError = error.localizedDescription
-                catalogState = .failed
                 let ns = error as NSError
+                let cancelled = Self.isRequestCanceled(error)
                 SubscriptionDiagnostics.log(
                     "products_load_failed",
                     productId: requested,
+                    resultType: cancelled ? "request_canceled" : "error",
                     errorDomain: ns.domain,
                     errorCode: ns.code
                 )
+                if cancelled, attempt < maxAttempts {
+                    let delayNs = UInt64(attempt) * 1_500_000_000
+                    try? await Task.sleep(nanoseconds: delayNs)
+                    continue
+                }
+                products = []
+                lastError = Self.userFacingCatalogError(error)
+                catalogState = .failed
                 SubscriptionDiagnostics.log("paywall_state_updated", resultType: "failed")
             }
 
             if attempt < maxAttempts {
-                let delayNs = UInt64(attempt) * 2_000_000_000
+                let delayNs = UInt64(attempt) * 1_500_000_000
                 try? await Task.sleep(nanoseconds: delayNs)
             }
         }
+
+        if catalogState == .loading {
+            catalogState = .failed
+            lastError = lastError ?? "Не удалось загрузить планы подписки из App Store."
+            SubscriptionDiagnostics.log("paywall_state_updated", resultType: "failed")
+        }
+    }
+
+    private func logStorefrontIfAvailable() async {
+        if let storefront = await Storefront.current {
+            SubscriptionDiagnostics.log(
+                "storefront_detected",
+                resultType: storefront.countryCode
+            )
+        }
+    }
+
+    private static func isRequestCanceled(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        let ns = error as NSError
+        if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled { return true }
+        let message = ns.localizedDescription.lowercased()
+        return message.contains("request canceled") || message.contains("request cancelled")
+    }
+
+    private static func userFacingCatalogError(_ error: Error) -> String {
+        if isRequestCanceled(error) {
+            return "Не удалось загрузить планы подписки из App Store. Повторите попытку."
+        }
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        if message.isEmpty {
+            return "Не удалось загрузить планы подписки из App Store."
+        }
+        // Never surface raw "Request Canceled" as the primary empty-state copy.
+        if message.lowercased().contains("request canceled") || message.lowercased().contains("request cancelled") {
+            return "Не удалось загрузить планы подписки из App Store. Повторите попытку."
+        }
+        return message
     }
 
     func purchase(_ product: Product, userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {

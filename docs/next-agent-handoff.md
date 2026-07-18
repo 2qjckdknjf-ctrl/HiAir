@@ -1,44 +1,37 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-07-17 (StoreKit products not loading)
+Date: 2026-07-18 (Apple subscription full recovery)
 
-## 0) Live status — StoreKit products / paywall (2026-07-17)
+## 0) Live status — StoreKit catalog Request Canceled (2026-07-18)
 
-Branch `main` — product loading + paywall observation fix for TestFlight **build 81**.
+- ❌ **Build 81 physical FAIL** — paywall shows unavailable + **Request Canceled**; no prices; no Apple sheet; backend not reached
+- ✅ ASC products READY_TO_SUBMIT (prices + 175 territories) via API
+- 🔧 **Build 82** — detached StoreKit product fetch; cancel retry; honest error copy
+- ⏳ Owner: confirm **Paid Apps Agreement / Tax / Banking Active**; retest build 82 catalog first
+- ❌ Android Play E2E — EXTERNALLY BLOCKED
 
-- ❌ **Build 80 physical retest FAIL** — paywall opens; **no price**; Subscribe **non-responsive**; purchase sheet never opens; backend not reached
-- 🔧 **Fix** — `SubscriptionService` via `EnvironmentObject`; service-owned product load; honest catalog states (loading/loaded/empty/failed); canonical `StoreProductIDs`; no dead subscribe buttons without Product
-- ⏳ **Physical retest** — install build **81**; first checkpoint: prices + button + Apple sheet
-- ✅ Production backend @ `07d5849` (unchanged for this defect)
-- ❌ **Android Play E2E** — EXTERNALLY BLOCKED
+**Verdict after upload:** `CODE FIXED — WAITING FOR PHYSICAL PAYWALL RETEST` unless catalog still empty → then Agreements/ASC blocker.
 
-**Verdict:** `CODE FIXED — WAITING FOR PHYSICAL PAYWALL RETEST` (after build 81 VALID)
+### Owner build 82 checklist
 
-### Owner device checklist (build 81)
-
-1. Delete HiAir → install TestFlight **81**
-2. Console: `subsystem:com.hiair.app category:subscription`
-3. Planner → paywall → wait for loading → confirm `displayPrice` for monthly/yearly
-4. One tap monthly → native Apple sheet must open (stop if not)
-5. Only then complete purchase → entitlement → Planner unlock
+1. Delete HiAir → install TestFlight **82**
+2. Console: `subsystem:com.hiair.app category:subscription` — look for `returned_product_count`, `products_load_failed`
+3. Paywall → prices visible → one tap monthly → Apple sheet
+4. If still empty/canceled: App Store Connect → Business → Agreements → Paid Apps **Active**
 
 See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
 
-## 0a) Prior — password loop (2026-07-15)
+## 0a) Prior — products not loading (build 80)
 
-- Build 79: password loop FAIL
-- Build 80: attempted sync/single-flight fix; products/paywall then failed
+EnvironmentObject + catalog states; still failed on 81 with Request Canceled.
 
-## 0b) Prior — subscription deploy (2026-07-14)
+## 0b) Prior — password loop (build 79)
 
-- ✅ Subscription backend on prod; smoke PASS
-- TestFlight build 73 VALID but **obsolete** (no geo fix)
+Fixed in 80 (removed AppStore.sync from product load).
 
-See `docs/subscriptions/SUBSCRIPTION_PRODUCTION_CERTIFICATION.md`.
+## 0c) Prior — subscription deploy / first-10-users
 
-## 0c) Prior — first-10-users track
-
-Branch `release/mega-sprint-2-first-10-users` merged; live environmental backend deployed.
+Production backend @ `07d5849`; geo engineering closed.
 
 ---
 

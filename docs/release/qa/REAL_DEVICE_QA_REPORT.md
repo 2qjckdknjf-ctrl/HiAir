@@ -1,38 +1,40 @@
 # Real Device QA Report
 
-Status: **STOREKIT PRODUCTS NOT LOADING** (2026-07-17) — build 80 physical retest FAIL.
+Status: **STOREKIT CATALOG FAIL — Request Canceled** (2026-07-18) — build 81 physical paywall retest FAIL.
 
-## Build 80 physical retest (2026-07-17)
+## Build 81 physical paywall retest (2026-07-18)
 
 | Item | Result | Notes |
 |------|--------|-------|
-| Physical iPhone session | **STARTED / FAIL** | TestFlight build 80 |
-| Paywall opened | **PASS** | from Planner |
-| Localized price | **MISSING** | showed pending / no StoreKit price |
-| Subscribe button | **NON-RESPONSIVE** | disabled without Product |
+| Physical iPhone session | **FAIL** | TestFlight build 81 |
+| Paywall opened | **PASS** | |
+| UI message | **FAIL** | «Планы недоступны…» + **Request Canceled** |
+| Localized price | **MISSING** | |
+| Subscribe button | **UNAVAILABLE** | |
 | Native purchase sheet | **NOT OPENED** | |
-| Backend verification | **NOT REACHED** | |
+| Backend verify | **NOT REACHED** | |
 | Entitlement | **INACTIVE** | |
-| Failure class | **PRODUCTS / PAYWALL STATE** | Case A pre-backend |
 
-## Root cause (code, build 80)
+Previous status “waiting for physical paywall retest” is obsolete — retest ran and **FAILED**.
 
-1. `@ObservedObject private var subscriptionService = SubscriptionService.shared` — unreliable SwiftUI observation of singleton `@Published` updates.
-2. Paywall rendered plan cards with `product == nil` → Subscribe `.disabled(true)` and placeholder price — looked “dead” without a clear empty-state CTA.
-3. `.task`-scoped load could cancel before `Product.products` completed; load now owned by `SubscriptionService`.
+## Confirmed diagnostics
+
+| Item | Result |
+|------|--------|
+| ASC products | READY_TO_SUBMIT, prices=175, availability=175 territories |
+| Product IDs | match canonical `com.hiair.premium.monthly` / `.yearly` |
+| Device error | StoreKit / network **Request Canceled** (NSURLErrorCancelled class) |
+| Root cause (code) | Product.products fetch cancellable under MainActor/UI lifecycle; raw cancel surfaced to UI |
+| Agreements | **Owner must confirm** Paid Apps Active (ASC login required; API `/v1/agreements` unavailable) |
 
 ## Fix build
 
 | Item | Value |
 |------|-------|
-| Target build | **81** |
-| Commit | `5e95731` |
-| ASC status | **VALID** |
-| Delivery UUID | `74841ab8-f8ae-410b-a3e4-0c4a42c27666` |
-| Changes | EnvironmentObject ownership; catalog states; service-owned load; canonical `StoreProductIDs` |
-
-## Build 79 (prior)
-
-Password authentication loop — fixed in 80; superseded by products/paywall FAIL on 80.
+| Target | **82** |
+| Commit | pending |
+| ASC | **VALID** |
+| Delivery UUID | `ce491fb6-8af8-464a-9f23-01da982e79c2` |
+| Changes | `Task.detached` StoreKit fetch; cancel retry; friendly error copy; scheme StoreKit config removed from Run |
 
 Do not record Apple IDs, receipts, JWS, or exact coordinates.

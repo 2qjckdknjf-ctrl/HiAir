@@ -1,11 +1,12 @@
 # 08 Known Gaps
 
-Updated: 2026-07-17 (StoreKit products not loading on build 80)
+Updated: 2026-07-18 (StoreKit Request Canceled on build 81)
 
 ## P0 (block first 10 real users)
 
-- **StoreKit products / paywall FAILED on physical iPhone** (build 80): no localized price; Subscribe non-responsive; purchase sheet never opened. Fix build **81**. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
-- **Prior build 79:** password authentication loop (addressed in 80; superseded by products FAIL).
+- **StoreKit catalog FAIL on physical iPhone (build 81):** UI shows unavailable + **Request Canceled**; no prices; no purchase sheet. Fix build **82**. Owner must also confirm Paid Apps Agreement Active. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Prior build 80:** prices missing / Subscribe dead (observation/UX).
+- **Prior build 79:** password authentication loop.
 - **Physical iPhone session STARTED** — certification no longer "not run".
 - **Use release mobile builds against production** — debug variants point to localhost (`10.0.2.2` / `127.0.0.1`).
 - **Guest mode not implemented** on iOS or Android (auth wall for all features).

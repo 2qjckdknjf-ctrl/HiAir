@@ -109,7 +109,7 @@ struct PaywallView: View {
 
     private var emptyCatalogBlock: some View {
         VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
-            Text(session.l("paywall.products_unavailable"))
+            Text(session.l("paywall.products_empty"))
                 .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
             Text(session.l("paywall.asc_hint"))
@@ -129,6 +129,9 @@ struct PaywallView: View {
             Text(subscriptionService.lastError ?? session.l("paywall.products_unavailable"))
                 .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(session.l("paywall.asc_hint"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
             Button(session.l("paywall.retry")) {
                 SubscriptionDiagnostics.log("products_retry_tapped")
                 subscriptionService.loadProducts()

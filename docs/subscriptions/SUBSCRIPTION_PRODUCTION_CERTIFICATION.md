@@ -1,41 +1,51 @@
-# Subscription Production Certification — 2026-07-17
+# Subscription Production Certification — 2026-07-18
 
-**Production SHA:** `07d584959db412553f70800c4a49ae109021eb25` (backend unchanged for this defect)  
-**Verdict:** **STOREKIT PRODUCTS NOT LOADING ON BUILD 80 — FIX BUILD 81**
-
----
-
-## Physical retest evidence (build 80)
-
-| Check | Result |
-|-------|--------|
-| Paywall opened | PASS |
-| Products / price displayed | **FAIL** |
-| Subscribe button | **NON-RESPONSIVE** |
-| Native purchase sheet | **NOT OPENED** |
-| Backend `/ios/verify` | **NOT REACHED** |
-| Entitlement active | **NO** |
-| Planner unlock | **NO** |
-
-Previous status “waiting for physical retest” is obsolete — retest ran and **FAILED**.
+**Verdict:** **STOREKIT CATALOG STILL EMPTY ON DEVICE (build 81) — FIX BUILD 82**
 
 ---
 
-## ASC products (API audit 2026-07-17)
+## Physical failure (build 81)
 
-| Product | State | Prices | Availability | Localizations |
-|---------|-------|--------|--------------|---------------|
-| `com.hiair.premium.monthly` | READY_TO_SUBMIT | 175 | yes | 2 |
-| `com.hiair.premium.yearly` | READY_TO_SUBMIT | 175 | yes | 2 |
+| Item | Result |
+|------|--------|
+| Prices | missing |
+| Subscribe | unavailable |
+| Apple sheet | not opened |
+| Backend | not reached |
+| UI error | **Request Canceled** |
 
-Note: build **79** previously opened the Apple purchase sheet (password loop), so ASC catalog can return products. Build **80** failure aligns with client observation/UX regression, not a sudden product-ID mismatch.
-
-## Agreements
-
-ASC Management API `/v1/agreements` not available with current key. Owner must confirm in App Store Connect → Business → Agreements / Tax / Banking that **Paid Apps Agreement** is Active. If inactive, StoreKit may return empty catalogs.
+Retest is complete and **FAIL** — not “waiting for retest”.
 
 ---
 
-## Honest status ladder
+## ASC product audit (API)
 
-Still **ARCHITECTURE READY** — not STORE SANDBOX READY until build 81+ shows prices, opens purchase sheet, verifies entitlement, unlocks Planner.
+| Product | Type | Status | Price | Availability | Metadata |
+|---------|------|--------|-------|--------------|----------|
+| monthly | Auto-Renewable | READY_TO_SUBMIT | 175 territories | 175 territories | locs en-US+ru, screenshot COMPLETE |
+| yearly | Auto-Renewable | READY_TO_SUBMIT | 175 territories | 175 territories | locs en-US+ru, screenshot COMPLETE |
+
+Bundle: `com.hiair.app` / ASC app `6773610034` / group **HiAir Premium**.
+
+## Business status
+
+| Item | Status |
+|------|--------|
+| Paid Apps Agreement | **UNKNOWN — owner login required** at App Store Connect → Business → Agreements |
+| Tax | Owner confirm Complete/Active |
+| Banking | Owner confirm Active |
+| Contact info | Owner confirm Complete |
+
+API key cannot read `/v1/agreements` (404/not exposed).
+
+---
+
+## Code fix (build 82)
+
+1. Fetch `Product.products` via `Task.detached` so SwiftUI ProgressView swap cannot cancel StoreKit.
+2. Treat Request Canceled / NSURLErrorCancelled as retryable (max 2 attempts).
+3. Never show raw “Request Canceled” as primary copy.
+4. Neutral empty/fail copy (no false “linked to TestFlight build” claim).
+5. Remove `.storekit` from shared Run scheme (Archive already clean).
+
+Backend unchanged for this defect.
