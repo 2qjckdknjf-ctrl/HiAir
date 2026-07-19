@@ -1,8 +1,17 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-07-18 (Apple subscription full recovery)
+Date: 2026-07-19 (Health Intelligence certification in progress)
 
-## 0) Live status — StoreKit catalog Request Canceled (2026-07-18)
+## 0) Health Intelligence release certification (2026-07-19)
+
+- Branch: `feat/health-intelligence-expansion` (base `0409b24` + review tails)
+- Migration `018` / `health_intelligence`: **already on hiair-prod** (do not re-apply blindly)
+- Local gates: backend suite + `hiair_final_gate.sh` **PASS**
+- **Not done yet:** merge → Backend Deploy Production → smoke `/api/v1/health/*` → TestFlight build **>84** → physical HealthKit + Health Connect E2E
+- Honest status until device evidence: never claim `HEALTH INTELLIGENCE E2E VERIFIED`
+- Docs: `docs/health/HEALTH_INTELLIGENCE_RELEASE_STATUS.md`, `docs/health/API_CONTRACT.md`
+
+## 0a) Live status — StoreKit catalog Request Canceled (2026-07-18)
 
 - ❌ **Build 81 physical FAIL** — paywall shows unavailable + **Request Canceled**; no prices; no Apple sheet; backend not reached
 - ✅ ASC products READY_TO_SUBMIT (prices + 175 territories) via API

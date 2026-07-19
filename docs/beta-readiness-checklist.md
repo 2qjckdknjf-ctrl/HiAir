@@ -2,6 +2,14 @@
 
 This checklist is used to prepare a closed beta on iOS and Android.
 
+## 0.HI) Health Intelligence (2026-07-19)
+
+- Schema migration 018 on production: **YES** (recorded once)
+- Local backend/mobile/final gate: **PASS**
+- Production health API live on `api.hiair.io`: **NO** (pending merge + deploy)
+- Physical HealthKit / Health Connect E2E: **NO**
+- Verdict: **NOT READY FOR HEALTH E2E CLAIM** until deploy + device evidence
+
 ## 0) RC-1 production backend (CLOSED 2026-07-07)
 
 - backend live providers deployed: **YES** — `api.hiair.io` on commit `a2123fe` (GitHub Actions run `28367913518` re-run PASS after Cloudflare token refresh).

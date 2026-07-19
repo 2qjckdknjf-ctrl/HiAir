@@ -1,5 +1,22 @@
 # Real Device QA Report
 
+## Health Intelligence (2026-07-19)
+
+Status: **NOT E2E VERIFIED** — engineering/local gates PASS; physical HealthKit / Health Connect reads pending.
+
+| Item | Result | Notes |
+|------|--------|-------|
+| Migration 018 (hiair-prod) | PASS | Applied once; RLS verified |
+| Local final gate | PASS | `hiair_final_gate.sh` |
+| Production `/api/v1/health/*` | PENDING | Deploy after merge |
+| Physical iPhone HealthKit read | NOT RUN | Required for E2E |
+| Physical Android Health Connect read | NOT RUN | Required for E2E |
+| Symptom + insight on device | NOT RUN | No exact values logged |
+
+Do not claim `HEALTH INTELLIGENCE E2E VERIFIED` without real-device evidence.
+
+---
+
 Status: **STOREKIT CATALOG FAIL — Request Canceled** (2026-07-18) — build 81 physical paywall retest FAIL.
 
 ## Build 81 physical paywall retest (2026-07-18)
