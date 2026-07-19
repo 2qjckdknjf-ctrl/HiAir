@@ -10,9 +10,10 @@ from pydantic import ValidationError
 
 from app.main import app
 from app.models.health_intelligence import HealthSyncRequest, MetricSummaryItem, QualityState
-from app.models.wearable import WearablePlatform, WearableSource
+from app.models.wearable import WearableConsentResponse, WearablePlatform, WearableSource
 from app.services.correlation_engine import _render_text
 from app.services.health_analytics_service import _confidence
+from app.services.health_metrics import consent_allows_metric
 from app.services.symptom_taxonomy import taxonomy_payload
 
 
@@ -23,6 +24,42 @@ def _auth() -> dict[str, str]:
 def _auth_user(monkeypatch, user_id: str = "user-1") -> None:
     monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
     monkeypatch.setattr("app.api.deps.decode_access_token", lambda _: user_id)
+
+
+def _active_consent(**overrides) -> WearableConsentResponse:
+    base = dict(
+        id="consent-1",
+        userId="user-1",
+        platform=WearablePlatform.IOS,
+        source=WearableSource.APPLE_HEALTH,
+        stepsEnabled=True,
+        heartRateEnabled=True,
+        restingHeartRateEnabled=True,
+        hrvEnabled=True,
+        sleepEnabled=True,
+        activityEnabled=True,
+        sleepStagesEnabled=True,
+        respiratoryEnabled=True,
+        temperatureEnabled=True,
+        workoutsEnabled=True,
+        fitnessEnabled=True,
+        bodyMetricsEnabled=True,
+        sensitiveMetricsEnabled=True,
+        consentVersion="health-intelligence-v1",
+        acceptedAt=datetime.now(tz=timezone.utc),
+        revokedAt=None,
+        isActive=True,
+    )
+    base.update(overrides)
+    return WearableConsentResponse(**base)
+
+
+def _grant_consent(monkeypatch, **overrides) -> None:
+    consent = _active_consent(**overrides)
+    monkeypatch.setattr(
+        "app.api.health_intelligence.wearable_repository.get_active_consent",
+        lambda user_id, source: consent,
+    )
 
 
 def test_all_health_endpoints_require_auth() -> None:
@@ -49,10 +86,7 @@ def test_sync_rejects_wrong_profile(monkeypatch) -> None:
         "app.api.health_intelligence.profile_access.profile_belongs_to_user",
         lambda profile_id, user_id: False,
     )
-    monkeypatch.setattr(
-        "app.api.health_intelligence.wearable_repository.has_active_consent",
-        lambda user_id, source: True,
-    )
+    _grant_consent(monkeypatch)
     client = TestClient(app)
     response = client.post(
         "/api/v1/health/sync",
@@ -73,8 +107,8 @@ def test_sync_rejects_wrong_profile(monkeypatch) -> None:
 def test_sync_rejects_without_consent(monkeypatch) -> None:
     _auth_user(monkeypatch)
     monkeypatch.setattr(
-        "app.api.health_intelligence.wearable_repository.has_active_consent",
-        lambda user_id, source: False,
+        "app.api.health_intelligence.wearable_repository.get_active_consent",
+        lambda user_id, source: None,
     )
     client = TestClient(app)
     response = client.post(
@@ -124,14 +158,11 @@ def test_missing_metric_not_zero_quality() -> None:
 
 def test_idempotent_sync_replay(monkeypatch) -> None:
     _auth_user(monkeypatch)
-    monkeypatch.setattr(
-        "app.api.health_intelligence.wearable_repository.has_active_consent",
-        lambda user_id, source: True,
-    )
+    _grant_consent(monkeypatch)
     now = datetime.now(tz=timezone.utc)
     calls = {"n": 0}
 
-    def _apply(user_id, payload):
+    def _apply(user_id, payload, consent=None):
         calls["n"] += 1
         return len(payload.metrics), [], False, now
 
@@ -161,14 +192,11 @@ def test_idempotent_sync_replay(monkeypatch) -> None:
 
 def test_partial_sync_status(monkeypatch) -> None:
     _auth_user(monkeypatch)
-    monkeypatch.setattr(
-        "app.api.health_intelligence.wearable_repository.has_active_consent",
-        lambda user_id, source: True,
-    )
+    _grant_consent(monkeypatch)
     now = datetime.now(tz=timezone.utc)
     monkeypatch.setattr(
         "app.api.health_intelligence.health_sync_repository.apply_sync",
-        lambda user_id, payload: (1, ["unknown_metric"], False, now),
+        lambda user_id, payload, consent=None: (1, ["unknown_metric"], False, now),
     )
     monkeypatch.setattr(
         "app.api.health_intelligence.health_sync_repository.mirror_legacy_daily_from_metrics",
@@ -315,6 +343,55 @@ def test_availability_lists_canonical_metrics(monkeypatch) -> None:
     assert "body_temperature" in types
     assert "wrist_temperature" in types
     assert all(item["qualityState"] == "no_records" for item in items)
+
+
+def test_sync_rejects_sensitive_without_category_consent(monkeypatch) -> None:
+    _auth_user(monkeypatch)
+    _grant_consent(monkeypatch, sensitiveMetricsEnabled=False, stepsEnabled=True, activityEnabled=True)
+    now = datetime.now(tz=timezone.utc)
+    seen = {"rejected": None}
+
+    def _apply(user_id, payload, consent=None):
+        rejected = []
+        accepted = 0
+        for item in payload.metrics:
+            if consent is not None and not consent_allows_metric(consent, item.metricType):
+                rejected.append(f"{item.metricType}:consent_denied")
+            else:
+                accepted += 1
+        seen["rejected"] = rejected
+        return accepted, rejected, False, now
+
+    monkeypatch.setattr("app.api.health_intelligence.health_sync_repository.apply_sync", _apply)
+    monkeypatch.setattr(
+        "app.api.health_intelligence.health_sync_repository.mirror_legacy_daily_from_metrics",
+        lambda user_id, payload: None,
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/health/sync",
+        headers=_auth(),
+        json={
+            "localDate": date.today().isoformat(),
+            "platform": "ios",
+            "source": "apple_health",
+            "metrics": [
+                {"metricType": "steps", "unit": "count", "valueTotal": 1000, "qualityState": "ok"},
+                {
+                    "metricType": "blood_glucose",
+                    "unit": "mg_dL",
+                    "valueAvg": 90,
+                    "sampleCount": 1,
+                    "qualityState": "ok",
+                },
+            ],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["acceptedMetrics"] == 1
+    assert "blood_glucose:consent_denied" in body["rejectedMetrics"]
+    assert body["syncStatus"] == "partial"
 
 
 def test_insights_require_premium_feature(monkeypatch) -> None:

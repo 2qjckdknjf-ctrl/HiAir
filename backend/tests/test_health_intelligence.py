@@ -12,9 +12,9 @@ from app.models.health_intelligence import (
     QualityState,
     SleepSummaryItem,
 )
-from app.models.wearable import WearablePlatform, WearableSource
+from app.models.wearable import WearableConsentResponse, WearablePlatform, WearableSource
 from app.services.health_analytics_service import _confidence
-from app.services.health_metrics import is_known_metric, is_sensitive
+from app.services.health_metrics import consent_allows_metric, is_known_metric, is_sensitive
 from app.services.symptom_taxonomy import (
     SYMPTOMS,
     is_known_symptom,
@@ -26,6 +26,34 @@ from app.services import correlation_engine
 
 def _auth_headers() -> dict[str, str]:
     return {"Authorization": "Bearer test-token"}
+
+
+def _active_consent(**overrides) -> WearableConsentResponse:
+    base = dict(
+        id="consent-1",
+        userId="user-1",
+        platform=WearablePlatform.IOS,
+        source=WearableSource.APPLE_HEALTH,
+        stepsEnabled=True,
+        heartRateEnabled=True,
+        restingHeartRateEnabled=True,
+        hrvEnabled=True,
+        sleepEnabled=True,
+        activityEnabled=True,
+        sleepStagesEnabled=True,
+        respiratoryEnabled=True,
+        temperatureEnabled=True,
+        workoutsEnabled=True,
+        fitnessEnabled=True,
+        bodyMetricsEnabled=True,
+        sensitiveMetricsEnabled=True,
+        consentVersion="health-intelligence-v1",
+        acceptedAt=datetime.now(tz=timezone.utc),
+        revokedAt=None,
+        isActive=True,
+    )
+    base.update(overrides)
+    return WearableConsentResponse(**base)
 
 
 def test_canonical_metrics_known() -> None:
@@ -113,17 +141,27 @@ def test_health_sync_requires_auth() -> None:
     assert response.status_code == 401
 
 
+def test_consent_category_gates_sensitive_and_hrv() -> None:
+    open_consent = _active_consent()
+    assert consent_allows_metric(open_consent, "blood_glucose")
+    locked = _active_consent(sensitiveMetricsEnabled=False, hrvEnabled=False)
+    assert not consent_allows_metric(locked, "blood_glucose")
+    assert not consent_allows_metric(locked, "hrv_sdnn")
+    assert consent_allows_metric(locked, "steps")
+
+
 def test_health_sync_success(monkeypatch) -> None:
     monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
     monkeypatch.setattr("app.api.deps.decode_access_token", lambda _: "user-1")
     monkeypatch.setattr(
-        "app.api.health_intelligence.wearable_repository.has_active_consent",
-        lambda user_id, source: True,
+        "app.api.health_intelligence.wearable_repository.get_active_consent",
+        lambda user_id, source: _active_consent(),
     )
     now = datetime.now(tz=timezone.utc)
 
-    def _apply(user_id, payload):
+    def _apply(user_id, payload, consent=None):
         assert user_id == "user-1"
+        assert consent is not None
         assert len(payload.metrics) == 2
         return 2, [], True, now
 
@@ -179,8 +217,8 @@ def test_health_sync_rejects_without_consent(monkeypatch) -> None:
     monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
     monkeypatch.setattr("app.api.deps.decode_access_token", lambda _: "user-1")
     monkeypatch.setattr(
-        "app.api.health_intelligence.wearable_repository.has_active_consent",
-        lambda user_id, source: False,
+        "app.api.health_intelligence.wearable_repository.get_active_consent",
+        lambda user_id, source: None,
     )
     client = TestClient(app)
     response = client.post(

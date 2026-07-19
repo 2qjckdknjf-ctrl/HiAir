@@ -12,7 +12,11 @@ from app.models.health_intelligence import (
     SleepSummaryItem,
 )
 from app.services.db import get_connection
-from app.services.health_metrics import CANONICAL_METRICS
+from app.services.health_metrics import (
+    CANONICAL_METRICS,
+    consent_allows_metric,
+    consent_allows_sleep_summary,
+)
 
 
 def upsert_metric_daily(
@@ -363,12 +367,19 @@ def delete_all_health_data(user_id: str) -> tuple[int, int, int, int]:
             return metrics, sleep, daily, hourly
 
 
-def apply_sync(user_id: str, payload: HealthSyncRequest) -> tuple[int, list[str], bool, datetime | None]:
+def apply_sync(
+    user_id: str,
+    payload: HealthSyncRequest,
+    consent: object | None = None,
+) -> tuple[int, list[str], bool, datetime | None]:
     accepted = 0
     rejected: list[str] = []
     for item in payload.metrics:
         if item.metricType not in CANONICAL_METRICS:
             rejected.append(item.metricType)
+            continue
+        if consent is not None and not consent_allows_metric(consent, item.metricType):
+            rejected.append(f"{item.metricType}:consent_denied")
             continue
         upsert_metric_daily(
             user_id=user_id,
@@ -382,14 +393,21 @@ def apply_sync(user_id: str, payload: HealthSyncRequest) -> tuple[int, list[str]
 
     sleep_accepted = False
     if payload.sleep is not None:
-        upsert_sleep_summary(
-            user_id=user_id,
-            profile_id=payload.profileId,
-            timezone_name=payload.timezone,
-            source_platform=payload.source.value,
-            sleep=payload.sleep,
+        has_stages = any(
+            getattr(payload.sleep, field) is not None
+            for field in ("awakeMinutes", "coreLightMinutes", "deepMinutes", "remMinutes")
         )
-        sleep_accepted = True
+        if consent is not None and not consent_allows_sleep_summary(consent, has_stages=has_stages):
+            rejected.append("sleep:consent_denied")
+        else:
+            upsert_sleep_summary(
+                user_id=user_id,
+                profile_id=payload.profileId,
+                timezone_name=payload.timezone,
+                source_platform=payload.source.value,
+                sleep=payload.sleep,
+            )
+            sleep_accepted = True
 
     status = "success" if not rejected else ("partial" if accepted or sleep_accepted else "error")
     last_success = upsert_sync_state(

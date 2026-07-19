@@ -90,3 +90,60 @@ def expected_unit(metric_type: str) -> str | None:
 
 def is_sensitive(metric_type: str) -> bool:
     return metric_type in SENSITIVE_METRICS
+
+
+_SLEEP_STAGE_METRICS = frozenset(
+    {"sleep_awake", "sleep_core_light", "sleep_deep", "sleep_rem"}
+)
+
+
+def consent_allows_metric(consent: object, metric_type: str) -> bool:
+    """Enforce per-category consent flags for a canonical metric.
+
+    `consent` is a WearableConsentResponse-like object with boolean attributes.
+    Unknown metrics are denied.
+    """
+    meta = CANONICAL_METRICS.get(metric_type)
+    if meta is None:
+        return False
+
+    def _flag(name: str) -> bool:
+        return bool(getattr(consent, name, False))
+
+    if metric_type == "steps":
+        return _flag("stepsEnabled") or _flag("activityEnabled")
+
+    category = meta["category"]
+    if category == "activity":
+        return _flag("activityEnabled") or _flag("stepsEnabled")
+    if category == "workouts":
+        return _flag("workoutsEnabled") or _flag("activityEnabled")
+    if category == "cardiovascular":
+        if metric_type == "resting_heart_rate":
+            return _flag("restingHeartRateEnabled") or _flag("heartRateEnabled")
+        if metric_type.startswith("hrv_"):
+            return _flag("hrvEnabled")
+        return _flag("heartRateEnabled")
+    if category == "sleep":
+        if metric_type in _SLEEP_STAGE_METRICS:
+            return _flag("sleepEnabled") and _flag("sleepStagesEnabled")
+        return _flag("sleepEnabled")
+    if category == "respiratory":
+        return _flag("respiratoryEnabled")
+    if category == "temperature":
+        return _flag("temperatureEnabled")
+    if category == "fitness":
+        return _flag("fitnessEnabled")
+    if category == "body":
+        return _flag("bodyMetricsEnabled")
+    if category == "sensitive":
+        return _flag("sensitiveMetricsEnabled")
+    return False
+
+
+def consent_allows_sleep_summary(consent: object, *, has_stages: bool) -> bool:
+    if not bool(getattr(consent, "sleepEnabled", False)):
+        return False
+    if has_stages and not bool(getattr(consent, "sleepStagesEnabled", False)):
+        return False
+    return True

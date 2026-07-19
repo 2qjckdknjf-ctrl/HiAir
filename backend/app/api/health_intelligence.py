@@ -30,7 +30,7 @@ import app.services.health_sync_repository as health_sync_repository
 import app.services.profile_access as profile_access
 import app.services.symptom_entry_repository as symptom_entry_repository
 import app.services.wearable_repository as wearable_repository
-from app.services.health_metrics import CANONICAL_METRICS
+from app.services.health_metrics import CANONICAL_METRICS, consent_allows_metric
 from app.services.symptom_taxonomy import taxonomy_payload
 
 router = APIRouter(prefix="/v1/health", tags=["health-intelligence"])
@@ -47,13 +47,26 @@ def sync_health(
             raise HTTPException(status_code=404, detail="Profile not found")
         if not profile_access.profile_belongs_to_user(payload.profileId, user_id):
             raise HTTPException(status_code=403, detail="Profile does not belong to user")
-    if not wearable_repository.has_active_consent(user_id, payload.source):
+    consent = wearable_repository.get_active_consent(user_id, payload.source)
+    if consent is None or not consent.isActive:
         raise HTTPException(status_code=403, detail="Active health data consent required")
     # Idempotency key is accepted for clients; upserts are naturally idempotent by unique keys.
     _ = idempotency_key or payload.idempotencyKey
     try:
-        accepted, rejected, sleep_ok, last_success = health_sync_repository.apply_sync(user_id, payload)
-        health_sync_repository.mirror_legacy_daily_from_metrics(user_id, payload)
+        accepted, rejected, sleep_ok, last_success = health_sync_repository.apply_sync(
+            user_id, payload, consent=consent
+        )
+        mirror_payload = payload.model_copy(
+            update={
+                "metrics": [
+                    m
+                    for m in payload.metrics
+                    if consent_allows_metric(consent, m.metricType)
+                ],
+                "sleep": payload.sleep if sleep_ok else None,
+            }
+        )
+        health_sync_repository.mirror_legacy_daily_from_metrics(user_id, mirror_payload)
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
     status = "success" if not rejected else ("partial" if accepted or sleep_ok else "error")
