@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
+import app.services.entitlement_service as entitlement_service
 from app.models.health_intelligence import (
     ComprehensiveSymptomCreateRequest,
     ComprehensiveSymptomResponse,
@@ -238,6 +239,8 @@ def get_health_insights(
     language: str = Query(default="ru"),
     user_id: str = Depends(get_current_user_id),
 ) -> HealthInsightsBundleResponse:
+    # Analytics bundle is Premium (advanced_insights); raw sync/summary stay free.
+    entitlement_service.require_feature(user_id, "advanced_insights", "advanced_insights_enabled")
     if not profile_access.profile_exists(profile_id):
         raise HTTPException(status_code=404, detail="Profile not found")
     if not profile_access.profile_belongs_to_user(profile_id, user_id):

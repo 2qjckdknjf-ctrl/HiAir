@@ -171,6 +171,15 @@ internal object InsightsScreenRenderer {
                             loggedDays = maxOf(loggedDays, row.optInt("have", 0))
                         }
                     }
+                } catch (error: ApiHttpException) {
+                    if (error.statusCode == 402) {
+                        activity.runOnUiThread {
+                            rootShell.settingsViewModel.requestShowPaywall()
+                            ctx.rerender()
+                        }
+                        return@Thread
+                    }
+                    // Non-premium path falls through to legacy personal patterns when available.
                 } catch (_: Exception) {
                     // Fall through to premium personal patterns.
                 }

@@ -32,54 +32,65 @@ final class InsightsViewModel: ObservableObject {
         loading = true
         defer { loading = false }
         do {
-            async let bundleTask = apiClient.fetchHealthInsightsBundle(
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken,
-                windowDays: 30,
-                language: language
-            )
             async let historyTask = apiClient.fetchSymptomHistory(
                 profileId: profileId,
                 userId: userId,
                 accessToken: accessToken
             )
-
-            let bundle = try await bundleTask
             let history: SymptomHistoryResponse
             do {
                 history = try await historyTask
             } catch {
                 history = SymptomHistoryResponse(profileId: profileId, items: [])
             }
-
-            trends = bundle.trends
-            associations = bundle.associations
-            insufficient = bundle.insufficientData
             loggedDays = uniqueLogDays(from: history.items)
-            if loggedDays == 0, let have = bundle.insufficientData.first?.have {
-                loggedDays = have
-            }
-            generatedAtDisplay = HiAirHumanDate.display(
-                fromISO: bundle.generatedAt,
-                locale: Locale(identifier: language),
-                style: .dateTime
-            )
-            todaySummary = formatToday(bundle.today, language: language)
-            if let status = bundle.healthDataStatus {
-                let sync = status.syncStatus ?? "—"
-                let metrics = status.metricDays ?? 0
-                healthStatusText = String(
-                    format: HiAirL10n.t("insights.health_status", lang: language),
-                    locale: Locale(identifier: language),
-                    metrics,
-                    sync
+
+            do {
+                let bundle = try await apiClient.fetchHealthInsightsBundle(
+                    profileId: profileId,
+                    userId: userId,
+                    accessToken: accessToken,
+                    windowDays: 30,
+                    language: language
                 )
-            } else {
-                healthStatusText = HiAirL10n.t("insights.health_status_unknown", lang: language)
+                trends = bundle.trends
+                associations = bundle.associations
+                insufficient = bundle.insufficientData
+                if loggedDays == 0, let have = bundle.insufficientData.first?.have {
+                    loggedDays = have
+                }
+                generatedAtDisplay = HiAirHumanDate.display(
+                    fromISO: bundle.generatedAt,
+                    locale: Locale(identifier: language),
+                    style: .dateTime
+                )
+                todaySummary = formatToday(bundle.today, language: language)
+                if let status = bundle.healthDataStatus {
+                    let sync = status.syncStatus ?? "—"
+                    let metrics = status.metricDays ?? 0
+                    healthStatusText = String(
+                        format: HiAirL10n.t("insights.health_status", lang: language),
+                        locale: Locale(identifier: language),
+                        metrics,
+                        sync
+                    )
+                } else {
+                    healthStatusText = HiAirL10n.t("insights.health_status_unknown", lang: language)
+                }
+            } catch let error as APIError {
+                trends = []
+                associations = []
+                insufficient = []
+                if case .server(let code) = error, code == 402 {
+                    onPremiumRequired?()
+                }
+            } catch {
+                trends = []
+                associations = []
+                insufficient = []
             }
 
-            // Optional premium personal patterns — non-blocking.
+            // Legacy personal patterns remain available for Premium users.
             do {
                 let patterns = try await apiClient.fetchPersonalPatterns(
                     profileId: profileId,
@@ -89,19 +100,12 @@ final class InsightsViewModel: ObservableObject {
                     language: language
                 )
                 items = patterns.items
-            } catch let error as APIError {
-                if case .server(let code) = error, code == 402 {
-                    // Keep free health insights; paywall only if user taps premium section.
-                    items = []
-                } else {
-                    items = []
-                }
             } catch {
                 items = []
             }
 
             lastError = nil
-            let totalCards = trends.count + associations.count
+            let totalCards = trends.count + associations.count + items.count
             statusText = totalCards == 0
                 ? HiAirL10n.t("state.empty.insights.body", lang: language)
                 : "\(totalCards) \(HiAirL10n.t("insights.count", lang: language))"
@@ -179,7 +183,7 @@ struct InsightsView: View {
                         HiAirLoadingView(message: session.l("insights.loading"))
                             .v2Card()
                     } else if let lastError = viewModel.lastError {
-                        HiAirErrorView.loadingFailed(
+                        HiAirErrorView(
                             title: session.l("common.error.title"),
                             message: lastError,
                             retryTitle: session.l("insights.retry"),

@@ -1,6 +1,7 @@
 package com.hiair.location
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -67,7 +68,13 @@ class LocationController(
         return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
     }
 
+    @SuppressLint("MissingPermission")
     private fun fetchAndApply(onComplete: () -> Unit) {
+        // Lint cannot prove hasPermission() — runtime guard is explicit.
+        if (!hasPermission()) {
+            onComplete()
+            return
+        }
         val token = CancellationTokenSource()
         fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, token.token)
             .addOnSuccessListener { location ->

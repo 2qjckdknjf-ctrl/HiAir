@@ -36,6 +36,7 @@ object HiAirColors {
 
     object Brand {
         val orbCyan: Int = Color.parseColor("#5DD5C4")
+        val orbTeal: Int = Color.parseColor("#3ECFB8")
         val orbViolet: Int = Color.parseColor("#8B7BFF")
         val nightTop: Int = Color.parseColor("#0E1226")
         val nightBottom: Int = Color.parseColor("#181D38")

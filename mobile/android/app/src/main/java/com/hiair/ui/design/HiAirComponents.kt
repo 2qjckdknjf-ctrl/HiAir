@@ -373,7 +373,13 @@ object HiAirComponents {
         }
     }
 
-    fun emptyState(context: Context, title: String, message: String): LinearLayout {
+    fun emptyState(
+        context: Context,
+        title: String,
+        message: String,
+        actionTitle: String? = null,
+        onAction: (() -> Unit)? = null,
+    ): LinearLayout {
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -391,6 +397,64 @@ object HiAirComponents {
                 setTextColor(HiAirColors.Text.secondary)
                 gravity = Gravity.CENTER
             })
+            if (actionTitle != null && onAction != null) {
+                addView(
+                    primaryButton(context, actionTitle).apply {
+                        setOnClickListener { onAction() }
+                        val params = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                        )
+                        params.topMargin = V2Ui.dp(context, HiAirSpacing.md)
+                        layoutParams = params
+                    },
+                )
+            }
+            setPadding(
+                V2Ui.dp(context, HiAirSpacing.lg),
+                V2Ui.dp(context, HiAirSpacing.lg),
+                V2Ui.dp(context, HiAirSpacing.lg),
+                V2Ui.dp(context, HiAirSpacing.lg),
+            )
+        }
+    }
+
+    fun errorState(
+        context: Context,
+        title: String,
+        message: String,
+        retryTitle: String? = null,
+        onRetry: (() -> Unit)? = null,
+    ): LinearLayout {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(TextView(context).apply {
+                text = title
+                textSize = 17f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(HiAirColors.Text.primary)
+                gravity = Gravity.CENTER
+            })
+            addView(TextView(context).apply {
+                text = message
+                textSize = 15f
+                setTextColor(HiAirColors.Text.secondary)
+                gravity = Gravity.CENTER
+            })
+            if (retryTitle != null && onRetry != null) {
+                addView(
+                    primaryButton(context, retryTitle).apply {
+                        setOnClickListener { onRetry() }
+                        val params = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                        )
+                        params.topMargin = V2Ui.dp(context, HiAirSpacing.md)
+                        layoutParams = params
+                    },
+                )
+            }
             setPadding(
                 V2Ui.dp(context, HiAirSpacing.lg),
                 V2Ui.dp(context, HiAirSpacing.lg),
