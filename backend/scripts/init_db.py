@@ -19,6 +19,7 @@ SUPABASE_AUTH_MIGRATIONS = {
     "013_supabase_entitlements_auth_user_fk.sql",
     "014_wearable_activity.sql",
     "017_rls_subscription_waitlist_lockdown.sql",
+    "018_health_intelligence.sql",
 }
 
 

@@ -76,11 +76,17 @@ struct WearableConsentView: View {
             showHealthPathHint = true
             return
         }
-        let granted = await healthService.requestAuthorization()
+        // Progressive consent: start with activity + sleep, then heart/recovery.
+        healthService.setEnabledTiers([1, 2])
+        let granted = await healthService.requestAuthorization(tiers: [1, 2])
         if granted {
             do {
                 try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-                await healthService.syncWearableDailySummary(userId: session.userId, accessToken: session.accessToken)
+                await healthService.syncHealthIntelligence(
+                    userId: session.userId,
+                    accessToken: session.accessToken,
+                    profileId: session.profileId.isEmpty ? nil : session.profileId
+                )
                 await healthService.syncWearableHourlySummary(userId: session.userId, accessToken: session.accessToken)
             } catch {
                 healthService.reportConnectionState(.syncFailed)

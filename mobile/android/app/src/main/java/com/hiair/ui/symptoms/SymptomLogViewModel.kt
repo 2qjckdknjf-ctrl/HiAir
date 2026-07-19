@@ -91,17 +91,47 @@ class SymptomLogViewModel(
         }
         state = state.copy(loading = true)
         try {
-            apiClient.createQuickSymptom(
+            val payload = JSONObject()
+                .put("profileId", state.profileId)
+                .put("symptomType", symptomType)
+                .put("severity", state.quickIntensity)
+                .put("ongoing", false)
+                .put("timezone", java.util.TimeZone.getDefault().id)
+            val response = apiClient.createComprehensiveSymptom(
                 userId = userId,
                 accessToken = accessToken,
-                profileId = state.profileId,
-                symptomType = symptomType,
-                intensity = state.quickIntensity
+                body = payload.toString(),
             )
-            state = state.copy(loading = false, statusText = "Quick symptom saved.")
-            ProductAnalytics.track("symptom_logged", mapOf("mode" to "quick"))
+            val json = JSONObject(response)
+            val notice = json.optString("safetyNotice").ifBlank { null }
+            state = state.copy(
+                loading = false,
+                statusText = if (notice != null) "Saved. $notice" else "Quick symptom saved.",
+            )
+            ProductAnalytics.track("symptom_logged", mapOf("mode" to "comprehensive"))
         } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = "Failed to save quick symptom.")
+            // Fallback to legacy quick endpoint for older backends.
+            try {
+                apiClient.createQuickSymptom(
+                    userId = userId,
+                    accessToken = accessToken,
+                    profileId = state.profileId,
+                    symptomType = symptomType,
+                    intensity = state.quickIntensity
+                )
+                state = state.copy(loading = false, statusText = "Quick symptom saved.")
+                ProductAnalytics.track("symptom_logged", mapOf("mode" to "quick"))
+            } catch (_: Exception) {
+                state = state.copy(loading = false, statusText = "Failed to save quick symptom.")
+            }
+        }
+    }
+
+    fun loadTaxonomy(language: String = "ru"): org.json.JSONObject? {
+        return try {
+            JSONObject(apiClient.fetchSymptomTaxonomy(language))
+        } catch (_: Exception) {
+            null
         }
     }
 }

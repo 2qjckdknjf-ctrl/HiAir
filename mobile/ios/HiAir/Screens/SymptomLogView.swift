@@ -2,40 +2,38 @@ import SwiftUI
 
 @MainActor
 final class SymptomLogViewModel: ObservableObject {
-    @Published var cough = false
-    @Published var wheeze = false
-    @Published var headache = false
-    @Published var fatigue = false
-    @Published var sleepQuality = 3
-    @Published var quickIntensity = 2
+    @Published var taxonomy: SymptomTaxonomyDTO?
+    @Published var selectedType: String?
+    @Published var severity = 2
+    @Published var locationContext = "unspecified"
+    @Published var note = ""
+    @Published var searchText = ""
+    @Published var selectedCategory: String?
+    @Published var favorites: [String] = ["cough", "headache", "fatigue", "itchy_eyes", "shortness_of_breath"]
     @Published var statusText = "-"
+    @Published var safetyNotice: String?
     @Published var loading = false
 
     private let apiClient = APIClient.live()
 
-    func submit(profileId: String, userId: String, accessToken: String, language: String) async {
-        loading = true
-        defer { loading = false }
-        let payload = SymptomLogRequest(
-            profileId: profileId,
-            symptom: SymptomInput(
-                cough: cough,
-                wheeze: wheeze,
-                headache: headache,
-                fatigue: fatigue,
-                sleepQuality: sleepQuality
-            )
-        )
+    func loadTaxonomy(language: String) async {
         do {
-            let result = try await apiClient.logSymptom(
-                payload,
-                userId: userId,
-                accessToken: accessToken
-            )
-            statusText = "\(HiAirL10n.t("symptoms.saved_at", lang: language)) \(result.timestampUtc)"
-            ProductAnalytics.track("symptom_logged", properties: ["mode": "form"])
+            taxonomy = try await apiClient.fetchSymptomTaxonomy(language: language)
         } catch {
-            statusText = HiAirL10n.t("symptoms.save_failed", lang: language)
+            taxonomy = nil
+        }
+    }
+
+    var filteredCategories: [SymptomCategoryDTO] {
+        guard let taxonomy else { return [] }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return taxonomy.categories.compactMap { category in
+            if let selectedCategory, selectedCategory != category.id { return nil }
+            let symptoms = category.symptoms.filter { item in
+                query.isEmpty || item.label.lowercased().contains(query) || item.symptomType.contains(query)
+            }
+            guard !symptoms.isEmpty else { return nil }
+            return SymptomCategoryDTO(id: category.id, label: category.label, symptoms: symptoms)
         }
     }
 
@@ -46,23 +44,45 @@ final class SymptomLogViewModel: ObservableObject {
         accessToken: String,
         language: String
     ) async {
+        selectedType = symptomType
+        await submit(
+            profileId: profileId,
+            userId: userId,
+            accessToken: accessToken,
+            language: language
+        )
+    }
+
+    func submit(profileId: String, userId: String, accessToken: String, language: String) async {
+        guard let selectedType else {
+            statusText = HiAirL10n.t("symptoms.select_first", lang: language)
+            return
+        }
         loading = true
         defer { loading = false }
         do {
-            try await apiClient.createQuickSymptom(
-                AirSymptomCreateRequest(
+            let result = try await apiClient.createComprehensiveSymptom(
+                ComprehensiveSymptomPayload(
                     profileId: profileId,
-                    symptomType: symptomType,
-                    intensity: quickIntensity,
-                    note: nil
+                    symptomType: selectedType,
+                    severity: severity,
+                    onsetAt: nil,
+                    durationMinutes: nil,
+                    ongoing: false,
+                    note: note.isEmpty ? nil : note,
+                    locationContext: locationContext == "unspecified" ? nil : locationContext,
+                    timezone: TimeZone.current.identifier,
+                    customLabel: nil
                 ),
                 userId: userId,
-                accessToken: accessToken
+                accessToken: accessToken,
+                language: language
             )
             statusText = HiAirL10n.t("symptoms.quick_saved", lang: language)
-            ProductAnalytics.track("symptom_logged", properties: ["mode": "quick"])
+            safetyNotice = result.safetyNotice
+            ProductAnalytics.track("symptom_logged", properties: ["mode": "comprehensive"])
         } catch {
-            statusText = HiAirL10n.t("symptoms.quick_failed", lang: language)
+            statusText = HiAirL10n.t("symptoms.save_failed", lang: language)
         }
     }
 }
@@ -71,154 +91,211 @@ struct SymptomLogView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SymptomLogViewModel()
 
+    private let columns = [GridItem(.adaptive(minimum: 140), spacing: 8)]
+
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                Text(session.l("symptoms.title"))
-                    .font(AuroraTokens.Typography.displayLG)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("symptoms.title"))
+                        .font(AuroraTokens.Typography.displayLG)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                        .accessibilityAddTraits(.isHeader)
 
-                Text(session.l("symptoms.subtitle"))
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Text(session.l("symptoms.subtitle"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
 
-                Text(session.l("symptoms.streak"))
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(HiAirColors.Overlay.subtle, in: Capsule())
-
-                if session.profileId.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.l("symptoms.empty.title"))
-                            .font(AuroraTokens.Typography.titleMD)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                        Text(session.l("symptoms.empty.body"))
-                            .font(AuroraTokens.Typography.bodyMD)
+                    if let notice = viewModel.taxonomy?.safetyNotice {
+                        Text(notice)
+                            .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
-                        Button(session.l("planner.empty.no_profile.cta")) {
-                            Task {
-                                _ = await session.ensureProfileIdIfNeeded()
+                            .padding(12)
+                            .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    if session.profileId.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(session.l("symptoms.empty.title"))
+                                .font(AuroraTokens.Typography.titleMD)
+                            Text(session.l("symptoms.empty.body"))
+                                .font(AuroraTokens.Typography.bodyMD)
+                                .foregroundStyle(HiAirV2Theme.secondaryText)
+                            Button(session.l("planner.empty.no_profile.cta")) {
+                                Task { _ = await session.ensureProfileIdIfNeeded() }
+                            }
+                            .buttonStyle(HiAirSecondaryButtonStyle())
+                        }
+                        .v2Card()
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(session.l("symptoms.favorites"))
+                            .font(AuroraTokens.Typography.titleMD)
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                            ForEach(viewModel.favorites, id: \.self) { type in
+                                Button {
+                                    Task {
+                                        await viewModel.quickLog(
+                                            profileId: session.profileId,
+                                            symptomType: type,
+                                            userId: session.userId,
+                                            accessToken: session.accessToken,
+                                            language: session.preferredLanguage
+                                        )
+                                    }
+                                } label: {
+                                    Text(labelFor(type))
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                        .padding(.horizontal, 10)
+                                        .background(HiAirColors.Cta.gradientStart.opacity(0.22), in: Capsule())
+                                }
                             }
                         }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
-                        .tint(HiAirV2Theme.accentStart)
                     }
                     .v2Card()
-                }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(session.l("symptoms.title"))
-                        .font(AuroraTokens.Typography.titleMD)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                    HStack(spacing: 8) {
-                        symptomPill("💨 \(session.l("symptoms.cough"))", isOn: $viewModel.cough)
-                        symptomPill("🫁 \(session.l("symptoms.wheeze"))", isOn: $viewModel.wheeze)
-                    }
-                    HStack(spacing: 8) {
-                        symptomPill("🤕 \(session.l("symptoms.headache"))", isOn: $viewModel.headache)
-                        symptomPill("😮‍💨 \(session.l("symptoms.fatigue"))", isOn: $viewModel.fatigue)
-                    }
-                }
-                .v2Card()
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(session.l("symptoms.sleep_quality"))
-                        .font(AuroraTokens.Typography.bodyMD)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                    HStack(spacing: 8) {
-                        ForEach(1...5, id: \.self) { value in
-                            Button {
-                                viewModel.sleepQuality = value
-                            } label: {
-                                Text("\(value)")
-                                    .font(AuroraTokens.Typography.caption.weight(.semibold))
-                                    .foregroundStyle(viewModel.sleepQuality == value ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
-                                    .frame(width: 34, height: 28)
-                                    .background(
-                                        (viewModel.sleepQuality == value ? HiAirColors.Cta.gradientStart.opacity(0.35) : HiAirColors.Overlay.subtle),
-                                        in: Capsule()
-                                    )
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField(session.l("symptoms.search"), text: $viewModel.searchText)
+                            .textFieldStyle(.roundedBorder)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                filterChip(session.l("symptoms.all_categories"), id: nil)
+                                ForEach(viewModel.taxonomy?.categories ?? [], id: \.id) { category in
+                                    filterChip(category.label, id: category.id)
+                                }
                             }
                         }
                     }
-                    Stepper("\(session.l("symptoms.quick_intensity")): \(viewModel.quickIntensity)", value: $viewModel.quickIntensity, in: 1...5)
-                }
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .v2Card()
+                    .v2Card()
 
-                HStack(spacing: 10) {
-                    Button(session.l("symptoms.quick_breath")) {
+                    ForEach(viewModel.filteredCategories) { category in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(category.label)
+                                .font(AuroraTokens.Typography.titleMD)
+                            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                                ForEach(category.symptoms) { item in
+                                    Button {
+                                        viewModel.selectedType = item.symptomType
+                                        if item.redFlag {
+                                            viewModel.safetyNotice = viewModel.taxonomy?.safetyNotice
+                                        }
+                                    } label: {
+                                        Text(item.redFlag ? "⚠︎ \(item.label)" : item.label)
+                                            .font(AuroraTokens.Typography.bodyMD)
+                                            .foregroundStyle(
+                                                viewModel.selectedType == item.symptomType
+                                                    ? HiAirV2Theme.primaryText
+                                                    : HiAirV2Theme.secondaryText
+                                            )
+                                            .frame(maxWidth: .infinity, minHeight: 44)
+                                            .padding(.horizontal, 8)
+                                            .background(
+                                                (
+                                                    viewModel.selectedType == item.symptomType
+                                                        ? HiAirColors.Cta.gradientStart.opacity(0.28)
+                                                        : HiAirColors.Overlay.subtle
+                                                ),
+                                                in: Capsule()
+                                            )
+                                    }
+                                }
+                            }
+                        }
+                        .v2Card()
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(session.l("symptoms.severity"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                        HStack(spacing: 8) {
+                            ForEach(1...5, id: \.self) { value in
+                                Button {
+                                    viewModel.severity = value
+                                } label: {
+                                    Text("\(value)")
+                                        .frame(width: 40, height: 40)
+                                        .background(
+                                            viewModel.severity == value
+                                                ? HiAirColors.Cta.gradientStart.opacity(0.35)
+                                                : HiAirColors.Overlay.subtle,
+                                            in: Circle()
+                                        )
+                                }
+                                .accessibilityLabel("\(session.l("symptoms.severity")) \(value)")
+                            }
+                        }
+                        Picker(session.l("symptoms.location"), selection: $viewModel.locationContext) {
+                            Text(session.l("symptoms.location.any")).tag("unspecified")
+                            Text(session.l("symptoms.location.indoors")).tag("indoors")
+                            Text(session.l("symptoms.location.outdoors")).tag("outdoors")
+                        }
+                        .pickerStyle(.segmented)
+                        TextField(session.l("symptoms.note_optional"), text: $viewModel.note, axis: .vertical)
+                            .lineLimit(2...4)
+                            .textFieldStyle(.roundedBorder)
+                        if let safety = viewModel.safetyNotice {
+                            Text(safety)
+                                .font(AuroraTokens.Typography.caption)
+                                .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                        }
+                    }
+                    .v2Card()
+
+                    Button(viewModel.loading ? session.l("symptoms.saving") : session.l("symptoms.submit")) {
                         Task {
-                            await viewModel.quickLog(
+                            await viewModel.submit(
                                 profileId: session.profileId,
-                                symptomType: "breath_discomfort",
                                 userId: session.userId,
                                 accessToken: session.accessToken,
                                 language: session.preferredLanguage
                             )
                         }
                     }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .buttonStyle(HiAirGradientButtonStyle())
+                    .disabled(viewModel.loading || session.profileId.isEmpty || viewModel.selectedType == nil)
+                    .frame(minHeight: 48)
 
-                    Button(session.l("symptoms.quick_headache")) {
-                        Task {
-                            await viewModel.quickLog(
-                                profileId: session.profileId,
-                                symptomType: "headache",
-                                userId: session.userId,
-                                accessToken: session.accessToken,
-                                language: session.preferredLanguage
-                            )
-                        }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    Text(viewModel.statusText)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
-                .tint(HiAirV2Theme.accentStart)
-
-                Button(viewModel.loading ? session.l("symptoms.saving") : session.l("symptoms.submit")) {
-                    Task {
-                        await viewModel.submit(
-                            profileId: session.profileId,
-                            userId: session.userId,
-                            accessToken: session.accessToken,
-                            language: session.preferredLanguage
-                        )
-                    }
-                }
-                .buttonStyle(HiAirGradientButtonStyle())
-                .disabled(viewModel.loading || session.profileId.isEmpty)
-
-                Text(viewModel.statusText)
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-            }
-            .hiAirContentWidth(for: width)
-            .hiAirScreenPadding(for: width)
-            .padding(.bottom, HiAirSpacing.xl)
+                .hiAirContentWidth(for: width)
+                .hiAirScreenPadding(for: width)
+                .padding(.bottom, HiAirSpacing.xl)
             }
         }
         .hiAirPageBackground()
-        .onAppear {
-            Task { _ = await session.ensureProfileIdIfNeeded() }
+        .task {
+            _ = await session.ensureProfileIdIfNeeded()
+            await viewModel.loadTaxonomy(language: session.preferredLanguage)
         }
     }
 
-    private func symptomPill(_ label: String, isOn: Binding<Bool>) -> some View {
+    private func filterChip(_ label: String, id: String?) -> some View {
         Button {
-            isOn.wrappedValue.toggle()
+            viewModel.selectedCategory = id
         } label: {
             Text(label)
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(isOn.wrappedValue ? HiAirV2Theme.primaryText : HiAirV2Theme.secondaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .font(AuroraTokens.Typography.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background(
-                    (isOn.wrappedValue ? HiAirColors.Cta.gradientStart.opacity(0.26) : HiAirColors.Overlay.subtle),
+                    viewModel.selectedCategory == id
+                        ? HiAirColors.Cta.gradientStart.opacity(0.3)
+                        : HiAirColors.Overlay.subtle,
                     in: Capsule()
                 )
         }
+    }
+
+    private func labelFor(_ type: String) -> String {
+        for category in viewModel.taxonomy?.categories ?? [] {
+            if let item = category.symptoms.first(where: { $0.symptomType == type }) {
+                return item.label
+            }
+        }
+        return type
     }
 }

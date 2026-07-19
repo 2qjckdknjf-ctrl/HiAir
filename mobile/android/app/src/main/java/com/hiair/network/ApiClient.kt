@@ -132,6 +132,15 @@ class ApiClient(private val baseUrl: String) {
         return request("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchSymptomHistory(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/symptoms/history?profileId=$profileId"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchBriefingSchedule(
         userId: String,
         accessToken: String? = null
@@ -489,5 +498,30 @@ class ApiClient(private val baseUrl: String) {
     fun deleteWearableData(userId: String, accessToken: String?): String {
         val endpoint = "$baseUrl/api/v1/wearables/data"
         return request("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun syncHealthData(userId: String, accessToken: String?, body: String): String {
+        val endpoint = "$baseUrl/api/v1/health/sync"
+        return request("POST", endpoint, body, authHeaders(userId, accessToken))
+    }
+
+    fun deleteHealthData(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/v1/health/data"
+        return request("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchHealthInsights(userId: String, accessToken: String?, profileId: String, language: String = "ru"): String {
+        val endpoint = "$baseUrl/api/v1/health/insights?profile_id=$profileId&window_days=30&language=$language"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchSymptomTaxonomy(language: String = "ru"): String {
+        val endpoint = "$baseUrl/api/v1/health/symptoms/taxonomy?language=$language"
+        return request("GET", endpoint, null, emptyMap())
+    }
+
+    fun createComprehensiveSymptom(userId: String, accessToken: String?, body: String, language: String = "ru"): String {
+        val endpoint = "$baseUrl/api/v1/health/symptoms?language=$language"
+        return request("POST", endpoint, body, authHeaders(userId, accessToken))
     }
 }

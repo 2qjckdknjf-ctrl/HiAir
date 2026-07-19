@@ -817,6 +817,30 @@ final class APIClient {
         return try JSONDecoder().decode(PersonalPatternsResponse.self, from: data)
     }
 
+    func fetchSymptomHistory(
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> SymptomHistoryResponse {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/symptoms/history"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [URLQueryItem(name: "profileId", value: profileId)]
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(SymptomHistoryResponse.self, from: data)
+    }
+
     func fetchBriefingSchedule(
         userId: String,
         accessToken: String? = nil
@@ -1264,6 +1288,100 @@ final class APIClient {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(WearableDataDeleteResponse.self, from: data)
+    }
+
+    func syncHealthData(
+        userId: String,
+        accessToken: String? = nil,
+        payload: HealthSyncPayload
+    ) async throws -> HealthSyncResponseDTO {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/health/sync"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let key = payload.idempotencyKey {
+            request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
+        }
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(HealthSyncResponseDTO.self, from: data)
+    }
+
+    func deleteHealthData(userId: String, accessToken: String? = nil) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "/api/v1/health/data"))
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    func fetchHealthInsightsBundle(
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil,
+        windowDays: Int = 30,
+        language: String = "ru"
+    ) async throws -> HealthInsightsBundleDTO {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/v1/health/insights"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "profile_id", value: profileId),
+            URLQueryItem(name: "window_days", value: String(windowDays)),
+            URLQueryItem(name: "language", value: language),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(HealthInsightsBundleDTO.self, from: data)
+    }
+
+    func fetchSymptomTaxonomy(language: String = "ru") async throws -> SymptomTaxonomyDTO {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/v1/health/symptoms/taxonomy"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "language", value: language)]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        let (data, httpResponse) = try await session.data(for: request)
+        guard let http = httpResponse as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.server(statusCode: (httpResponse as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return try JSONDecoder().decode(SymptomTaxonomyDTO.self, from: data)
+    }
+
+    func createComprehensiveSymptom(
+        _ payload: ComprehensiveSymptomPayload,
+        userId: String,
+        accessToken: String? = nil,
+        language: String = "ru"
+    ) async throws -> ComprehensiveSymptomResponseDTO {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/v1/health/symptoms"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "language", value: language)]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(ComprehensiveSymptomResponseDTO.self, from: data)
     }
 }
 
