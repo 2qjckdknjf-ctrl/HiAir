@@ -75,20 +75,33 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
             owner = cur.fetchone()
             wearable_by_day: dict = {}
             if owner and owner.get("user_id"):
+                # Wearable tables come from migration 014 (skipped in CI without auth schema).
                 cur.execute(
                     """
-                    SELECT date,
-                           steps_total,
-                           resting_heart_rate_avg,
-                           sleep_minutes
-                    FROM wearable_daily_summaries
-                    WHERE user_id = %s
-                      AND date >= CURRENT_DATE - (%s || ' days')::INTERVAL
-                    """,
-                    (str(owner["user_id"]), window_days),
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                          AND table_name = 'wearable_daily_summaries'
+                    ) AS present
+                    """
                 )
-                for wrow in cur.fetchall():
-                    wearable_by_day[wrow["date"]] = wrow
+                present = cur.fetchone()
+                if present and present.get("present"):
+                    cur.execute(
+                        """
+                        SELECT date,
+                               steps_total,
+                               resting_heart_rate_avg,
+                               sleep_minutes
+                        FROM wearable_daily_summaries
+                        WHERE user_id = %s
+                          AND date >= CURRENT_DATE - (%s || ' days')::INTERVAL
+                        """,
+                        (str(owner["user_id"]), window_days),
+                    )
+                    for wrow in cur.fetchall():
+                        wearable_by_day[wrow["date"]] = wrow
 
     samples = []
     for row in rows:
