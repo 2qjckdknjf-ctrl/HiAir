@@ -2,13 +2,13 @@
 
 ## Health Intelligence (2026-07-19)
 
-Status: **NOT E2E VERIFIED** — engineering/local gates PASS; physical HealthKit / Health Connect reads pending.
+Status: **RELEASE BLOCKED** — merged `4cac2c36`; production deploy blocked by invalid Cloudflare token; physical HealthKit / Health Connect reads pending.
 
 | Item | Result | Notes |
 |------|--------|-------|
-| Migration 018 (hiair-prod) | PASS | Applied once; RLS verified |
-| Local final gate | PASS | `hiair_final_gate.sh` |
-| Production `/api/v1/health/*` | PENDING | Deploy after merge |
+| Migration 018/019 (hiair-prod) | PASS | 018 once; 019 idempotent compat |
+| Local/CI final gates | PASS | including PR #29 CI |
+| Production `/api/v1/health/*` | FAIL | 404; API still `07d5849` |
 | Physical iPhone HealthKit read | NOT RUN | Required for E2E |
 | Physical Android Health Connect read | NOT RUN | Required for E2E |
 | Symptom + insight on device | NOT RUN | No exact values logged |

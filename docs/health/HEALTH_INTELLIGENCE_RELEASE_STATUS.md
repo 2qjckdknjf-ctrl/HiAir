@@ -1,50 +1,49 @@
 # Health Intelligence — Release Certification Status
 
 Date: 2026-07-19  
-Branch: `feat/health-intelligence-expansion`  
-Base feature commit: `0409b24`
+Merged PR: https://github.com/2qjckdknjf-ctrl/HiAir/pull/29  
+Merge SHA: `4cac2c36feef5cd0fad08bc7f6fd670a5049d316`
 
 ## Verdict (current)
 
-**PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA** is not yet claimed.
+**HEALTH INTELLIGENCE RELEASE BLOCKED**
 
-Honest interim status after local certification gates:
+External blocker: production Cloudflare deploy token invalid (`CLOUDFLARE_API_TOKEN` verify 403 / code 1000).  
+API still serves `deploy_git_sha=07d584959db412553f70800c4a49ae109021eb25` — `/api/v1/health/*` returns **404**.
 
-**HEALTH INTELLIGENCE RELEASE BLOCKED** until merge + production API deploy complete.
-
-After successful production deploy of `/api/v1/health/*` without physical HealthKit/Health Connect evidence, status becomes:
+After token rotation + successful Backend Deploy Production + smoke, status becomes:
 
 **PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA**
 
-`HEALTH INTELLIGENCE E2E VERIFIED` is forbidden until both platforms read real device records, sync aggregates, log a symptom, and form an insight (or honest insufficient-data state).
+`HEALTH INTELLIGENCE E2E VERIFIED` remains forbidden until physical HealthKit **and** Health Connect reads, sync, symptom entry, and insight/insufficient-data evidence exist.
 
-## Completed locally
+## Completed
 
 | Gate | Result |
 |------|--------|
-| Branch synced to `origin/main` | PASS (0 behind) |
-| Migration 018 on hiair-prod | PASS (recorded once; RLS verified) |
-| Backend full pytest + coverage ≥70% | PASS (73.28%) |
-| API contract tests | PASS |
-| Insights Premium gate (`advanced_insights`) | PASS |
+| PR truth audit vs `main` | PASS |
+| Migration 018 on hiair-prod | PASS (once; RLS verified earlier) |
+| Migration 019 compat on hiair-prod | PASS (idempotent soft-delete columns) |
+| Backend suite + coverage ≥70% | PASS |
+| Per-category consent enforcement | PASS |
+| Premium gate on `/insights` | PASS |
 | `hiair_final_gate.sh` | PASS |
-| iOS Debug/Release simulator build + tests | PASS |
-| Android assembleDebug/Release + lint + unit tests | PASS |
-| Physical HealthKit E2E | NOT RUN |
-| Physical Health Connect E2E | NOT RUN |
-| Production API deploy | PENDING (post-merge) |
-| TestFlight >84 | PENDING (post-merge) |
+| iOS/Android CI builds | PASS |
+| PR #29 merge (protected path) | PASS → `4cac2c36` |
+| Backend Deploy Production | **FAIL** — Cloudflare token |
+| Production health API smoke | **FAIL** — routes 404 (old image) |
+| TestFlight build >84 | PENDING (blocked on API live) |
+| Physical HealthKit / Health Connect E2E | NOT RUN |
+
+## Deploy runs (failed)
+
+- https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/29684191710 (push)
+- https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/29684194650 (workflow_dispatch)
+
+Fix: `docs/_operator/cloudflare-deploy-token-runbook.md` → rotate GitHub production `CLOUDFLARE_API_TOKEN` → re-run Backend Deploy Production on `main`.
 
 ## Non-claims
 
-- Simulator HealthKit is not E2E proof.
-- Android unit tests are not Health Connect E2E proof.
-- Migration applied ≠ API live on `api.hiair.io`.
-
-## Evidence pointers
-
-- Contract: `docs/health/API_CONTRACT.md`
-- Metrics: `docs/health/CANONICAL_METRIC_CATALOG.md`, `PLATFORM_CAPABILITY_MATRIX.md`
-- Symptoms: `docs/health/SYMPTOM_TAXONOMY.md`
-- Analytics: `docs/health/ANALYTICS_METHODOLOGY.md`
-- Device checklist: `docs/health/DEVICE_QA_CHECKLIST.md`
+- Simulator / unit tests ≠ HealthKit / Health Connect E2E
+- Merge ≠ production API live
+- Migration applied ≠ `/api/v1/health/*` routed on `api.hiair.io`

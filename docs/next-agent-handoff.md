@@ -4,12 +4,13 @@ Date: 2026-07-19 (Health Intelligence certification in progress)
 
 ## 0) Health Intelligence release certification (2026-07-19)
 
-- Branch: `feat/health-intelligence-expansion` (base `0409b24` + review tails)
-- Migration `018` / `health_intelligence`: **already on hiair-prod** (do not re-apply blindly)
-- Local gates: backend suite + `hiair_final_gate.sh` **PASS**
-- **Not done yet:** merge → Backend Deploy Production → smoke `/api/v1/health/*` → TestFlight build **>84** → physical HealthKit + Health Connect E2E
-- Honest status until device evidence: never claim `HEALTH INTELLIGENCE E2E VERIFIED`
-- Docs: `docs/health/HEALTH_INTELLIGENCE_RELEASE_STATUS.md`, `docs/health/API_CONTRACT.md`
+- **Merged:** PR #29 → `4cac2c36` on `main`
+- Migration `018` + compat `019` on hiair-prod (do not re-apply blindly)
+- Local/CI gates: **PASS**
+- **BLOCKER:** GitHub production `CLOUDFLARE_API_TOKEN` invalid → deploy runs `29684191710` / `29684194650` FAIL; `api.hiair.io` still `07d5849`; `/api/v1/health/*` → 404
+- **Next:** rotate CF token per `docs/_operator/cloudflare-deploy-token-runbook.md` → re-run Backend Deploy Production → smoke health API → TestFlight **>84** → physical HealthKit + Health Connect E2E
+- Never claim `HEALTH INTELLIGENCE E2E VERIFIED` without device evidence
+- Status: `docs/health/HEALTH_INTELLIGENCE_RELEASE_STATUS.md`
 
 ## 0a) Live status — StoreKit catalog Request Canceled (2026-07-18)
 
