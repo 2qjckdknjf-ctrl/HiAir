@@ -280,6 +280,20 @@ struct PersonalPatternsResponse: Codable {
     let items: [PersonalPatternInsight]
 }
 
+struct SymptomHistoryItem: Codable {
+    let id: String
+    let profileId: String
+    let symptomType: String
+    let intensity: Int
+    let note: String?
+    let loggedAt: String
+}
+
+struct SymptomHistoryResponse: Codable {
+    let profileId: String
+    let items: [SymptomHistoryItem]
+}
+
 struct BriefingScheduleResponse: Codable {
     let userId: String
     let localTime: String
@@ -629,6 +643,14 @@ struct WearableConsentPayload: Codable {
     let restingHeartRateEnabled: Bool
     let hrvEnabled: Bool
     let sleepEnabled: Bool
+    var activityEnabled: Bool? = nil
+    var sleepStagesEnabled: Bool? = nil
+    var respiratoryEnabled: Bool? = nil
+    var temperatureEnabled: Bool? = nil
+    var workoutsEnabled: Bool? = nil
+    var fitnessEnabled: Bool? = nil
+    var bodyMetricsEnabled: Bool? = nil
+    var sensitiveMetricsEnabled: Bool? = nil
     let consentVersion: String
 }
 

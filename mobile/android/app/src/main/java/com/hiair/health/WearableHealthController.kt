@@ -18,7 +18,8 @@ class WearableHealthController(
         activity.registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
             val callback = pendingCallback
             pendingCallback = null
-            if (granted.containsAll(healthService.readPermissions)) {
+            // Progressive consent: continue if at least activity/sleep tier is granted.
+            if (granted.any { it in healthService.tier1Permissions }) {
                 activity.lifecycleScope.launch {
                     completeConnect(callback)
                 }
@@ -43,19 +44,22 @@ class WearableHealthController(
         pendingAccessToken = accessToken
         pendingCallback = onComplete
         activity.lifecycleScope.launch {
-            if (healthService.hasAllPermissions()) {
+            val granted = healthService.grantedPermissions()
+            if (granted.containsAll(healthService.tier1Permissions)) {
                 completeConnect(onComplete)
             } else {
+                // Request full set; user may grant partially.
                 permissionLauncher.launch(healthService.readPermissions)
             }
         }
     }
 
-    fun syncIfPermitted(userId: String, accessToken: String?) {
+    fun syncIfPermitted(userId: String, accessToken: String?, profileId: String? = null) {
         if (userId.isBlank() || !healthService.isHealthConnectAvailable()) return
         activity.lifecycleScope.launch {
-            if (healthService.hasAllPermissions()) {
-                healthService.syncWearableDailySummary(userId, accessToken)
+            val granted = healthService.grantedPermissions()
+            if (granted.any { it in healthService.tier1Permissions }) {
+                healthService.syncHealthIntelligence(userId, accessToken, profileId)
             }
         }
     }
@@ -69,7 +73,7 @@ class WearableHealthController(
         if (userId.isNotBlank()) {
             try {
                 healthService.saveConsent(userId, token)
-                healthService.syncWearableDailySummary(userId, token)
+                healthService.syncHealthIntelligence(userId, token, profileId = null)
             } catch (_: Exception) {
                 // Non-blocking — dashboard still works without wearable sync.
             }

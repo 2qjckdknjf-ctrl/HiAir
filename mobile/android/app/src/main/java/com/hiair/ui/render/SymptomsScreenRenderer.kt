@@ -81,12 +81,16 @@ internal object SymptomsScreenRenderer {
             }
         }
 
-        val quickBreathButton = HiAirComponents.secondaryButton(activity, ctx.l("symptoms.quick_breath")).apply {
-            setOnClickListener { quickSymptom(ctx, profileInput, intensityInput, stateText, "breath_discomfort") }
-        }
-        val quickHeadacheButton = HiAirComponents.secondaryButton(activity, ctx.l("symptoms.quick_headache")).apply {
-            setOnClickListener { quickSymptom(ctx, profileInput, intensityInput, stateText, "headache") }
-        }
+        val quickTypes = listOf(
+            "cough" to ctx.l("symptoms.cough"),
+            "shortness_of_breath" to ctx.l("symptoms.quick_breath"),
+            "headache" to ctx.l("symptoms.quick_headache"),
+            "fatigue" to ctx.l("symptoms.fatigue"),
+            "itchy_eyes" to "Itchy eyes",
+            "heat_weakness" to "Heat weakness",
+            "nasal_congestion" to "Nasal congestion",
+            "poor_sleep_quality" to "Poor sleep",
+        )
 
         val symptomCard = HiAirComponents.cardContainer(activity).apply {
             addView(profileInput)
@@ -102,8 +106,32 @@ internal object SymptomsScreenRenderer {
             })
             addView(sleepInput)
             addView(intensityInput)
-            addView(quickBreathButton)
-            addView(quickHeadacheButton)
+            addView(
+                V2Ui.styledSecondaryText(activity, "Frequent symptoms").apply {
+                    textSize = 13f
+                }
+            )
+            quickTypes.chunked(2).forEach { pair ->
+                addView(LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    pair.forEach { (type, label) ->
+                        addView(
+                            HiAirComponents.secondaryButton(activity, label).apply {
+                                setOnClickListener {
+                                    quickSymptom(ctx, profileInput, intensityInput, stateText, type)
+                                }
+                                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                            }
+                        )
+                    }
+                })
+            }
+            addView(
+                V2Ui.styledSecondaryText(
+                    activity,
+                    "При сильной боли в груди, выраженной одышке или потере сознания обратитесь за неотложной помощью.",
+                ).apply { textSize = 11f }
+            )
             addView(stateText)
         }
         bodyContainer.addView(symptomCard)

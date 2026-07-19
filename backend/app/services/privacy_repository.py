@@ -276,7 +276,9 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 )
                 personal_correlations = cur.fetchall()
 
-            health_consents, wearable_daily, wearable_hourly = _fetch_wearable_export_rows(cur, user_id)
+            health_consents, wearable_daily, wearable_hourly, metric_daily, sleep_summaries, sync_states = (
+                _fetch_wearable_export_rows(cur, user_id)
+            )
 
             subscription_webhook_events: list[dict[str, Any]] = []
             if provider_subscription_id:
@@ -312,6 +314,9 @@ def export_user_data(user_id: str) -> dict[str, Any]:
             health_consents,
             wearable_daily,
             wearable_hourly,
+            metric_daily,
+            sleep_summaries,
+            sync_states,
         )
     ):
         raise ValueError("User not found")
@@ -340,6 +345,9 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         "health_data_consents": _serialize_rows(health_consents),
         "wearable_daily_summaries": _serialize_rows(wearable_daily),
         "wearable_hourly_summaries": _serialize_rows(wearable_hourly),
+        "wearable_metric_daily": _serialize_rows(metric_daily),
+        "wearable_sleep_summaries": _serialize_rows(sleep_summaries),
+        "wearable_sync_state": _serialize_rows(sync_states),
     }
 
 
@@ -362,9 +370,16 @@ def _public_table_exists(cur, table_name: str) -> bool:
 def _fetch_wearable_export_rows(
     cur,
     user_id: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     if not _public_table_exists(cur, "health_data_consents"):
-        return [], [], []
+        return [], [], [], [], [], []
 
     cur.execute(
         """
@@ -404,7 +419,53 @@ def _fetch_wearable_export_rows(
         (user_id,),
     )
     wearable_hourly = cur.fetchall()
-    return health_consents, wearable_daily, wearable_hourly
+
+    metric_daily: list[dict[str, Any]] = []
+    if _public_table_exists(cur, "wearable_metric_daily"):
+        cur.execute(
+            """
+            SELECT id, local_date, timezone, metric_type, value_avg, value_min, value_max,
+                   value_latest, value_total, unit, sample_count, source_platform,
+                   quality_state, hrv_method, synced_at, created_at, updated_at
+            FROM wearable_metric_daily
+            WHERE user_id = %s
+            ORDER BY local_date DESC
+            LIMIT 2000
+            """,
+            (user_id,),
+        )
+        metric_daily = cur.fetchall()
+
+    sleep_summaries: list[dict[str, Any]] = []
+    if _public_table_exists(cur, "wearable_sleep_summaries"):
+        cur.execute(
+            """
+            SELECT id, local_date, timezone, total_minutes, in_bed_minutes, awake_minutes,
+                   core_light_minutes, deep_minutes, rem_minutes, sleep_start, sleep_end,
+                   source_platform, quality_state, synced_at, created_at, updated_at
+            FROM wearable_sleep_summaries
+            WHERE user_id = %s
+            ORDER BY local_date DESC
+            LIMIT 400
+            """,
+            (user_id,),
+        )
+        sleep_summaries = cur.fetchall()
+
+    sync_states: list[dict[str, Any]] = []
+    if _public_table_exists(cur, "wearable_sync_state"):
+        cur.execute(
+            """
+            SELECT id, platform, source_platform, last_success_at, last_attempt_at,
+                   sync_status, last_error_code, created_at, updated_at
+            FROM wearable_sync_state
+            WHERE user_id = %s
+            """,
+            (user_id,),
+        )
+        sync_states = cur.fetchall()
+
+    return health_consents, wearable_daily, wearable_hourly, metric_daily, sleep_summaries, sync_states
 
 
 def _recover_missing_relation(exc: Exception) -> bool:
@@ -472,6 +533,12 @@ def delete_user_data(user_id: str) -> bool:
                         raise
 
             for table_name in (
+                "health_insights",
+                "symptom_favorites",
+                "custom_symptoms",
+                "wearable_sync_state",
+                "wearable_sleep_summaries",
+                "wearable_metric_daily",
                 "wearable_hourly_summaries",
                 "wearable_daily_summaries",
                 "health_data_consents",
@@ -483,6 +550,12 @@ def delete_user_data(user_id: str) -> bool:
                 "auth_refresh_tokens",
             ):
                 if table_name in {
+                    "health_insights",
+                    "symptom_favorites",
+                    "custom_symptoms",
+                    "wearable_sync_state",
+                    "wearable_sleep_summaries",
+                    "wearable_metric_daily",
                     "wearable_hourly_summaries",
                     "wearable_daily_summaries",
                     "health_data_consents",

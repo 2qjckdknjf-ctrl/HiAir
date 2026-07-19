@@ -17,16 +17,26 @@ def _row_to_consent(row: dict) -> WearableConsentResponse:
     revoked_at = row.get("revoked_at")
     accepted_at = row.get("accepted_at")
     is_active = accepted_at is not None and revoked_at is None
+    steps_enabled = bool(row["steps_enabled"])
+    activity_enabled = bool(row.get("activity_enabled", steps_enabled))
     return WearableConsentResponse(
         id=str(row["id"]),
         userId=str(row["user_id"]),
         platform=row["platform"],
         source=row["source"],
-        stepsEnabled=bool(row["steps_enabled"]),
+        stepsEnabled=steps_enabled,
         heartRateEnabled=bool(row["heart_rate_enabled"]),
         restingHeartRateEnabled=bool(row["resting_heart_rate_enabled"]),
         hrvEnabled=bool(row["hrv_enabled"]),
         sleepEnabled=bool(row["sleep_enabled"]),
+        activityEnabled=activity_enabled,
+        sleepStagesEnabled=bool(row.get("sleep_stages_enabled", False)),
+        respiratoryEnabled=bool(row.get("respiratory_enabled", False)),
+        temperatureEnabled=bool(row.get("temperature_enabled", False)),
+        workoutsEnabled=bool(row.get("workouts_enabled", False)),
+        fitnessEnabled=bool(row.get("fitness_enabled", False)),
+        bodyMetricsEnabled=bool(row.get("body_metrics_enabled", False)),
+        sensitiveMetricsEnabled=bool(row.get("sensitive_metrics_enabled", False)),
         consentVersion=row["consent_version"],
         acceptedAt=accepted_at,
         revokedAt=revoked_at,
@@ -36,6 +46,11 @@ def _row_to_consent(row: dict) -> WearableConsentResponse:
 
 def upsert_consent(user_id: str, payload: WearableConsentRequest) -> WearableConsentResponse:
     now = datetime.now(tz=UTC)
+    activity_enabled = (
+        payload.activityEnabled
+        if payload.activityEnabled is not None
+        else payload.stepsEnabled
+    )
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -49,12 +64,24 @@ def upsert_consent(user_id: str, payload: WearableConsentRequest) -> WearableCon
                     resting_heart_rate_enabled,
                     hrv_enabled,
                     sleep_enabled,
+                    activity_enabled,
+                    sleep_stages_enabled,
+                    respiratory_enabled,
+                    temperature_enabled,
+                    workouts_enabled,
+                    fitness_enabled,
+                    body_metrics_enabled,
+                    sensitive_metrics_enabled,
                     consent_version,
                     accepted_at,
                     revoked_at,
                     updated_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, %s)
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, NULL, %s
+                )
                 ON CONFLICT (user_id, source)
                 DO UPDATE SET
                     platform = EXCLUDED.platform,
@@ -63,6 +90,14 @@ def upsert_consent(user_id: str, payload: WearableConsentRequest) -> WearableCon
                     resting_heart_rate_enabled = EXCLUDED.resting_heart_rate_enabled,
                     hrv_enabled = EXCLUDED.hrv_enabled,
                     sleep_enabled = EXCLUDED.sleep_enabled,
+                    activity_enabled = EXCLUDED.activity_enabled,
+                    sleep_stages_enabled = EXCLUDED.sleep_stages_enabled,
+                    respiratory_enabled = EXCLUDED.respiratory_enabled,
+                    temperature_enabled = EXCLUDED.temperature_enabled,
+                    workouts_enabled = EXCLUDED.workouts_enabled,
+                    fitness_enabled = EXCLUDED.fitness_enabled,
+                    body_metrics_enabled = EXCLUDED.body_metrics_enabled,
+                    sensitive_metrics_enabled = EXCLUDED.sensitive_metrics_enabled,
                     consent_version = EXCLUDED.consent_version,
                     accepted_at = EXCLUDED.accepted_at,
                     revoked_at = NULL,
@@ -78,6 +113,14 @@ def upsert_consent(user_id: str, payload: WearableConsentRequest) -> WearableCon
                     payload.restingHeartRateEnabled,
                     payload.hrvEnabled,
                     payload.sleepEnabled,
+                    activity_enabled,
+                    payload.sleepStagesEnabled,
+                    payload.respiratoryEnabled,
+                    payload.temperatureEnabled,
+                    payload.workoutsEnabled,
+                    payload.fitnessEnabled,
+                    payload.bodyMetricsEnabled,
+                    payload.sensitiveMetricsEnabled,
                     payload.consentVersion,
                     now,
                     now,

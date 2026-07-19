@@ -22,7 +22,15 @@ class WearableConsentRequest(BaseModel):
     restingHeartRateEnabled: bool = False
     hrvEnabled: bool = False
     sleepEnabled: bool = False
-    consentVersion: str = Field(default="wearables-v1", min_length=1, max_length=64)
+    activityEnabled: bool | None = None
+    sleepStagesEnabled: bool = False
+    respiratoryEnabled: bool = False
+    temperatureEnabled: bool = False
+    workoutsEnabled: bool = False
+    fitnessEnabled: bool = False
+    bodyMetricsEnabled: bool = False
+    sensitiveMetricsEnabled: bool = False
+    consentVersion: str = Field(default="health-intelligence-v1", min_length=1, max_length=64)
 
 
 class WearableConsentResponse(BaseModel):
@@ -35,6 +43,14 @@ class WearableConsentResponse(BaseModel):
     restingHeartRateEnabled: bool
     hrvEnabled: bool
     sleepEnabled: bool
+    activityEnabled: bool = False
+    sleepStagesEnabled: bool = False
+    respiratoryEnabled: bool = False
+    temperatureEnabled: bool = False
+    workoutsEnabled: bool = False
+    fitnessEnabled: bool = False
+    bodyMetricsEnabled: bool = False
+    sensitiveMetricsEnabled: bool = False
     consentVersion: str
     acceptedAt: datetime | None
     revokedAt: datetime | None

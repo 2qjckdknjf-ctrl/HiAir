@@ -6,29 +6,54 @@ from app.models.air import PersonalPatternInsight
 from app.services.db import get_connection
 
 
-def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dict[str, float]]:
+def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dict[str, float | None]]:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT
                     DATE(ra.created_at) AS day_key,
-                    AVG(COALESCE(es.pm25, 0)) AS pm25,
-                    AVG(COALESCE(es.ozone, 0)) AS ozone,
-                    AVG(COALESCE(es.temperature_c, 0)) AS temperature,
-                    AVG(COALESCE(es.humidity_percent, 0)) AS humidity,
-                    AVG(COALESCE(es.aqi, 0)) AS aqi,
-                    AVG(CASE WHEN sl.cough THEN 1 ELSE 0 END) AS cough_count,
-                    AVG(CASE WHEN sl.wheeze THEN 1 ELSE 0 END) AS wheeze_count,
-                    AVG(CASE WHEN sl.headache THEN 1 ELSE 0 END) AS headache_count,
-                    AVG(CASE WHEN sl.fatigue THEN 1 ELSE 0 END) AS fatigue_count,
-                    AVG(COALESCE(sl.sleep_quality, 3)) AS sleep_quality
+                    AVG(es.pm25) AS pm25,
+                    AVG(es.ozone) AS ozone,
+                    AVG(es.temperature_c) AS temperature,
+                    AVG(es.humidity_percent) AS humidity,
+                    AVG(es.aqi) AS aqi,
+                    AVG(
+                        CASE
+                            WHEN sl.id IS NULL THEN NULL
+                            WHEN sl.cough THEN 1.0
+                            ELSE 0.0
+                        END
+                    ) AS cough_count,
+                    AVG(
+                        CASE
+                            WHEN sl.id IS NULL THEN NULL
+                            WHEN sl.wheeze THEN 1.0
+                            ELSE 0.0
+                        END
+                    ) AS wheeze_count,
+                    AVG(
+                        CASE
+                            WHEN sl.id IS NULL THEN NULL
+                            WHEN sl.headache THEN 1.0
+                            ELSE 0.0
+                        END
+                    ) AS headache_count,
+                    AVG(
+                        CASE
+                            WHEN sl.id IS NULL THEN NULL
+                            WHEN sl.fatigue THEN 1.0
+                            ELSE 0.0
+                        END
+                    ) AS fatigue_count,
+                    AVG(sl.sleep_quality) AS sleep_quality
                 FROM risk_assessments ra
                 LEFT JOIN environment_snapshots es
                     ON es.id = ra.environmental_snapshot_id
                 LEFT JOIN symptom_logs sl
                     ON sl.profile_id = ra.user_profile_id
-                   AND DATE(sl.logged_at) = DATE(ra.created_at)
+                   AND DATE(COALESCE(sl.logged_at, sl.timestamp_utc)) = DATE(ra.created_at)
+                   AND (sl.deleted_at IS NULL)
                 WHERE ra.user_profile_id = %s
                   AND ra.created_at >= NOW() - (%s || ' days')::INTERVAL
                 GROUP BY DATE(ra.created_at)
@@ -37,7 +62,61 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
                 (profile_id, window_days),
             )
             rows = cur.fetchall()
-    return [_to_sample(row) for row in rows]
+
+            # Enrich with wearable aggregates for the profile owner when available.
+            cur.execute(
+                """
+                SELECT p.user_id
+                FROM profiles p
+                WHERE p.id = %s
+                """,
+                (profile_id,),
+            )
+            owner = cur.fetchone()
+            wearable_by_day: dict = {}
+            if owner and owner.get("user_id"):
+                # Wearable tables come from migration 014 (skipped in CI without auth schema).
+                cur.execute(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                          AND table_name = 'wearable_daily_summaries'
+                    ) AS present
+                    """
+                )
+                present = cur.fetchone()
+                if present and present.get("present"):
+                    cur.execute(
+                        """
+                        SELECT date,
+                               steps_total,
+                               resting_heart_rate_avg,
+                               sleep_minutes
+                        FROM wearable_daily_summaries
+                        WHERE user_id = %s
+                          AND date >= CURRENT_DATE - (%s || ' days')::INTERVAL
+                        """,
+                        (str(owner["user_id"]), window_days),
+                    )
+                    for wrow in cur.fetchall():
+                        wearable_by_day[wrow["date"]] = wrow
+
+    samples = []
+    for row in rows:
+        sample = _to_sample(row)
+        wrow = wearable_by_day.get(row["day_key"])
+        if wrow:
+            sample["steps"] = _nullable(wrow.get("steps_total"))
+            sample["resting_heart_rate"] = _nullable(wrow.get("resting_heart_rate_avg"))
+            sample["sleep_minutes"] = _nullable(wrow.get("sleep_minutes"))
+        else:
+            sample["steps"] = None
+            sample["resting_heart_rate"] = None
+            sample["sleep_minutes"] = None
+        samples.append(sample)
+    return samples
 
 
 def replace_personal_correlations(profile_id: str, window_days: int, items: list[PersonalPatternInsight]) -> None:
@@ -113,16 +192,22 @@ def get_latest_personal_correlations(profile_id: str, window_days: int) -> list[
     ]
 
 
-def _to_sample(row: dict[str, object]) -> dict[str, float]:
+def _to_sample(row: dict[str, object]) -> dict[str, float | None]:
     return {
-        "pm25": float(row.get("pm25") or 0.0),
-        "ozone": float(row.get("ozone") or 0.0),
-        "temperature": float(row.get("temperature") or 0.0),
-        "humidity": float(row.get("humidity") or 0.0),
-        "aqi": float(row.get("aqi") or 0.0),
-        "cough_count": float(row.get("cough_count") or 0.0),
-        "wheeze_count": float(row.get("wheeze_count") or 0.0),
-        "headache_count": float(row.get("headache_count") or 0.0),
-        "fatigue_count": float(row.get("fatigue_count") or 0.0),
-        "sleep_quality": float(row.get("sleep_quality") or 3.0),
+        "pm25": _nullable(row.get("pm25")),
+        "ozone": _nullable(row.get("ozone")),
+        "temperature": _nullable(row.get("temperature")),
+        "humidity": _nullable(row.get("humidity")),
+        "aqi": _nullable(row.get("aqi")),
+        "cough_count": _nullable(row.get("cough_count")),
+        "wheeze_count": _nullable(row.get("wheeze_count")),
+        "headache_count": _nullable(row.get("headache_count")),
+        "fatigue_count": _nullable(row.get("fatigue_count")),
+        "sleep_quality": _nullable(row.get("sleep_quality")),
     }
+
+
+def _nullable(value: object) -> float | None:
+    if value is None:
+        return None
+    return float(value)

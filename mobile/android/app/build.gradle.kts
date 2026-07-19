@@ -11,6 +11,13 @@ val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
+val releaseStoreFile: File? =
+    keystoreProperties.getProperty("storeFile")
+        ?.let { path ->
+            val candidate = file(path)
+            if (candidate.isFile) candidate else null
+        }
+val hasReleaseKeystore = keystorePropertiesFile.exists() && releaseStoreFile != null
 
 android {
     namespace = "com.hiair"
@@ -26,8 +33,8 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
+            if (hasReleaseKeystore) {
+                storeFile = releaseStoreFile
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
@@ -45,7 +52,7 @@ android {
         }
         release {
             isMinifyEnabled = false
-            if (keystorePropertiesFile.exists()) {
+            if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
             buildConfigField("String", "API_BASE_URL", "\"https://api.hiair.io\"")
