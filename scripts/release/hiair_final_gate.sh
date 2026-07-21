@@ -158,8 +158,29 @@ else
 fi
 
 if [[ -x "${ROOT_DIR}/mobile/android/gradlew" ]]; then
-  if command -v java >/dev/null 2>&1 && java -version >/dev/null 2>&1; then
-    run_step "Android unit tests + debug/release assemble + lint" bash -lc "cd '${ROOT_DIR}/mobile/android' && ./gradlew test assembleDebug assembleRelease lintDebug --no-daemon"
+  # Prefer an executable arm64 JDK. Login shells on this Mac put x86_64 Homebrew
+  # /usr/local/bin/java first ("Bad CPU type"), which breaks gradlew under bash -lc.
+  ANDROID_JAVA_HOME="${JAVA_HOME:-}"
+  if [[ -z "${ANDROID_JAVA_HOME}" || ! -x "${ANDROID_JAVA_HOME}/bin/java" ]] \
+    || ! "${ANDROID_JAVA_HOME}/bin/java" -version >/dev/null 2>&1; then
+    ANDROID_JAVA_HOME="$(/usr/libexec/java_home -v 17 2>/dev/null || true)"
+  fi
+  if [[ -z "${ANDROID_JAVA_HOME}" || ! -x "${ANDROID_JAVA_HOME}/bin/java" ]] \
+    || ! "${ANDROID_JAVA_HOME}/bin/java" -version >/dev/null 2>&1; then
+    for candidate in \
+      "${HOME}/Library/Java/JavaVirtualMachines/jbr-17.0.14/Contents/Home" \
+      "${HOME}/Library/Java/JavaVirtualMachines/"*/Contents/Home
+    do
+      if [[ -x "${candidate}/bin/java" ]] && "${candidate}/bin/java" -version >/dev/null 2>&1; then
+        ANDROID_JAVA_HOME="${candidate}"
+        break
+      fi
+    done
+  fi
+  if [[ -n "${ANDROID_JAVA_HOME}" && -x "${ANDROID_JAVA_HOME}/bin/java" ]] \
+    && "${ANDROID_JAVA_HOME}/bin/java" -version >/dev/null 2>&1; then
+    run_step "Android unit tests + debug/release assemble + lint" \
+      bash -lc "export JAVA_HOME='${ANDROID_JAVA_HOME}'; export PATH=\"\${JAVA_HOME}/bin:/usr/bin:/bin:\${PATH}\"; cd '${ROOT_DIR}/mobile/android' && ./gradlew test assembleDebug assembleRelease lintDebug --no-daemon"
   else
     echo "[WARN] Java runtime unavailable; Android checks skipped (CI still validates on ubuntu-latest)."
   fi
