@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 from app.services import health_analytics_service as analytics
@@ -57,12 +58,17 @@ def test_insufficient_data_cards_honest() -> None:
 
 
 def test_compute_trends_requires_minimum_days() -> None:
-    # Fewer than MIN_TREND_DAYS → no trend cards
+    # Fewer than compare window → no trend cards
     metrics = [_metric(_day(i), "steps", total=1000 + i * 100) for i in range(3)]
     cards = analytics._compute_trends(metrics, [], "en", 30)
     assert cards == []
 
+    # Exactly 10 days is not enough for recent-vs-older compare (needs 14).
     metrics = [_metric(_day(i), "steps", total=1000 + i * 200) for i in range(10)]
+    cards = analytics._compute_trends(metrics, [], "en", 30)
+    assert cards == []
+
+    metrics = [_metric(_day(i), "steps", total=1000 + i * 200) for i in range(14)]
     cards = analytics._compute_trends(metrics, [], "en", 30)
     assert any(c.insightKey == "trend_steps" for c in cards)
     for card in cards:
@@ -106,6 +112,11 @@ def test_build_insights_bundle_missing_stays_none(monkeypatch) -> None:
     monkeypatch.setattr(analytics, "_load_environment_by_day", lambda *a, **k: {})
     monkeypatch.setattr(analytics, "_load_symptoms_by_day", lambda *a, **k: {})
     monkeypatch.setattr(analytics, "_load_risk_by_day", lambda *a, **k: {})
+    monkeypatch.setattr(
+        analytics.wearable_repository,
+        "get_active_consent",
+        lambda *a, **k: MagicMock(isActive=True),
+    )
 
     bundle = analytics.build_insights_bundle(
         user_id=user_id,

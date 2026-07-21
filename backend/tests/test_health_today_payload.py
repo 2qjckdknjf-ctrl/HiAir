@@ -1,11 +1,18 @@
 """Regression: insights today exposes synced wellness metrics for UI."""
 
+from unittest.mock import MagicMock
+
 from app.services import health_analytics_service
 
 
 def test_today_payload_includes_wellness_metric_keys(monkeypatch):
     """UI HealthToday / Insights today depend on these keys existing."""
     # Smoke the structure builder with empty stores via monkeypatch of repository.
+    monkeypatch.setattr(
+        health_analytics_service.wearable_repository,
+        "get_active_consent",
+        lambda *a, **k: MagicMock(isActive=True),
+    )
     monkeypatch.setattr(
         health_analytics_service.health_sync_repository,
         "list_metrics_window",
