@@ -4,7 +4,7 @@ Updated: 2026-07-21 (Physical device certification sprint)
 
 ## P0 (block first 10 real users)
 
-- **Physical device interactive E2E pending:** Preflight PASS; prod `fa0d91b`; TestFlight **92** installed/distributed; HealthKit + StoreKit + geo + a11y matrix still **NOT RUN** interactively. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Physical device interactive E2E pending:** Preflight PASS (incl. final gate arm64 JDK fix); prod `fa0d91b`; TestFlight **92** VALID; physical iPhone reinstall/launch PASS; HealthKit + StoreKit + geo + a11y matrix still **NOT RUN** interactively (Maestro cannot attach over CoreDevice localNetwork). See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
 - **Maestro physical iOS automation tooling:** driver build/connect flaky on Maestro 2.7 + Xcode 26.6 — not a product FAIL; blocks unattended UI certification.
 - **StoreKit catalog FAIL historically (build 81):** Request Canceled; must retest on **TF 92**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
 - **Android physical + Play Billing:** no USB device this session; Play Console app may stay EXTERNALLY BLOCKED.
