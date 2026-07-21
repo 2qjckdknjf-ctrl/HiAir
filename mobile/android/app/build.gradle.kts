@@ -14,7 +14,8 @@ if (keystorePropertiesFile.exists()) {
 val releaseStoreFile: File? =
     keystoreProperties.getProperty("storeFile")
         ?.let { path ->
-            val candidate = file(path)
+            // keystore.properties lives at android/ root; resolve relative to rootProject.
+            val candidate = rootProject.file(path)
             if (candidate.isFile) candidate else null
         }
 val hasReleaseKeystore = keystorePropertiesFile.exists() && releaseStoreFile != null

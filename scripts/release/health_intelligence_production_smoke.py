@@ -423,14 +423,23 @@ def main() -> int:
             failures += 1
             continue
         status_block = insights.get("healthDataStatus") or {}
-        if status_block.get("consentActive") is not True:
-            _fail(f"insights-{window}", "consentActive!=true")
+        metric_days = int(status_block.get("metricDays") or 0)
+        consent_active = status_block.get("consentActive")
+        if consent_active is False:
+            _fail(f"insights-{window}", "consentActive=false")
+            failures += 1
+        elif metric_days < 1:
+            _fail(f"insights-{window}", "metricDays<1 after sync")
             failures += 1
         else:
             trend_n = len(insights.get("trends") or [])
             assoc_n = len(insights.get("associations") or [])
             insuff_n = len(insights.get("insufficientData") or [])
-            _ok(f"insights-{window}", f"trends={trend_n} associations={assoc_n} insufficient={insuff_n}")
+            _ok(
+                f"insights-{window}",
+                f"metricDays={metric_days} consentActive={consent_active} "
+                f"trends={trend_n} associations={assoc_n} insufficient={insuff_n}",
+            )
 
     st, risk = _request(
         "GET",

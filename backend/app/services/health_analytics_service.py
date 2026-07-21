@@ -722,12 +722,18 @@ def _health_data_status(
         "temperature": any(m["metric_type"] in {"body_temperature", "wrist_temperature"} for m in metrics),
         "workouts": any(m["metric_type"].startswith("workout_") for m in metrics),
     }
+    consent = None
+    try:
+        consent = wearable_repository.get_active_consent(user_id)
+    except Exception:
+        consent = None
     return {
         "lastSuccessAt": sync.get("last_success_at").isoformat() if sync and sync.get("last_success_at") else None,
         "syncStatus": sync.get("sync_status") if sync else None,
         "categoriesConnected": categories,
         "metricDays": len({m["local_date"] for m in metrics}),
         "sleepDays": len(sleep_rows),
+        "consentActive": bool(consent is not None and getattr(consent, "isActive", False)),
     }
 
 

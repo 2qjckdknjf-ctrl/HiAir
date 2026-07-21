@@ -120,6 +120,29 @@ def test_insights_bundle_empty_without_consent(monkeypatch) -> None:
     assert bundle["healthDataStatus"]["consentActive"] is False
 
 
+def test_health_data_status_includes_consent_active_when_present(monkeypatch) -> None:
+    from datetime import date
+    from types import SimpleNamespace
+
+    from app.services.health_analytics_service import _health_data_status
+
+    monkeypatch.setattr(
+        "app.services.health_analytics_service.wearable_repository.get_active_consent",
+        lambda user_id: SimpleNamespace(isActive=True),
+    )
+    monkeypatch.setattr(
+        "app.services.health_analytics_service.health_sync_repository.get_sync_state",
+        lambda user_id: {"last_success_at": None, "sync_status": "success"},
+    )
+    status = _health_data_status(
+        "u1",
+        [{"metric_type": "steps", "local_date": date.today()}],
+        [],
+    )
+    assert status["consentActive"] is True
+    assert status["metricDays"] == 1
+
+
 def test_health_insights_api_accepts_seven_day_window(monkeypatch) -> None:
     """Mobile Insights chips request window_days=7; API must not reject below 14."""
     from datetime import datetime, timezone
