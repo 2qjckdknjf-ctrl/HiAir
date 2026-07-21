@@ -14,10 +14,12 @@ from app.models.health_intelligence import InsightCard
 from app.services import health_sync_repository
 from app.services.db import get_connection
 from app.services.localization import normalize_language
+import app.services.wearable_repository as wearable_repository
 
 MIN_TREND_DAYS = 7
 MIN_ASSOCIATION_SYMPTOM_DAYS = 5
 MIN_STRONGER_DAYS = 14
+MIN_TREND_COMPARE_POINTS = 14
 
 
 def build_insights_bundle(
@@ -26,10 +28,37 @@ def build_insights_bundle(
     profile_id: str,
     window_days: int = 30,
     language: str = "ru",
+    require_active_consent: bool = True,
 ) -> dict[str, Any]:
     lang = normalize_language(language)
     end = date.today()
     start = end - timedelta(days=window_days - 1)
+
+    if require_active_consent:
+        try:
+            consent = wearable_repository.get_active_consent(user_id)
+        except Exception:
+            consent = None
+        if consent is None or not getattr(consent, "isActive", True):
+            return {
+                "profileId": profile_id,
+                "generatedAt": datetime.now(tz=timezone.utc),
+                "today": {"localDate": end.isoformat()},
+                "trends": [],
+                "associations": [],
+                "insufficientData": [
+                    {
+                        "message": _t(lang, "insufficient_consent"),
+                        "have": 0,
+                        "need": 1,
+                    }
+                ],
+                "healthDataStatus": {
+                    "metricDays": 0,
+                    "syncStatus": "pending",
+                    "consentActive": False,
+                },
+            }
 
     metrics = health_sync_repository.list_metrics_window(user_id, start, end)
     sleep_rows = health_sync_repository.get_sleep_window(user_id, start, end)
@@ -184,13 +213,17 @@ def _compute_trends(
                 for row in sleep_rows
                 if row.get("deep_minutes") is not None
             ]
-            if len(deep_series) >= MIN_TREND_DAYS:
-                cards.append(_trend_card("sleep_deep", "sleep_deep", deep_series, lang, window_days))
-        if len(series) < MIN_TREND_DAYS:
+            if len(deep_series) >= MIN_TREND_COMPARE_POINTS:
+                deep_card = _trend_card("sleep_deep", "sleep_deep", deep_series, lang, window_days)
+                if deep_card is not None:
+                    cards.append(deep_card)
+        if len(series) < MIN_TREND_COMPARE_POINTS:
             continue
         if metric_type.startswith("hrv_"):
             seen_hrv = True
-        cards.append(_trend_card(metric_type, title_key, series, lang, window_days))
+        card = _trend_card(metric_type, title_key, series, lang, window_days)
+        if card is not None:
+            cards.append(card)
     return cards[:12]
 
 
@@ -200,10 +233,14 @@ def _trend_card(
     series: list[tuple[date, float]],
     lang: str,
     window_days: int,
-) -> InsightCard:
+) -> InsightCard | None:
+    if len(series) < MIN_TREND_COMPARE_POINTS:
+        return None
     recent = [v for _, v in series[-7:]]
-    older = [v for _, v in series[:-7]] or recent
-    delta = median(recent) - median(older) if recent else 0.0
+    older = [v for _, v in series[:-7]]
+    if not recent or not older:
+        return None
+    delta = median(recent) - median(older)
     return InsightCard(
         insightKey=f"trend_{metric_type}",
         title=_t(lang, f"trend_{title_key}_title"),
@@ -298,10 +335,13 @@ def _compute_associations(
         overlap = []
         for d in short_sleep_days:
             items = symptoms_by_day.get(d, []) + symptoms_by_day.get(d + timedelta(days=1), [])
-            if items:
-                avg_sev = sum(int(i.get("severity") or 0) for i in items) / max(len(items), 1)
-                if avg_sev >= 3:
-                    overlap.append(d)
+            severities = [
+                int(i["severity"])
+                for i in items
+                if i.get("severity") is not None
+            ]
+            if severities and (sum(severities) / len(severities)) >= 3:
+                overlap.append(d)
         if len(short_sleep_days) >= MIN_ASSOCIATION_SYMPTOM_DAYS and overlap:
             confidence = _confidence(len(overlap), window_days)
             cards.append(
@@ -735,7 +775,7 @@ def _load_symptoms_by_day(profile_id: str, start: date, end: date) -> dict[date,
                 SELECT
                     COALESCE(DATE(logged_at), DATE(timestamp_utc)) AS day_key,
                     symptom_type,
-                    COALESCE(severity, intensity, 3) AS severity,
+                    COALESCE(severity, intensity) AS severity,
                     category,
                     note
                 FROM symptom_logs
@@ -946,6 +986,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "need_sleep": "Есть данные сна за {have} из {need} необходимых дней.",
         "need_heart": "Подключите данные сердца, чтобы увидеть тренды восстановления.",
         "building_patterns": "Продолжайте отмечать симптомы — более уверенные связи появятся с накоплением данных.",
+        "insufficient_consent": "Подключите Apple Health / Health Connect, чтобы открыть персональные инсайты.",
     },
     "en": {
         "trend_steps_title": "Activity trend",
@@ -1027,6 +1068,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "need_sleep": "Sleep data available for {have} of {need} needed days.",
         "need_heart": "Connect heart data to see recovery trends.",
         "building_patterns": "Keep logging symptoms — clearer patterns need more days.",
+        "insufficient_consent": "Connect Apple Health / Health Connect to unlock personal insights.",
     },
 }
 

@@ -185,14 +185,19 @@ struct DashboardView: View {
         if session.profileId.isEmpty {
             _ = await session.ensureProfileIdIfNeeded()
         }
-        // Background HealthKit sync so Insights/Dashboard see fresh aggregates without reconnect.
+        // Never block dashboard/geo refresh on HealthKit sync.
         if !session.userId.isEmpty,
            healthService.refreshAuthorizationState() == .connected || healthService.lastSyncAt != nil {
-            await healthService.syncHealthIntelligence(
-                userId: session.userId,
-                accessToken: session.accessToken,
-                profileId: session.profileId.isEmpty ? nil : session.profileId
-            )
+            let userId = session.userId
+            let accessToken = session.accessToken
+            let profileId = session.profileId.isEmpty ? nil : session.profileId
+            Task {
+                await healthService.syncHealthIntelligence(
+                    userId: userId,
+                    accessToken: accessToken,
+                    profileId: profileId
+                )
+            }
         }
         await viewModel.refresh(
             userId: session.userId,

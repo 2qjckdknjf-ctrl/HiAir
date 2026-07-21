@@ -78,8 +78,6 @@ struct WearableConsentView: View {
             showHealthPathHint = true
             return
         }
-        // Progressive consent: start with activity + sleep, then heart/recovery.
-        healthService.setEnabledTiers([1, 2])
         // Request activity + heart + respiratory/temperature so Insights can use SpO2/temp when available.
         let granted = await healthService.requestAuthorization(tiers: [1, 2, 3])
         if granted {

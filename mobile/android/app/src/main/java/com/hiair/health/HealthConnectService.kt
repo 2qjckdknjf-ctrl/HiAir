@@ -27,7 +27,6 @@ import com.hiair.network.AppConfig
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -158,6 +157,7 @@ class HealthConnectService(private val context: Context) {
     ): WearableConnectionState {
         return try {
             if (!isHealthConnectAvailable()) return WearableConnectionState.UNAVAILABLE
+            val granted = grantedPermissions()
             val metrics = JSONArray()
             appendAggregateMetric(metrics, "steps", "count", "steps")
             appendAggregateMetric(metrics, "distance_walking_running", "m", "distance", meters = true)
@@ -165,7 +165,11 @@ class HealthConnectService(private val context: Context) {
             appendAggregateMetric(metrics, "basal_energy", "kcal", "total_energy")
             appendAggregateMetric(metrics, "flights_climbed", "count", "floors")
 
-            val hr = fetchHeartRateSummary()
+            val hr = if (granted.containsAll(tier2Permissions)) {
+                fetchHeartRateSummary()
+            } else {
+                Triple(null, null, null)
+            }
             if (hr.first != null || hr.second != null || hr.third != null) {
                 metrics.put(
                     metricJson(
@@ -177,24 +181,37 @@ class HealthConnectService(private val context: Context) {
                         sampleCount = 1,
                     )
                 )
+            } else if (!granted.containsAll(tier2Permissions)) {
+                metrics.put(emptyMetric("heart_rate", "bpm", "permission_denied"))
             } else {
                 metrics.put(emptyMetric("heart_rate", "bpm"))
             }
 
-            val resting = fetchRestingHeartRate()
+            val resting = if (granted.containsAll(tier2Permissions)) fetchRestingHeartRate() else null
             metrics.put(
-                if (resting != null) {
-                    metricJson("resting_heart_rate", "bpm", avg = resting, latest = resting, sampleCount = 1)
-                } else {
-                    emptyMetric("resting_heart_rate", "bpm")
+                when {
+                    resting != null -> metricJson("resting_heart_rate", "bpm", avg = resting, latest = resting, sampleCount = 1)
+                    !granted.containsAll(tier2Permissions) -> emptyMetric("resting_heart_rate", "bpm", "permission_denied")
+                    else -> emptyMetric("resting_heart_rate", "bpm")
                 }
             )
 
-            appendHrv(metrics)
-            appendRespiratory(metrics)
-            appendOxygen(metrics)
-            appendBodyTemperature(metrics)
-            appendVo2(metrics)
+            if (granted.containsAll(tier2Permissions)) {
+                appendHrv(metrics)
+                appendVo2(metrics)
+            } else {
+                metrics.put(emptyMetric("hrv_rmssd", "ms", "permission_denied"))
+                metrics.put(emptyMetric("vo2_max", "ml_kg_min", "permission_denied"))
+            }
+            if (granted.containsAll(tier3Permissions)) {
+                appendRespiratory(metrics)
+                appendOxygen(metrics)
+                appendBodyTemperature(metrics)
+            } else {
+                metrics.put(emptyMetric("respiratory_rate", "breaths_per_min", "permission_denied"))
+                metrics.put(emptyMetric("oxygen_saturation", "percent", "permission_denied"))
+                metrics.put(emptyMetric("body_temperature", "celsius", "permission_denied"))
+            }
             appendWorkouts(metrics)
             val sleep = buildSleepJson()
 
@@ -206,17 +223,25 @@ class HealthConnectService(private val context: Context) {
                 .put("platform", "android")
                 .put("source", "health_connect")
                 .put("clientSyncVersion", "health-intelligence-v1")
-                .put("idempotencyKey", "android-$localDate-${UUID.randomUUID()}")
+                .put("idempotencyKey", "android-$localDate-${Instant.now().epochSecond / 300}")
                 .put("metrics", metrics)
                 .put("sleep", sleep)
                 .put("cursorMetadata", JSONObject().put("mode", "foreground_daily"))
 
             apiClient.syncHealthData(userId, accessToken, payload.toString())
 
-            // Legacy daily for personalLoad
+            // Legacy daily for personalLoad — reuse steps already aggregated above.
+            var stepsTotal: Long? = null
+            for (i in 0 until metrics.length()) {
+                val row = metrics.optJSONObject(i) ?: continue
+                if (row.optString("metricType") == "steps" && !row.isNull("valueTotal")) {
+                    stepsTotal = row.optDouble("valueTotal").toLong()
+                    break
+                }
+            }
             val legacy = JSONObject()
                 .put("date", localDate)
-                .put("stepsTotal", fetchTodaySteps())
+                .put("stepsTotal", stepsTotal)
                 .put("heartRateAvg", hr.first)
                 .put("heartRateMin", hr.second)
                 .put("heartRateMax", hr.third)

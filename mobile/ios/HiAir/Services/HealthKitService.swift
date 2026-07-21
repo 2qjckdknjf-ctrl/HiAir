@@ -275,158 +275,166 @@ final class HealthKitService: ObservableObject {
         let start = calendar.startOfDay(for: Date())
         let end = Date()
         var snapshots: [HealthMetricSnapshot] = []
+        let tiers = enabledTiers
+        let tier1 = tiers.contains(1)
+        let tier2 = tiers.contains(2)
+        let tier3 = tiers.contains(3)
 
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .stepCount, metric: "steps", unit: HKUnit.count(), unitName: "count", start: start, end: end
-        ))
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .distanceWalkingRunning, metric: "distance_walking_running", unit: HKUnit.meter(), unitName: "m", start: start, end: end
-        ))
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .activeEnergyBurned, metric: "active_energy", unit: HKUnit.kilocalorie(), unitName: "kcal", start: start, end: end
-        ))
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .basalEnergyBurned, metric: "basal_energy", unit: HKUnit.kilocalorie(), unitName: "kcal", start: start, end: end
-        ))
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .appleExerciseTime, metric: "exercise_minutes", unit: HKUnit.minute(), unitName: "min", start: start, end: end
-        ))
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .appleStandTime, metric: "stand_minutes", unit: HKUnit.minute(), unitName: "min", start: start, end: end
-        ))
-        snapshots.append(contentsOf: await collectCumulative(
-            id: .flightsClimbed, metric: "flights_climbed", unit: HKUnit.count(), unitName: "count", start: start, end: end
-        ))
-
-        if let hr = await collectDiscreteStats(
-            id: .heartRate,
-            metric: "heart_rate",
-            unit: HKUnit.count().unitDivided(by: .minute()),
-            unitName: "bpm",
-            start: start,
-            end: end
-        ) { snapshots.append(hr) }
-
-        if let resting = await collectLatest(
-            id: .restingHeartRate,
-            metric: "resting_heart_rate",
-            unit: HKUnit.count().unitDivided(by: .minute()),
-            unitName: "bpm",
-            start: calendar.date(byAdding: .day, value: -1, to: start) ?? start,
-            end: end
-        ) { snapshots.append(resting) }
-
-        if let walking = await collectLatest(
-            id: .walkingHeartRateAverage,
-            metric: "walking_heart_rate_avg",
-            unit: HKUnit.count().unitDivided(by: .minute()),
-            unitName: "bpm",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end
-        ) { snapshots.append(walking) }
-
-        if let hrv = await collectDiscreteStats(
-            id: .heartRateVariabilitySDNN,
-            metric: "hrv_sdnn",
-            unit: HKUnit.secondUnit(with: .milli),
-            unitName: "ms",
-            start: start,
-            end: end,
-            hrvMethod: "sdnn"
-        ) { snapshots.append(hrv) }
-
-        if let rr = await collectDiscreteStats(
-            id: .respiratoryRate,
-            metric: "respiratory_rate",
-            unit: HKUnit.count().unitDivided(by: .minute()),
-            unitName: "breaths_per_min",
-            start: start,
-            end: end
-        ) { snapshots.append(rr) }
-
-        if let spo2 = await collectDiscreteStats(
-            id: .oxygenSaturation,
-            metric: "oxygen_saturation",
-            unit: HKUnit.percent(),
-            unitName: "percent",
-            start: start,
-            end: end,
-            scale: 100
-        ) { snapshots.append(spo2) }
-
-        if let bodyTemp = await collectLatest(
-            id: .bodyTemperature,
-            metric: "body_temperature",
-            unit: HKUnit.degreeCelsius(),
-            unitName: "celsius",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end
-        ) { snapshots.append(bodyTemp) }
-
-        if let wrist = await collectLatest(
-            id: .appleSleepingWristTemperature,
-            metric: "wrist_temperature",
-            unit: HKUnit.degreeCelsius(),
-            unitName: "celsius",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end
-        ) { snapshots.append(wrist) }
-
-        if let vo2 = await collectLatest(
-            id: .vo2Max,
-            metric: "vo2_max",
-            unit: HKUnit(from: "ml/kg*min"),
-            unitName: "ml_kg_min",
-            start: calendar.date(byAdding: .day, value: -90, to: start) ?? start,
-            end: end
-        ) { snapshots.append(vo2) }
-
-        let workout = await collectWorkoutAggregates(start: start, end: end)
-        snapshots.append(contentsOf: workout)
-
-        if let mindfulness = await collectMindfulnessMinutes(start: start, end: end) {
-            snapshots.append(mindfulness)
+        if tier1 {
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .stepCount, metric: "steps", unit: HKUnit.count(), unitName: "count", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .distanceWalkingRunning, metric: "distance_walking_running", unit: HKUnit.meter(), unitName: "m", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .activeEnergyBurned, metric: "active_energy", unit: HKUnit.kilocalorie(), unitName: "kcal", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .basalEnergyBurned, metric: "basal_energy", unit: HKUnit.kilocalorie(), unitName: "kcal", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .appleExerciseTime, metric: "exercise_minutes", unit: HKUnit.minute(), unitName: "min", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .appleStandTime, metric: "stand_minutes", unit: HKUnit.minute(), unitName: "min", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectCumulative(
+                id: .flightsClimbed, metric: "flights_climbed", unit: HKUnit.count(), unitName: "count", start: start, end: end
+            ))
+            snapshots.append(contentsOf: await collectWorkoutAggregates(start: start, end: end))
         }
 
-        if let speed = await collectLatest(
-            id: .walkingSpeed,
-            metric: "walking_speed",
-            unit: HKUnit.meter().unitDivided(by: .second()),
-            unitName: "m_s",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end
-        ) { snapshots.append(speed) }
+        if tier2 {
+            if let hr = await collectDiscreteStats(
+                id: .heartRate,
+                metric: "heart_rate",
+                unit: HKUnit.count().unitDivided(by: .minute()),
+                unitName: "bpm",
+                start: start,
+                end: end
+            ) { snapshots.append(hr) }
 
-        if let stepLength = await collectLatest(
-            id: .walkingStepLength,
-            metric: "walking_step_length",
-            unit: HKUnit.meter(),
-            unitName: "m",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end
-        ) { snapshots.append(stepLength) }
+            if let resting = await collectLatest(
+                id: .restingHeartRate,
+                metric: "resting_heart_rate",
+                unit: HKUnit.count().unitDivided(by: .minute()),
+                unitName: "bpm",
+                start: calendar.date(byAdding: .day, value: -1, to: start) ?? start,
+                end: end
+            ) { snapshots.append(resting) }
 
-        if let asymmetry = await collectLatest(
-            id: .walkingAsymmetryPercentage,
-            metric: "walking_asymmetry",
-            unit: HKUnit.percent(),
-            unitName: "percent",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end,
-            scale: 100
-        ) { snapshots.append(asymmetry) }
+            if let walking = await collectLatest(
+                id: .walkingHeartRateAverage,
+                metric: "walking_heart_rate_avg",
+                unit: HKUnit.count().unitDivided(by: .minute()),
+                unitName: "bpm",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end
+            ) { snapshots.append(walking) }
 
-        if let doubleSupport = await collectLatest(
-            id: .walkingDoubleSupportPercentage,
-            metric: "walking_double_support",
-            unit: HKUnit.percent(),
-            unitName: "percent",
-            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-            end: end,
-            scale: 100
-        ) { snapshots.append(doubleSupport) }
+            if let hrv = await collectDiscreteStats(
+                id: .heartRateVariabilitySDNN,
+                metric: "hrv_sdnn",
+                unit: HKUnit.secondUnit(with: .milli),
+                unitName: "ms",
+                start: start,
+                end: end,
+                hrvMethod: "sdnn"
+            ) { snapshots.append(hrv) }
 
-        let sleep = await collectSleep(for: start)
+            if let vo2 = await collectLatest(
+                id: .vo2Max,
+                metric: "vo2_max",
+                unit: HKUnit(from: "ml/kg*min"),
+                unitName: "ml_kg_min",
+                start: calendar.date(byAdding: .day, value: -90, to: start) ?? start,
+                end: end
+            ) { snapshots.append(vo2) }
+
+            if let mindfulness = await collectMindfulnessMinutes(start: start, end: end) {
+                snapshots.append(mindfulness)
+            }
+
+            if let speed = await collectLatest(
+                id: .walkingSpeed,
+                metric: "walking_speed",
+                unit: HKUnit.meter().unitDivided(by: .second()),
+                unitName: "m_s",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end
+            ) { snapshots.append(speed) }
+
+            if let stepLength = await collectLatest(
+                id: .walkingStepLength,
+                metric: "walking_step_length",
+                unit: HKUnit.meter(),
+                unitName: "m",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end
+            ) { snapshots.append(stepLength) }
+
+            if let asymmetry = await collectLatest(
+                id: .walkingAsymmetryPercentage,
+                metric: "walking_asymmetry",
+                unit: HKUnit.percent(),
+                unitName: "percent",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end,
+                scale: 100
+            ) { snapshots.append(asymmetry) }
+
+            if let doubleSupport = await collectLatest(
+                id: .walkingDoubleSupportPercentage,
+                metric: "walking_double_support",
+                unit: HKUnit.percent(),
+                unitName: "percent",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end,
+                scale: 100
+            ) { snapshots.append(doubleSupport) }
+        }
+
+        if tier3 {
+            if let rr = await collectDiscreteStats(
+                id: .respiratoryRate,
+                metric: "respiratory_rate",
+                unit: HKUnit.count().unitDivided(by: .minute()),
+                unitName: "breaths_per_min",
+                start: start,
+                end: end
+            ) { snapshots.append(rr) }
+
+            if let spo2 = await collectDiscreteStats(
+                id: .oxygenSaturation,
+                metric: "oxygen_saturation",
+                unit: HKUnit.percent(),
+                unitName: "percent",
+                start: start,
+                end: end,
+                scale: 100
+            ) { snapshots.append(spo2) }
+
+            if let bodyTemp = await collectLatest(
+                id: .bodyTemperature,
+                metric: "body_temperature",
+                unit: HKUnit.degreeCelsius(),
+                unitName: "celsius",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end
+            ) { snapshots.append(bodyTemp) }
+
+            if let wrist = await collectLatest(
+                id: .appleSleepingWristTemperature,
+                metric: "wrist_temperature",
+                unit: HKUnit.degreeCelsius(),
+                unitName: "celsius",
+                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+                end: end
+            ) { snapshots.append(wrist) }
+        }
+
+        let sleep = tier1 ? await collectSleep(for: start) : nil
         latestSnapshots = snapshots
         latestSleep = sleep
         return (snapshots, sleep)

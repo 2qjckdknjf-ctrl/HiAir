@@ -150,8 +150,13 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
                             bucket["steps_total"] = value
                         elif metric == "resting_heart_rate" and bucket.get("resting_heart_rate_avg") is None:
                             bucket["resting_heart_rate_avg"] = value
-                        elif metric in {"hrv_sdnn", "hrv_rmssd"}:
+                        elif metric == "hrv_sdnn":
+                            # Prefer SDNN; never mix with RMSSD in the same series.
                             bucket["hrv"] = value
+                            bucket["hrv_method"] = "sdnn"
+                        elif metric == "hrv_rmssd" and bucket.get("hrv_method") != "sdnn":
+                            bucket["hrv"] = value
+                            bucket["hrv_method"] = "rmssd"
                         elif metric == "exercise_minutes":
                             bucket["exercise_minutes"] = value
 

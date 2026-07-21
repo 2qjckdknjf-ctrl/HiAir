@@ -50,10 +50,15 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
         sleep_row = health_sync_repository.get_sleep_for_date(user_id, today)
         if sleep_row and sleep_row.get("total_minutes") is not None:
             sleep_minutes = int(sleep_row["total_minutes"])
-        hrv_ms = _metric_primary(today_metrics, "hrv_sdnn") or _metric_primary(today_metrics, "hrv_rmssd")
-        hrv_baseline_7d = health_sync_repository.metric_baseline(
-            user_id, "hrv_sdnn", 7
-        ) or health_sync_repository.metric_baseline(user_id, "hrv_rmssd", 7)
+        # Never compare SDNN against RMSSD — lock method to today's available series.
+        hrv_metric = None
+        if _metric_primary(today_metrics, "hrv_sdnn") is not None:
+            hrv_metric = "hrv_sdnn"
+        elif _metric_primary(today_metrics, "hrv_rmssd") is not None:
+            hrv_metric = "hrv_rmssd"
+        if hrv_metric is not None:
+            hrv_ms = _metric_primary(today_metrics, hrv_metric)
+            hrv_baseline_7d = health_sync_repository.metric_baseline(user_id, hrv_metric, 7)
         exercise_minutes = _metric_primary(today_metrics, "exercise_minutes") or _metric_primary(
             today_metrics, "workout_duration"
         )
