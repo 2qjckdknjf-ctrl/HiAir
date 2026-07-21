@@ -248,7 +248,7 @@ def delete_health_data(
 @router.get("/insights", response_model=HealthInsightsBundleResponse)
 def get_health_insights(
     profile_id: str = Query(..., alias="profile_id"),
-    window_days: int = Query(default=30, ge=14, le=90),
+    window_days: int = Query(default=30, ge=7, le=90),
     language: str = Query(default="ru"),
     user_id: str = Depends(get_current_user_id),
 ) -> HealthInsightsBundleResponse:

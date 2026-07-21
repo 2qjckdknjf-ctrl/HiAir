@@ -120,6 +120,49 @@ def test_insights_bundle_empty_without_consent(monkeypatch) -> None:
     assert bundle["healthDataStatus"]["consentActive"] is False
 
 
+def test_health_insights_api_accepts_seven_day_window(monkeypatch) -> None:
+    """Mobile Insights chips request window_days=7; API must not reject below 14."""
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    import app.services.entitlement_service as entitlement_service
+    import app.services.health_analytics_service as health_analytics_service
+    import app.services.profile_access as profile_access
+
+    profile_id = str(uuid4())
+    monkeypatch.setattr(
+        "app.api.deps.decode_access_token",
+        lambda _: "user-1",
+    )
+    monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
+    monkeypatch.setattr(entitlement_service, "require_feature", lambda *args, **kwargs: None)
+    monkeypatch.setattr(profile_access, "profile_exists", lambda _: True)
+    monkeypatch.setattr(profile_access, "profile_belongs_to_user", lambda *args, **kwargs: True)
+    monkeypatch.setattr(
+        health_analytics_service,
+        "build_insights_bundle",
+        lambda **kwargs: {
+            "profileId": profile_id,
+            "generatedAt": datetime.now(tz=timezone.utc),
+            "today": {"localDate": "2026-07-21"},
+            "trends": [],
+            "associations": [],
+            "insufficientData": [],
+            "healthDataStatus": {"metricDays": 0, "syncStatus": "pending", "consentActive": True},
+        },
+    )
+    client = TestClient(app)
+    response = client.get(
+        f"/api/v1/health/insights?profile_id={profile_id}&window_days=7&language=en",
+        headers={"Authorization": "Bearer test-token"},
+    )
+    assert response.status_code == 200
+    assert response.json()["profileId"] == profile_id
+
+
 def test_ai_health_context_is_bounded_to_four_observations() -> None:
     from app.api.air import _health_context_for_ai
 
