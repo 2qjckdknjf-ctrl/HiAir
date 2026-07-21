@@ -3,15 +3,18 @@ import SwiftUI
 @MainActor
 final class DashboardViewModel: ObservableObject {
     @Published var loading = false
-    @Published var riskLevel = "-"
-    @Published var explanation = "-"
-    @Published var headline = "-"
+    @Published var hasLoadedOnce = false
+    @Published var riskLevel = ""
+    @Published var explanation = ""
+    @Published var headline = ""
     @Published var actions: [String] = []
-    @Published var nearestSafeWindow = "-"
+    @Published var nearestSafeWindow = ""
     @Published var safeWindowLabels: [String] = []
     @Published var environmental: AirEnvironmentalInput?
     @Published var wearableToday: WearableTodayResponse?
+    @Published var healthSummary: HealthSummaryResponseDTO?
     @Published var wearableConnectionState: WearableConnectionState = .notConnected
+    @Published var loadFailed = false
 
     private let apiClient = APIClient.live()
     private let healthService = HealthKitService.shared
@@ -23,16 +26,21 @@ final class DashboardViewModel: ObservableObject {
         language: String
     ) async {
         loading = true
-        defer { loading = false }
+        loadFailed = false
+        defer {
+            loading = false
+            hasLoadedOnce = true
+        }
         guard let profileId, !profileId.isEmpty else {
             riskLevel = "unknown"
             headline = HiAirL10n.t("dashboard.empty.no_profile.title", lang: language)
             explanation = HiAirL10n.t("dashboard.empty.no_profile.body", lang: language)
             actions = []
-            nearestSafeWindow = "-"
+            nearestSafeWindow = ""
             safeWindowLabels = []
             environmental = nil
             wearableToday = nil
+            healthSummary = nil
             return
         }
         do {
@@ -42,31 +50,68 @@ final class DashboardViewModel: ObservableObject {
                 accessToken: accessToken
             )
             async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            async let summaryTask = apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
             let result = try await riskTask
             wearableToday = try? await wearableTask
+            healthSummary = try? await summaryTask
             wearableConnectionState = healthService.refreshAuthorizationState()
             riskLevel = result.risk.overallRisk
             explanation = result.explanation
             headline = result.recommendation.headline
             actions = result.recommendation.actions
             environmental = result.environmental
-            safeWindowLabels = result.risk.safeWindows.map {
-                "\($0.type): \($0.start) -> \($0.end)"
+            let locale = Locale(identifier: language)
+            safeWindowLabels = result.risk.safeWindows.map { window in
+                Self.formatSafeWindow(type: window.type, start: window.start, end: window.end, language: language, locale: locale)
             }
             if let firstWindow = result.risk.safeWindows.first {
-                nearestSafeWindow = "\(firstWindow.type): \(firstWindow.start) -> \(firstWindow.end)"
+                nearestSafeWindow = Self.formatSafeWindow(
+                    type: firstWindow.type,
+                    start: firstWindow.start,
+                    end: firstWindow.end,
+                    language: language,
+                    locale: locale
+                )
             } else {
                 nearestSafeWindow = HiAirL10n.t("dashboard.no_safe_window", lang: language)
             }
         } catch {
+            loadFailed = true
             riskLevel = "error"
             headline = HiAirL10n.t("dashboard.error", lang: language)
             explanation = HiAirL10n.t("dashboard.empty.api_unavailable", lang: language)
             actions = []
-            nearestSafeWindow = "-"
+            nearestSafeWindow = ""
             safeWindowLabels = []
             environmental = nil
+            healthSummary = nil
         }
+    }
+
+    private static func formatSafeWindow(
+        type: String,
+        start: String,
+        end: String,
+        language: String,
+        locale: Locale
+    ) -> String {
+        let typeKey: String
+        switch type.lowercased() {
+        case "walk", "outdoor", "safe":
+            typeKey = "planner.window.safe"
+        case "ventilation", "ventilate":
+            typeKey = "planner.window.ventilation"
+        case "sport", "exercise", "run":
+            typeKey = "planner.window.safe"
+        default:
+            typeKey = "dashboard.safe_window"
+        }
+        let label = HiAirL10n.t(typeKey, lang: language)
+        let range = HiAirHumanDate.timeRange(fromISO: start, toISO: end, locale: locale, unavailable: "")
+        if range.isEmpty {
+            return label
+        }
+        return "\(label): \(range)"
     }
 }
 
@@ -78,23 +123,24 @@ struct DashboardView: View {
     @State private var activeInfoKey: InfoTerm?
     @State private var showWearableConsent = false
 
-    private var riskScore: Int {
+    private var riskScore: Int? {
+        // Keep in sync with backend RISK_LEVEL_TO_SCORE (air_score.py).
         switch viewModel.riskLevel.lowercased() {
         case "low":
-            return 24
+            return 20
         case "moderate", "medium":
-            return 58
+            return 45
         case "high":
-            return 79
+            return 70
         case "very_high", "very high":
             return 90
         default:
-            return 58
+            return nil
         }
     }
 
     private var riskColor: Color {
-        RiskAccentColor.color(for: viewModel.riskLevel)
+        RiskAccentColor.color(for: viewModel.riskLevel.isEmpty ? "moderate" : viewModel.riskLevel)
     }
 
     private var moodTitle: String {
@@ -112,26 +158,16 @@ struct DashboardView: View {
         }
     }
 
-    private var pm25Estimate: Double {
-        if let pm25 = viewModel.environmental?.pm25 {
-            return pm25
-        }
-        switch viewModel.riskLevel.lowercased() {
-        case "low":
-            return 12
-        case "moderate", "medium":
-            return 32
-        case "high":
-            return 52
-        case "very_high", "very high":
-            return 85
-        default:
-            return 25
-        }
+    private var pm25ForAtmosphere: Double? {
+        viewModel.environmental?.pm25
     }
 
     private var freshnessLabel: String {
-        viewModel.loading ? session.l("dashboard.freshness_stale") : session.l("dashboard.freshness_fresh")
+        viewModel.loading ? session.l("dashboard.freshness_updating") : session.l("dashboard.freshness_fresh")
+    }
+
+    private var showLiveRiskContent: Bool {
+        viewModel.hasLoadedOnce && !viewModel.riskLevel.isEmpty && viewModel.riskLevel != "unknown" && !viewModel.loadFailed
     }
 
     private var safeWindows: [String] {
@@ -190,12 +226,33 @@ struct DashboardView: View {
                     greetingSection
                     checklistSection
                     emptyStateSections
-                    riskHeroSection(width: width)
-                    wearableLoadSection
-                    weatherSection(width: width)
-                    environmentalSection
-                    recommendationsSection
-                    safeWindowsSection
+                    if viewModel.loading && !viewModel.hasLoadedOnce {
+                        HiAirLoadingView(message: session.l("common.loading"))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, HiAirSpacing.xl)
+                    } else if showLiveRiskContent {
+                        riskHeroSection(width: width)
+                        wearableLoadSection
+                        healthMetricsSection
+                        weatherSection(width: width)
+                        environmentalSection
+                        recommendationsSection
+                        safeWindowsSection
+                    } else if viewModel.loadFailed {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(session.l("dashboard.error"))
+                                .font(HiAirTypography.titleMD)
+                                .foregroundStyle(HiAirV2Theme.primaryText)
+                            Text(session.l("dashboard.empty.api_unavailable"))
+                                .font(HiAirTypography.bodyMD)
+                                .foregroundStyle(HiAirV2Theme.secondaryText)
+                            Button(session.l("common.retry")) {
+                                Task { await reloadDashboard() }
+                            }
+                            .buttonStyle(HiAirGradientButtonStyle())
+                        }
+                        .v2Card()
+                    }
                     actionButtons
                 }
                 .hiAirContentWidth(for: width)
@@ -204,10 +261,12 @@ struct DashboardView: View {
             }
         }
         .hiAirPageBackground()
-        .overlay(
-            AtmosphericParticles(pm25: pm25Estimate, tint: riskColor)
-                .allowsHitTesting(false)
-        )
+        .overlay {
+            if let pm25 = pm25ForAtmosphere {
+                AtmosphericParticles(pm25: pm25, tint: riskColor)
+                    .allowsHitTesting(false)
+            }
+        }
         .task {
             ProductAnalytics.track("dashboard_opened")
             if !session.hasValidLocation {
@@ -237,6 +296,16 @@ struct DashboardView: View {
                 }
             }
             .environmentObject(session)
+        }
+    }
+
+    @ViewBuilder
+    private var healthMetricsSection: some View {
+        if viewModel.wearableConnectionState == .connected {
+            HealthTodayMetricsView(
+                summary: viewModel.healthSummary,
+                personalLoad: viewModel.wearableToday?.personalLoad
+            )
         }
     }
 
@@ -305,11 +374,13 @@ struct DashboardView: View {
             compact: true
         )
 
-        Text(session.l("dashboard.greeting_neutral"))
+        let greeting = viewModel.headline.trimmingCharacters(in: .whitespacesAndNewlines)
+        Text(greeting.isEmpty || greeting == "-" ? session.l("dashboard.greeting_neutral") : greeting)
             .font(HiAirTypography.displayLG)
             .foregroundStyle(HiAirV2Theme.primaryText)
 
-        Text(session.l("dashboard.improving_neutral"))
+        let supporting = viewModel.explanation.trimmingCharacters(in: .whitespacesAndNewlines)
+        Text(supporting.isEmpty || supporting == "-" ? session.l("dashboard.improving_neutral") : supporting)
             .font(HiAirTypography.bodyMD)
             .foregroundStyle(HiAirV2Theme.secondaryText)
     }
@@ -408,15 +479,17 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func riskHeroSection(width: CGFloat) -> some View {
-        HiAirCard {
-            HiAirRiskGaugeView(
-                score: riskScore,
-                sectionLabel: session.l("dashboard.current_risk_title"),
-                statusLabel: moodTitle,
-                riskLevel: viewModel.riskLevel == "-" ? "moderate" : viewModel.riskLevel,
-                reason: riskReason,
-                diameter: min(width * 0.52, 220)
-            )
+        if let score = riskScore {
+            HiAirCard {
+                HiAirRiskGaugeView(
+                    score: score,
+                    sectionLabel: session.l("dashboard.current_risk_title"),
+                    statusLabel: moodTitle,
+                    riskLevel: viewModel.riskLevel,
+                    reason: riskReason,
+                    diameter: min(width * 0.52, 220)
+                )
+            }
         }
     }
 
@@ -460,7 +533,7 @@ struct DashboardView: View {
                 metricRow("dashboard.metric.pm25", value: String(format: "%.1f", env.pm25), tooltip: "dashboard.tooltip.pm25")
                 metricRow("dashboard.metric.ozone", value: String(format: "%.1f", env.ozone), tooltip: "dashboard.tooltip.ozone")
                 metricRow("dashboard.metric.heat_index", value: String(format: "%.1f°C", env.feelsLike), tooltip: "dashboard.tooltip.heat_index")
-                metricRow("dashboard.metric.humidity", value: String(format: "%.0f%%", env.humidity), tooltip: "dashboard.tooltip.heat_index")
+                metricRow("dashboard.metric.humidity", value: String(format: "%.0f%%", env.humidity), tooltip: "dashboard.tooltip.humidity")
             }
             .v2Card()
             .onAppear {
@@ -595,7 +668,8 @@ struct DashboardView: View {
         case "cached":
             return "dashboard.source_cached"
         default:
-            return "dashboard.source_sample"
+            // Never label production UI as "sample/demo" for end users.
+            return "dashboard.source_estimated"
         }
     }
 

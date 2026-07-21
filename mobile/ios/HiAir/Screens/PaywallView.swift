@@ -112,9 +112,14 @@ struct PaywallView: View {
             Text(session.l("paywall.products_empty"))
                 .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(session.l("paywall.catalog_help"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+            #if DEBUG
             Text(session.l("paywall.asc_hint"))
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
+            #endif
             Button(session.l("paywall.retry")) {
                 SubscriptionDiagnostics.log("products_retry_tapped")
                 subscriptionService.loadProducts()
@@ -129,9 +134,14 @@ struct PaywallView: View {
             Text(subscriptionService.lastError ?? session.l("paywall.products_unavailable"))
                 .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(session.l("paywall.catalog_help"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+            #if DEBUG
             Text(session.l("paywall.asc_hint"))
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
+            #endif
             Button(session.l("paywall.retry")) {
                 SubscriptionDiagnostics.log("products_retry_tapped")
                 subscriptionService.loadProducts()
@@ -244,9 +254,9 @@ struct PaywallView: View {
         } catch SubscriptionServiceError.purchaseInProgress {
             statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
-            statusMessage = subscriptionService.userFacingMessage(for: error)
+            statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = session.l("paywall.generic_error")
         }
     }
 
@@ -275,9 +285,9 @@ struct PaywallView: View {
         } catch SubscriptionServiceError.purchaseInProgress {
             statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
-            statusMessage = subscriptionService.userFacingMessage(for: error)
+            statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = session.l("paywall.generic_error")
         }
     }
 }

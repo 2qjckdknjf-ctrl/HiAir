@@ -2,7 +2,6 @@ package com.hiair.ui.render
 
 import android.graphics.Typeface
 import android.view.Gravity
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -21,7 +20,32 @@ import java.util.TimeZone
 
 internal object InsightsScreenRenderer {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
-    private const val TARGET_DAYS = 10
+    private const val TARGET_DAYS = 7
+
+    private data class InsightCardData(
+        val title: String,
+        val observation: String,
+        val recommendation: String,
+        val confidence: String,
+        val sampleSize: Int,
+    )
+
+    private data class InsufficientCardData(
+        val message: String,
+        val have: Int,
+        val need: Int,
+    )
+
+    private data class InsightsViewData(
+        val trends: List<InsightCardData>,
+        val associations: List<InsightCardData>,
+        val insufficient: List<InsufficientCardData>,
+        val premiumPatterns: List<Pair<String, Int>>,
+        val todaySummary: String,
+        val generatedAt: String,
+        val loggedDays: Int,
+        val premiumLocked: Boolean = false,
+    )
 
     fun render(ctx: RenderContext) {
         val activity = ctx.activity
@@ -41,13 +65,7 @@ internal object InsightsScreenRenderer {
         bodyContainer.addView(contentHost)
         contentHost.addView(HiAirComponents.loadingState(activity, ctx.l("insights.loading")))
 
-        fun paint(
-            loggedDays: Int,
-            insights: List<String>,
-            sampleLines: List<String>,
-            generatedAt: String,
-            error: String?,
-        ) {
+        fun paint(data: InsightsViewData?, error: String?) {
             contentHost.removeAllViews()
             if (error != null) {
                 contentHost.addView(
@@ -61,11 +79,35 @@ internal object InsightsScreenRenderer {
                 )
                 return
             }
+            val viewData = data ?: InsightsViewData(
+                trends = emptyList(),
+                associations = emptyList(),
+                insufficient = emptyList(),
+                premiumPatterns = emptyList(),
+                todaySummary = ctx.l("insights.today.empty"),
+                generatedAt = ctx.l("common.unavailable"),
+                loggedDays = 0,
+                premiumLocked = false,
+            )
+            if (viewData.premiumLocked) {
+                contentHost.addView(buildPremiumLockedCard(ctx))
+                return
+            }
+            val hasInsights = viewData.trends.isNotEmpty() ||
+                viewData.associations.isNotEmpty() ||
+                viewData.premiumPatterns.isNotEmpty()
 
-            contentHost.addView(buildProgressCard(ctx, loggedDays, generatedAt, insights.isNotEmpty()))
+            contentHost.addView(buildProgressCard(ctx, viewData.loggedDays, viewData.generatedAt, hasInsights))
             contentHost.addView(buildChecklistCard(ctx))
+            contentHost.addView(buildTodayCard(ctx, viewData.todaySummary, viewData.generatedAt))
+            contentHost.addView(buildTrendsSection(ctx, viewData.trends))
+            contentHost.addView(buildAssociationsSection(ctx, viewData.associations))
+            contentHost.addView(buildInsufficientSection(ctx, viewData.insufficient))
+            if (viewData.premiumPatterns.isNotEmpty()) {
+                contentHost.addView(buildPremiumPatternsSection(ctx, viewData.premiumPatterns))
+            }
 
-            if (insights.isEmpty()) {
+            if (!hasInsights && viewData.insufficient.isEmpty()) {
                 contentHost.addView(
                     HiAirComponents.emptyState(
                         activity,
@@ -78,17 +120,6 @@ internal object InsightsScreenRenderer {
                         },
                     ),
                 )
-            } else {
-                insights.forEachIndexed { index, text ->
-                    val card = HiAirComponents.cardContainer(activity)
-                    card.addView(V2Ui.styledBodyText(activity, text))
-                    sampleLines.getOrNull(index)?.let { sample ->
-                        card.addView(
-                            V2Ui.styledSecondaryText(activity, sample).apply { textSize = 12f },
-                        )
-                    }
-                    contentHost.addView(card)
-                }
             }
         }
 
@@ -104,10 +135,11 @@ internal object InsightsScreenRenderer {
     private fun load(
         ctx: RenderContext,
         contentHost: LinearLayout,
-        paint: (Int, List<String>, List<String>, String, String?) -> Unit,
+        paint: (InsightsViewData?, String?) -> Unit,
     ) {
         val activity = ctx.activity
         val rootShell = ctx.rootShell
+        val unavailable = ctx.l("common.unavailable")
         contentHost.removeAllViews()
         contentHost.addView(HiAirComponents.loadingState(activity, ctx.l("insights.loading")))
         Thread {
@@ -116,15 +148,19 @@ internal object InsightsScreenRenderer {
                 ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
             if (profileId.isBlank()) {
                 activity.runOnUiThread {
-                    paint(0, emptyList(), emptyList(), "—", ctx.l("planner.profile_required"))
+                    paint(null, ctx.l("planner.profile_required"))
                 }
                 return@Thread
             }
             try {
-                val insights = mutableListOf<String>()
-                val samples = mutableListOf<String>()
-                var generatedAt = "—"
+                val trends = mutableListOf<InsightCardData>()
+                val associations = mutableListOf<InsightCardData>()
+                val insufficient = mutableListOf<InsufficientCardData>()
+                val premiumPatterns = mutableListOf<Pair<String, Int>>()
+                var generatedAt = unavailable
+                var todaySummary = ctx.l("insights.today.empty")
                 var loggedDays = 0
+                var premiumLocked = false
 
                 try {
                     val bundleRaw = apiClient.fetchHealthInsights(
@@ -138,53 +174,50 @@ internal object InsightsScreenRenderer {
                         bundle.optString("generatedAt"),
                         Locale.getDefault(),
                         HiAirHumanDate.Style.DATE_TIME,
+                        unavailable = unavailable,
                     )
-                    fun appendCards(key: String) {
+                    todaySummary = formatToday(ctx, bundle.optJSONObject("today"))
+                    fun parseCards(key: String, target: MutableList<InsightCardData>) {
                         val arr = bundle.optJSONArray(key) ?: return
                         for (i in 0 until arr.length()) {
                             val row = arr.getJSONObject(i)
-                            val title = row.optString("title")
-                            val observation = row.optString("observation")
-                            val recommendation = row.optString("recommendation")
-                            val confidence = row.optString("confidence")
-                            val text = buildString {
-                                append(title)
-                                if (observation.isNotBlank()) append("\n").append(observation)
-                                if (recommendation.isNotBlank()) append("\n").append(recommendation)
-                            }
-                            insights.add(text)
-                            samples.add(
-                                ctx.l("insights.sample_size")
-                                    .replace("%d", row.optInt("sampleSize", 0).toString()) +
-                                    if (confidence.isNotBlank()) " · $confidence" else "",
+                            target.add(
+                                InsightCardData(
+                                    title = row.optString("title"),
+                                    observation = row.optString("observation"),
+                                    recommendation = row.optString("recommendation"),
+                                    confidence = row.optString("confidence"),
+                                    sampleSize = row.optInt("sampleSize", 0),
+                                ),
                             )
                         }
                     }
-                    appendCards("trends")
-                    appendCards("associations")
-                    val insufficient = bundle.optJSONArray("insufficientData")
-                    if (insufficient != null) {
-                        for (i in 0 until insufficient.length()) {
-                            val row = insufficient.getJSONObject(i)
-                            insights.add(row.optString("message"))
-                            samples.add("${row.optInt("have", 0)}/${row.optInt("need", 0)}")
-                            loggedDays = maxOf(loggedDays, row.optInt("have", 0))
+                    parseCards("trends", trends)
+                    parseCards("associations", associations)
+                    val insufficientArr = bundle.optJSONArray("insufficientData")
+                    if (insufficientArr != null) {
+                        for (i in 0 until insufficientArr.length()) {
+                            val row = insufficientArr.getJSONObject(i)
+                            val have = row.optInt("have", 0)
+                            insufficient.add(
+                                InsufficientCardData(
+                                    message = row.optString("message"),
+                                    have = have,
+                                    need = row.optInt("need", 0),
+                                ),
+                            )
+                            loggedDays = maxOf(loggedDays, have)
                         }
                     }
                 } catch (error: ApiHttpException) {
                     if (error.statusCode == 402) {
-                        activity.runOnUiThread {
-                            rootShell.settingsViewModel.requestShowPaywall()
-                            ctx.rerender()
-                        }
-                        return@Thread
+                        premiumLocked = true
                     }
-                    // Non-premium path falls through to legacy personal patterns when available.
                 } catch (_: Exception) {
                     // Fall through to premium personal patterns.
                 }
 
-                if (insights.isEmpty()) {
+                if (!premiumLocked && trends.isEmpty() && associations.isEmpty() && insufficient.isEmpty()) {
                     try {
                         val patternsRaw = apiClient.fetchPersonalPatterns(
                             userId = settings.userId,
@@ -197,10 +230,8 @@ internal object InsightsScreenRenderer {
                         if (items != null) {
                             for (i in 0 until items.length()) {
                                 val row = items.getJSONObject(i)
-                                insights.add(row.optString("humanReadableText"))
-                                samples.add(
-                                    ctx.l("insights.sample_size")
-                                        .replace("%d", row.optInt("sampleSize", 0).toString()),
+                                premiumPatterns.add(
+                                    row.optString("humanReadableText") to row.optInt("sampleSize", 0),
                                 )
                             }
                         }
@@ -208,17 +239,34 @@ internal object InsightsScreenRenderer {
                             patterns.optString("generatedAt"),
                             Locale.getDefault(),
                             HiAirHumanDate.Style.DATE_TIME,
+                            unavailable = unavailable,
                         )
                     } catch (error: ApiHttpException) {
                         if (error.statusCode == 402) {
-                            activity.runOnUiThread {
-                                rootShell.settingsViewModel.requestShowPaywall()
-                                ctx.rerender()
-                            }
-                            return@Thread
+                            premiumLocked = true
+                        } else {
+                            throw error
                         }
-                        throw error
                     }
+                }
+
+                if (premiumLocked) {
+                    activity.runOnUiThread {
+                        paint(
+                            InsightsViewData(
+                                trends = emptyList(),
+                                associations = emptyList(),
+                                insufficient = emptyList(),
+                                premiumPatterns = emptyList(),
+                                todaySummary = todaySummary,
+                                generatedAt = generatedAt,
+                                loggedDays = loggedDays,
+                                premiumLocked = true,
+                            ),
+                            null,
+                        )
+                    }
+                    return@Thread
                 }
 
                 if (loggedDays == 0) {
@@ -234,14 +282,204 @@ internal object InsightsScreenRenderer {
                     }
                 }
                 activity.runOnUiThread {
-                    paint(loggedDays, insights, samples, generatedAt, null)
+                    paint(
+                        InsightsViewData(
+                            trends = trends,
+                            associations = associations,
+                            insufficient = insufficient,
+                            premiumPatterns = premiumPatterns,
+                            todaySummary = todaySummary,
+                            generatedAt = generatedAt,
+                            loggedDays = loggedDays,
+                        ),
+                        null,
+                    )
                 }
             } catch (_: Exception) {
                 activity.runOnUiThread {
-                    paint(0, emptyList(), emptyList(), "—", ctx.l("insights.failed"))
+                    paint(null, ctx.l("insights.failed"))
                 }
             }
         }.start()
+    }
+
+    private fun formatToday(ctx: RenderContext, today: JSONObject?): String {
+        if (today == null) return ctx.l("insights.today.empty")
+        val parts = mutableListOf<String>()
+        if (today.has("steps")) {
+            parts.add(ctx.l("insights.today.steps").replace("%d", today.optInt("steps", 0).toString()))
+        }
+        if (today.has("sleepMinutes")) {
+            parts.add(ctx.l("insights.today.sleep").replace("%d", today.optInt("sleepMinutes", 0).toString()))
+        }
+        if (today.has("restingHeartRate")) {
+            parts.add(ctx.l("insights.today.rhr").replace("%d", today.optInt("restingHeartRate", 0).toString()))
+        }
+        if (today.has("hrv")) {
+            parts.add(ctx.l("insights.today.hrv").replace("%d", today.optInt("hrv", 0).toString()))
+        }
+        val spo2 = when {
+            today.has("oxygenSaturation") -> today.optInt("oxygenSaturation", 0)
+            today.has("spo2") -> today.optInt("spo2", 0)
+            else -> null
+        }
+        if (spo2 != null) {
+            parts.add(ctx.l("insights.today.spo2").replace("%d", spo2.toString()))
+        }
+        if (today.has("respiratoryRate")) {
+            parts.add(ctx.l("insights.today.resp").replace("%d", today.optInt("respiratoryRate", 0).toString()))
+        }
+        if (today.has("distanceMeters")) {
+            val km = today.optInt("distanceMeters", 0) / 1000.0
+            parts.add(String.format(Locale.US, ctx.l("insights.today.distance"), km))
+        }
+        if (today.has("activeEnergyKcal")) {
+            parts.add(ctx.l("insights.today.energy").replace("%d", today.optInt("activeEnergyKcal", 0).toString()))
+        }
+        if (today.has("vo2Max")) {
+            parts.add(ctx.l("insights.today.vo2").replace("%d", today.optInt("vo2Max", 0).toString()))
+        }
+        if (today.has("workoutCount") && today.optInt("workoutCount", 0) > 0) {
+            parts.add(ctx.l("insights.today.workouts").replace("%d", today.optInt("workoutCount", 0).toString()))
+        }
+        return parts.joinToString(" · ").ifBlank { ctx.l("insights.today.empty") }
+    }
+
+    private fun buildPremiumLockedCard(ctx: RenderContext): LinearLayout {
+        val activity = ctx.activity
+        return HiAirComponents.cardContainer(activity).apply {
+            addView(HiAirComponents.sectionTitle(activity, ctx.l("insights.premium_locked.title")))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("insights.premium_locked.body")))
+            addView(V2Ui.spacer(activity, 8))
+            addView(
+                HiAirComponents.primaryButton(activity, ctx.l("insights.premium_locked.cta")).apply {
+                    setOnClickListener {
+                        ctx.rootShell.settingsViewModel.requestShowPaywall()
+                        ctx.rerender()
+                    }
+                },
+            )
+        }
+    }
+
+    private fun confidenceLabel(ctx: RenderContext, value: String): String {
+        return when (value.lowercase(Locale.ROOT)) {
+            "preliminary" -> ctx.l("insights.confidence.preliminary")
+            "moderate" -> ctx.l("insights.confidence.moderate")
+            "stronger", "high" -> ctx.l("insights.confidence.high")
+            "insufficient" -> ctx.l("insights.confidence.insufficient")
+            else -> if (value.isBlank()) "" else value
+        }
+    }
+
+    private fun buildInsightCard(ctx: RenderContext, card: InsightCardData): LinearLayout {
+        val activity = ctx.activity
+        val container = HiAirComponents.cardContainer(activity)
+        if (card.title.isNotBlank()) {
+            container.addView(
+                V2Ui.styledBodyText(activity, card.title).apply {
+                    textSize = 16f
+                    setTypeface(typeface, Typeface.BOLD)
+                },
+            )
+        }
+        if (card.observation.isNotBlank()) {
+            container.addView(V2Ui.styledSecondaryText(activity, card.observation))
+        }
+        if (card.recommendation.isNotBlank()) {
+            container.addView(V2Ui.styledBodyText(activity, card.recommendation))
+        }
+        val meta = buildString {
+            if (card.sampleSize > 0) {
+                append(ctx.l("insights.sample_size").replace("%d", card.sampleSize.toString()))
+            }
+            val confidence = confidenceLabel(ctx, card.confidence)
+            if (confidence.isNotBlank()) {
+                if (isNotEmpty()) append(" · ")
+                append(confidence)
+            }
+        }
+        if (meta.isNotBlank()) {
+            container.addView(V2Ui.styledSecondaryText(activity, meta).apply { textSize = 12f })
+        }
+        return container
+    }
+
+    private fun buildTodayCard(ctx: RenderContext, todaySummary: String, generatedAt: String): LinearLayout {
+        val activity = ctx.activity
+        val unavailable = ctx.l("common.unavailable")
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.today")))
+        val card = HiAirComponents.cardContainer(activity)
+        card.addView(V2Ui.styledSecondaryText(activity, todaySummary))
+        if (generatedAt != unavailable) {
+            card.addView(V2Ui.styledSecondaryText(activity, generatedAt).apply { textSize = 12f })
+        }
+        section.addView(card)
+        return section
+    }
+
+    private fun buildTrendsSection(ctx: RenderContext, trends: List<InsightCardData>): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.trends")))
+        if (trends.isEmpty()) {
+            section.addView(V2Ui.styledSecondaryText(activity, ctx.l("insights.section.trends.empty")))
+        } else {
+            trends.forEach { section.addView(buildInsightCard(ctx, it)) }
+        }
+        return section
+    }
+
+    private fun buildAssociationsSection(ctx: RenderContext, associations: List<InsightCardData>): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.associations")))
+        if (associations.isEmpty()) {
+            section.addView(V2Ui.styledSecondaryText(activity, ctx.l("insights.section.associations.empty")))
+        } else {
+            associations.forEach { section.addView(buildInsightCard(ctx, it)) }
+        }
+        return section
+    }
+
+    private fun buildInsufficientSection(ctx: RenderContext, insufficient: List<InsufficientCardData>): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        if (insufficient.isEmpty()) return section
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.insufficient")))
+        insufficient.forEach { item ->
+            val card = HiAirComponents.cardContainer(activity)
+            card.addView(V2Ui.styledSecondaryText(activity, item.message))
+            if (item.need > 0) {
+                card.addView(
+                    V2Ui.styledSecondaryText(activity, ctx.l("insights.progress_days")
+                        .replaceFirst("%d", item.have.toString())
+                        .replaceFirst("%d", item.need.toString()),
+                    ).apply { textSize = 12f },
+                )
+            }
+            section.addView(card)
+        }
+        return section
+    }
+
+    private fun buildPremiumPatternsSection(ctx: RenderContext, patterns: List<Pair<String, Int>>): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.premium_patterns")))
+        patterns.forEach { (text, sampleSize) ->
+            val card = HiAirComponents.cardContainer(activity)
+            card.addView(V2Ui.styledBodyText(activity, text))
+            if (sampleSize > 0) {
+                card.addView(
+                    V2Ui.styledSecondaryText(activity, ctx.l("insights.sample_size")
+                        .replace("%d", sampleSize.toString())).apply { textSize = 12f },
+                )
+            }
+            section.addView(card)
+        }
+        return section
     }
 
     private fun buildProgressCard(
@@ -251,6 +489,7 @@ internal object InsightsScreenRenderer {
         hasInsights: Boolean,
     ): LinearLayout {
         val activity = ctx.activity
+        val unavailable = ctx.l("common.unavailable")
         val card = HiAirComponents.cardContainer(activity)
         card.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.progress_title")))
         val row = LinearLayout(activity).apply {
@@ -284,7 +523,7 @@ internal object InsightsScreenRenderer {
                     .replaceFirst("%d", TARGET_DAYS.toString()),
             ),
         )
-        if (generatedAt != "—") {
+        if (generatedAt != unavailable) {
             card.addView(V2Ui.styledSecondaryText(activity, generatedAt).apply { textSize = 12f })
         }
         if (!hasInsights) {

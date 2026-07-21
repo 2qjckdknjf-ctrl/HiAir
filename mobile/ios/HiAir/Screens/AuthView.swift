@@ -277,7 +277,7 @@ struct AuthView: View {
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(viewModel.loading)
 
-                        Button("Sign in with Apple") {
+                        Button(session.l("auth.sign_in_apple")) {
                             Task { @MainActor in
                                 await viewModel.signInWithApple(session: session)
                             }
@@ -285,7 +285,7 @@ struct AuthView: View {
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(viewModel.loading)
 
-                        Button("Sign in with Google") {
+                        Button(session.l("auth.sign_in_google")) {
                             Task { @MainActor in
                                 await viewModel.signInWithGoogle(session: session)
                             }

@@ -601,7 +601,7 @@ class SettingsViewModel(
             val active = json.optJSONObject("consent")?.optBoolean("isActive") == true
             state = state.copy(
                 wearableStatus = if (active) {
-                    l("settings.wearables.title") + ": connected"
+                    l("settings.wearables.connected")
                 } else {
                     l("wearable.dashboard.not_connected")
                 }

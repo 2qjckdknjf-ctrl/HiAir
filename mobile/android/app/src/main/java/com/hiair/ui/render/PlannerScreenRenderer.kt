@@ -66,7 +66,8 @@ internal object PlannerScreenRenderer {
                     rootShell.plannerViewModel.refresh(
                         userId = settings.userId,
                         accessToken = settings.accessToken.ifBlank { null },
-                        profileId = profileId
+                        profileId = profileId,
+                        preferredLanguage = settings.preferredLanguage,
                     )
                     val state = rootShell.plannerViewModel.state
                     activity.runOnUiThread {
@@ -77,7 +78,7 @@ internal object PlannerScreenRenderer {
                             return@runOnUiThread
                         }
                         renderHeatStrip(activity, heatStrip, state.hourly)
-                        keyEvents.text = buildKeyEvents(ctx, state.safeWindows, state.hourly)
+                        keyEvents.text = buildKeyEvents(ctx, state)
                     }
                 }.start()
             }
@@ -113,21 +114,17 @@ internal object PlannerScreenRenderer {
         }
     }
 
-    private fun buildKeyEvents(ctx: RenderContext, safeWindows: List<String>, hourly: List<String>): String {
-        val peak = hourly.maxByOrNull { riskWeight(it.substringAfter(":", "low")) } ?: "-"
-        val firstSafe = safeWindows.firstOrNull() ?: "-"
-        return "• Peak: $peak\n• ${ctx.l("dashboard.safe_windows")}: $firstSafe"
+    private fun buildKeyEvents(ctx: RenderContext, state: com.hiair.ui.planner.PlannerState): String {
+        val lines = mutableListOf<String>()
+        if (state.peakLine.isNotBlank()) {
+            lines.add("• ${state.peakLine}")
+        }
+        val firstSafe = state.safeWindows.firstOrNull()
+        if (firstSafe != null) {
+            lines.add("• ${ctx.l("dashboard.safe_windows")}: $firstSafe")
+        }
+        return lines.joinToString("\n").ifBlank { "• ${ctx.l("planner.fetch")}" }
     }
 
     private fun colorHex(risk: String): String = HiAirComponents.riskAccentHex(risk)
-
-    private fun riskWeight(risk: String): Int {
-        return when (risk.lowercase()) {
-            "low" -> 1
-            "moderate", "medium" -> 2
-            "high" -> 3
-            "very_high", "very high" -> 4
-            else -> 0
-        }
-    }
 }

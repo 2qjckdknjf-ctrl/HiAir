@@ -191,7 +191,7 @@ final class SubscriptionService: ObservableObject {
 
         if catalogState == .loading {
             catalogState = .failed
-            lastError = lastError ?? "Не удалось загрузить планы подписки из App Store."
+            lastError = lastError ?? HiAirL10n.t("paywall.products_unavailable", lang: Self.uiLanguage)
             SubscriptionDiagnostics.log("paywall_state_updated", resultType: "failed")
         }
     }
@@ -213,19 +213,24 @@ final class SubscriptionService: ObservableObject {
         return message.contains("request canceled") || message.contains("request cancelled")
     }
 
+    private static var uiLanguage: String {
+        UserDefaults.standard.string(forKey: "session.preferredLanguage") ?? "ru"
+    }
+
     private static func userFacingCatalogError(_ error: Error) -> String {
+        let lang = uiLanguage
         if isRequestCanceled(error) {
-            return "Не удалось загрузить планы подписки из App Store. Повторите попытку."
+            return HiAirL10n.t("paywall.products_unavailable", lang: lang)
         }
         let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         if message.isEmpty {
-            return "Не удалось загрузить планы подписки из App Store."
+            return HiAirL10n.t("paywall.products_unavailable", lang: lang)
         }
         // Never surface raw "Request Canceled" as the primary empty-state copy.
         if message.lowercased().contains("request canceled") || message.lowercased().contains("request cancelled") {
-            return "Не удалось загрузить планы подписки из App Store. Повторите попытку."
+            return HiAirL10n.t("paywall.products_unavailable", lang: lang)
         }
-        return message
+        return HiAirL10n.t("paywall.products_unavailable", lang: lang)
     }
 
     func purchase(_ product: Product, userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
@@ -532,14 +537,13 @@ final class SubscriptionService: ObservableObject {
             .replacingOccurrences(of: "=", with: "")
     }
 
-    func userFacingMessage(for error: APIError) -> String {
+    func userFacingMessage(for error: APIError, language: String? = nil) -> String {
+        let lang = language ?? Self.uiLanguage
         switch error {
-        case .serverWithDetail(_, let detail):
-            return detail
-        case .server(let code):
-            return "Server error (\(code))"
+        case .serverWithDetail, .server:
+            return HiAirL10n.t("paywall.server_error", lang: lang)
         case .invalidURL, .invalidResponse:
-            return "Network error"
+            return HiAirL10n.t("paywall.network_error", lang: lang)
         }
     }
 }
@@ -552,17 +556,18 @@ enum SubscriptionServiceError: LocalizedError {
     case verificationFailed
 
     var errorDescription: String? {
+        let lang = UserDefaults.standard.string(forKey: "session.preferredLanguage") ?? "ru"
         switch self {
         case .cancelled:
-            return "Purchase cancelled"
+            return HiAirL10n.t("paywall.purchase_cancelled", lang: lang)
         case .pending:
-            return "Purchase pending approval"
+            return HiAirL10n.t("paywall.purchase_pending", lang: lang)
         case .unknown:
-            return "Unknown purchase result"
+            return HiAirL10n.t("paywall.generic_error", lang: lang)
         case .purchaseInProgress:
-            return "Purchase already in progress"
+            return HiAirL10n.t("paywall.purchase_in_progress", lang: lang)
         case .verificationFailed:
-            return "Purchase verification failed"
+            return HiAirL10n.t("paywall.verification_failed", lang: lang)
         }
     }
 }

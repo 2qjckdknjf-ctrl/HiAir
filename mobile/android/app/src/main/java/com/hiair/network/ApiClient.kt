@@ -515,6 +515,11 @@ class ApiClient(private val baseUrl: String) {
         return request("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchHealthSummary(userId: String, accessToken: String?): String {
+        val endpoint = "$baseUrl/api/v1/health/summary"
+        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchSymptomTaxonomy(language: String = "ru"): String {
         val endpoint = "$baseUrl/api/v1/health/symptoms/taxonomy?language=$language"
         return request("GET", endpoint, null, emptyMap())

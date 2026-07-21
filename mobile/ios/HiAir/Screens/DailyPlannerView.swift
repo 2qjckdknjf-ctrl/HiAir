@@ -6,7 +6,8 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var hourlyItems: [AirHourlyRiskPoint] = []
     @Published var safeWindows: [AirSafeWindow] = []
     @Published var ventilationWindows: [AirSafeWindow] = []
-    @Published var statusText = "-"
+    @Published var statusText = ""
+    @Published var premiumLocked = false
 
     private let apiClient = APIClient.live()
 
@@ -19,6 +20,7 @@ final class DailyPlannerViewModel: ObservableObject {
     ) async {
         loading = true
         defer { loading = false }
+        premiumLocked = false
         do {
             let planner = try await apiClient.fetchAirDayPlan(
                 profileId: profileId,
@@ -28,14 +30,18 @@ final class DailyPlannerViewModel: ObservableObject {
             hourlyItems = planner.hourlyRisk
             safeWindows = planner.safeWindows
             ventilationWindows = planner.ventilationWindows
-            statusText = language == "en"
-                ? "Loaded \(planner.hourlyRisk.count) hourly slots."
-                : "Загружено \(planner.hourlyRisk.count) почасовых слотов."
+            statusText = String(
+                format: HiAirL10n.t("planner.loaded", lang: language),
+                planner.hourlyRisk.count
+            )
         } catch let error as APIError {
             if case .server(let code) = error, code == 402 {
+                premiumLocked = true
                 onPremiumRequired?()
+                statusText = HiAirL10n.t("planner.premium_required", lang: language)
+            } else {
+                statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             }
-            statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             hourlyItems = []
             safeWindows = []
             ventilationWindows = []
@@ -64,9 +70,27 @@ struct DailyPlannerView: View {
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
 
-                Text(viewModel.statusText)
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                if !viewModel.statusText.isEmpty && !viewModel.premiumLocked {
+                    Text(viewModel.statusText)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
+
+                if viewModel.premiumLocked {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(session.l("planner.premium_locked.title"))
+                            .font(AuroraTokens.Typography.titleMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        Text(session.l("planner.premium_required"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                        Button(session.l("insights.premium_locked.cta")) {
+                            session.showPaywall = true
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                    }
+                    .v2Card()
+                }
 
                 if session.profileId.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -126,12 +150,12 @@ struct DailyPlannerView: View {
                                 .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                             if let firstWindow = viewModel.safeWindows.first {
-                                Text("• \(session.l("planner.safe_windows")): \(firstWindow.start) → \(firstWindow.end)")
+                                Text("• \(session.l("planner.safe_windows")): \(humanWindowRange(firstWindow.start, firstWindow.end))")
                                     .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }
                             if let firstVent = viewModel.ventilationWindows.first {
-                                Text("• \(session.l("planner.ventilation_windows")): \(firstVent.start) → \(firstVent.end)")
+                                Text("• \(session.l("planner.ventilation_windows")): \(humanWindowRange(firstVent.start, firstVent.end))")
                                     .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }
@@ -144,7 +168,7 @@ struct DailyPlannerView: View {
                             .font(AuroraTokens.Typography.titleMD)
                             .foregroundStyle(HiAirV2Theme.primaryText)
                         ForEach(viewModel.safeWindows, id: \.start) { window in
-                            Text("\(window.type): \(window.start) → \(window.end)")
+                            Text("\(localizedWindowType(window.type)): \(humanWindowRange(window.start, window.end))")
                                 .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                                 .padding(.horizontal, 10)
@@ -231,7 +255,55 @@ struct DailyPlannerView: View {
         guard let maxRisk = viewModel.hourlyItems.max(by: { riskWeight($0.overallRisk) < riskWeight($1.overallRisk) }) else {
             return session.l("planner.fetch")
         }
-        return "Peak \(maxRisk.overallRisk.uppercased()) at \(maxRisk.hour)"
+        let riskLabel = localizedRisk(maxRisk.overallRisk)
+        let hourLabel = humanHour(maxRisk.hour)
+        return String(format: session.l("planner.peak_line"), riskLabel, hourLabel)
+    }
+
+    private func localizedRisk(_ risk: String) -> String {
+        switch risk.lowercased() {
+        case "low":
+            return session.l("dashboard.mood.calm")
+        case "moderate", "medium":
+            return session.l("dashboard.mood.aware")
+        case "high":
+            return session.l("dashboard.mood.cautious")
+        case "very_high", "very high":
+            return session.l("dashboard.mood.protective")
+        default:
+            return session.l("dashboard.mood.calm")
+        }
+    }
+
+    private func localizedWindowType(_ type: String) -> String {
+        switch type.lowercased() {
+        case "ventilation", "ventilate":
+            return session.l("planner.window.ventilation")
+        case "walk", "outdoor", "safe", "sport", "exercise", "run":
+            return session.l("planner.window.safe")
+        default:
+            return session.l("dashboard.safe_window")
+        }
+    }
+
+    private func humanWindowRange(_ start: String, _ end: String) -> String {
+        HiAirHumanDate.timeRange(
+            fromISO: start,
+            toISO: end,
+            locale: Locale(identifier: session.preferredLanguage),
+            unavailable: session.l("common.unavailable")
+        )
+    }
+
+    private func humanHour(_ raw: String) -> String {
+        if let date = HiAirHumanDate.date(fromISO: raw) {
+            return HiAirHumanDate.string(from: date, locale: Locale(identifier: session.preferredLanguage), style: .time)
+        }
+        // Hourly slots may be "14:00" or "14"
+        if raw.count >= 2, raw.prefix(2).allSatisfy(\.isNumber) {
+            return String(raw.prefix(5))
+        }
+        return raw
     }
 
     private func riskWeight(_ risk: String) -> Int {

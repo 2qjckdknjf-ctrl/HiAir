@@ -1346,6 +1346,28 @@ final class APIClient {
         return try JSONDecoder().decode(HealthInsightsBundleDTO.self, from: data)
     }
 
+    func fetchHealthSummary(
+        userId: String,
+        accessToken: String? = nil,
+        localDate: String? = nil
+    ) async throws -> HealthSummaryResponseDTO {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/v1/health/summary"),
+            resolvingAgainstBaseURL: false
+        )!
+        if let localDate, !localDate.isEmpty {
+            components.queryItems = [URLQueryItem(name: "local_date", value: localDate)]
+        }
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(HealthSummaryResponseDTO.self, from: data)
+    }
+
     func fetchSymptomTaxonomy(language: String = "ru") async throws -> SymptomTaxonomyDTO {
         var components = URLComponents(
             url: baseURL.appending(path: "/api/v1/health/symptoms/taxonomy"),

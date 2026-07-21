@@ -733,7 +733,7 @@ struct SettingsView: View {
                         in: ...Date(),
                         displayedComponents: .date
                     )
-                    .environment(\.locale, Locale(identifier: session.preferredLanguage == "ru" ? "ru_RU" : "en_US"))
+                    .environment(\.locale, Locale(identifier: Self.localeIdentifier(for: session.preferredLanguage)))
                     Text("\(session.l("settings.age_years")): \(viewModel.ageYearsLabel())")
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -822,6 +822,7 @@ struct SettingsView: View {
                 .tint(HiAirV2Theme.accentStart)
                 .v2Card()
 
+                #if DEBUG
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.ai_observability"))
                         .font(AuroraTokens.Typography.titleMD)
@@ -906,6 +907,7 @@ struct SettingsView: View {
                     }
                 }
                 .v2Card()
+                #endif
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.help_title"))
@@ -939,9 +941,6 @@ struct SettingsView: View {
                     Text(viewModel.wearableStatus)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
-                    Text(String(format: session.l("wearable.health.build_label"), HealthKitService.shared.diagnostics().buildNumber))
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                     if let errorText = session.lHealthKitError(HealthKitService.shared.lastAuthorizationError) {
                         Text(errorText)
                             .font(AuroraTokens.Typography.caption)
@@ -975,18 +974,21 @@ struct SettingsView: View {
                     Text(session.l("settings.security_privacy"))
                         .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
-                    TextField(session.l("settings.user_id"), text: $viewModel.userId)
-                        .textFieldStyle(.roundedBorder)
-                    SecureField(session.l("settings.token"), text: $viewModel.accessToken)
-                        .textFieldStyle(.roundedBorder)
+                    if !session.email.isEmpty {
+                        Text(session.email)
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.privacy_export")) {
                         Task { await viewModel.exportPrivacyData() }
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading)
-                    Text(viewModel.privacyExportSummary)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if !viewModel.privacyExportSummary.isEmpty && viewModel.privacyExportSummary != "-" {
+                        Text(viewModel.privacyExportSummary)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.delete_account")) {
                         Task {
                             let deleted = await viewModel.deleteAccount()
@@ -1004,7 +1006,7 @@ struct SettingsView: View {
                         viewModel.accessToken = ""
                         viewModel.subscriptionStatus = "inactive"
                         viewModel.statusText = session.l("settings.logged_out")
-                        viewModel.privacyExportSummary = "-"
+                        viewModel.privacyExportSummary = ""
                     }
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
                 }
@@ -1087,6 +1089,16 @@ struct SettingsView: View {
         .sheet(isPresented: $showingAIGuide) {
             HiAirAIGuideView()
                 .environmentObject(session)
+        }
+    }
+
+    private static func localeIdentifier(for language: String) -> String {
+        switch language.lowercased() {
+        case "ru": return "ru_RU"
+        case "es": return "es_ES"
+        case "it": return "it_IT"
+        case "fr": return "fr_FR"
+        default: return "en_US"
         }
     }
 

@@ -87,6 +87,43 @@ struct HealthDataStatusDTO: Codable {
     let sleepDays: Int?
 }
 
+struct HealthSummaryMetricDTO: Codable, Identifiable {
+    var id: String { metricType }
+    let metricType: String
+    let unit: String
+    let valueAvg: Double?
+    let valueMin: Double?
+    let valueMax: Double?
+    let valueLatest: Double?
+    let valueTotal: Double?
+    let sampleCount: Int?
+    let qualityState: String?
+    let hrvMethod: String?
+
+    var displayValue: Double? {
+        valueTotal ?? valueAvg ?? valueLatest
+    }
+}
+
+struct HealthSummarySleepDTO: Codable {
+    let localDate: String?
+    let totalMinutes: Int?
+    let inBedMinutes: Int?
+    let awakeMinutes: Int?
+    let coreLightMinutes: Int?
+    let deepMinutes: Int?
+    let remMinutes: Int?
+    let qualityState: String?
+}
+
+struct HealthSummaryResponseDTO: Codable {
+    let localDate: String
+    let timezone: String?
+    let metrics: [HealthSummaryMetricDTO]
+    let sleep: HealthSummarySleepDTO?
+    let dataDaysAvailable: Int?
+}
+
 struct SymptomTaxonomyDTO: Codable {
     let consentVersion: String
     let safetyNotice: String
@@ -114,8 +151,14 @@ struct ComprehensiveSymptomPayload: Codable {
     let onsetAt: String?
     let durationMinutes: Int?
     let ongoing: Bool
-    let note: String?
+    let frequency: String?
+    let bodyContext: String?
+    let suspectedTrigger: String?
+    let activityAtOnset: String?
     let locationContext: String?
+    let hydrationState: String?
+    let medicationTaken: Bool?
+    let note: String?
     let timezone: String?
     let customLabel: String?
 }

@@ -5,16 +5,17 @@ final class InsightsViewModel: ObservableObject {
     static let targetLogDays = 7
 
     @Published var loading = false
-    @Published var statusText = "-"
+    @Published var statusText = ""
     @Published var items: [PersonalPatternInsight] = []
     @Published var trends: [HealthInsightCardDTO] = []
     @Published var associations: [HealthInsightCardDTO] = []
     @Published var insufficient: [InsufficientDataCardDTO] = []
-    @Published var todaySummary: String = "—"
-    @Published var healthStatusText: String = "—"
+    @Published var todaySummary: String = ""
+    @Published var healthStatusText: String = ""
     @Published var lastError: String? = nil
     @Published var loggedDays = 0
-    @Published var generatedAtDisplay = "—"
+    @Published var generatedAtDisplay = ""
+    @Published var premiumLocked = false
 
     private let apiClient = APIClient.live()
 
@@ -31,6 +32,7 @@ final class InsightsViewModel: ObservableObject {
     ) async {
         loading = true
         defer { loading = false }
+        premiumLocked = false
         do {
             async let historyTask = apiClient.fetchSymptomHistory(
                 profileId: profileId,
@@ -66,13 +68,25 @@ final class InsightsViewModel: ObservableObject {
                 )
                 todaySummary = formatToday(bundle.today, language: language)
                 if let status = bundle.healthDataStatus {
-                    let sync = status.syncStatus ?? "—"
+                    let syncKey: String
+                    switch (status.syncStatus ?? "").lowercased() {
+                    case "ok", "success", "synced":
+                        syncKey = "insights.sync.ok"
+                    case "partial":
+                        syncKey = "insights.sync.partial"
+                    case "pending", "syncing":
+                        syncKey = "insights.sync.pending"
+                    case "error", "failed":
+                        syncKey = "insights.sync.error"
+                    default:
+                        syncKey = "insights.sync.unknown"
+                    }
                     let metrics = status.metricDays ?? 0
                     healthStatusText = String(
                         format: HiAirL10n.t("insights.health_status", lang: language),
                         locale: Locale(identifier: language),
                         metrics,
-                        sync
+                        HiAirL10n.t(syncKey, lang: language)
                     )
                 } else {
                     healthStatusText = HiAirL10n.t("insights.health_status_unknown", lang: language)
@@ -82,6 +96,7 @@ final class InsightsViewModel: ObservableObject {
                 associations = []
                 insufficient = []
                 if case .server(let code) = error, code == 402 {
+                    premiumLocked = true
                     onPremiumRequired?()
                 }
             } catch {
@@ -100,6 +115,12 @@ final class InsightsViewModel: ObservableObject {
                     language: language
                 )
                 items = patterns.items
+            } catch let error as APIError {
+                items = []
+                if case .server(let code) = error, code == 402 {
+                    premiumLocked = true
+                    onPremiumRequired?()
+                }
             } catch {
                 items = []
             }
@@ -131,22 +152,48 @@ final class InsightsViewModel: ObservableObject {
     }
 
     private func formatToday(_ today: [String: AnyCodableValue]?, language: String) -> String {
-        guard let today else { return "—" }
+        guard let today else { return HiAirL10n.t("insights.today.empty", lang: language) }
         var parts: [String] = []
-        if case .double(let steps) = today["steps"] {
-            parts.append(String(format: HiAirL10n.t("insights.today.steps", lang: language), Int(steps)))
-        } else if case .int(let steps) = today["steps"] {
+        if let steps = intValue(today["steps"]) {
             parts.append(String(format: HiAirL10n.t("insights.today.steps", lang: language), steps))
         }
-        if case .double(let sleep) = today["sleepMinutes"] {
-            parts.append(String(format: HiAirL10n.t("insights.today.sleep", lang: language), Int(sleep)))
-        } else if case .int(let sleep) = today["sleepMinutes"] {
+        if let sleep = intValue(today["sleepMinutes"]) {
             parts.append(String(format: HiAirL10n.t("insights.today.sleep", lang: language), sleep))
         }
-        if case .double(let rhr) = today["restingHeartRate"] {
-            parts.append(String(format: HiAirL10n.t("insights.today.rhr", lang: language), Int(rhr)))
+        if let rhr = intValue(today["restingHeartRate"]) {
+            parts.append(String(format: HiAirL10n.t("insights.today.rhr", lang: language), rhr))
+        }
+        if let hrv = intValue(today["hrv"]) {
+            parts.append(String(format: HiAirL10n.t("insights.today.hrv", lang: language), hrv))
+        }
+        if let spo2 = intValue(today["oxygenSaturation"] ?? today["spo2"]) {
+            parts.append(String(format: HiAirL10n.t("insights.today.spo2", lang: language), spo2))
+        }
+        if let resp = intValue(today["respiratoryRate"]) {
+            parts.append(String(format: HiAirL10n.t("insights.today.resp", lang: language), resp))
+        }
+        if let distance = intValue(today["distanceMeters"]) {
+            let km = Double(distance) / 1000.0
+            parts.append(String(format: HiAirL10n.t("insights.today.distance", lang: language), km))
+        }
+        if let energy = intValue(today["activeEnergyKcal"]) {
+            parts.append(String(format: HiAirL10n.t("insights.today.energy", lang: language), energy))
+        }
+        if let vo2 = intValue(today["vo2Max"]) {
+            parts.append(String(format: HiAirL10n.t("insights.today.vo2", lang: language), vo2))
+        }
+        if let workouts = intValue(today["workoutCount"]), workouts > 0 {
+            parts.append(String(format: HiAirL10n.t("insights.today.workouts", lang: language), workouts))
         }
         return parts.isEmpty ? HiAirL10n.t("insights.today.empty", lang: language) : parts.joined(separator: " · ")
+    }
+
+    private func intValue(_ value: AnyCodableValue?) -> Int? {
+        switch value {
+        case .int(let v): return v
+        case .double(let v): return Int(v.rounded())
+        default: return nil
+        }
     }
 }
 
@@ -192,6 +239,9 @@ struct InsightsView: View {
                         .v2Card()
                     } else {
                         todayCard
+                        if viewModel.premiumLocked {
+                            premiumLockedCard
+                        }
                         progressCard
                         trendsSection
                         associationsSection
@@ -237,14 +287,30 @@ struct InsightsView: View {
             Text(session.l("insights.section.today"))
                 .font(AuroraTokens.Typography.titleMD)
                 .foregroundStyle(HiAirV2Theme.primaryText)
-            Text(viewModel.todaySummary)
+            Text(viewModel.todaySummary.isEmpty ? session.l("insights.today.empty") : viewModel.todaySummary)
                 .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
-            if viewModel.generatedAtDisplay != "—" {
+            if !viewModel.generatedAtDisplay.isEmpty {
                 Text(viewModel.generatedAtDisplay)
                     .font(AuroraTokens.Typography.caption)
                     .foregroundStyle(HiAirV2Theme.tertiaryText)
             }
+        }
+        .v2Card()
+    }
+
+    private var premiumLockedCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(session.l("insights.premium_locked.title"))
+                .font(AuroraTokens.Typography.titleMD)
+                .foregroundStyle(HiAirV2Theme.primaryText)
+            Text(session.l("insights.premium_locked.body"))
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Button(session.l("insights.premium_locked.cta")) {
+                session.showPaywall = true
+            }
+            .buttonStyle(HiAirGradientButtonStyle())
         }
         .v2Card()
     }
@@ -296,7 +362,7 @@ struct InsightsView: View {
                                 .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.secondaryText)
                             if let have = card.have, let need = card.need {
-                                Text("\(have)/\(need)")
+                                Text(String(format: session.l("insights.progress_days"), have, need))
                                     .font(AuroraTokens.Typography.caption)
                                     .foregroundStyle(HiAirV2Theme.tertiaryText)
                             }
@@ -325,12 +391,9 @@ struct InsightsView: View {
                 .font(AuroraTokens.Typography.titleMD)
             ForEach(Array(viewModel.items.enumerated()), id: \.offset) { _, item in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("\(item.factorA) ↔ \(item.factorB)")
-                        .font(AuroraTokens.Typography.titleMD)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
                     Text(item.humanReadableText)
                         .font(AuroraTokens.Typography.bodyMD)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
                 }
                 .v2Card()
             }
@@ -376,7 +439,7 @@ struct InsightsView: View {
         case "moderate": return session.l("insights.confidence.moderate")
         case "stronger": return session.l("insights.confidence.stronger")
         case "insufficient": return session.l("insights.confidence.insufficient")
-        default: return value
+        default: return session.l("insights.confidence.preliminary")
         }
     }
 

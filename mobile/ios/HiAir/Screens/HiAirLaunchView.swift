@@ -1,6 +1,12 @@
 import SwiftUI
 
 struct HiAirLaunchView: View {
+    /// Launch runs before session injection; use preferred language from defaults.
+    private var tagline: String {
+        let lang = UserDefaults.standard.string(forKey: "preferredLanguage") ?? "en"
+        return HiAirL10n.t("brand.tagline", lang: lang)
+    }
+
     var body: some View {
         ZStack {
             HiAirGradients.launchBackground()
@@ -20,7 +26,7 @@ struct HiAirLaunchView: View {
                     .scaledToFit()
                     .frame(maxWidth: 240, maxHeight: 48)
                     .accessibilityLabel("HiAir")
-                Text("Breathe better. Live better.")
+                Text(tagline)
                     .font(HiAirTypography.bodyMD)
                     .foregroundStyle(HiAirColors.Cta.gradientStart)
             }

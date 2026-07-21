@@ -3,6 +3,7 @@ package com.hiair.ui.render
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.hiair.OnboardingStore
 import com.hiair.billing.SubscriptionPaywallController
 import com.hiair.ui.navigation.RootShellViewModel
 
@@ -24,6 +25,10 @@ class MainScreenRenderer(
         clearSession = clearSession,
         rerender = rerender
     )
+
+    fun renderFirstRun(onboardingStore: OnboardingStore) {
+        FirstRunOnboardingRenderer.render(ctx, onboardingStore) { rerender() }
+    }
 
     fun renderDashboard() = DashboardScreenRenderer.render(ctx)
 

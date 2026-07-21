@@ -37,9 +37,11 @@ struct WearableConsentView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                     }
+                    #if DEBUG
                     Text(String(format: session.l("wearable.health.build_label"), healthService.diagnostics().buildNumber))
                         .font(HiAirTypography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    #endif
                     HStack(spacing: 10) {
                         Button(session.l("wearable.consent.skip")) {
                             onComplete?()
@@ -125,15 +127,22 @@ struct WearableLoadCardView: View {
         case .connected:
             if let summary = today?.dailySummary {
                 let load = today?.personalLoad
-                Text("\(session.l("wearable.dashboard.steps")): \(summary.stepsTotal ?? 0)")
-                    .font(HiAirTypography.bodyMD)
+                if let steps = summary.stepsTotal {
+                    Text("\(session.l("wearable.dashboard.steps")): \(steps)")
+                        .font(HiAirTypography.bodyMD)
+                }
                 Text(heartRateLabel)
                     .font(HiAirTypography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
+                if let resting = summary.restingHeartRateAvg {
+                    Text(String(format: session.l("wearable.dashboard.rhr_bpm"), Int(resting.rounded())))
+                        .font(HiAirTypography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
                 if let load {
                     Text("\(session.l("wearable.dashboard.load_risk")): \(loadLevelLabel(load.level))")
                         .font(HiAirTypography.bodyMD)
-                    if let first = load.explanations.first {
+                    if let first = load.explanations.first, !first.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(first)
                             .font(HiAirTypography.caption)
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
@@ -170,10 +179,11 @@ struct WearableLoadCardView: View {
         guard let avg = today?.dailySummary?.heartRateAvg else {
             return session.l("wearable.dashboard.hr_unknown")
         }
+        let bpm = Int(avg.rounded())
         if avg > 100 {
-            return session.l("wearable.dashboard.hr_elevated")
+            return String(format: session.l("wearable.dashboard.hr_elevated_bpm"), bpm)
         }
-        return session.l("wearable.dashboard.hr_normal")
+        return String(format: session.l("wearable.dashboard.hr_bpm"), bpm)
     }
 
     private func loadLevelLabel(_ level: String) -> String {

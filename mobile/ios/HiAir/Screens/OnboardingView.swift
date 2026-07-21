@@ -91,7 +91,7 @@ struct OnboardingView: View {
             return session.l("onboarding.permissions.allow")
         }
         if step == 5 {
-            return session.l("wearable.consent.skip")
+            return session.l("wearable.consent.connect")
         }
         if isLastStep {
             return session.l("onboarding.open_forecast")
@@ -109,6 +109,7 @@ struct OnboardingView: View {
             return
         }
         if step == 5 {
+            await connectHealthFromOnboarding()
             step += 1
             return
         }
@@ -165,7 +166,15 @@ struct OnboardingView: View {
                 in: ...Date(),
                 displayedComponents: .date
             )
-            .environment(\.locale, Locale(identifier: session.preferredLanguage == "ru" ? "ru_RU" : "en_US"))
+            .environment(\.locale, Locale(identifier: {
+                switch session.preferredLanguage.lowercased() {
+                case "ru": return "ru_RU"
+                case "es": return "es_ES"
+                case "it": return "it_IT"
+                case "fr": return "fr_FR"
+                default: return "en_US"
+                }
+            }()))
             personaOption("adult", key: "onboarding.for_self")
             personaOption("child", key: "onboarding.for_child")
             personaOption("elderly", key: "onboarding.for_elderly")
@@ -227,26 +236,25 @@ struct OnboardingView: View {
             Text(session.l("wearable.consent.disclaimer"))
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
-            Button(session.l("wearable.consent.connect")) {
-                Task {
-                    guard healthService.isHealthDataAvailable() else {
-                        step += 1
-                        return
-                    }
-                    if healthService.configurationIssueMessage() != nil {
-                        step += 1
-                        return
-                    }
-                    if await healthService.requestAuthorization(),
-                       !session.userId.isEmpty, !session.accessToken.isEmpty {
-                        try? await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-                        await healthService.syncWearableDailySummary(userId: session.userId, accessToken: session.accessToken)
-                    }
-                    step += 1
-                }
+            Button(session.l("wearable.consent.skip")) {
+                step += 1
             }
-            .buttonStyle(HiAirGradientButtonStyle())
+            .buttonStyle(HiAirSecondaryButtonStyle())
         }
+    }
+
+    private func connectHealthFromOnboarding() async {
+        guard healthService.isHealthDataAvailable() else { return }
+        if healthService.configurationIssueMessage() != nil { return }
+        healthService.setEnabledTiers(Set([1, 2, 3]))
+        guard await healthService.requestAuthorization(tiers: Set([1, 2, 3])) else { return }
+        guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
+        try? await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
+        await healthService.syncHealthIntelligence(
+            userId: session.userId,
+            accessToken: session.accessToken,
+            profileId: session.profileId.isEmpty ? nil : session.profileId
+        )
     }
 
     private var onboardingDone: some View {

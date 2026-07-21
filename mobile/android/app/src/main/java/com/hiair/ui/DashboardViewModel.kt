@@ -3,11 +3,14 @@ package com.hiair.ui
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
+import com.hiair.ui.design.HiAirHumanDate
+import com.hiair.ui.i18n.AndroidL10n
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.Locale
 import org.json.JSONObject
 
 /**
@@ -43,6 +46,7 @@ data class DashboardState(
     val wearableLoadLevel: String? = null,
     val wearableSummary: String? = null,
     val wearableConnected: Boolean = false,
+    val healthSummaryRaw: String? = null,
 )
 
 class DashboardViewModel(
@@ -70,7 +74,13 @@ class DashboardViewModel(
      * background thread. On failure the previous values are discarded so the UI
      * never presents stale data as fresh.
      */
-    fun load(userId: String, accessToken: String?, profileId: String?, isRetry: Boolean = false) {
+    fun load(
+        userId: String,
+        accessToken: String?,
+        profileId: String?,
+        preferredLanguage: String,
+        isRetry: Boolean = false,
+    ) {
         if (isRetry) {
             ProductAnalytics.track("dashboard_retry")
         }
@@ -86,7 +96,7 @@ class DashboardViewModel(
                 accessToken = accessToken,
                 profileId = profileId,
             )
-            val parsed = parseCurrentRisk(raw)
+            val parsed = parseCurrentRisk(raw, preferredLanguage)
             state = withWearable(parsed, userId, accessToken)
             ProductAnalytics.track(
                 "dashboard_loaded",
@@ -104,7 +114,7 @@ class DashboardViewModel(
         }
     }
 
-    private fun parseCurrentRisk(raw: String): DashboardState {
+    private fun parseCurrentRisk(raw: String, preferredLanguage: String): DashboardState {
         val json = JSONObject(raw)
         val risk = json.optJSONObject("risk")
             ?: throw IllegalStateException("current-risk response missing 'risk'")
@@ -130,8 +140,7 @@ class DashboardViewModel(
                 val start = window.optString("start")
                 val end = window.optString("end")
                 if (start.isNotBlank() && end.isNotBlank()) {
-                    val label = if (type.isNotBlank()) "$type: $start → $end" else "$start → $end"
-                    safeWindows.add(label)
+                    safeWindows.add(formatSafeWindow(type, start, end, preferredLanguage))
                 }
             }
         }
@@ -154,6 +163,17 @@ class DashboardViewModel(
         )
     }
 
+    private fun formatSafeWindow(type: String, start: String, end: String, preferredLanguage: String): String {
+        val typeKey = when (type.lowercase()) {
+            "walk", "outdoor", "safe", "sport", "exercise", "run" -> "planner.window.safe"
+            "ventilation", "ventilate" -> "planner.window.ventilation"
+            else -> "dashboard.safe_window"
+        }
+        val label = AndroidL10n.t(typeKey, preferredLanguage)
+        val range = HiAirHumanDate.timeRangeIso(start, end, Locale.getDefault(), "")
+        return if (range.isEmpty()) label else "$label: $range"
+    }
+
     private fun withWearable(base: DashboardState, userId: String, accessToken: String?): DashboardState {
         return try {
             val wearableJson = JSONObject(apiClient.fetchWearableToday(userId, accessToken))
@@ -166,11 +186,19 @@ class DashboardViewModel(
                 ?.optString(0)
                 ?.takeIf { it.isNotBlank() }
             val connected = wearableJson.optJSONObject("consent")?.optBoolean("isActive") == true
+            val healthSummaryRaw = if (connected) {
+                runCatching {
+                    apiClient.fetchHealthSummary(userId, accessToken)
+                }.getOrNull()
+            } else {
+                null
+            }
             base.copy(
                 wearableSteps = steps,
                 wearableLoadLevel = loadLevel,
                 wearableSummary = summary,
                 wearableConnected = connected,
+                healthSummaryRaw = healthSummaryRaw,
             )
         } catch (_: Exception) {
             // Wearable data is optional; the dashboard remains valid without it.

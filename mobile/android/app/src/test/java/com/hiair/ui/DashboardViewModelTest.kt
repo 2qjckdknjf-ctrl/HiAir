@@ -22,14 +22,14 @@ class DashboardViewModelTest {
     @Test
     fun `missing credentials produce empty state without network`() {
         val viewModel = DashboardViewModel()
-        viewModel.load(userId = "", accessToken = null, profileId = null)
+        viewModel.load(userId = "", accessToken = null, profileId = null, preferredLanguage = "en")
         assertEquals(DashboardStatus.EMPTY, viewModel.state.status)
     }
 
     @Test
     fun `missing profile produces empty state without network`() {
         val viewModel = DashboardViewModel()
-        viewModel.load(userId = "user-1", accessToken = "token", profileId = "")
+        viewModel.load(userId = "user-1", accessToken = "token", profileId = "", preferredLanguage = "en")
         assertEquals(DashboardStatus.EMPTY, viewModel.state.status)
     }
 

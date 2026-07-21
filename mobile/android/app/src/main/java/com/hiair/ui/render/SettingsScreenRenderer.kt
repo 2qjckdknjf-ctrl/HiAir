@@ -5,6 +5,7 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import com.hiair.BuildConfig
 import com.hiair.health.WearableHealthHost
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
@@ -31,8 +32,6 @@ internal object SettingsScreenRenderer {
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply { textSize = 13f })
         val emailInput = HiAirComponents.inputField(activity, ctx.l("settings.email"))
         val passwordInput = HiAirComponents.inputField(activity, ctx.l("settings.password"))
-        val userIdInput = EditText(activity).apply { hint = ctx.l("settings.user_id") }
-        val tokenInput = EditText(activity).apply { hint = ctx.l("settings.token") }
         val pushAlertsBox = CheckBox(activity).apply { text = ctx.l("settings.push"); isChecked = true }
         val morningBriefingBox = CheckBox(activity).apply { text = ctx.l("settings.morning_briefing"); isChecked = false }
         val morningBriefingTimeInput = EditText(activity).apply { hint = ctx.l("settings.morning_briefing_time"); setText("07:30") }
@@ -173,8 +172,6 @@ internal object SettingsScreenRenderer {
                     rootShell.settingsViewModel.signup()
                     val state = rootShell.settingsViewModel.state
                     activity.runOnUiThread {
-                        userIdInput.setText(state.userId)
-                        tokenInput.setText(state.accessToken)
                         persistSession()
                         statusText.text = state.statusText
                     }
@@ -190,8 +187,6 @@ internal object SettingsScreenRenderer {
                     rootShell.settingsViewModel.login {
                         activity.runOnUiThread {
                             val state = rootShell.settingsViewModel.state
-                            userIdInput.setText(state.userId)
-                            tokenInput.setText(state.accessToken)
                             persistSession()
                             statusText.text = state.statusText
                             ctx.rerender()
@@ -203,8 +198,6 @@ internal object SettingsScreenRenderer {
         val loadButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.load")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 Thread {
                     rootShell.settingsViewModel.loadSettings()
                     val state = rootShell.settingsViewModel.state
@@ -229,8 +222,6 @@ internal object SettingsScreenRenderer {
         val saveButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.save")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 rootShell.settingsViewModel.setPushAlertsEnabled(pushAlertsBox.isChecked)
                 val selectedThresholdIndex = thresholdSpinner.selectedItemPosition.coerceIn(0, thresholdOptions.lastIndex)
                 rootShell.settingsViewModel.setAlertThreshold(thresholdOptions[selectedThresholdIndex])
@@ -272,8 +263,6 @@ internal object SettingsScreenRenderer {
         val loadSubscriptionButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.load_subscription")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 Thread {
                     rootShell.settingsViewModel.loadSubscriptionStatus()
                     val state = rootShell.settingsViewModel.state
@@ -284,8 +273,6 @@ internal object SettingsScreenRenderer {
         val activateSubscriptionButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.activate_subscription")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 val selectedIndex = subscriptionSpinner.selectedItemPosition
                 val plans = rootShell.settingsViewModel.state.subscriptionPlans
                 if (selectedIndex in plans.indices) rootShell.settingsViewModel.setSelectedPlanId(plans[selectedIndex].first)
@@ -299,8 +286,6 @@ internal object SettingsScreenRenderer {
         val cancelSubscriptionButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.cancel_subscription")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 Thread {
                     rootShell.settingsViewModel.cancelSubscription()
                     val state = rootShell.settingsViewModel.state
@@ -313,8 +298,6 @@ internal object SettingsScreenRenderer {
                 rootShell.settingsViewModel.resetSessionAfterLogout()
                 rootShell.dashboardViewModel.reset()
                 clearSession()
-                userIdInput.setText("")
-                tokenInput.setText("")
                 statusText.text = ctx.l("settings.logged_out")
                 ctx.rerender()
             }
@@ -328,8 +311,6 @@ internal object SettingsScreenRenderer {
         val exportPrivacyButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy_export")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 Thread {
                     rootShell.settingsViewModel.exportPrivacyData()
                     val updated = rootShell.settingsViewModel.state
@@ -343,8 +324,6 @@ internal object SettingsScreenRenderer {
         val deleteAccountButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 Thread {
                     val deleted = rootShell.settingsViewModel.deleteAccount()
                     val updated = rootShell.settingsViewModel.state
@@ -353,8 +332,6 @@ internal object SettingsScreenRenderer {
                             clearSession()
                             emailInput.setText("")
                             passwordInput.setText("")
-                            userIdInput.setText("")
-                            tokenInput.setText("")
                         }
                         privacyExportSummary.text = updated.privacyExportSummary
                         statusText.text = updated.statusText
@@ -401,16 +378,16 @@ internal object SettingsScreenRenderer {
 
         val socialAuthRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(HiAirComponents.secondaryButton(activity, "Google Sign-In").apply {
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_google")).apply {
                 setOnClickListener {
                     rootShell.settingsViewModel.launchGoogleOAuth()
-                    statusText.text = "Continue in browser and return to app."
+                    statusText.text = ctx.l("auth.oauth_continue")
                 }
             })
-            addView(HiAirComponents.secondaryButton(activity, "Apple Sign-In").apply {
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_apple")).apply {
                 setOnClickListener {
                     rootShell.settingsViewModel.launchAppleOAuth()
-                    statusText.text = "Continue in browser and return to app."
+                    statusText.text = ctx.l("auth.oauth_continue")
                 }
             })
         }
@@ -418,8 +395,6 @@ internal object SettingsScreenRenderer {
         fun sectionTitle(key: String): TextView = HiAirComponents.sectionTitle(activity, ctx.l(key))
 
         val state = rootShell.settingsViewModel.state
-        userIdInput.setText(state.userId)
-        tokenInput.setText(state.accessToken)
         emailInput.setText(state.email)
         pushAlertsBox.isChecked = state.pushAlertsEnabled
         profileAlertingBox.isChecked = state.profileBasedAlerting
@@ -440,7 +415,7 @@ internal object SettingsScreenRenderer {
             if (selectedIndex >= 0) subscriptionSpinner.setSelection(selectedIndex)
         }
         if (statusText.text.isNullOrBlank() || statusText.text == ctx.l("settings.load_save")) {
-            statusText.text = "${ctx.l("settings.load_save")} Subscription=${state.subscriptionStatus}"
+            statusText.text = ctx.l("settings.load_save")
         }
         aiSummaryText.text = state.aiSummaryText
         aiTrendText.text = state.aiTrendText
@@ -464,13 +439,20 @@ internal object SettingsScreenRenderer {
             }
         })
 
+        val isLoggedIn = state.accessToken.isNotBlank() && state.userId.isNotBlank()
         val authCard = HiAirComponents.glassAccentContainer(activity).apply {
             addView(sectionTitle("auth.title"))
-            addView(emailInput)
-            addView(passwordInput)
-            addView(signupButton)
-            addView(loginButton)
-            addView(socialAuthRow)
+            if (isLoggedIn) {
+                if (state.email.isNotBlank()) {
+                    addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
+                }
+            } else {
+                addView(emailInput)
+                addView(passwordInput)
+                addView(signupButton)
+                addView(loginButton)
+                addView(socialAuthRow)
+            }
         }
         bodyContainer.addView(authCard)
 
@@ -487,8 +469,6 @@ internal object SettingsScreenRenderer {
             })
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
                 setOnClickListener {
-                    rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                    rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                     Thread {
                         rootShell.settingsViewModel.disconnectWearables()
                         activity.runOnUiThread {
@@ -499,8 +479,6 @@ internal object SettingsScreenRenderer {
             })
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
                 setOnClickListener {
-                    rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                    rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                     Thread {
                         rootShell.settingsViewModel.deleteWearableData()
                         activity.runOnUiThread {
@@ -515,8 +493,9 @@ internal object SettingsScreenRenderer {
 
         val securityCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))
-            addView(userIdInput)
-            addView(tokenInput)
+            if (state.email.isNotBlank()) {
+                addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
+            }
             addView(exportPrivacyButton)
             addView(privacyExportSummary)
             addView(deleteAccountButton)
@@ -568,11 +547,13 @@ internal object SettingsScreenRenderer {
             if (!rootShell.settingsViewModel.state.isPremium) {
                 addView(upgradePremiumButton)
             }
-            addView(subscriptionSpinner)
-            addView(loadPlansButton)
-            addView(loadSubscriptionButton)
-            addView(activateSubscriptionButton)
-            addView(cancelSubscriptionButton)
+            if (BuildConfig.DEBUG) {
+                addView(subscriptionSpinner)
+                addView(loadPlansButton)
+                addView(loadSubscriptionButton)
+                addView(activateSubscriptionButton)
+                addView(cancelSubscriptionButton)
+            }
         }
         bodyContainer.addView(subscriptionCard)
 
@@ -614,30 +595,16 @@ internal object SettingsScreenRenderer {
             addView(advancedAiContainer)
             addView(loadAiSummaryButton)
         }
-        bodyContainer.addView(aiCard)
 
-        fun swatchRow(label: String, color: Int): LinearLayout =
-            HiAirComponents.tokenSwatchRow(activity, label, color)
-
-        val tokenCard = HiAirComponents.cardContainer(activity).apply {
-            addView(sectionTitle("settings.advanced_controls"))
-            addView(V2Ui.styledSecondaryText(activity, "Developer · Design tokens"))
-            addView(swatchRow("Risk low", Tokens.RiskAccent.low))
-            addView(swatchRow("Risk moderate", Tokens.RiskAccent.moderate))
-            addView(swatchRow("Risk high", Tokens.RiskAccent.high))
-            addView(swatchRow("Risk very high", Tokens.RiskAccent.veryHigh))
-            addView(swatchRow("CTA start", Tokens.Cta.start))
-            addView(swatchRow("CTA end", Tokens.Cta.end))
+        if (BuildConfig.DEBUG) {
+            bodyContainer.addView(aiCard)
         }
-        bodyContainer.addView(tokenCard)
 
         bodyContainer.addView(HiAirComponents.brandMonoFooterView(activity))
 
         bodyContainer.addView(HiAirComponents.primaryButton(activity, ctx.l("settings.sync_now")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setUserId(userIdInput.text.toString())
-                rootShell.settingsViewModel.setAccessToken(tokenInput.text.toString())
                 rootShell.settingsViewModel.setPushAlertsEnabled(pushAlertsBox.isChecked)
                 val selectedThresholdIndex = thresholdSpinner.selectedItemPosition.coerceIn(0, thresholdOptions.lastIndex)
                 rootShell.settingsViewModel.setAlertThreshold(thresholdOptions[selectedThresholdIndex])

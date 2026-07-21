@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.hiair.OnboardingStore
 import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
@@ -25,12 +26,14 @@ import com.hiair.health.WearableHealthHost
 import com.hiair.location.LocationBootstrapHost
 import com.hiair.location.LocationController
 import com.hiair.ui.render.MainScreenRenderer
+import com.hiair.ui.render.FirstRunOnboardingRenderer
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
 class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstrapHost {
     private val rootShell = RootShellViewModel()
     private lateinit var sessionStore: SessionStore
+    private lateinit var onboardingStore: OnboardingStore
     private lateinit var titleView: TextView
     private lateinit var bodyContainer: LinearLayout
     private lateinit var screenRenderer: MainScreenRenderer
@@ -48,6 +51,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
+        onboardingStore = OnboardingStore(this)
         healthConnectService = HealthConnectService(this)
         wearableHealthController = WearableHealthController(this, healthConnectService)
         locationController = LocationController(this, rootShell.settingsViewModel)
@@ -186,6 +190,10 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         paywallController.onEntitlementUpdated = { renderCurrentScreen() }
 
         setContentView(root)
+        FirstRunOnboardingRenderer.resetStepForSession(
+            rootShell.settingsViewModel.state.userId.isNotBlank() &&
+                rootShell.settingsViewModel.state.accessToken.isNotBlank(),
+        )
         renderCurrentScreen()
         if (rootShell.settingsViewModel.state.userId.isNotBlank()) {
             rootShell.settingsViewModel.refreshEntitlement { renderCurrentScreen() }
@@ -225,6 +233,12 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         syncNavSelection()
         if (rootShell.settingsViewModel.state.showPaywall) {
             screenRenderer.renderPaywall(paywallController)
+            return
+        }
+        if (!onboardingStore.isCompleted() &&
+            rootShell.state.currentScreen == com.hiair.ui.navigation.AppScreen.DASHBOARD
+        ) {
+            screenRenderer.renderFirstRun(onboardingStore)
             return
         }
         when (rootShell.state.currentScreen) {

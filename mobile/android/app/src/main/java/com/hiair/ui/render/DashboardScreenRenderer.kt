@@ -56,6 +56,7 @@ internal object DashboardScreenRenderer {
                     userId = settings.userId,
                     accessToken = settings.accessToken.ifBlank { null },
                     profileId = profileId,
+                    preferredLanguage = settings.preferredLanguage,
                     isRetry = isRetry,
                 )
                 activity.runOnUiThread {
@@ -168,7 +169,18 @@ internal object DashboardScreenRenderer {
         )
 
         airMetricsCard(ctx, state)?.let { bodyContainer.addView(it) }
-        bodyContainer.addView(wearableCard(ctx, state))
+        if (state.wearableConnected) {
+            bodyContainer.addView(
+                HealthTodayMetricsRenderer.render(
+                    ctx = ctx,
+                    summaryRaw = state.healthSummaryRaw,
+                    loadLevel = state.wearableLoadLevel,
+                    loadExplanation = state.wearableSummary,
+                ),
+            )
+        } else {
+            bodyContainer.addView(wearableCard(ctx, state))
+        }
         bodyContainer.addView(actionsCard(ctx, state))
         bodyContainer.addView(safeWindowsCard(ctx, state))
 
@@ -196,7 +208,7 @@ internal object DashboardScreenRenderer {
         val key = when {
             source.equals("live", ignoreCase = true) -> "dashboard.source_live"
             source.equals("cached", ignoreCase = true) -> "dashboard.source_cached"
-            else -> "dashboard.source_sample"
+            else -> "dashboard.source_estimated"
         }
         return V2Ui.styledSecondaryText(ctx.activity, ctx.l(key)).apply {
             textSize = 11f
@@ -255,7 +267,12 @@ internal object DashboardScreenRenderer {
             if (state.wearableConnected && state.wearableSteps != null) {
                 addView(V2Ui.styledSecondaryText(activity, "${ctx.l("wearable.dashboard.steps")}: ${state.wearableSteps}"))
                 state.wearableLoadLevel?.let {
-                    addView(V2Ui.styledSecondaryText(activity, "${ctx.l("wearable.dashboard.load_risk")}: $it"))
+                    addView(
+                        V2Ui.styledSecondaryText(
+                            activity,
+                            "${ctx.l("wearable.dashboard.load_risk")}: ${wearableLoadLabel(ctx, it)}",
+                        ),
+                    )
                 }
                 state.wearableSummary?.let {
                     addView(V2Ui.styledSecondaryText(activity, it))
@@ -342,6 +359,15 @@ internal object DashboardScreenRenderer {
             "high" -> ctx.l("dashboard.mood.cautious")
             "very_high", "very high" -> ctx.l("dashboard.mood.protective")
             else -> ctx.l("dashboard.mood.calm")
+        }
+    }
+
+    private fun wearableLoadLabel(ctx: RenderContext, level: String): String {
+        return when (level.lowercase(Locale.ROOT)) {
+            "low" -> ctx.l("wearable.load.low")
+            "moderate" -> ctx.l("wearable.load.moderate")
+            "elevated", "high" -> ctx.l("wearable.load.elevated")
+            else -> ctx.l("wearable.load.none")
         }
     }
 }
