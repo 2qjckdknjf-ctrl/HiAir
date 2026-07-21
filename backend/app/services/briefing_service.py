@@ -9,9 +9,13 @@ import app.services.air_repository as air_repository
 import app.services.air_risk_engine as air_risk_engine
 import app.services.ai_explanation_service as ai_explanation_service
 import app.services.briefing_repository as briefing_repository
+import app.services.entitlement_service as entitlement_service
+import app.services.health_analytics_service as health_analytics_service
 import app.services.notification_dispatcher as notification_dispatcher
 import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
+import app.services.wearable_repository as wearable_repository
+import app.services.wearable_service as wearable_service
 
 
 def get_due_briefings(now_utc: datetime | None = None) -> list[dict[str, str]]:
@@ -39,15 +43,43 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
 
     user_settings = settings_repository.get_user_settings(user_id)
     environment = air_environment_service.load_environment(profile)
-    risk = air_risk_engine.evaluate_risk(profile, environment)
+    personal_load = wearable_service.build_personal_load_input(user_id, environment)
+    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
     plan = air_risk_engine.build_day_plan(profile, environment)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=user_settings.preferred_language)
+    health_context: list[str] = []
+    try:
+        consent = wearable_repository.get_active_consent(user_id)
+        entitlement = entitlement_service.get_current_entitlement(user_id)
+        if (
+            consent is not None
+            and getattr(consent, "isActive", False)
+            and entitlement.is_premium
+            and entitlement.advanced_insights_enabled
+        ):
+            bundle = health_analytics_service.build_insights_bundle(
+                user_id=user_id,
+                profile_id=profile_id,
+                window_days=30,
+                language=user_settings.preferred_language,
+                require_active_consent=True,
+            )
+            for card in (bundle.get("trends") or [])[:2]:
+                title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+                observation = getattr(card, "observation", None) or (
+                    card.get("observation") if isinstance(card, dict) else None
+                )
+                if title and observation:
+                    health_context.append(f"{title}: {observation}")
+    except Exception:
+        health_context = []
     explanation, _ = ai_explanation_service.generate_explanation(
         profile=profile,
         risk=risk,
         recommendation=recommendation,
         language=user_settings.preferred_language,
         risk_assessment_id=None,
+        health_context=health_context[:4],
     )
     first_window = plan.safeWindows[0] if plan.safeWindows else None
     window_text = f"{first_window.start}-{first_window.end}" if first_window else "later tonight"

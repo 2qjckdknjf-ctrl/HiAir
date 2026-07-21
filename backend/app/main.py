@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.environment import router as environment_router
 from app.api.health import router as health_router
+from app.api.ai_reports import router as ai_reports_router
 from app.api.health_intelligence import router as health_intelligence_router
 from app.api.insights import router as insights_router
 from app.api.notifications import router as notifications_router
@@ -113,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(waitlist_router, prefix="/api")
     app.include_router(wearables_router, prefix="/api")
     app.include_router(health_intelligence_router, prefix="/api")
+    app.include_router(ai_reports_router, prefix="/api")
     return app
 
 
