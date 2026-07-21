@@ -1,36 +1,35 @@
 # HiAir — Final Release Program Status
 
-**Updated:** 2026-07-07  
-**Branch:** `main` @ `e02e4dd`  
-**Deploy:** Backend Deploy Production run [#14](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/28868547382) **success**  
-**Verdict:** **ENGINEERING READY — WAITING FOR OPERATOR CERTIFICATION**
+**Updated:** 2026-07-21  
+**Branch:** `main` @ `fa0d91b`  
+**Production SHA:** `fa0d91bcd294a779584daaf0ba6ed16751b6b065`  
+**Health Intelligence:** PRODUCTION LIVE (schema + API); **device HealthKit E2E NOT VERIFIED**  
+**TestFlight:** build **92** VALID (`cbd0b02f-3f78-42e8-a939-945210419d8a`), `IN_BETA_TESTING`  
+**Device certification:** **DEVICE CERTIFICATION IN PROGRESS**
 
 ---
 
-## Engineering closed
+## Engineering closed (this sprint)
 
 | Area | Status | Evidence |
 |------|--------|----------|
-| Production API (`api.hiair.io`) | LIVE | health 200; `source=sample` 200; Castelldefels `environmental.source=live` |
-| Environment resolver | LIVE | live → cached → sample; Open-Meteo default |
-| Backend pytest | PASS | 119 tests |
-| Android build/lint/tests | PASS | release APK at `mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk` |
-| iOS build/tests | PASS | 4/4; Release → `https://api.hiair.io` |
-| Production fake UI | REMOVED | No Barcelona/Alex/fake actions in mobile production paths |
-| Privacy export (GDPR baseline) | DEPLOYED | Premium gate removed; `GET /api/privacy/export` → 401 without auth (not 402) |
-| Search audit | PASS | No production fake strings in `.kt`/`.swift` app code |
+| Production API | LIVE | health 200; SHA `fa0d91b` |
+| Health routes unauth | LIVE | summary/insights **401**; taxonomy **200** |
+| Migrations 018/019 | LIVE | hiair-prod tables present |
+| Product polish commit | MERGED | Health grid, Android first-run, Premium locked UX |
+| Backend pytest + final gate | PASS | `hiair_final_gate.sh` PASS |
+| iOS build 92 | DISTRIBUTED | Direct install + TestFlight |
+| Android assemble/lint/test | PASS | No physical Android attached |
 
 ## Operator certification required
 
 | Area | Status | Owner action |
 |------|--------|--------------|
-| Device QA (Android) | BLOCKED | Install **release** APK; adb + USB device |
-| Device QA (iPhone) | BLOCKED | Device `00008150-001E4C911100C01C` offline; TestFlight or USB |
-| iPad | NOT STARTED | — |
-| TestFlight upload | PENDING | Xcode archive + ASC |
-| Play Internal Testing | PENDING | Signed AAB + Play Console |
-| Sandbox IAP verification | PENDING | On-device purchase proof |
-| Push notifications on device | PENDING | Wire `registerDeviceToken` + APNs/FCM |
+| iPhone interactive E2E | IN PROGRESS | Run checklist in `docs/release/qa/REAL_DEVICE_QA_REPORT.md` on **TF 92** |
+| Maestro automation | BLOCKED (tooling) | Driver build/connect flaky on Maestro 2.7 + Xcode 26.6 |
+| Android device QA | EXTERNALLY BLOCKED | No USB device; Play Console app may still be missing |
+| StoreKit sandbox purchase | NOT RUN | Retest on TF 92 |
+| Accessibility device audit | NOT RUN | Dynamic Type / VoiceOver / Dark Mode |
 
 ## Release configuration
 
@@ -39,12 +38,13 @@
 | Android debug | `http://10.0.2.2:8000` |
 | Android release | `https://api.hiair.io` |
 | iOS debug | `http://127.0.0.1:8000` |
-| iOS release | `https://api.hiair.io` |
+| iOS release / TestFlight | `https://api.hiair.io` |
 
-Device certification against production **must use release builds**.
+Device certification against production **must use release / TestFlight builds** for StoreKit.
 
-## Commits on `main`
+## Commits
 
-- `e02e4dd` — privacy export gate removal + dead mock client + status doc
-- `b96ea18` — RC-2 fake UI removal + iOS tests
-- `a2123fe` — live environmental backend deploy
+- `fa0d91b` — fix: polish first-user product UX and health metrics surfaces (build 92)
+- Prior: `5639340` Health Intelligence deploy recovery docs
+
+See `docs/release/qa/REAL_DEVICE_QA_REPORT.md` for the live matrix.

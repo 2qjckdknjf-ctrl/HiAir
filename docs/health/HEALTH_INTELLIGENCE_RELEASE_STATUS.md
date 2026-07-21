@@ -1,49 +1,31 @@
 # Health Intelligence — Release Certification Status
 
-Date: 2026-07-19  
+Date: 2026-07-21  
 Merged PR: https://github.com/2qjckdknjf-ctrl/HiAir/pull/29  
-Merge SHA: `4cac2c36feef5cd0fad08bc7f6fd670a5049d316`
+Merge SHA: `4cac2c36feef5cd0fad08bc7f6fd670a5049d316`  
+Deployed SHA: `fa0d91bcd294a779584daaf0ba6ed16751b6b065`
 
 ## Verdict (current)
 
-**HEALTH INTELLIGENCE RELEASE BLOCKED**
+**PRODUCTION LIVE — DEVICE HEALTHKIT E2E NOT VERIFIED**
 
-External blocker: production Cloudflare deploy token invalid (`CLOUDFLARE_API_TOKEN` verify 403 / code 1000).  
-API still serves `deploy_git_sha=07d584959db412553f70800c4a49ae109021eb25` — `/api/v1/health/*` returns **404**.
+Production API + schema + mobile health summary UI are deployed. Physical HealthKit / Health Connect interactive E2E is still open.
 
-After token rotation + successful Backend Deploy Production + smoke, status becomes:
-
-**PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA**
-
-`HEALTH INTELLIGENCE E2E VERIFIED` remains forbidden until physical HealthKit **and** Health Connect reads, sync, symptom entry, and insight/insufficient-data evidence exist.
+`HEALTH INTELLIGENCE E2E VERIFIED` remains forbidden until physical device evidence exists.
 
 ## Completed
 
 | Gate | Result |
 |------|--------|
-| PR truth audit vs `main` | PASS |
-| Migration 018 on hiair-prod | PASS (once; RLS verified earlier) |
-| Migration 019 compat on hiair-prod | PASS (idempotent soft-delete columns) |
-| Backend suite + coverage ≥70% | PASS |
-| Per-category consent enforcement | PASS |
-| Premium gate on `/insights` | PASS |
-| `hiair_final_gate.sh` | PASS |
-| iOS/Android CI builds | PASS |
-| PR #29 merge (protected path) | PASS → `4cac2c36` |
-| Backend Deploy Production | **FAIL** — Cloudflare token |
-| Production health API smoke | **FAIL** — routes 404 (old image) |
-| TestFlight build >84 | PENDING (blocked on API live) |
-| Physical HealthKit / Health Connect E2E | NOT RUN |
+| PR #29 merge | PASS → `4cac2c36` |
+| Migration 018/019 on hiair-prod | PASS |
+| Production health routes | PASS — unauth **401** |
+| Product polish + health grid UI | PASS — `fa0d91b` |
+| TestFlight | **92** VALID — `cbd0b02f-3f78-42e8-a939-945210419d8a` |
+| Physical iPhone install build 92 | PASS (devicectl) |
+| Physical HealthKit interactive E2E | **NOT RUN** |
+| Physical Health Connect E2E | **NOT RUN** (no Android device) |
 
-## Deploy runs (failed)
+## Next
 
-- https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/29684191710 (push)
-- https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/29684194650 (workflow_dispatch)
-
-Fix: `docs/_operator/cloudflare-deploy-token-runbook.md` → rotate GitHub production `CLOUDFLARE_API_TOKEN` → re-run Backend Deploy Production on `main`.
-
-## Non-claims
-
-- Simulator / unit tests ≠ HealthKit / Health Connect E2E
-- Merge ≠ production API live
-- Migration applied ≠ `/api/v1/health/*` routed on `api.hiair.io`
+Follow interactive checklist in `docs/release/qa/REAL_DEVICE_QA_REPORT.md` on TestFlight **92**.

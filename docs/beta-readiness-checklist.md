@@ -2,29 +2,26 @@
 
 This checklist is used to prepare a closed beta on iOS and Android.
 
-## 0.HI) Health Intelligence (2026-07-19)
+## 0.HI) Health Intelligence (2026-07-21)
 
-- Schema migration 018 on production: **YES** (recorded once)
+- Schema migration 018/019 on production: **YES**
 - Local backend/mobile/final gate: **PASS**
-- Production health API live on `api.hiair.io`: **NO** (pending merge + deploy)
-- Physical HealthKit / Health Connect E2E: **NO**
-- Verdict: **NOT READY FOR HEALTH E2E CLAIM** until deploy + device evidence
+- Production health API live on `api.hiair.io`: **YES** (`deploy_git_sha=fa0d91b`)
+- TestFlight build with health UI: **92** VALID
+- Physical HealthKit / Health Connect E2E: **NO** (interactive not completed)
+- Verdict: **NOT READY FOR HEALTH E2E CLAIM** until device evidence in QA report
 
-## 0) RC-1 production backend (CLOSED 2026-07-07)
+## 0) RC-1 production backend (CLOSED)
 
-- backend live providers deployed: **YES** — `api.hiair.io` on commit `a2123fe` (GitHub Actions run `28367913518` re-run PASS after Cloudflare token refresh).
-- production smoke: **PASS** — `/api/health` 200; `source=sample` 200; Castelldefels `environmental.source=live`.
-- latency: `/api/health` warm ~0.3–0.8s post-deploy; cold start ~60s after container rollout.
-- **RC-1 verdict: READY**
+- Production API live; smoke historically PASS. Current SHA: `fa0d91b`.
 
-## 0.1) RC-2 device certification (2026-07-07)
+## 0.1) RC-2 device certification (2026-07-21)
 
-- **Code blockers closed:** iOS/Android fake Barcelona/Alex/dashboard actions removed; iOS tests fixed.
-- Android build (debug/release/lint/tests): **PASS** (arm64 JDK 17).
-- iOS build + tests: **PASS** (4/4).
-- Backend pytest: **PASS** (119).
-- Android/iOS **physical device QA**: **BLOCKED** (iPhone offline, no adb). Use **release** builds for prod API.
-- **RC-2 verdict: BLOCKED** (hardware session). **Code path: READY for owner device session.**
+- Preflight + TF **92** distribution: **PASS**
+- Physical iPhone install/launch build 92: **PASS**
+- Interactive geo/Health/StoreKit/a11y matrix: **IN PROGRESS / NOT RUN**
+- Android USB: **EXTERNALLY BLOCKED** (none attached)
+- **RC-2 verdict: DEVICE CERTIFICATION IN PROGRESS**
 
 ## 1) Environment and secrets
 

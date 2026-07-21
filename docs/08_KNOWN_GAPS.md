@@ -1,30 +1,25 @@
 # 08 Known Gaps
 
-Updated: 2026-07-18 (StoreKit Request Canceled on build 81)
+Updated: 2026-07-21 (Physical device certification sprint)
 
 ## P0 (block first 10 real users)
 
-- **StoreKit catalog FAIL on physical iPhone (build 81):** UI shows unavailable + **Request Canceled**; no prices; no purchase sheet. Fix build **82**. Owner must also confirm Paid Apps Agreement Active. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
-- **Prior build 80:** prices missing / Subscribe dead (observation/UX).
-- **Prior build 79:** password authentication loop.
-- **Physical iPhone session STARTED** — certification no longer "not run".
-- **Use release mobile builds against production** — debug variants point to localhost (`10.0.2.2` / `127.0.0.1`).
-- **Guest mode not implemented** on iOS or Android (auth wall for all features).
-- **Push notifications not wired on mobile** — `registerDeviceToken` exists in API clients but is never called; Morning Briefing UI without verified APNs/FCM delivery on device. (Sequenced AFTER live data + device QA.)
-- **No dedicated crash SDK** (Crashlytics/Sentry); relies on ASC/Play console symbolicated crashes only.
-- **Manual end-to-end QA not completed** — RC-1 unblocked; owner hardware session pending for RC-2.
-- **Android Play release signing** not configured in Gradle (unsigned `app-release-unsigned.apk` only).
-- **Auto-created profiles use coordinates 0,0** — **FIXED (2026-07-14)** Android/iOS bootstrap now requires valid device coordinates; backend rejects `(0,0)`.
+- **Physical device interactive E2E pending:** Preflight PASS; prod `fa0d91b`; TestFlight **92** installed/distributed; HealthKit + StoreKit + geo + a11y matrix still **NOT RUN** interactively. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Maestro physical iOS automation tooling:** driver build/connect flaky on Maestro 2.7 + Xcode 26.6 — not a product FAIL; blocks unattended UI certification.
+- **StoreKit catalog FAIL historically (build 81):** Request Canceled; must retest on **TF 92**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
+- **Android physical + Play Billing:** no USB device this session; Play Console app may stay EXTERNALLY BLOCKED.
+- **Cloudflare CI credential durability:** prefer long-lived Custom API Token; OAuth refresh helper exists.
+- **Use release / TestFlight builds against production** — debug variants point to localhost.
+- **Push notifications not wired on mobile** — sequenced after device QA.
+- **Android Play release signing** not configured in Gradle (unsigned release APK only).
 
 ## P1 (important before wider beta)
 
-- **Share flow missing** on iOS and Android (no share sheet / export file handoff for privacy export).
-- **Privacy export UX** shows section count only; does not produce shareable file on iOS/Android.
-- **es/it/fr localization incomplete** on both mobile platforms (partial overrides; OAuth labels and ViewModel strings still English).
-- **Production API cold-start latency ~4s** on first `GET /api/health` (2026-06-29); warm hits 0.24–0.63s. Confirmed Cloudflare Containers cold start (not constant latency); consider min-instance warm-up or scheduled ping if first-hit UX matters.
-- **Product analytics** wired via OS logger only (`ProductAnalytics`); no remote aggregation dashboard yet. Events: `onboarding_*`, `dashboard_opened`, `morning_briefing_viewed`, `risk_breakdown_viewed`, `symptom_logged`, `privacy_export`, `privacy_delete` — **not wired:** `share_clicked`, `guest_mode` (features absent).
-- **Android onboarding flow** not implemented (removed dead `OnboardingState`; no first-run wizard).
-- **Settings dev surfaces** expose raw tokens/userId in production UI (iOS Settings, Android Settings).
+- **Share flow missing** on iOS and Android.
+- **Privacy export UX** section count only; no shareable file handoff.
+- **es/it/fr localization incomplete** in places.
+- **Production API cold-start** on first hit after idle.
+- **Product analytics** OS logger only (no remote dashboard).
 
 ## Engineering closed in MEGA SPRINT #2
 

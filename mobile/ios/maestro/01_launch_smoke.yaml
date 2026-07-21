@@ -1,0 +1,6 @@
+appId: com.hiair.app
+---
+- launchApp:
+    clearState: false
+- takeScreenshot: /tmp/hiair_device_qa/01_launch
+- assertVisible: "HiAir"

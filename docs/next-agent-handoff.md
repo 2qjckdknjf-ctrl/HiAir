@@ -1,62 +1,52 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-07-19 (Health Intelligence certification in progress)
+Date: 2026-07-21 (Physical device certification in progress)
 
-## 0) Health Intelligence release certification (2026-07-19)
+## Current verdict
 
-- **Merged:** PR #29 → `4cac2c36` on `main`
-- Migration `018` + compat `019` on hiair-prod (do not re-apply blindly)
-- Local/CI gates: **PASS**
-- **BLOCKER:** GitHub production `CLOUDFLARE_API_TOKEN` invalid → deploy runs `29684191710` / `29684194650` FAIL; `api.hiair.io` still `07d5849`; `/api/v1/health/*` → 404
-- **Next:** rotate CF token per `docs/_operator/cloudflare-deploy-token-runbook.md` → re-run Backend Deploy Production → smoke health API → TestFlight **>84** → physical HealthKit + Health Connect E2E
-- Never claim `HEALTH INTELLIGENCE E2E VERIFIED` without device evidence
-- Status: `docs/health/HEALTH_INTELLIGENCE_RELEASE_STATUS.md`
+**DEVICE CERTIFICATION IN PROGRESS**
 
-## 0a) Live status — StoreKit catalog Request Canceled (2026-07-18)
+Do **not** claim `READY FOR FIRST USERS` until interactive iPhone matrix in `docs/release/qa/REAL_DEVICE_QA_REPORT.md` is PASS (geo + HealthKit + StoreKit purchase + privacy + a11y).
 
-- ❌ **Build 81 physical FAIL** — paywall shows unavailable + **Request Canceled**; no prices; no Apple sheet; backend not reached
-- ✅ ASC products READY_TO_SUBMIT (prices + 175 territories) via API
-- 🔧 **Build 82** — detached StoreKit product fetch; cancel retry; honest error copy
-- ⏳ Owner: confirm **Paid Apps Agreement / Tax / Banking Active**; retest build 82 catalog first
-- ❌ Android Play E2E — EXTERNALLY BLOCKED
+## Proven this session
 
-**Verdict after upload:** `CODE FIXED — WAITING FOR PHYSICAL PAYWALL RETEST` unless catalog still empty → then Agreements/ASC blocker.
+| Item | Evidence |
+|------|----------|
+| `main` @ `fa0d91b` pushed | product polish + build 92 |
+| Production SHA | `fa0d91b` on `https://api.hiair.io/api/health` |
+| Health API | unauth summary/insights **401** |
+| Schema 018/019 | present on hiair-prod (`wearable_metric_daily`, etc.) |
+| Preflight | backend pytest, iOS tests, Android assemble/lint/test, `hiair_final_gate.sh` **PASS** |
+| Physical iPhone | **HiAir 0.1.0 (92)** installed via `devicectl`; launch works when unlocked |
+| TestFlight 92 | VALID `cbd0b02f-3f78-42e8-a939-945210419d8a`; groups «Первый»/«Первые» |
+| Android USB | none attached |
 
-### Owner build 82 checklist
+## Blockers (honest)
 
-1. Delete HiAir → install TestFlight **82**
-2. Console: `subsystem:com.hiair.app category:subscription` — look for `returned_product_count`, `products_load_failed`
-3. Paywall → prices visible → one tap monthly → Apple sheet
-4. If still empty/canceled: App Store Connect → Business → Agreements → Paid Apps **Active**
+1. **Interactive E2E not completed** — Maestro physical driver failed/flaky (2.3→2.7.0; `--apple-team-id 43A4KW5BKB`). Need human TF 92 session or working XCUITest/Maestro driver.
+2. **StoreKit purchase** — not run on TF 92; historical build 81 catalog FAIL must be retested.
+3. **Android device + Play Billing** — EXTERNALLY BLOCKED without device / Play Console app.
+4. **x86 `gh`** on this Mac — use HTTPS git + ASC API Python; GitHub Actions dispatch may need PAT.
 
-See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+## Immediate next actions
 
-## 0a) Prior — products not loading (build 80)
-
-EnvironmentObject + catalog states; still failed on 81 with Request Canceled.
-
-## 0b) Prior — password loop (build 79)
-
-Fixed in 80 (removed AppStore.sync from product load).
-
-## 0c) Prior — subscription deploy / first-10-users
-
-Production backend @ `07d5849`; geo engineering closed.
-
----
+1. On unlocked iPhone: TestFlight → install **92** → delete old if needed → run full checklist in QA report.
+2. For automation: upgrade/fix Maestro iOS real-device driver, or add HiAirUITests destination physical device.
+3. After each interactive FAIL: minimal code fix → bump build → TF upload → retest that scenario only, then full regression.
+4. Android: attach USB device for Health Connect path even if Billing stays blocked.
 
 ## Quick commands
 
 ```bash
 curl -sS https://api.hiair.io/api/health
-.tools/py/python/bin/python3.12 scripts/release/subscription_production_smoke.py
 bash scripts/release/hiair_final_gate.sh
 cd mobile/ios && bash scripts/archive_and_upload_testflight.sh
 cd mobile/ios && bash scripts/upload_ipa_testflight_api.sh
+xcrun devicectl device info apps --device 8A9FB747-7B0F-5C0E-A51F-EC23592F51F4 | grep -i hiair
 ```
 
 ## Docs
 
-- Geolocation: `docs/feat-geolocation-flow.md`
-- Subscriptions: `docs/subscriptions/SUBSCRIPTION_PRODUCTION_CERTIFICATION.md`
-- Device QA: `docs/release/qa/REAL_DEVICE_QA_REPORT.md`
+- `docs/release/qa/REAL_DEVICE_QA_REPORT.md` — live certification matrix
+- `docs/release/FINAL_RELEASE_PROGRAM_STATUS.md`
+- `docs/health/HEALTH_INTELLIGENCE_RELEASE_STATUS.md`
