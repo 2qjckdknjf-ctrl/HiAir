@@ -3,6 +3,7 @@ package com.hiair.ui.symptoms
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
+import com.hiair.SymptomFavoritesStore
 import com.hiair.ui.i18n.AndroidL10n
 import org.json.JSONArray
 import org.json.JSONObject
@@ -58,6 +59,9 @@ class SymptomLogViewModel(
     var state: SymptomLogState = SymptomLogState()
         private set
 
+    private var favoritesStore: SymptomFavoritesStore? = null
+    private var persistedFavoritesLoaded = false
+
     private val defaultFavoriteTypes = listOf(
         "cough",
         "headache",
@@ -68,6 +72,45 @@ class SymptomLogViewModel(
 
     fun updateProfileId(value: String) {
         state = state.copy(profileId = value)
+    }
+
+    fun attachFavoritesStore(store: SymptomFavoritesStore) {
+        favoritesStore = store
+        loadPersistedFavorites()
+    }
+
+    fun toggleFavorite(symptomType: String) {
+        val next = state.favorites.toMutableList()
+        val index = next.indexOf(symptomType)
+        if (index >= 0) {
+            next.removeAt(index)
+        } else {
+            next.add(symptomType)
+        }
+        state = state.copy(favorites = next)
+        persistFavorites(next)
+    }
+
+    private fun loadPersistedFavorites() {
+        if (persistedFavoritesLoaded) return
+        persistedFavoritesLoaded = true
+        val stored = favoritesStore?.load().orEmpty()
+        if (stored.isNotEmpty()) {
+            state = state.copy(favorites = stored)
+        }
+    }
+
+    private fun persistFavorites(favorites: List<String>) {
+        favoritesStore?.save(favorites)
+    }
+
+    private fun resolvedFavorites(available: Set<String>): List<String> {
+        loadPersistedFavorites()
+        return if (state.favorites.isEmpty()) {
+            defaultFavoriteTypes.filter { available.contains(it) }
+        } else {
+            state.favorites.filter { available.contains(it) }
+        }
     }
 
     fun setSearchText(value: String) {
@@ -154,11 +197,7 @@ class SymptomLogViewModel(
                 return
             }
             val available = taxonomy.categories.flatMap { it.symptoms }.map { it.symptomType }.toSet()
-            val favorites = if (state.favorites.isEmpty()) {
-                defaultFavoriteTypes.filter { available.contains(it) }
-            } else {
-                state.favorites.filter { available.contains(it) }
-            }
+            val favorites = resolvedFavorites(available)
             val expanded = state.expandedCategoryIds.ifEmpty {
                 taxonomy.categories.firstOrNull()?.id?.let { setOf(it) }.orEmpty()
             }
@@ -171,6 +210,7 @@ class SymptomLogViewModel(
                 favorites = favorites,
                 expandedCategoryIds = expanded,
             )
+            persistFavorites(favorites)
             ProductAnalytics.track(
                 "taxonomy_load_succeeded",
                 mapOf(

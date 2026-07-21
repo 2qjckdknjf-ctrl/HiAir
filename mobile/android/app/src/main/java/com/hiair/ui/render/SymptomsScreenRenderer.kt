@@ -378,15 +378,40 @@ internal object SymptomsScreenRenderer {
                         rowItems.forEach { item ->
                             val selected = state.selectedType == item.symptomType
                             addView(
-                                symptomPill(
-                                    activity = activity,
-                                    label = if (item.redFlag) "⚠ ${item.label}" else item.label,
-                                    selected = selected,
-                                ).apply {
-                                    setOnClickListener {
-                                        viewModel.selectSymptom(item.symptomType, item.redFlag)
-                                        repaintSymptoms(viewModel.state, viewModel.state.profileId.isNotBlank())
-                                    }
+                                LinearLayout(activity).apply {
+                                    orientation = LinearLayout.HORIZONTAL
+                                    addView(
+                                        symptomPill(
+                                            activity = activity,
+                                            label = if (item.redFlag) "⚠ ${item.label}" else item.label,
+                                            selected = selected,
+                                        ).apply {
+                                            setOnClickListener {
+                                                viewModel.selectSymptom(item.symptomType, item.redFlag)
+                                                repaintSymptoms(viewModel.state, viewModel.state.profileId.isNotBlank())
+                                            }
+                                            layoutParams = LinearLayout.LayoutParams(
+                                                0,
+                                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                                1f,
+                                            )
+                                        },
+                                    )
+                                    addView(
+                                        TextView(activity).apply {
+                                            text = if (state.favorites.contains(item.symptomType)) "★" else "☆"
+                                            textSize = 18f
+                                            gravity = Gravity.CENTER
+                                            setTextColor(Tokens.Text.secondary)
+                                            contentDescription = ctx.l("symptoms.favorites")
+                                            minWidth = V2Ui.dp(activity, 36)
+                                            setOnClickListener {
+                                                viewModel.toggleFavorite(item.symptomType)
+                                                repaintSymptoms(viewModel.state, viewModel.state.profileId.isNotBlank())
+                                                ctx.rerender()
+                                            }
+                                        },
+                                    )
                                     layoutParams = LinearLayout.LayoutParams(
                                         0,
                                         LinearLayout.LayoutParams.WRAP_CONTENT,

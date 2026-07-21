@@ -46,6 +46,7 @@ internal object InsightsScreenRenderer {
         val todaySummary: String,
         val generatedAt: String,
         val loggedDays: Int,
+        val healthStatusText: String? = null,
         val premiumLocked: Boolean = false,
     )
 
@@ -113,6 +114,9 @@ internal object InsightsScreenRenderer {
             contentHost.addView(buildTrendsSection(ctx, viewData.trends))
             contentHost.addView(buildAssociationsSection(ctx, viewData.associations))
             contentHost.addView(buildInsufficientSection(ctx, viewData.insufficient))
+            if (viewData.healthStatusText != null) {
+                contentHost.addView(buildHealthStatusCard(ctx, viewData.healthStatusText))
+            }
             if (viewData.premiumPatterns.isNotEmpty()) {
                 contentHost.addView(buildPremiumPatternsSection(ctx, viewData.premiumPatterns))
             }
@@ -172,6 +176,7 @@ internal object InsightsScreenRenderer {
                 var todaySummary = ctx.l("insights.today.empty")
                 var loggedDays = 0
                 var premiumLocked = false
+                var healthStatusText: String? = null
 
                 try {
                     val bundleRaw = apiClient.fetchHealthInsights(
@@ -189,6 +194,7 @@ internal object InsightsScreenRenderer {
                         unavailable = unavailable,
                     )
                     todaySummary = formatToday(ctx, bundle.optJSONObject("today"))
+                    healthStatusText = formatHealthStatus(ctx, bundle.optJSONObject("healthDataStatus"))
                     fun parseCards(key: String, target: MutableList<InsightCardData>) {
                         val arr = bundle.optJSONArray(key) ?: return
                         for (i in 0 until arr.length()) {
@@ -304,6 +310,7 @@ internal object InsightsScreenRenderer {
                             todaySummary = todaySummary,
                             generatedAt = generatedAt,
                             loggedDays = loggedDays,
+                            healthStatusText = healthStatusText,
                         ),
                         null,
                     )
@@ -356,6 +363,34 @@ internal object InsightsScreenRenderer {
             parts.add(ctx.l("insights.today.workouts").replace("%d", today.optInt("workoutCount", 0).toString()))
         }
         return parts.joinToString(" · ").ifBlank { ctx.l("insights.today.empty") }
+    }
+
+    private fun formatHealthStatus(ctx: RenderContext, status: JSONObject?): String? {
+        if (status == null) {
+            return null
+        }
+        val syncKey = when (status.optString("syncStatus").lowercase(Locale.ROOT)) {
+            "ok", "success", "synced" -> "insights.sync.ok"
+            "partial" -> "insights.sync.partial"
+            "pending", "syncing" -> "insights.sync.pending"
+            "error", "failed" -> "insights.sync.error"
+            else -> "insights.sync.unknown"
+        }
+        val metrics = status.optInt("metricDays", 0)
+        val syncLabel = ctx.l(syncKey)
+        return ctx.l("insights.health_status")
+            .replaceFirst("%d", metrics.toString())
+            .replaceFirst("%@", syncLabel)
+    }
+
+    private fun buildHealthStatusCard(ctx: RenderContext, healthStatusText: String): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.health_status")))
+        val card = HiAirComponents.cardContainer(activity)
+        card.addView(V2Ui.styledSecondaryText(activity, healthStatusText))
+        section.addView(card)
+        return section
     }
 
     private fun buildPremiumLockedCard(ctx: RenderContext): LinearLayout {

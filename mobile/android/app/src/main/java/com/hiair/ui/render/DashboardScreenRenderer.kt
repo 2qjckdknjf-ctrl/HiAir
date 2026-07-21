@@ -2,6 +2,7 @@ package com.hiair.ui.render
 
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -11,6 +12,7 @@ import com.hiair.ui.DashboardState
 import com.hiair.ui.DashboardStatus
 import com.hiair.ui.DashboardViewModel
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.HiAirRiskStyle
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 import java.util.Locale
@@ -200,6 +202,25 @@ internal object DashboardScreenRenderer {
                     ctx.rerender()
                 }
             }
+        )
+        attachAtmosphericOverlay(ctx, state)
+    }
+
+    private fun attachAtmosphericOverlay(ctx: RenderContext, state: DashboardState) {
+        val pm25 = state.pm25 ?: return
+        val level = state.riskLevel ?: return
+        val overlay = ctx.overlayContainer
+        overlay.addView(
+            AtmosphericParticlesView(ctx.activity).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+                setPm25(pm25)
+                setTintColor(HiAirRiskStyle.colorForLevel(level))
+                isClickable = false
+                isFocusable = false
+            },
         )
     }
 

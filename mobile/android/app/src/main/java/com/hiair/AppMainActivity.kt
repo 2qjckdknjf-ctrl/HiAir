@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -36,6 +37,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var onboardingStore: OnboardingStore
     private lateinit var titleView: TextView
     private lateinit var bodyContainer: LinearLayout
+    private lateinit var overlayContainer: FrameLayout
     private lateinit var screenRenderer: MainScreenRenderer
     private val paywallController = SubscriptionPaywallController(rootShell.settingsViewModel)
     private lateinit var dashboardButton: Button
@@ -52,6 +54,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(this)
         onboardingStore = OnboardingStore(this)
+        rootShell.symptomLogViewModel.attachFavoritesStore(SymptomFavoritesStore(this))
         healthConnectService = HealthConnectService(this)
         wearableHealthController = WearableHealthController(this, healthConnectService)
         locationController = LocationController(this, rootShell.settingsViewModel)
@@ -166,19 +169,42 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         navRow.addView(settingsButton)
         root.addView(navRow)
 
-        val scroll = ScrollView(this)
+        val contentFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            )
+        }
+        val scroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+        }
         bodyContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(12), 0, dp(24))
         }
         scroll.addView(bodyContainer)
-        root.addView(scroll)
+        overlayContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+            isClickable = false
+            isFocusable = false
+        }
+        contentFrame.addView(scroll)
+        contentFrame.addView(overlayContainer)
+        root.addView(contentFrame)
 
         screenRenderer = MainScreenRenderer(
             activity = this,
             rootShell = rootShell,
             titleView = titleView,
             bodyContainer = bodyContainer,
+            overlayContainer = overlayContainer,
             persistSession = ::persistSession,
             clearSession = {
                 sessionStore.clear()
@@ -229,6 +255,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     private fun renderCurrentScreen() {
         bodyContainer.removeAllViews()
+        overlayContainer.removeAllViews()
         syncNavLabels()
         syncNavSelection()
         if (rootShell.settingsViewModel.state.showPaywall) {
