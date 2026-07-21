@@ -33,3 +33,5 @@ GitHub Actions `Backend Deploy Production` for this push failed at Cloudflare to
 Physical iPhone retest on TestFlight **build 95** is still required before claiming **SYMPTOM JOURNAL E2E VERIFIED**.
 
 **Current verdict: CODE FIXED — WAITING FOR PHYSICAL RETEST**
+
+Full report: `docs/audit/SYMPTOM_JOURNAL_FINAL_REPORT.md`

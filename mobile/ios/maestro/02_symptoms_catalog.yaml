@@ -1,0 +1,26 @@
+appId: com.hiair.app
+---
+# Physical / simulator smoke for symptom journal recovery.
+# Requires logged-in session. Do not clearState (preserves auth).
+- launchApp:
+    clearState: false
+- tapOn:
+    text: "Симптомы"
+    optional: true
+- tapOn:
+    text: "Symptoms"
+    optional: true
+- assertVisible:
+    text: "Как вы себя чувствуете?"
+    optional: true
+- assertVisible:
+    text: "How are you feeling?"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      text: ".*[Кк]атегор.*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: /tmp/hiair_device_qa/02_symptoms_catalog
+- assertNotVisible: "symptomType"
+- assertNotVisible: "taxonomy_id"
