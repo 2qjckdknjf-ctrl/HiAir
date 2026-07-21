@@ -27,6 +27,10 @@ class PersonalLoadInput:
     resting_heart_rate: float | None = None
     resting_heart_rate_baseline_7d: float | None = None
     resting_heart_rate_baseline_30d: float | None = None
+    sleep_minutes: int | None = None
+    hrv_ms: float | None = None
+    hrv_baseline_7d: float | None = None
+    exercise_minutes: float | None = None
     heat_index: float | None = None
     temperature: float | None = None
     humidity: float | None = None
@@ -55,6 +59,9 @@ def _has_wearable_data(data: PersonalLoadInput) -> bool:
             data.heart_rate_avg,
             data.heart_rate_max,
             data.resting_heart_rate,
+            data.sleep_minutes,
+            data.hrv_ms,
+            data.exercise_minutes,
         )
     )
 
@@ -140,6 +147,34 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
         raw_points += 10
         reason_codes.append("elevated_air_high_activity")
         explanations.append("При текущем AQI лучше снизить интенсивную активность на улице.")
+
+    # Short sleep + environment / activity
+    if data.sleep_minutes is not None and data.sleep_minutes < 360:
+        if heat_index >= 30 or aqi >= 100:
+            raw_points += 15
+            reason_codes.append("short_sleep_environment")
+            explanations.append("После короткого сна нагрузка от жары или воздуха ощущается сильнее.")
+        elif steps > 6_000:
+            raw_points += 10
+            reason_codes.append("short_sleep_high_activity")
+            explanations.append("После короткого сна лучше снизить интенсивность активности.")
+
+    # Low HRV vs recent baseline (recovery signal only)
+    if (
+        data.hrv_ms is not None
+        and data.hrv_baseline_7d is not None
+        and data.hrv_baseline_7d > 0
+        and data.hrv_ms < data.hrv_baseline_7d * 0.85
+    ):
+        raw_points += 10
+        reason_codes.append("hrv_below_7d_baseline")
+        explanations.append("Восстановление ниже вашей недавней линии — учитывайте сон и нагрузку.")
+
+    # Hard workout day + poor air
+    if data.exercise_minutes is not None and data.exercise_minutes >= 45 and aqi >= 100:
+        raw_points += 10
+        reason_codes.append("long_exercise_poor_air")
+        explanations.append("После длительной тренировки при повышенном AQI лучше больше восстановиться indoors.")
 
     # Symptom context (no duplicate scoring)
     if data.symptoms and raw_points >= 10:

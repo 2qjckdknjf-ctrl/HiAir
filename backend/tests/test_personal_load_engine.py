@@ -74,6 +74,42 @@ def test_consent_revoked_no_scoring() -> None:
     assert result.score == 0
 
 
+def test_short_sleep_with_poor_air() -> None:
+    result = compute_personal_load_score(
+        PersonalLoadInput(
+            sleep_minutes=300,
+            aqi=120,
+            consent_active=True,
+        )
+    )
+    assert result.score >= 15
+    assert "short_sleep_environment" in result.reason_codes
+
+
+def test_hrv_below_baseline() -> None:
+    result = compute_personal_load_score(
+        PersonalLoadInput(
+            hrv_ms=30,
+            hrv_baseline_7d=50,
+            consent_active=True,
+        )
+    )
+    assert result.score >= 10
+    assert "hrv_below_7d_baseline" in result.reason_codes
+
+
+def test_long_exercise_poor_air() -> None:
+    result = compute_personal_load_score(
+        PersonalLoadInput(
+            exercise_minutes=50,
+            aqi=110,
+            consent_active=True,
+        )
+    )
+    assert result.score >= 10
+    assert "long_exercise_poor_air" in result.reason_codes
+
+
 def test_no_medical_wording_in_explanations() -> None:
     result = compute_personal_load_score(
         PersonalLoadInput(

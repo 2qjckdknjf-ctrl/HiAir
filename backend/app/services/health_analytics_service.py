@@ -153,13 +153,23 @@ def _compute_trends(
     window_days: int,
 ) -> list[InsightCard]:
     cards: list[InsightCard] = []
-    for metric_type, title_key in (
+    trend_specs = (
         ("steps", "steps"),
+        ("distance_walking_running", "distance"),
+        ("active_energy", "active_energy"),
+        ("exercise_minutes", "exercise"),
+        ("workout_duration", "workout"),
         ("resting_heart_rate", "resting_hr"),
         ("hrv_sdnn", "hrv"),
         ("hrv_rmssd", "hrv"),
         ("sleep_total", "sleep"),
-    ):
+        ("oxygen_saturation", "spo2"),
+        ("respiratory_rate", "resp"),
+    )
+    seen_hrv = False
+    for metric_type, title_key in trend_specs:
+        if metric_type.startswith("hrv_") and seen_hrv:
+            continue
         series = _series_for_metric(metrics, metric_type)
         if metric_type == "sleep_total" and not series:
             series = [
@@ -167,36 +177,51 @@ def _compute_trends(
                 for row in sleep_rows
                 if row.get("total_minutes") is not None
             ]
+        if metric_type == "sleep_total":
+            # Optional deep-sleep trend from sleep table.
+            deep_series = [
+                (row["local_date"], float(row["deep_minutes"]))
+                for row in sleep_rows
+                if row.get("deep_minutes") is not None
+            ]
+            if len(deep_series) >= MIN_TREND_DAYS:
+                cards.append(_trend_card("sleep_deep", "sleep_deep", deep_series, lang, window_days))
         if len(series) < MIN_TREND_DAYS:
             continue
-        recent = [v for _, v in series[-7:]]
-        older = [v for _, v in series[:-7]] or recent
-        if not recent:
-            continue
-        delta = median(recent) - median(older)
-        confidence = _confidence(len(series), window_days)
-        cards.append(
-            InsightCard(
-                insightKey=f"trend_{metric_type}",
-                title=_t(lang, f"trend_{title_key}_title"),
-                observation=_t(
-                    lang,
-                    f"trend_{title_key}_obs",
-                    days=len(series),
-                    direction=_direction_word(lang, delta),
-                ),
-                recommendation=_t(lang, f"trend_{title_key}_rec"),
-                confidence=confidence,
-                sampleSize=len(series),
-                windowDays=window_days,
-                supportingFactors=[metric_type],
-                limitations=[_t(lang, "limitation_not_causal")],
-                whyShown=_t(lang, "why_trend", days=len(series)),
-                chart={"metric": metric_type, "points": [{"date": d.isoformat(), "value": v} for d, v in series]},
-            )
-        )
-    # Deduplicate HRV if both methods appear — prefer labeled separate cards already.
-    return cards[:8]
+        if metric_type.startswith("hrv_"):
+            seen_hrv = True
+        cards.append(_trend_card(metric_type, title_key, series, lang, window_days))
+    return cards[:12]
+
+
+def _trend_card(
+    metric_type: str,
+    title_key: str,
+    series: list[tuple[date, float]],
+    lang: str,
+    window_days: int,
+) -> InsightCard:
+    recent = [v for _, v in series[-7:]]
+    older = [v for _, v in series[:-7]] or recent
+    delta = median(recent) - median(older) if recent else 0.0
+    return InsightCard(
+        insightKey=f"trend_{metric_type}",
+        title=_t(lang, f"trend_{title_key}_title"),
+        observation=_t(
+            lang,
+            f"trend_{title_key}_obs",
+            days=len(series),
+            direction=_direction_word(lang, delta),
+        ),
+        recommendation=_t(lang, f"trend_{title_key}_rec"),
+        confidence=_confidence(len(series), window_days),
+        sampleSize=len(series),
+        windowDays=window_days,
+        supportingFactors=[metric_type],
+        limitations=[_t(lang, "limitation_not_causal")],
+        whyShown=_t(lang, "why_trend", days=len(series)),
+        chart={"metric": metric_type, "points": [{"date": d.isoformat(), "value": v} for d, v in series]},
+    )
 
 
 def _compute_associations(
@@ -351,7 +376,196 @@ def _compute_associations(
                 )
             )
 
-    return cards[:10]
+    humidity_days = {
+        d: env.get("humidity")
+        for d, env in env_by_day.items()
+        if env.get("humidity") is not None
+    }
+    ozone_days = {
+        d: env.get("ozone")
+        for d, env in env_by_day.items()
+        if env.get("ozone") is not None
+    }
+    pm10_days = {
+        d: env.get("pm10")
+        for d, env in env_by_day.items()
+        if env.get("pm10") is not None
+    }
+
+    allergy_types = {"sneezing", "runny_nose", "nasal_congestion", "itchy_eyes", "watery_eyes"}
+    cards.extend(
+        _association_card(
+            factor_name="aqi",
+            factor_days=aqi_days,
+            high_threshold=80.0,
+            symptom_types=allergy_types,
+            symptoms_by_day=symptoms_by_day,
+            lang=lang,
+            window_days=window_days,
+            key="assoc_aqi_allergy",
+            title_key="assoc_aqi_allergy_title",
+            obs_key="assoc_aqi_allergy_obs",
+            rec_key="assoc_aqi_allergy_rec",
+        )
+    )
+    cards.extend(
+        _association_card(
+            factor_name="pm10",
+            factor_days=pm10_days,
+            high_threshold=50.0,
+            symptom_types=cough_types | allergy_types,
+            symptoms_by_day=symptoms_by_day,
+            lang=lang,
+            window_days=window_days,
+            key="assoc_pm10_irritation",
+            title_key="assoc_pm10_title",
+            obs_key="assoc_pm10_obs",
+            rec_key="assoc_pm10_rec",
+        )
+    )
+    headache_types = {"headache", "migraine_like_pain", "pressure_in_head", "light_sensitivity"}
+    cards.extend(
+        _association_card(
+            factor_name="humidity",
+            factor_days=humidity_days,
+            high_threshold=75.0,
+            symptom_types=headache_types,
+            symptoms_by_day=symptoms_by_day,
+            lang=lang,
+            window_days=window_days,
+            key="assoc_humidity_headache",
+            title_key="assoc_humidity_title",
+            obs_key="assoc_humidity_obs",
+            rec_key="assoc_humidity_rec",
+        )
+    )
+    breathing_types = {"shortness_of_breath", "chest_tightness", "wheeze", "airway_irritation"}
+    cards.extend(
+        _association_card(
+            factor_name="ozone",
+            factor_days=ozone_days,
+            high_threshold=100.0,
+            symptom_types=breathing_types,
+            symptoms_by_day=symptoms_by_day,
+            lang=lang,
+            window_days=window_days,
+            key="assoc_ozone_breathing",
+            title_key="assoc_ozone_title",
+            obs_key="assoc_ozone_obs",
+            rec_key="assoc_ozone_rec",
+        )
+    )
+
+    # Short sleep → next-day lower HRV (recovery signal)
+    hrv_series = _series_for_metric(metrics, "hrv_sdnn") or _series_for_metric(metrics, "hrv_rmssd")
+    if sleep_by_day and len(hrv_series) >= MIN_TREND_DAYS:
+        hrv_by_day = {d: v for d, v in hrv_series}
+        hrv_median = median([v for _, v in hrv_series])
+        short_sleep_days = {d for d, minutes in sleep_by_day.items() if minutes < 390}
+        low_hrv_hits = [
+            d
+            for d in short_sleep_days
+            if (hrv_by_day.get(d + timedelta(days=1)) is not None and hrv_by_day[d + timedelta(days=1)] < hrv_median * 0.9)
+            or (hrv_by_day.get(d) is not None and hrv_by_day[d] < hrv_median * 0.9)
+        ]
+        if len(short_sleep_days) >= MIN_ASSOCIATION_SYMPTOM_DAYS and len(low_hrv_hits) >= 3:
+            cards.append(
+                InsightCard(
+                    insightKey="assoc_short_sleep_hrv",
+                    title=_t(lang, "assoc_sleep_hrv_title"),
+                    observation=_t(
+                        lang,
+                        "assoc_sleep_hrv_obs",
+                        hit=len(low_hrv_hits),
+                        total=len(short_sleep_days),
+                    ),
+                    recommendation=_t(lang, "assoc_sleep_hrv_rec"),
+                    confidence=_confidence(len(low_hrv_hits), window_days),
+                    sampleSize=len(low_hrv_hits),
+                    windowDays=window_days,
+                    supportingFactors=["sleep_total", "hrv"],
+                    limitations=[_t(lang, "limitation_not_causal"), _t(lang, "limitation_lag")],
+                    whyShown=_t(lang, "why_association", days=len(low_hrv_hits)),
+                )
+            )
+
+    # Higher workout load on hot / high-AQI days → fatigue
+    workout_series = _series_for_metric(metrics, "workout_duration") or _series_for_metric(
+        metrics, "exercise_minutes"
+    )
+    if workout_series:
+        workout_by_day = {d: v for d, v in workout_series}
+        hard_days = {
+            d
+            for d, minutes in workout_by_day.items()
+            if minutes >= 45
+            and (
+                (temp_days.get(d) is not None and temp_days[d] >= 28)
+                or (aqi_days.get(d) is not None and aqi_days[d] >= 100)
+            )
+        }
+        fatigue_on_hard = [
+            d
+            for d in hard_days
+            if any(
+                s.get("symptomType") in {"fatigue", "weakness", "low_energy", "overheating"}
+                for s in symptoms_by_day.get(d, [])
+            )
+        ]
+        if len(hard_days) >= 3 and fatigue_on_hard:
+            cards.append(
+                InsightCard(
+                    insightKey="assoc_workout_env_fatigue",
+                    title=_t(lang, "assoc_workout_env_title"),
+                    observation=_t(
+                        lang,
+                        "assoc_workout_env_obs",
+                        hit=len(fatigue_on_hard),
+                        total=len(hard_days),
+                    ),
+                    recommendation=_t(lang, "assoc_workout_env_rec"),
+                    confidence=_confidence(len(fatigue_on_hard), window_days),
+                    sampleSize=len(fatigue_on_hard),
+                    windowDays=window_days,
+                    supportingFactors=["workout_duration", "temperature", "aqi"],
+                    limitations=[_t(lang, "limitation_not_causal")],
+                    whyShown=_t(lang, "why_association", days=len(fatigue_on_hard)),
+                )
+            )
+
+    # Higher steps days with fewer symptoms — positive pattern
+    steps_series = _series_for_metric(metrics, "steps")
+    if len(steps_series) >= MIN_TREND_DAYS and symptom_days:
+        steps_vals = [v for _, v in steps_series]
+        steps_cut = median(steps_vals)
+        active_days = {d for d, v in steps_series if v >= max(steps_cut, 6000)}
+        calm_active = [
+            d
+            for d in active_days
+            if max((int(s.get("severity") or 0) for s in symptoms_by_day.get(d, [])), default=0) <= 2
+        ]
+        if len(active_days) >= MIN_ASSOCIATION_SYMPTOM_DAYS and len(calm_active) >= 3:
+            cards.append(
+                InsightCard(
+                    insightKey="assoc_active_better_feel",
+                    title=_t(lang, "assoc_steps_feel_title"),
+                    observation=_t(
+                        lang,
+                        "assoc_steps_feel_obs",
+                        hit=len(calm_active),
+                        total=len(active_days),
+                    ),
+                    recommendation=_t(lang, "assoc_steps_feel_rec"),
+                    confidence=_confidence(len(calm_active), window_days),
+                    sampleSize=len(calm_active),
+                    windowDays=window_days,
+                    supportingFactors=["steps", "symptoms"],
+                    limitations=[_t(lang, "limitation_not_causal")],
+                    whyShown=_t(lang, "why_association", days=len(calm_active)),
+                )
+            )
+
+    return cards[:16]
 
 
 def _association_card(
@@ -665,6 +879,27 @@ _STRINGS: dict[str, dict[str, str]] = {
         "trend_sleep_title": "Сон",
         "trend_sleep_obs": "За {days} дн. продолжительность сна {direction} вашей обычной.",
         "trend_sleep_rec": "Рассмотрите более спокойный вечерний режим и более лёгкую нагрузку на следующий день.",
+        "trend_distance_title": "Дистанция",
+        "trend_distance_obs": "За {days} дн. пройденная дистанция {direction} вашей более ранней линии.",
+        "trend_distance_rec": "Учитывайте качество воздуха, если увеличиваете прогулки.",
+        "trend_active_energy_title": "Активная энергия",
+        "trend_active_energy_obs": "За {days} дн. расход активной энергии {direction} обычного уровня.",
+        "trend_active_energy_rec": "Соизмеряйте нагрузку с самочувствием и жарой.",
+        "trend_exercise_title": "Минуты упражнений",
+        "trend_exercise_obs": "За {days} дн. минуты упражнений {direction} вашей недавней линии.",
+        "trend_exercise_rec": "В дни с высоким риском среды выбирайте более щадящий план.",
+        "trend_workout_title": "Тренировки",
+        "trend_workout_obs": "За {days} дн. длительность тренировок {direction} обычного уровня.",
+        "trend_workout_rec": "После интенсивных дней дайте себе больше восстановления.",
+        "trend_spo2_title": "Кислород в крови",
+        "trend_spo2_obs": "За {days} дн. показатель SpO₂ {direction} вашей недавней линии.",
+        "trend_spo2_rec": "Это wellness-сигнал. При необычных ощущениях снизьте нагрузку.",
+        "trend_resp_title": "Частота дыхания",
+        "trend_resp_obs": "За {days} дн. частота дыхания {direction} обычного диапазона.",
+        "trend_resp_rec": "Учитывайте воздух и нагрузку; это не диагноз.",
+        "trend_sleep_deep_title": "Глубокий сон",
+        "trend_sleep_deep_obs": "За {days} дн. глубокий сон {direction} вашей обычной.",
+        "trend_sleep_deep_rec": "Более спокойный вечер может поддержать восстановление.",
         "assoc_pm25_cough_title": "Частицы PM2.5 и дыхание",
         "assoc_pm25_cough_obs": "В {hit} из {total} дней с повышенным PM2.5 чаще отмечались симптомы дыхания.",
         "assoc_pm25_cough_rec": "В дни с высоким PM2.5 по возможности сократите интенсивную активность на улице.",
@@ -680,6 +915,27 @@ _STRINGS: dict[str, dict[str, str]] = {
         "baseline_rhr_title": "Пульс в покое выше обычного",
         "baseline_rhr_obs": "Наблюдается отклонение пульса в покое вверх от вашей персональной базы.",
         "baseline_rhr_rec": "Учитывайте самочувствие и снизьте интенсивность нагрузки.",
+        "assoc_aqi_allergy_title": "Качество воздуха и аллергия",
+        "assoc_aqi_allergy_obs": "В {hit} из {total} дней с повышенным AQI чаще отмечались аллергические симптомы.",
+        "assoc_aqi_allergy_rec": "В такие дни сократите время на улице и проветрите помещение вне пика загрязнения.",
+        "assoc_pm10_title": "PM10 и раздражение",
+        "assoc_pm10_obs": "В {hit} из {total} дней с повышенным PM10 чаще отмечались симптомы раздражения.",
+        "assoc_pm10_rec": "При высоком PM10 выбирайте более короткие и спокойные выходы.",
+        "assoc_humidity_title": "Влажность и голова",
+        "assoc_humidity_obs": "В {hit} из {total} дней с высокой влажностью чаще отмечалась головная боль.",
+        "assoc_humidity_rec": "Пейте воду и избегайте духоты в помещении.",
+        "assoc_ozone_title": "Озон и дыхание",
+        "assoc_ozone_obs": "В {hit} из {total} дней с повышенным озоном чаще отмечались дыхательные симптомы.",
+        "assoc_ozone_rec": "В такие дни предпочитайте утренние или вечерние окна активности.",
+        "assoc_sleep_hrv_title": "Короткий сон и восстановление",
+        "assoc_sleep_hrv_obs": "В {hit} из {total} дней с коротким сном HRV был ниже вашей обычной линии.",
+        "assoc_sleep_hrv_rec": "После короткой ночи снизьте интенсивность и дайте себе восстановиться.",
+        "assoc_workout_env_title": "Тренировки в тяжёлой среде",
+        "assoc_workout_env_obs": "В {hit} из {total} дней с высокой нагрузкой при жаре или высоком AQI отмечалась усталость.",
+        "assoc_workout_env_rec": "В жаркие или загрязнённые дни сократите длительность интенсивных тренировок.",
+        "assoc_steps_feel_title": "Активные дни и самочувствие",
+        "assoc_steps_feel_obs": "В {hit} из {total} более активных дней симптомы были мягче.",
+        "assoc_steps_feel_rec": "Умеренная активность в безопасные окна часто поддерживает самочувствие.",
         "limitation_not_causal": "Это наблюдение связи, а не доказанная причина.",
         "limitation_lag": "Учтены окна того же и следующего дня.",
         "limitation_not_diagnosis": "HiAir не ставит медицинских диагнозов.",
@@ -704,6 +960,27 @@ _STRINGS: dict[str, dict[str, str]] = {
         "trend_sleep_title": "Sleep",
         "trend_sleep_obs": "Over {days} days, sleep duration was {direction} than usual.",
         "trend_sleep_rec": "Consider a calmer evening routine and lighter activity the next day.",
+        "trend_distance_title": "Distance",
+        "trend_distance_obs": "Over {days} days, walking distance was {direction} than your earlier level.",
+        "trend_distance_rec": "Consider air quality when increasing outdoor walking.",
+        "trend_active_energy_title": "Active energy",
+        "trend_active_energy_obs": "Over {days} days, active energy was {direction} than usual.",
+        "trend_active_energy_rec": "Match load to how you feel and heat conditions.",
+        "trend_exercise_title": "Exercise minutes",
+        "trend_exercise_obs": "Over {days} days, exercise minutes were {direction} than your recent baseline.",
+        "trend_exercise_rec": "On higher environmental-risk days, prefer a gentler plan.",
+        "trend_workout_title": "Workouts",
+        "trend_workout_obs": "Over {days} days, workout duration was {direction} than usual.",
+        "trend_workout_rec": "After intense days, protect recovery time.",
+        "trend_spo2_title": "Blood oxygen",
+        "trend_spo2_obs": "Over {days} days, SpO₂ was {direction} than your recent baseline.",
+        "trend_spo2_rec": "This is a wellness signal. Ease intensity if you feel unusual.",
+        "trend_resp_title": "Respiratory rate",
+        "trend_resp_obs": "Over {days} days, breathing rate was {direction} than your usual range.",
+        "trend_resp_rec": "Consider air and load; this is not a diagnosis.",
+        "trend_sleep_deep_title": "Deep sleep",
+        "trend_sleep_deep_obs": "Over {days} days, deep sleep was {direction} than usual.",
+        "trend_sleep_deep_rec": "A calmer evening may support recovery.",
         "assoc_pm25_cough_title": "PM2.5 and breathing",
         "assoc_pm25_cough_obs": "On {hit} of {total} higher-PM2.5 days, breathing symptoms were noted more often.",
         "assoc_pm25_cough_rec": "On high-PM2.5 days, consider reducing intense outdoor activity.",
@@ -719,6 +996,27 @@ _STRINGS: dict[str, dict[str, str]] = {
         "baseline_rhr_title": "Resting pulse above your usual",
         "baseline_rhr_obs": "Resting heart rate appears above your personal baseline.",
         "baseline_rhr_rec": "Consider how you feel and reduce intensity.",
+        "assoc_aqi_allergy_title": "Air quality and allergy-like symptoms",
+        "assoc_aqi_allergy_obs": "On {hit} of {total} higher-AQI days, allergy-like symptoms were noted more often.",
+        "assoc_aqi_allergy_rec": "On those days, shorten outdoor time and ventilate outside peak pollution.",
+        "assoc_pm10_title": "PM10 and irritation",
+        "assoc_pm10_obs": "On {hit} of {total} higher-PM10 days, irritation symptoms were noted more often.",
+        "assoc_pm10_rec": "On high-PM10 days, prefer shorter and calmer outdoor periods.",
+        "assoc_humidity_title": "Humidity and headaches",
+        "assoc_humidity_obs": "On {hit} of {total} higher-humidity days, headache was noted more often.",
+        "assoc_humidity_rec": "Hydrate and avoid stuffy indoor air.",
+        "assoc_ozone_title": "Ozone and breathing",
+        "assoc_ozone_obs": "On {hit} of {total} higher-ozone days, breathing symptoms were noted more often.",
+        "assoc_ozone_rec": "Prefer morning or evening activity windows on those days.",
+        "assoc_sleep_hrv_title": "Short sleep and recovery",
+        "assoc_sleep_hrv_obs": "On {hit} of {total} short-sleep days, HRV was below your usual line.",
+        "assoc_sleep_hrv_rec": "After a short night, ease intensity and protect recovery.",
+        "assoc_workout_env_title": "Harder workouts in tough conditions",
+        "assoc_workout_env_obs": "On {hit} of {total} higher-load days in heat or high AQI, fatigue was noted.",
+        "assoc_workout_env_rec": "On hot or polluted days, shorten intense sessions.",
+        "assoc_steps_feel_title": "Active days and how you feel",
+        "assoc_steps_feel_obs": "On {hit} of {total} more active days, symptoms were milder.",
+        "assoc_steps_feel_rec": "Moderate activity in safer windows often supports how you feel.",
         "limitation_not_causal": "This is an observed association, not proven causation.",
         "limitation_lag": "Same-day and next-day windows were considered.",
         "limitation_not_diagnosis": "HiAir does not provide medical diagnoses.",

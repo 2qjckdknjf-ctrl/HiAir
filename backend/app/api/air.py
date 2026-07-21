@@ -9,6 +9,7 @@ import app.services.air_recommendation_engine as air_recommendation_engine
 import app.services.ai_explanation_service as ai_explanation_service
 import app.services.air_risk_engine as air_risk_engine
 import app.services.entitlement_service as entitlement_service
+import app.services.health_analytics_service as health_analytics_service
 import app.services.settings_repository as settings_repository
 import app.services.wearable_service as wearable_service
 
@@ -37,12 +38,37 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
     snapshot_id = air_repository.save_environment_snapshot(environment)
     assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
+    health_context: list[str] = []
+    try:
+        bundle = health_analytics_service.build_insights_bundle(
+            user_id=user_id,
+            profile_id=profile.profile_id,
+            window_days=30,
+            language=language,
+        )
+        for card in (bundle.get("associations") or [])[:2]:
+            title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+            observation = getattr(card, "observation", None) or (
+                card.get("observation") if isinstance(card, dict) else None
+            )
+            if title and observation:
+                health_context.append(f"{title}: {observation}")
+        for card in (bundle.get("trends") or [])[:1]:
+            title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+            observation = getattr(card, "observation", None) or (
+                card.get("observation") if isinstance(card, dict) else None
+            )
+            if title and observation:
+                health_context.append(f"{title}: {observation}")
+    except Exception:
+        health_context = []
     explanation, explanation_source = ai_explanation_service.generate_explanation(
         profile,
         risk,
         recommendation,
         language=language,
         risk_assessment_id=assessment_id,
+        health_context=health_context,
     )
     air_repository.save_recommendation(
         risk_assessment_id=assessment_id,
