@@ -129,6 +129,56 @@ struct SymptomTaxonomyDTO: Codable {
     let safetyNotice: String
     let categories: [SymptomCategoryDTO]
     let count: Int
+
+    enum CodingKeys: String, CodingKey {
+        case consentVersion
+        case safetyNotice
+        case severityNotice
+        case categories
+        case count
+    }
+
+    init(consentVersion: String, safetyNotice: String, categories: [SymptomCategoryDTO], count: Int) {
+        self.consentVersion = consentVersion
+        self.safetyNotice = safetyNotice
+        self.categories = categories
+        self.count = count
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        consentVersion = try container.decodeIfPresent(String.self, forKey: .consentVersion) ?? "health-intelligence-v1"
+        let safety = try container.decodeIfPresent(String.self, forKey: .safetyNotice)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let severity = try container.decodeIfPresent(String.self, forKey: .severityNotice)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let safety, !safety.isEmpty {
+            safetyNotice = safety
+        } else if let severity, !severity.isEmpty {
+            // Production taxonomy historically shipped severityNotice; create responses use safetyNotice.
+            safetyNotice = severity
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.safetyNotice,
+                .init(
+                    codingPath: container.codingPath,
+                    debugDescription: "Missing safetyNotice/severityNotice"
+                )
+            )
+        }
+        categories = try container.decode([SymptomCategoryDTO].self, forKey: .categories)
+        count = try container.decodeIfPresent(Int.self, forKey: .count)
+            ?? categories.reduce(0) { $0 + $1.symptoms.count }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(consentVersion, forKey: .consentVersion)
+        try container.encode(safetyNotice, forKey: .safetyNotice)
+        try container.encode(safetyNotice, forKey: .severityNotice)
+        try container.encode(categories, forKey: .categories)
+        try container.encode(count, forKey: .count)
+    }
 }
 
 struct SymptomCategoryDTO: Codable, Identifiable {
@@ -161,6 +211,7 @@ struct ComprehensiveSymptomPayload: Codable {
     let note: String?
     let timezone: String?
     let customLabel: String?
+    let clientRequestId: String?
 }
 
 struct ComprehensiveSymptomResponseDTO: Codable {
@@ -171,6 +222,22 @@ struct ComprehensiveSymptomResponseDTO: Codable {
     let redFlag: Bool
     let safetyNotice: String?
     let loggedAt: String
+}
+
+struct CustomSymptomCreatePayload: Codable {
+    let profileId: String
+    let label: String
+    let category: String
+    let iconKey: String?
+}
+
+struct CustomSymptomResponseDTO: Codable {
+    let id: String
+    let symptomType: String
+    let label: String
+    let category: String
+    let iconKey: String?
+    let isHidden: Bool
 }
 
 /// Lightweight Any JSON value for sparse today payload.

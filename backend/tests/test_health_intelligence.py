@@ -81,6 +81,7 @@ def test_symptom_taxonomy_coverage() -> None:
     assert "heat_dehydration" in categories
     assert "digestion" in categories
     assert len(SYMPTOMS) == payload["count"]
+    assert payload["safetyNotice"] == payload["severityNotice"]
 
 
 def test_metric_summary_rejects_bad_unit() -> None:
@@ -243,7 +244,13 @@ def test_taxonomy_endpoint(monkeypatch) -> None:
     # taxonomy is public-ish but router has no auth requirement
     response = client.get("/api/v1/health/symptoms/taxonomy?language=ru")
     assert response.status_code == 200
-    assert response.json()["count"] >= 70
+    body = response.json()
+    assert body["count"] >= 70
+    # iOS SymptomTaxonomyDTO requires safetyNotice; Android also reads severityNotice.
+    assert isinstance(body.get("safetyNotice"), str) and body["safetyNotice"].strip()
+    assert isinstance(body.get("severityNotice"), str) and body["severityNotice"].strip()
+    assert body["safetyNotice"] == body["severityNotice"]
+    assert body.get("categories") and body["categories"][0].get("symptoms")
 
 
 def test_comprehensive_symptom_create(monkeypatch) -> None:
@@ -366,8 +373,10 @@ def test_comprehensive_symptom_model_validation() -> None:
         symptomType="itchy_eyes",
         severity=2,
         locationContext="outdoors",
+        clientRequestId="req-1",
     )
     assert ok.severity == 2
+    assert ok.clientRequestId == "req-1"
     try:
         ComprehensiveSymptomCreateRequest(
             profileId=str(uuid4()),

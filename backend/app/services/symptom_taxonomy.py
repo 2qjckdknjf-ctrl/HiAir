@@ -234,9 +234,13 @@ def taxonomy_payload(language: str = "ru") -> dict:
                 "symptoms": items,
             }
         )
+    notice = SAFETY_NOTICE.get(lang, SAFETY_NOTICE["en"])
     return {
         "consentVersion": "health-intelligence-v1",
-        "severityNotice": SAFETY_NOTICE.get(lang, SAFETY_NOTICE["en"]),
+        # Mobile contract: iOS decoder expects safetyNotice (create response uses same key).
+        # Keep severityNotice as a compatible alias for older Android clients.
+        "safetyNotice": notice,
+        "severityNotice": notice,
         "severityNoticeAlwaysVisible": True,
         "severityNoticeContext": "red_flag_symptoms",
         "categories": categories,
