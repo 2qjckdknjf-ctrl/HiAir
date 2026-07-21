@@ -1,17 +1,26 @@
 # Health Intelligence 100% Sprint — Final Report
 
-**Branch:** `feat/health-intelligence-100`  
+**Branch:** `feat/health-intelligence-100` → merged `main`  
 **Date:** 2026-07-21  
-**Verdict:** `CODE HARDENED — WAITING FOR PHYSICAL DEVICE + PROD DEPLOY`
+**Merge SHA:** `6eae02aa798060bbd4321e5c4fc5fc3122ebb4a9` (PR #30)  
+**Production SHA:** `28696b020aa1a0e7c895e2e17a0b95431dac1690`  
+**Verdict:** `PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA`
 
 ---
 
-## What was found
+## Executive summary
 
-1. iOS authorized mindfulness / gait / tier-3 types but did not always collect or surface them; Settings connect used tiers 1–2 only; Dashboard did not re-sync HealthKit.
-2. Android Manifest declared only 3 of ~13 Health Connect read permissions; delete path skipped `/api/v1/health/data`; no body temperature sync.
-3. Backend trends/associations were narrow; PM10/ozone/humidity loaded but unused; personal load ignored sleep/HRV/exercise; AI had no wearable insight context.
-4. Insights UI lacked 7/30 window control and some metric labels.
+Health Intelligence 100 was reviewed, merged to `main`, deployed to `api.hiair.io`, and certified with synthetic production smoke (auth, sync, 7/30 insights, personal load, delete, privacy, live LLM). TestFlight **build 103** is VALID and assigned to internal group «Первый». Android signed release APK points at production API. Physical HealthKit / Health Connect E2E with real wearable records remains open — simulator and synthetic aggregates are not device proof.
+
+---
+
+## What was found (sprint + release)
+
+1. iOS authorized mindfulness / gait / tier-3 types but did not always collect or surface them; Dashboard awaited full HK sync.
+2. Android Manifest declared only 3 of ~13 Health Connect read permissions; delete path skipped `/api/v1/health/data`.
+3. Backend trends/associations narrow; personal load ignored sleep/HRV/exercise; AI had no wearable insight context.
+4. Post-merge review tails: HRV SDNN≠RMSSD baseline mix; symptom severity COALESCE→3; insights/AI without consent; trend cards at exactly 7 points; duplicate l10n keys.
+5. Release certification defects: Insights API `window_days` `ge=14` rejected mobile 7-day chips; `healthDataStatus` omitted `consentActive` on success; Android release keystore resolved against `app/` (unsigned APK).
 
 ---
 
@@ -20,65 +29,35 @@
 | Area | Fix |
 |------|-----|
 | Coverage audit | Full HK/HC matrix in `HEALTH_INTELLIGENCE_COVERAGE_AUDIT.md` |
-| iOS collection | Mindfulness + walking gait metrics; connect tiers 1–3; broader purpose strings; Dashboard background sync |
-| iOS UI | Basal + mobility in today metrics; Insights 7/30 picker; human metric labels |
-| Android HC | Full READ_* set; body temperature; Settings delete health data; Insights 7/30; l10n |
-| Backend analytics | Expanded trends + env/symptom associations; richer correlation factors |
-| Personal load | Sleep, HRV vs baseline, long exercise + AQI |
-| AI | `health_context` from insight cards wired into air explanation |
-| Tests | `test_health_analytics_expansion.py` + personal load cases |
+| iOS / Android / backend | Sprint features + review-tail hardening (PR #30) |
+| Insights 7d | API `window_days` `ge=7` + regression test |
+| Insights status | `consentActive` always present in `healthDataStatus` |
+| Android signing | Resolve keystore via `rootProject.file` → signed `app-release.apk` |
+| Prod smoke | `scripts/release/health_intelligence_production_smoke.py` |
+| TestFlight | Build **103** VALID, group «Первый» |
 
 ---
 
-## Files changed (primary)
+## Release evidence
 
-- `docs/audit/HEALTH_INTELLIGENCE_COVERAGE_AUDIT.md`
-- `docs/audit/HEALTH_INTELLIGENCE_100_SPRINT_REPORT.md`
-- `backend/app/services/health_metrics.py`
-- `backend/app/services/health_analytics_service.py`
-- `backend/app/services/correlation_engine.py`
-- `backend/app/services/insights_repository.py`
-- `backend/app/services/ai_explanation_service.py`
-- `backend/app/services/personal_load_engine.py`
-- `backend/app/services/wearable_service.py`
-- `backend/app/api/air.py`
-- `backend/tests/test_health_analytics_expansion.py`
-- `backend/tests/test_personal_load_engine.py`
-- `mobile/ios/HiAir/Services/HealthKitService.swift`
-- `mobile/ios/HiAir/Screens/WearableConsentView.swift`
-- `mobile/ios/HiAir/Screens/HealthTodayMetricsView.swift`
-- `mobile/ios/HiAir/Screens/DashboardView.swift`
-- `mobile/ios/HiAir/Screens/InsightsView.swift`
-- `mobile/ios/HiAir/AppSession.swift`
-- `mobile/ios/project.yml`
-- `mobile/android/app/src/main/AndroidManifest.xml`
-- `mobile/android/app/src/main/java/com/hiair/health/HealthConnectService.kt`
-- `mobile/android/app/src/main/java/com/hiair/ui/render/HealthTodayMetricsRenderer.kt`
-- `mobile/android/app/src/main/java/com/hiair/ui/render/InsightsScreenRenderer.kt`
-- `mobile/android/app/src/main/java/com/hiair/ui/settings/SettingsState.kt`
-- `mobile/android/app/src/main/java/com/hiair/network/ApiClient.kt`
-- `mobile/android/app/src/main/java/com/hiair/ui/i18n/AndroidL10n.kt`
-
----
-
-## Tests passed (local)
-
-| Suite | Result |
+| Check | Result |
 |-------|--------|
-| `pytest tests/test_health_analytics_expansion.py tests/test_health_intelligence.py` | PASS |
-| `pytest tests/test_personal_load_engine.py` | PASS (incl. new sleep/HRV/exercise cases) |
-| `xcodebuild` HiAir iOS Simulator | BUILD SUCCEEDED |
-| `./gradlew :app:assembleDebug :app:testDebugUnitTest` | PASS |
+| PR #30 merge | `6eae02a` |
+| Follow-up fixes on main | `7dcad23`, `28696b0` |
+| Backend Deploy Production | https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/29847279318 PASS |
+| Live `deploy_git_sha` | `28696b0…` |
+| Unauth health routes | 401 |
+| Synthetic authenticated smoke | PASS (14-day sync, insights 7/30, delete, privacy) |
+| Live AI `current-risk` | `explanationSource=llm` |
+| TestFlight 103 | VALID `dce5426e-14b0-4fb1-bbf4-0c04648afaa2` → «Первый» |
+| Android release | Signed v2 `mobile/android/app/build/outputs/apk/release/app-release.apk`; API `https://api.hiair.io` |
+| Physical HK / HC E2E | **NOT RUN** |
 
 ---
 
-## Device-only / external verification required
+## Deferred (unchanged)
 
-1. Physical iPhone: HealthKit authorize tiers 1–3 → sync → Dashboard/Insights cards populate (not Sample).
-2. Physical Android with Health Connect: permissions grant → body temp / SpO₂ / HRV when device has data.
-3. Production deploy of this branch to `api.hiair.io` + smoke `--require-live-ai` for explainable AI with health_context.
-4. Sandbox Premium path for personal-patterns cards (402 vs unlocked).
-5. True pollen / ECG / cycle / mood — intentionally deferred.
+Pollen / ECG / cycle / mood / daylight / audio / falls — intentionally out of scope.
 
 ---
 
@@ -86,16 +65,12 @@
 
 | Module | Score | Note |
 |--------|------:|------|
-| Backend | 82 | Analytics + load expanded; pollen + seasonality incomplete |
-| iOS | 85 | Collection/UI hardened; needs device retest |
-| Android | 78 | Manifest/temp fixed; mobility/mindfulness still missing |
-| UX | 80 | Insights period + human copy; not a full redesign |
-| Health Intelligence | 80 | Major data→insight loop closed in code |
-| AI | 72 | Prompt + context wired; live prod proof pending |
-| Analytics | 78 | Weekly/monthly via window; seasonal weak |
-| Subscription | 70 | Unchanged this sprint; prior ARCHITECTURE READY |
-| Design | 75 | Presentation-only polish; no new screens |
-| Accessibility | 70 | Labels improved; no dedicated a11y audit this sprint |
-| First User Experience | 72 | Onboarding not rewritten; health connect clearer |
+| Backend | 90 | Prod live + synthetic smoke; device proof pending |
+| iOS | 86 | TF 103 ready; needs physical HK records |
+| Android | 84 | Signed release; needs physical HC records; Play Billing EXTERNALLY BLOCKED |
+| Health Intelligence | 88 | Code + prod API certified; device E2E open |
+| AI | 85 | Live LLM on prod; health_context wired + Premium gated |
+| Subscription | 70 | Unchanged; ARCHITECTURE READY |
+| First User Experience | 75 | Waiting on device matrix |
 
-**Product vs competitors:** stronger env×symptoms×wearables loop than most AQI apps; still weaker than Apple Health / dedicated recovery apps on ECG, medications, cycle, and rich workout taxonomy.
+**Final status for this certification pass:** `PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA`

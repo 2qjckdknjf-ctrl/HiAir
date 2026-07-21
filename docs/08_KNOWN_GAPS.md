@@ -1,17 +1,22 @@
 # 08 Known Gaps
 
-Updated: 2026-07-21 (Physical device certification sprint)
+Updated: 2026-07-21 (Health Intelligence release certification)
 
 ## P0 (block first 10 real users)
 
-- **Physical device interactive E2E pending:** Preflight PASS (incl. final gate arm64 JDK fix); prod `fa0d91b`; TestFlight **92** VALID; physical iPhone reinstall/launch PASS; HealthKit + StoreKit + geo + a11y matrix still **NOT RUN** interactively (Maestro cannot attach over CoreDevice localNetwork). See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Physical HealthKit / Health Connect E2E pending:** Production `28696b0` + synthetic health smoke PASS; TestFlight **103** VALID («Первый»); device matrices still **NOT RUN**. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
 - **Maestro physical iOS automation tooling:** driver build/connect flaky on Maestro 2.7 + Xcode 26.6 — not a product FAIL; blocks unattended UI certification.
-- **StoreKit catalog FAIL historically (build 81):** Request Canceled; must retest on **TF 92**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
-- **Android physical + Play Billing:** no USB device this session; Play Console app may stay EXTERNALLY BLOCKED.
-- **Cloudflare CI credential durability:** prefer long-lived Custom API Token; OAuth refresh helper exists.
+- **StoreKit sandbox purchase:** retest on **TF 103**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
+- **Android physical + Play Billing:** no USB device this session; Play Console app for `com.hiair` EXTERNALLY BLOCKED.
+- **Cloudflare CI credential durability:** Custom API Token rotated 2026-07-21; prefer long-lived token (runbook).
 - **Use release / TestFlight builds against production** — debug variants point to localhost.
 - **Push notifications not wired on mobile** — sequenced after device QA.
-- **Android Play release signing** not configured in Gradle (unsigned release APK only).
+
+## Closed this certification pass
+
+- Health Intelligence PR #30 merged; prod deploy SHA `28696b0`.
+- Insights `window_days=7` unblocked; `consentActive` on insights status; Android release keystore path fixed (signed v2 APK).
+- Prod synthetic smoke harness: `scripts/release/health_intelligence_production_smoke.py`.
 
 ## P1 (important before wider beta)
 

@@ -1,50 +1,51 @@
 # HiAir Development Handoff for Next Agent
 
-Date: 2026-07-21 (Physical device certification — interactive still open)
+Date: 2026-07-21 (Health Intelligence release certification)
 
 ## Current verdict
 
-**DEVICE CERTIFICATION IN PROGRESS**
+**PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA**
 
-Do **not** claim `READY FOR FIRST USERS` until interactive iPhone matrix in `docs/release/qa/REAL_DEVICE_QA_REPORT.md` is PASS (geo + HealthKit + StoreKit purchase + privacy + a11y).
+Do **not** claim `HEALTH INTELLIGENCE E2E VERIFIED` until physical iPhone HealthKit + physical Android Health Connect matrices pass with real records (sync → Dashboard → Insights 7/30 → personal load → AI health_context → revoke/delete).
 
-## Proven this session (refresh)
+## Proven this session
 
 | Item | Evidence |
 |------|----------|
-| Production SHA | `fa0d91b` on `https://api.hiair.io/api/health` |
-| Health API unauth | summary/insights **401**; taxonomy **200** |
-| Schema | `health_intelligence` + soft-delete on hiair-prod |
-| Preflight | backend pytest, iOS HiAirTests, Android assemble/lint/test, `hiair_final_gate.sh` **PASS** |
-| Gate fix | `scripts/release/hiair_final_gate.sh` forces arm64 `JAVA_HOME` (avoids x86 Homebrew java under `bash -lc`) |
-| Physical iPhone 17 Pro | paired; **build 92** fresh signed reinstall + launch via `devicectl` |
-| TestFlight 92 | ASC VALID `cbd0b02f-3f78-42e8-a939-945210419d8a` |
-| Android USB | none (`adb` unavailable) |
+| Merge | PR #30 → `6eae02a` |
+| Production SHA | `28696b0` on `https://api.hiair.io/api/health` |
+| Deploy workflow | https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/29847279318 PASS |
+| Synthetic health smoke | `scripts/release/health_intelligence_production_smoke.py` PASS |
+| Live AI | `/api/air/current-risk` `explanationSource=llm` |
+| TestFlight | **103** VALID `dce5426e-14b0-4fb1-bbf4-0c04648afaa2`, group «Первый», `IN_BETA_TESTING` |
+| Android release | Signed v2 `app-release.apk`, API `https://api.hiair.io` |
+| Play Billing | EXTERNALLY BLOCKED (no Play Console app for `com.hiair`) |
 
 ## Blockers (honest)
 
-1. **Interactive E2E not completed** — Maestro 2.7.0: `--udid 00008150-…` → “not connected” while `devicectl` works over **localNetwork**. Need USB cable for Maestro/libimobiledevice, or human TF 92 session.
-2. **StoreKit purchase** — not run on TF 92; retest required (dev-signed install is insufficient for IAP proof).
-3. **Android device + Play Billing** — EXTERNALLY BLOCKED without device / Play Console app.
+1. **Physical HealthKit E2E** — install TF **103**, run checklist (tiers, real metrics, Insights 7/30, revoke/delete). No exact values in reports.
+2. **Physical Health Connect E2E** — USB Android + HC availability; OEM unsupported metrics must show honestly.
+3. **Maestro physical automation** — still flaky over CoreDevice localNetwork; USB preferred.
+4. **StoreKit sandbox purchase** — retest on TF 103 (not claimed this pass).
 
 ## Immediate next actions
 
-1. Unlock iPhone → TestFlight → **92** → run full QA checklist (geo → Health → Symptoms → Insights → sandbox purchase → restart/restore → privacy → a11y).
-2. For automation: plug USB Lightning/USB-C data cable and re-try `maestro --udid 00008150-001E4C911100C01C test …`, or add XCUITest target.
-3. After each interactive FAIL: minimal fix → bump build → TF → retest scenario → full regression.
-4. Android: attach USB for Health Connect even if Billing stays blocked.
+1. Unlock iPhone → TestFlight → **103** → Health settings → tier 1–3 → confirm backend sync + Insights (no mock).
+2. Physical Android: install signed release APK → Health Connect → same matrix.
+3. After device FAIL: minimal fix → bump build (>103) → TF → retest → full regression.
+4. Only then flip verdict to `HEALTH INTELLIGENCE E2E VERIFIED` (or platform-specific VERIFIED).
 
 ## Quick commands
 
 ```bash
 curl -sS https://api.hiair.io/api/health
+python3.12 scripts/release/health_intelligence_production_smoke.py --expect-sha 28696b0
 bash scripts/release/hiair_final_gate.sh
-xcrun devicectl device info apps --device 00008150-001E4C911100C01C | grep -i hiair
-xcrun devicectl device process launch --device 00008150-001E4C911100C01C com.hiair.app
 ```
 
 ## Docs
 
-- `docs/release/qa/REAL_DEVICE_QA_REPORT.md` — live certification matrix
+- `docs/audit/HEALTH_INTELLIGENCE_100_SPRINT_REPORT.md`
+- `docs/audit/HEALTH_INTELLIGENCE_COVERAGE_AUDIT.md`
+- `docs/release/qa/REAL_DEVICE_QA_REPORT.md`
 - `docs/release/FINAL_RELEASE_PROGRAM_STATUS.md`
-- `docs/beta-readiness-checklist.md`

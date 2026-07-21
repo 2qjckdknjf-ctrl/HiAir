@@ -1,11 +1,11 @@
 # HiAir — Final Release Program Status
 
-**Updated:** 2026-07-21 (device certification refresh)  
-**Branch:** `main` @ `106f30e` (docs) / product polish `fa0d91b`  
-**Production SHA:** `fa0d91bcd294a779584daaf0ba6ed16751b6b065`  
-**Health Intelligence:** PRODUCTION LIVE (schema + API); **device HealthKit E2E NOT VERIFIED**  
-**TestFlight:** build **92** VALID (`cbd0b02f-3f78-42e8-a939-945210419d8a`)  
-**Device certification:** **DEVICE CERTIFICATION IN PROGRESS**
+**Updated:** 2026-07-21 (Health Intelligence release certification)  
+**Branch:** `main` @ `28696b0`  
+**Production SHA:** `28696b020aa1a0e7c895e2e17a0b95431dac1690`  
+**Health Intelligence:** PRODUCTION LIVE + synthetic smoke PASS; **device HealthKit/HC E2E NOT VERIFIED**  
+**TestFlight:** build **103** VALID (`dce5426e-14b0-4fb1-bbf4-0c04648afaa2`) → «Первый»  
+**Verdict:** **PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA**
 
 ---
 
@@ -13,22 +13,23 @@
 
 | Area | Status | Evidence |
 |------|--------|----------|
-| Production API | LIVE | health 200; SHA `fa0d91b` |
-| Health routes unauth | LIVE | summary/insights **401**; taxonomy **200** |
-| Migrations 018/019 | LIVE | hiair-prod `health_intelligence` + soft-delete |
-| Product polish | MERGED | Health grid, Android first-run, Premium locked UX (`fa0d91b`) |
-| Backend pytest + final gate | PASS | `hiair_final_gate.sh` PASS (arm64 JDK resolution) |
-| iOS build 92 | DISTRIBUTED | TestFlight VALID + physical reinstall/launch |
-| Android assemble/lint/test | PASS | No physical Android attached |
+| Production API | LIVE | health 200; SHA `28696b0` |
+| Health Intelligence merge | MERGED | PR #30 `6eae02a` + follow-ups |
+| Health routes unauth | LIVE | summary/sync/data **401** |
+| Synthetic auth health smoke | PASS | 14-day sync, insights 7/30, delete, privacy |
+| Live AI | PASS | `current-risk` llm; post-deploy smoke |
+| Backend pytest + final gate | PASS | local full suite + prior gate |
+| iOS build 103 | DISTRIBUTED | TestFlight VALID + internal testers |
+| Android signed release | PASS | v2 signed; API `https://api.hiair.io` |
 
-## Operator certification required
+## Operator / device certification required
 
 | Area | Status | Owner action |
 |------|--------|--------------|
-| iPhone interactive E2E | IN PROGRESS | Checklist in `docs/release/qa/REAL_DEVICE_QA_REPORT.md` on **TF 92** |
-| Maestro on physical device | BLOCKED (tooling) | Needs USB (or Maestro driver that sees CoreDevice network UDID) |
-| Android device QA | EXTERNALLY BLOCKED | No USB device; Play Billing may remain blocked without Play Console app |
-| StoreKit sandbox purchase | NOT RUN | Retest on TF 92 |
+| iPhone HealthKit E2E | NOT RUN | TF **103** checklist in `REAL_DEVICE_QA_REPORT.md` |
+| Android Health Connect E2E | NOT RUN | Physical device + signed APK |
+| StoreKit sandbox purchase | NOT RUN | Retest on TF 103 |
+| Play Billing E2E | EXTERNALLY BLOCKED | No Play Console app for `com.hiair` |
 | Accessibility device audit | NOT RUN | Dynamic Type / VoiceOver / Dark Mode |
 
 ## Release configuration
@@ -40,11 +41,10 @@
 | iOS debug | `http://127.0.0.1:8000` |
 | iOS release / TestFlight | `https://api.hiair.io` |
 
-Device certification against production **must use TestFlight** for StoreKit.
+## Key commits
 
-## Commits
+- `6eae02a` — Merge PR #30 Health Intelligence 100
+- `7dcad23` — fix: 7-day insights window + prod smoke harness; iOS build bump
+- `28696b0` — fix: consentActive on insights; Android keystore root; iOS build **103**
 
-- `fa0d91b` — fix: polish first-user product UX and health metrics surfaces (build 92)
-- Gate fix (pending commit): arm64 JAVA_HOME for Android step in `hiair_final_gate.sh`
-
-See `docs/release/qa/REAL_DEVICE_QA_REPORT.md` for the live matrix.
+See `docs/release/qa/REAL_DEVICE_QA_REPORT.md` and `docs/audit/HEALTH_INTELLIGENCE_100_SPRINT_REPORT.md`.

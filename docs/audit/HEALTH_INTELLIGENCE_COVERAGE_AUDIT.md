@@ -1,7 +1,9 @@
 # Health Intelligence Coverage Audit
 
 **Date:** 2026-07-21  
-**Branch:** `feat/health-intelligence-100`  
+**Branch:** `feat/health-intelligence-100` → merged `main` @ `28696b0`  
+**Production:** `api.hiair.io` deploy_git_sha `28696b0…`  
+**Device E2E:** NOT VERIFIED (waiting for real HealthKit / Health Connect records on TF 103 + physical Android)  
 **Scope:** maximize existing HealthKit / Health Connect → analytics → AI → Insights (no new major screens)
 
 ---
