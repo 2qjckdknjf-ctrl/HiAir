@@ -31,6 +31,7 @@ data class SymptomLogState(
     val taxonomy: SymptomTaxonomy? = null,
     val taxonomyLoading: Boolean = false,
     val taxonomyFailed: Boolean = false,
+    val usingCachedTaxonomy: Boolean = false,
     val selectedType: String? = null,
     val severity: Int = 2,
     val locationContext: String = "unspecified",
@@ -44,6 +45,7 @@ data class SymptomLogState(
     val note: String = "",
     val searchText: String = "",
     val selectedCategory: String? = null,
+    val expandedCategoryIds: Set<String> = emptySet(),
     val favorites: List<String> = emptyList(),
     val loading: Boolean = false,
     val statusText: String = "",
@@ -74,6 +76,14 @@ class SymptomLogViewModel(
 
     fun setSelectedCategory(categoryId: String?) {
         state = state.copy(selectedCategory = categoryId)
+    }
+
+    fun toggleCategory(categoryId: String) {
+        val next = state.expandedCategoryIds.toMutableSet()
+        if (!next.add(categoryId)) {
+            next.remove(categoryId)
+        }
+        state = state.copy(expandedCategoryIds = next)
     }
 
     fun selectSymptom(symptomType: String, redFlag: Boolean) {
@@ -125,27 +135,77 @@ class SymptomLogViewModel(
 
     fun loadTaxonomy(language: String) {
         state = state.copy(taxonomyLoading = true, taxonomyFailed = false)
+        ProductAnalytics.track(
+            "taxonomy_load_started",
+            mapOf(
+                "endpoint" to "symptoms_taxonomy",
+                "profile_present" to if (state.profileId.isBlank()) "no" else "yes",
+            ),
+        )
         try {
             val json = JSONObject(apiClient.fetchSymptomTaxonomy(language))
             val taxonomy = parseTaxonomy(json)
+            if (taxonomy.count <= 0 || taxonomy.categories.isEmpty()) {
+                state = state.copy(taxonomyLoading = false, taxonomyFailed = true)
+                ProductAnalytics.track(
+                    "taxonomy_load_failed",
+                    mapOf("endpoint" to "symptoms_taxonomy", "safe_error" to "empty_catalog"),
+                )
+                return
+            }
             val available = taxonomy.categories.flatMap { it.symptoms }.map { it.symptomType }.toSet()
             val favorites = if (state.favorites.isEmpty()) {
                 defaultFavoriteTypes.filter { available.contains(it) }
             } else {
                 state.favorites.filter { available.contains(it) }
             }
+            val expanded = state.expandedCategoryIds.ifEmpty {
+                taxonomy.categories.firstOrNull()?.id?.let { setOf(it) }.orEmpty()
+            }
+            persistTaxonomyCache(json.toString())
             state = state.copy(
                 taxonomy = taxonomy,
                 taxonomyLoading = false,
                 taxonomyFailed = false,
+                usingCachedTaxonomy = false,
                 favorites = favorites,
+                expandedCategoryIds = expanded,
+            )
+            ProductAnalytics.track(
+                "taxonomy_load_succeeded",
+                mapOf(
+                    "endpoint" to "symptoms_taxonomy",
+                    "returned_count" to taxonomy.count.toString(),
+                ),
             )
         } catch (_: Exception) {
-            state = state.copy(
-                taxonomy = null,
-                taxonomyLoading = false,
-                taxonomyFailed = true,
-            )
+            val cached = loadCachedTaxonomy()
+            if (cached != null) {
+                state = state.copy(
+                    taxonomy = cached,
+                    taxonomyLoading = false,
+                    taxonomyFailed = false,
+                    usingCachedTaxonomy = true,
+                    expandedCategoryIds = state.expandedCategoryIds.ifEmpty {
+                        cached.categories.firstOrNull()?.id?.let { setOf(it) }.orEmpty()
+                    },
+                )
+                ProductAnalytics.track(
+                    "taxonomy_load_failed",
+                    mapOf("endpoint" to "symptoms_taxonomy", "safe_error" to "network_using_cache"),
+                )
+            } else {
+                state = state.copy(
+                    taxonomy = null,
+                    taxonomyLoading = false,
+                    taxonomyFailed = true,
+                    usingCachedTaxonomy = false,
+                )
+                ProductAnalytics.track(
+                    "taxonomy_load_failed",
+                    mapOf("endpoint" to "symptoms_taxonomy", "safe_error" to "decode_or_network"),
+                )
+            }
         }
     }
 
@@ -159,7 +219,7 @@ class SymptomLogViewModel(
             val symptoms = category.symptoms.filter { item ->
                 query.isEmpty() ||
                     item.label.lowercase().contains(query) ||
-                    item.symptomType.contains(query)
+                    category.label.lowercase().contains(query)
             }
             if (symptoms.isEmpty()) null else category.copy(symptoms = symptoms)
         }
@@ -170,7 +230,25 @@ class SymptomLogViewModel(
             val item = category.symptoms.firstOrNull { it.symptomType == symptomType }
             if (item != null) return item.label
         }
-        return symptomType
+        return l("symptoms.unknown", "en")
+    }
+
+    private fun persistTaxonomyCache(rawJson: String) {
+        memoryTaxonomyCache = rawJson
+    }
+
+    private fun loadCachedTaxonomy(): SymptomTaxonomy? {
+        val raw = memoryTaxonomyCache ?: return null
+        return try {
+            parseTaxonomy(JSONObject(raw))
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var memoryTaxonomyCache: String? = null
     }
 
     fun submit(userId: String, accessToken: String?, preferredLanguage: String) {
@@ -216,6 +294,8 @@ class SymptomLogViewModel(
             if (state.note.isNotBlank()) {
                 payload.put("note", state.note)
             }
+            val requestId = java.util.UUID.randomUUID().toString()
+            payload.put("clientRequestId", requestId)
             val response = apiClient.createComprehensiveSymptom(
                 userId = userId,
                 accessToken = accessToken,
@@ -279,8 +359,8 @@ class SymptomLogViewModel(
                 ),
             )
         }
-        val notice = json.optString("severityNotice")
-            .ifBlank { json.optString("safetyNotice") }
+        val notice = json.optString("safetyNotice")
+            .ifBlank { json.optString("severityNotice") }
         return SymptomTaxonomy(
             safetyNotice = notice,
             categories = categories,

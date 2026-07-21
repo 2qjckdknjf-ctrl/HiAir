@@ -352,8 +352,25 @@ internal object SymptomsScreenRenderer {
     ): LinearLayout {
         val activity = ctx.activity
         val viewModel = ctx.rootShell.symptomLogViewModel
+        val expanded = state.expandedCategoryIds.contains(category.id) || state.searchText.isNotBlank()
         return HiAirComponents.cardContainer(activity).apply {
-            addView(HiAirComponents.sectionTitle(activity, category.label))
+            addView(
+                TextView(activity).apply {
+                    text = "${category.label} (${category.symptoms.size})"
+                    textSize = 16f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(Tokens.Text.primary)
+                    minHeight = V2Ui.dp(activity, 44)
+                    setPadding(0, V2Ui.dp(activity, 8), 0, V2Ui.dp(activity, 8))
+                    setOnClickListener {
+                        viewModel.toggleCategory(category.id)
+                        repaintSymptoms(viewModel.state, viewModel.state.profileId.isNotBlank())
+                    }
+                },
+            )
+            if (!expanded) {
+                return@apply
+            }
             category.symptoms.chunked(2).forEach { rowItems ->
                 addView(
                     LinearLayout(activity).apply {

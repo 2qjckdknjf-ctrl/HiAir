@@ -1387,7 +1387,8 @@ final class APIClient {
         _ payload: ComprehensiveSymptomPayload,
         userId: String,
         accessToken: String? = nil,
-        language: String = "ru"
+        language: String = "ru",
+        idempotencyKey: String? = nil
     ) async throws -> ComprehensiveSymptomResponseDTO {
         var components = URLComponents(
             url: baseURL.appending(path: "/api/v1/health/symptoms"),
@@ -1397,6 +1398,9 @@ final class APIClient {
         var request = URLRequest(url: components.url!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let idempotencyKey, !idempotencyKey.isEmpty {
+            request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        }
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         request.httpBody = try JSONEncoder().encode(payload)
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
@@ -1404,6 +1408,83 @@ final class APIClient {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(ComprehensiveSymptomResponseDTO.self, from: data)
+    }
+
+    func patchComprehensiveSymptom(
+        entryId: String,
+        profileId: String,
+        severity: Int?,
+        note: String?,
+        durationMinutes: Int?,
+        ongoing: Bool?,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/v1/health/symptoms/\(entryId)"),
+            resolvingAgainstBaseURL: false
+        )!
+        var items: [URLQueryItem] = [URLQueryItem(name: "profile_id", value: profileId)]
+        if let severity {
+            items.append(URLQueryItem(name: "severity", value: String(severity)))
+        }
+        if let note {
+            items.append(URLQueryItem(name: "note", value: note))
+        }
+        if let durationMinutes {
+            items.append(URLQueryItem(name: "duration_minutes", value: String(durationMinutes)))
+        }
+        if let ongoing {
+            items.append(URLQueryItem(name: "ongoing", value: ongoing ? "true" : "false"))
+        }
+        components.queryItems = items
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "PATCH"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    func deleteComprehensiveSymptom(
+        entryId: String,
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/v1/health/symptoms/\(entryId)"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "profile_id", value: profileId)]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    func createCustomSymptom(
+        profileId: String,
+        label: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> CustomSymptomResponseDTO {
+        let url = baseURL.appending(path: "/api/v1/health/symptoms/custom")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let payload = CustomSymptomCreatePayload(profileId: profileId, label: label, category: "general", iconKey: nil)
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(CustomSymptomResponseDTO.self, from: data)
     }
 }
 
