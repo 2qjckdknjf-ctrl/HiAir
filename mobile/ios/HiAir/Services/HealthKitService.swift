@@ -99,6 +99,10 @@ final class HealthKitService: ObservableObject {
                 .walkingHeartRateAverage,
                 .heartRateVariabilitySDNN,
                 .vo2Max,
+                .walkingSpeed,
+                .walkingStepLength,
+                .walkingAsymmetryPercentage,
+                .walkingDoubleSupportPercentage,
             ]
         case .respiratoryTemperature:
             return [
@@ -379,6 +383,48 @@ final class HealthKitService: ObservableObject {
 
         let workout = await collectWorkoutAggregates(start: start, end: end)
         snapshots.append(contentsOf: workout)
+
+        if let mindfulness = await collectMindfulnessMinutes(start: start, end: end) {
+            snapshots.append(mindfulness)
+        }
+
+        if let speed = await collectLatest(
+            id: .walkingSpeed,
+            metric: "walking_speed",
+            unit: HKUnit.meter().unitDivided(by: .second()),
+            unitName: "m_s",
+            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+            end: end
+        ) { snapshots.append(speed) }
+
+        if let stepLength = await collectLatest(
+            id: .walkingStepLength,
+            metric: "walking_step_length",
+            unit: HKUnit.meter(),
+            unitName: "m",
+            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+            end: end
+        ) { snapshots.append(stepLength) }
+
+        if let asymmetry = await collectLatest(
+            id: .walkingAsymmetryPercentage,
+            metric: "walking_asymmetry",
+            unit: HKUnit.percent(),
+            unitName: "percent",
+            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+            end: end,
+            scale: 100
+        ) { snapshots.append(asymmetry) }
+
+        if let doubleSupport = await collectLatest(
+            id: .walkingDoubleSupportPercentage,
+            metric: "walking_double_support",
+            unit: HKUnit.percent(),
+            unitName: "percent",
+            start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
+            end: end,
+            scale: 100
+        ) { snapshots.append(doubleSupport) }
 
         let sleep = await collectSleep(for: start)
         latestSnapshots = snapshots
@@ -668,7 +714,8 @@ final class HealthKitService: ObservableObject {
         unit: HKUnit,
         unitName: String,
         start: Date,
-        end: Date
+        end: Date,
+        scale: Double = 1
     ) async -> HealthMetricSnapshot? {
         guard let type = HKQuantityType.quantityType(forIdentifier: id) else {
             return HealthMetricSnapshot(
@@ -684,7 +731,7 @@ final class HealthKitService: ObservableObject {
                 valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "no_records", hrvMethod: nil
             )
         }
-        let value = latest.quantity.doubleValue(for: unit)
+        let value = latest.quantity.doubleValue(for: unit) * scale
         return HealthMetricSnapshot(
             metricType: metric,
             unit: unitName,
@@ -694,6 +741,62 @@ final class HealthKitService: ObservableObject {
             valueLatest: value,
             valueTotal: nil,
             sampleCount: 1,
+            qualityState: "ok",
+            hrvMethod: nil
+        )
+    }
+
+    private func collectMindfulnessMinutes(start: Date, end: Date) async -> HealthMetricSnapshot? {
+        guard let mindfulType else {
+            return HealthMetricSnapshot(
+                metricType: "mindfulness_minutes",
+                unit: "min",
+                valueAvg: nil,
+                valueMin: nil,
+                valueMax: nil,
+                valueLatest: nil,
+                valueTotal: nil,
+                sampleCount: 0,
+                qualityState: "unsupported",
+                hrvMethod: nil
+            )
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: mindfulType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKCategorySample]) ?? [])
+            }
+            store.execute(query)
+        }
+        guard !samples.isEmpty else {
+            return HealthMetricSnapshot(
+                metricType: "mindfulness_minutes",
+                unit: "min",
+                valueAvg: nil,
+                valueMin: nil,
+                valueMax: nil,
+                valueLatest: nil,
+                valueTotal: nil,
+                sampleCount: 0,
+                qualityState: "no_records",
+                hrvMethod: nil
+            )
+        }
+        let totalMinutes = samples.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) / 60.0 }
+        return HealthMetricSnapshot(
+            metricType: "mindfulness_minutes",
+            unit: "min",
+            valueAvg: nil,
+            valueMin: nil,
+            valueMax: nil,
+            valueLatest: nil,
+            valueTotal: totalMinutes,
+            sampleCount: samples.count,
             qualityState: "ok",
             hrvMethod: nil
         )

@@ -16,6 +16,7 @@ final class InsightsViewModel: ObservableObject {
     @Published var loggedDays = 0
     @Published var generatedAtDisplay = ""
     @Published var premiumLocked = false
+    @Published var windowDays: Int = 30
 
     private let apiClient = APIClient.live()
 
@@ -28,8 +29,12 @@ final class InsightsViewModel: ObservableObject {
         userId: String,
         accessToken: String,
         language: String,
+        windowDays: Int? = nil,
         onPremiumRequired: (() -> Void)? = nil
     ) async {
+        if let windowDays {
+            self.windowDays = windowDays
+        }
         loading = true
         defer { loading = false }
         premiumLocked = false
@@ -52,7 +57,7 @@ final class InsightsViewModel: ObservableObject {
                     profileId: profileId,
                     userId: userId,
                     accessToken: accessToken,
-                    windowDays: 30,
+                    windowDays: self.windowDays,
                     language: language
                 )
                 trends = bundle.trends
@@ -111,7 +116,7 @@ final class InsightsViewModel: ObservableObject {
                     profileId: profileId,
                     userId: userId,
                     accessToken: accessToken,
-                    windowDays: 30,
+                    windowDays: self.windowDays,
                     language: language
                 )
                 items = patterns.items
@@ -238,6 +243,7 @@ struct InsightsView: View {
                         )
                         .v2Card()
                     } else {
+                        windowPicker
                         todayCard
                         if viewModel.premiumLocked {
                             premiumLockedCard
@@ -280,6 +286,45 @@ struct InsightsView: View {
             await refreshInsights()
             session.markChecklistItem("recommendations", done: true)
         }
+    }
+
+    private var windowPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(session.l("insights.window.title"))
+                .font(AuroraTokens.Typography.titleMD)
+                .foregroundStyle(HiAirV2Theme.primaryText)
+            HStack(spacing: 8) {
+                windowChip(days: 7, title: session.l("insights.window.7d"))
+                windowChip(days: 30, title: session.l("insights.window.30d"))
+            }
+        }
+        .v2Card()
+    }
+
+    private func windowChip(days: Int, title: String) -> some View {
+        let selected = viewModel.windowDays == days
+        return Button {
+            Task {
+                await viewModel.refresh(
+                    profileId: session.profileId,
+                    userId: session.userId,
+                    accessToken: session.accessToken,
+                    language: session.preferredLanguage,
+                    windowDays: days,
+                    onPremiumRequired: { session.showPaywall = true }
+                )
+            }
+        } label: {
+            Text(title)
+                .font(AuroraTokens.Typography.bodyMD)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(selected ? HiAirV2Theme.accentStart.opacity(0.22) : HiAirV2Theme.cardFill)
+                .foregroundStyle(HiAirV2Theme.primaryText)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 
     private var todayCard: some View {
