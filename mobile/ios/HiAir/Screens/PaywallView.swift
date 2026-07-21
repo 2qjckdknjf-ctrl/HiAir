@@ -17,45 +17,39 @@ struct PaywallView: View {
             ZStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: HiAirSpacing.lg) {
-                        Text(session.l("paywall.title"))
-                            .font(AuroraTokens.Typography.displayLG)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
+                        HiAirBrandHeader(
+                            title: session.l("paywall.title"),
+                            subtitle: session.l("paywall.subtitle"),
+                            showOrb: true,
+                            orbSize: 56,
+                            compact: false
+                        )
 
-                        Text(session.l("paywall.subtitle"))
-                            .font(AuroraTokens.Typography.bodyMD)
-                            .foregroundStyle(HiAirV2Theme.secondaryText)
-
-                        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
-                            benefitRow(session.l("paywall.benefit.profiles"))
-                            benefitRow(session.l("paywall.benefit.forecast"))
-                            benefitRow(session.l("paywall.benefit.alerts"))
-                            benefitRow(session.l("paywall.benefit.export"))
-                            benefitRow(session.l("paywall.benefit.insights"))
-                        }
-                        .padding()
-                        .v2Card()
-
+                        comparisonCard
+                        examplesCard
+                        benefitsCard
                         catalogContent
 
                         Button(session.l("paywall.restore")) {
                             Task { await restore() }
                         }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(purchaseBusy)
 
                         Text(session.l("paywall.disclaimer"))
-                            .font(AuroraTokens.Typography.caption)
-                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirColors.Text.secondary)
 
                         HStack(spacing: HiAirSpacing.md) {
                             Link(session.l("paywall.terms"), destination: URL(string: "https://hiair.io/terms/")!)
                             Link(session.l("paywall.privacy"), destination: URL(string: "https://hiair.io/privacy/")!)
                         }
-                        .font(AuroraTokens.Typography.caption)
+                        .font(HiAirTypography.caption)
 
                         if !statusMessage.isEmpty {
                             Text(statusMessage)
-                                .font(AuroraTokens.Typography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
+                                .font(HiAirTypography.bodyMD)
+                                .foregroundStyle(HiAirColors.Text.secondary)
                         }
                     }
                     .padding()
@@ -82,6 +76,41 @@ struct PaywallView: View {
                 subscriptionService.loadProducts()
             }
         }
+        .hiAirPageBackground()
+    }
+
+    private var comparisonCard: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            HiAirSectionHeader(title: session.l("paywall.compare.title"))
+            compareRow(free: true, text: session.l("paywall.compare.free.risk"))
+            compareRow(free: true, text: session.l("paywall.compare.free.health"))
+            compareRow(free: false, text: session.l("paywall.compare.premium.planner"))
+            compareRow(free: false, text: session.l("paywall.compare.premium.insights"))
+            compareRow(free: false, text: session.l("paywall.compare.premium.ai"))
+            compareRow(free: false, text: session.l("paywall.compare.premium.reports"))
+        }
+        .v2Card()
+    }
+
+    private var examplesCard: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            HiAirSectionHeader(title: session.l("paywall.examples.title"))
+            exampleBlock(title: session.l("paywall.examples.ai.title"), body: session.l("paywall.examples.ai.body"))
+            exampleBlock(title: session.l("paywall.examples.insights.title"), body: session.l("paywall.examples.insights.body"))
+            exampleBlock(title: session.l("paywall.examples.forecast.title"), body: session.l("paywall.examples.forecast.body"))
+        }
+        .v2Card()
+    }
+
+    private var benefitsCard: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            benefitRow(session.l("paywall.benefit.profiles"))
+            benefitRow(session.l("paywall.benefit.forecast"))
+            benefitRow(session.l("paywall.benefit.alerts"))
+            benefitRow(session.l("paywall.benefit.export"))
+            benefitRow(session.l("paywall.benefit.insights"))
+        }
+        .v2Card()
     }
 
     @ViewBuilder
@@ -110,45 +139,37 @@ struct PaywallView: View {
     private var emptyCatalogBlock: some View {
         VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
             Text(session.l("paywall.products_empty"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
             Text(session.l("paywall.catalog_help"))
-                .font(AuroraTokens.Typography.caption)
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
-            #if DEBUG
-            Text(session.l("paywall.asc_hint"))
-                .font(AuroraTokens.Typography.caption)
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
-            #endif
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.tertiary)
             Button(session.l("paywall.retry")) {
                 SubscriptionDiagnostics.log("products_retry_tapped")
                 subscriptionService.loadProducts()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(HiAirGradientButtonStyle())
             .disabled(purchaseBusy || subscriptionService.isLoading)
         }
+        .v2Card()
     }
 
     private var failedCatalogBlock: some View {
         VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
             Text(subscriptionService.lastError ?? session.l("paywall.products_unavailable"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
             Text(session.l("paywall.catalog_help"))
-                .font(AuroraTokens.Typography.caption)
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
-            #if DEBUG
-            Text(session.l("paywall.asc_hint"))
-                .font(AuroraTokens.Typography.caption)
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
-            #endif
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.tertiary)
             Button(session.l("paywall.retry")) {
                 SubscriptionDiagnostics.log("products_retry_tapped")
                 subscriptionService.loadProducts()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(HiAirGradientButtonStyle())
             .disabled(purchaseBusy || subscriptionService.isLoading)
         }
+        .v2Card()
     }
 
     @ViewBuilder
@@ -160,16 +181,16 @@ struct PaywallView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(session.l(titleKey))
-                        .font(AuroraTokens.Typography.titleMD)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
+                        .font(HiAirTypography.titleMD)
+                        .foregroundStyle(HiAirColors.Text.primary)
                     Text(product.description)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.secondary)
                 }
                 Spacer()
                 Text(product.displayPrice)
-                    .font(AuroraTokens.Typography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
             }
 
             Button {
@@ -183,6 +204,33 @@ struct PaywallView: View {
         }
         .padding()
         .v2Card()
+    }
+
+    private func compareRow(free: Bool, text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(free ? session.l("paywall.compare.badge.free") : session.l("paywall.compare.badge.premium"))
+                .font(HiAirTypography.caption)
+                .foregroundStyle(free ? HiAirColors.Text.secondary : HiAirColors.Brand.orbCyan)
+                .frame(width: 72, alignment: .leading)
+            Text(text)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.primary)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func exampleBlock(title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.primary)
+            Text(body)
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.secondary)
+        }
+        .padding(HiAirSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hiAirTileSurface()
     }
 
     private func subscribeDisabledReason(for product: Product) -> String? {
@@ -207,8 +255,8 @@ struct PaywallView: View {
 
     private func benefitRow(_ text: String) -> some View {
         Label(text, systemImage: "checkmark.circle.fill")
-            .font(AuroraTokens.Typography.bodyMD)
-            .foregroundStyle(HiAirV2Theme.primaryText)
+            .font(HiAirTypography.bodyMD)
+            .foregroundStyle(HiAirColors.Text.primary)
     }
 
     private func purchase(product: Product) async {

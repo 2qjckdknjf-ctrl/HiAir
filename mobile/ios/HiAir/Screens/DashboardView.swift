@@ -13,6 +13,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var environmental: AirEnvironmentalInput?
     @Published var wearableToday: WearableTodayResponse?
     @Published var healthSummary: HealthSummaryResponseDTO?
+    @Published var morningReport: AIReportResponseDTO?
     @Published var wearableConnectionState: WearableConnectionState = .notConnected
     @Published var loadFailed = false
 
@@ -41,6 +42,7 @@ final class DashboardViewModel: ObservableObject {
             environmental = nil
             wearableToday = nil
             healthSummary = nil
+            morningReport = nil
             return
         }
         do {
@@ -51,9 +53,16 @@ final class DashboardViewModel: ObservableObject {
             )
             async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
             async let summaryTask = apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
+            async let morningTask = apiClient.fetchAIReport(
+                kind: "morning",
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken
+            )
             let result = try await riskTask
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
+            morningReport = try? await morningTask
             wearableConnectionState = healthService.refreshAuthorizationState()
             riskLevel = result.risk.overallRisk
             explanation = result.explanation
@@ -85,6 +94,7 @@ final class DashboardViewModel: ObservableObject {
             safeWindowLabels = []
             environmental = nil
             healthSummary = nil
+            morningReport = nil
         }
     }
 
@@ -208,6 +218,10 @@ struct DashboardView: View {
     }
 
     private var riskReason: String {
+        let morning = viewModel.morningReport?.narrative.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !morning.isEmpty {
+            return morning
+        }
         let explanation = viewModel.explanation.trimmingCharacters(in: .whitespacesAndNewlines)
         if !explanation.isEmpty, explanation != "-" {
             return explanation
@@ -232,47 +246,56 @@ struct DashboardView: View {
         ]
     }
 
+    private var todayHumanDate: String {
+        HiAirHumanDate.string(
+            from: Date(),
+            locale: Locale(identifier: session.preferredLanguage),
+            style: .dateMedium
+        )
+    }
+
+    private var showStarterChecklist: Bool {
+        guard !session.checklistHidden else { return false }
+        return starterChecklist.contains { !session.isChecklistItemDone($0.id) }
+    }
+
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
                     dashboardHeader
                     greetingSection
-                    checklistSection
                     emptyStateSections
+
                     if viewModel.loading && !viewModel.hasLoadedOnce {
-                        HiAirLoadingView(message: session.l("common.loading"))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, HiAirSpacing.xl)
-                    } else if showLiveRiskContent {
-                        riskHeroSection(width: width)
-                        wearableLoadSection
-                        healthMetricsSection
-                        weatherSection(width: width)
-                        environmentalSection
-                        recommendationsSection
-                        safeWindowsSection
+                        HiAirSkeletonStack(cards: 4)
                     } else if viewModel.loadFailed {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(session.l("dashboard.error"))
-                                .font(HiAirTypography.titleMD)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                            Text(session.l("dashboard.empty.api_unavailable"))
-                                .font(HiAirTypography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Button(session.l("common.retry")) {
-                                Task { await reloadDashboard() }
-                            }
-                            .buttonStyle(HiAirGradientButtonStyle())
-                        }
+                        HiAirErrorView(
+                            title: session.l("dashboard.error"),
+                            message: session.l("dashboard.empty.api_unavailable"),
+                            retryTitle: session.l("common.retry"),
+                            onRetry: { Task { await reloadDashboard() } }
+                        )
                         .v2Card()
+                    } else if showLiveRiskContent {
+                        aiSummarySection
+                        riskHeroSection(width: width)
+                        todaysAirSection
+                        healthMetricsSection
+                        wearableLoadSection
+                        quickActionsSection
+                        safeWindowsSection
                     }
-                    actionButtons
+
+                    if showStarterChecklist {
+                        checklistSection
+                    }
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
                 .padding(.bottom, HiAirSpacing.xl)
             }
+            .refreshable { await reloadDashboard() }
         }
         .hiAirPageBackground()
         .overlay {
@@ -387,16 +410,33 @@ struct DashboardView: View {
             orbSize: 44,
             compact: true
         )
+        Text(todayHumanDate)
+            .font(HiAirTypography.caption)
+            .foregroundStyle(HiAirColors.Text.tertiary)
 
         let greeting = viewModel.headline.trimmingCharacters(in: .whitespacesAndNewlines)
         Text(greeting.isEmpty || greeting == "-" ? session.l("dashboard.greeting_neutral") : greeting)
             .font(HiAirTypography.displayLG)
-            .foregroundStyle(HiAirV2Theme.primaryText)
+            .foregroundStyle(HiAirColors.Text.primary)
+            .accessibilityAddTraits(.isHeader)
+    }
 
-        let supporting = viewModel.explanation.trimmingCharacters(in: .whitespacesAndNewlines)
-        Text(supporting.isEmpty || supporting == "-" ? session.l("dashboard.improving_neutral") : supporting)
-            .font(HiAirTypography.bodyMD)
-            .foregroundStyle(HiAirV2Theme.secondaryText)
+    @ViewBuilder
+    private var aiSummarySection: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            HiAirSectionHeader(title: session.l("dashboard.section.ai_summary"))
+            Text(riskReason)
+                .font(HiAirTypography.bodyLG)
+                .foregroundStyle(HiAirColors.Text.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            if !viewModel.headline.isEmpty, viewModel.headline != "-" {
+                Text(viewModel.headline)
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+            }
+        }
+        .v2Card()
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -508,108 +548,140 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
-    private func weatherSection(width: CGFloat) -> some View {
-        HStack(spacing: 12) {
-            HiAirOrbLogoView(
-                size: HiAirScreenMetrics.heroOrbSize(for: width),
-                riskLevel: viewModel.riskLevel,
-                presentation: .brand
-            )
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(weatherTitle)
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-                Text("\(session.l("dashboard.mood_prefix")): \(moodTitle)")
-                    .font(HiAirTypography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                Text(session.l("dashboard.auto_updates"))
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-            }
-            Spacer()
-        }
-        .padding(10)
-        .v2Card()
-    }
-
-    @ViewBuilder
-    private var environmentalSection: some View {
+    private var todaysAirSection: some View {
         if let env = viewModel.environmental {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(session.l("dashboard.air_metrics"))
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-                Text(session.l(sourceLabelKey(for: env.source)))
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-                metricRow("dashboard.metric.aqi", value: "\(env.aqi)", tooltip: "dashboard.tooltip.aqi")
-                metricRow("dashboard.metric.pm25", value: String(format: "%.1f", env.pm25), tooltip: "dashboard.tooltip.pm25")
-                metricRow("dashboard.metric.ozone", value: String(format: "%.1f", env.ozone), tooltip: "dashboard.tooltip.ozone")
-                metricRow("dashboard.metric.heat_index", value: String(format: "%.1f°C", env.feelsLike), tooltip: "dashboard.tooltip.heat_index")
-                metricRow("dashboard.metric.humidity", value: String(format: "%.0f%%", env.humidity), tooltip: "dashboard.tooltip.humidity")
+            VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+                HStack {
+                    Text(session.l("dashboard.section.todays_air"))
+                        .font(HiAirTypography.titleMD)
+                        .foregroundStyle(HiAirColors.Text.primary)
+                    Spacer()
+                    HiAirStatusChip(
+                        riskLevel: viewModel.riskLevel,
+                        label: session.l(sourceLabelKey(for: env.source))
+                    )
+                }
+                HStack(spacing: HiAirSpacing.md) {
+                    HiAirOrbLogoView(
+                        size: 56,
+                        riskLevel: viewModel.riskLevel,
+                        presentation: .brand
+                    )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(weatherTitle)
+                            .font(HiAirTypography.titleMD)
+                            .foregroundStyle(HiAirColors.Text.primary)
+                        Text("\(session.l("dashboard.mood_prefix")): \(moodTitle)")
+                            .font(HiAirTypography.bodyMD)
+                            .foregroundStyle(HiAirColors.Text.secondary)
+                    }
+                    Spacer()
+                }
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: HiAirSpacing.sm
+                ) {
+                    airMetricTile(
+                        title: session.l("dashboard.metric.aqi"),
+                        value: "\(env.aqi)",
+                        icon: "aqi.medium",
+                        tooltip: "dashboard.tooltip.aqi"
+                    )
+                    airMetricTile(
+                        title: session.l("dashboard.metric.pm25"),
+                        value: String(format: "%.1f", env.pm25),
+                        icon: "aqi.low",
+                        tooltip: "dashboard.tooltip.pm25"
+                    )
+                    airMetricTile(
+                        title: session.l("dashboard.metric.ozone"),
+                        value: String(format: "%.1f", env.ozone),
+                        icon: "sun.max.fill",
+                        tooltip: "dashboard.tooltip.ozone"
+                    )
+                    airMetricTile(
+                        title: session.l("dashboard.metric.heat_index"),
+                        value: String(format: "%.0f°", env.feelsLike),
+                        icon: "thermometer.medium",
+                        tooltip: "dashboard.tooltip.heat_index"
+                    )
+                }
             }
             .v2Card()
-            .onAppear {
-                ProductAnalytics.track("risk_breakdown_viewed")
-            }
+            .onAppear { ProductAnalytics.track("risk_breakdown_viewed") }
         } else if !viewModel.loading {
-            Text(session.l("dashboard.empty.api_unavailable"))
-                .font(HiAirTypography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-                .v2Card()
+            HiAirEmptyStateView(
+                title: session.l("dashboard.section.todays_air"),
+                message: session.l("dashboard.empty.api_unavailable"),
+                actionTitle: session.l("common.retry"),
+                action: { Task { await reloadDashboard() } }
+            )
+            .v2Card()
         }
     }
 
     @ViewBuilder
-    private var recommendationsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
             HStack {
-                Text(session.l("dashboard.do_now"))
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                HiAirSectionHeader(title: session.l("dashboard.section.quick_actions"))
                 infoButton("dashboard.recommendations_tooltip")
             }
-
             if viewModel.actions.isEmpty {
                 Text(session.l("dashboard.no_actions"))
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirColors.Text.secondary)
             } else {
-                ForEach(Array(viewModel.actions.enumerated()), id: \.offset) { index, action in
+                ForEach(Array(viewModel.actions.prefix(3).enumerated()), id: \.offset) { index, action in
                     actionTile(
                         icon: index == 0 ? "drop.fill" : (index == 1 ? "wind" : "figure.walk"),
                         text: action
                     )
                 }
             }
+            HStack(spacing: HiAirSpacing.sm) {
+                Button(session.l("dashboard.log_symptoms")) {
+                    session.selectedTab = 3
+                    session.markChecklistItem("recommendations", done: true)
+                }
+                .buttonStyle(HiAirGradientButtonStyle())
+                Button(session.l("tab.planner")) {
+                    session.selectedTab = 1
+                    session.markChecklistItem("hourly", done: true)
+                }
+                .buttonStyle(HiAirSecondaryButtonStyle())
+            }
+            Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
+                Task {
+                    if session.profileId.isEmpty {
+                        _ = await session.ensureProfileIdIfNeeded()
+                    }
+                    session.markChecklistItem("risk", done: true)
+                    await reloadDashboard()
+                }
+            }
+            .buttonStyle(HiAirSecondaryButtonStyle())
+            .disabled(viewModel.loading)
         }
         .v2Card()
     }
 
     @ViewBuilder
     private var safeWindowsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
             HStack {
-                Text(session.l("dashboard.safe_windows"))
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                HiAirSectionHeader(title: session.l("dashboard.safe_windows"))
                 infoButton("dashboard.safe_windows_tooltip")
             }
             if safeWindows.isEmpty {
                 Text(session.l("dashboard.no_safe_windows"))
                     .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                    .foregroundStyle(HiAirColors.Text.secondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(safeWindows, id: \.self) { window in
-                            Text(window)
-                                .font(HiAirTypography.caption)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .hiAirChipSurface()
+                            HiAirStatusChip(riskLevel: "low", label: window)
                         }
                     }
                 }
@@ -618,29 +690,30 @@ struct DashboardView: View {
         .v2Card()
     }
 
-    @ViewBuilder
-    private var actionButtons: some View {
-        Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
-            Task {
-                if session.profileId.isEmpty {
-                    _ = await session.ensureProfileIdIfNeeded()
+    private func airMetricTile(title: String, value: String, icon: String, tooltip: String) -> some View {
+        Button {
+            activeInfoKey = InfoTerm(id: tooltip)
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(riskColor)
+                    Text(title)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                        .lineLimit(1)
                 }
-                session.markChecklistItem("risk", done: true)
-                await viewModel.refresh(
-                    userId: session.userId,
-                    accessToken: session.accessToken,
-                    profileId: session.profileId.isEmpty ? nil : session.profileId,
-                    language: session.preferredLanguage
-                )
+                Text(value)
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
             }
+            .padding(HiAirSpacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .hiAirTileSurface()
         }
-        .buttonStyle(HiAirGradientButtonStyle())
-
-        Button(session.l("dashboard.log_symptoms")) {
-            session.selectedTab = 3
-            session.markChecklistItem("recommendations", done: true)
-        }
-        .buttonStyle(HiAirSecondaryButtonStyle())
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), \(value)")
     }
 
     @ViewBuilder
@@ -655,8 +728,8 @@ struct DashboardView: View {
                         .foregroundStyle(riskColor)
                 )
             Text(text)
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.primaryText)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.primary)
             Spacer()
         }
         .padding(.horizontal, 10)
@@ -670,9 +743,10 @@ struct DashboardView: View {
             activeInfoKey = InfoTerm(id: key)
         } label: {
             Image(systemName: "info.circle")
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
+                .foregroundStyle(HiAirColors.Text.tertiary)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(session.l("common.info"))
     }
 
     private func sourceLabelKey(for source: String) -> String {
@@ -684,19 +758,6 @@ struct DashboardView: View {
         default:
             // Never label production UI as "sample/demo" for end users.
             return "dashboard.source_estimated"
-        }
-    }
-
-    private func metricRow(_ titleKey: String, value: String, tooltip: String) -> some View {
-        HStack {
-            Text(session.l(titleKey))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-            infoButton(tooltip)
-            Spacer()
-            Text(value)
-                .font(AuroraTokens.Typography.bodyMD.weight(.semibold))
-                .foregroundStyle(HiAirV2Theme.primaryText)
         }
     }
 }
@@ -713,16 +774,18 @@ private struct InfoTextSheet: View, Identifiable {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: HiAirSpacing.md) {
                 Text(text)
-                    .font(.body)
-                    .foregroundStyle(.primary)
+                    .font(HiAirTypography.bodyLG)
+                    .foregroundStyle(HiAirColors.Text.primary)
                 Spacer()
             }
-            .padding(16)
+            .padding(HiAirSpacing.lg)
+            .background(HiAirGradients.timeOfDay().ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(closeTitle) { dismiss() }
+                        .foregroundStyle(HiAirColors.Cta.gradientStart)
                 }
             }
         }

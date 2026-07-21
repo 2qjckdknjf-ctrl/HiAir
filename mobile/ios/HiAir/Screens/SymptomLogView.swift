@@ -238,6 +238,17 @@ final class SymptomLogViewModel: ObservableObject {
         showEntrySheet = true
     }
 
+    func repeatEntry(_ item: SymptomHistoryItem) {
+        editingEntryId = nil
+        selectedType = item.symptomType
+        severity = item.intensity
+        onsetDate = Date()
+        note = item.note ?? ""
+        showAdvancedFields = false
+        showEntrySheet = true
+        ProductAnalytics.track("symptom_repeat_tapped")
+    }
+
     var filteredCategories: [SymptomCategoryDTO] {
         guard let taxonomy else { return [] }
         let query = Self.fold(debouncedSearch.isEmpty ? searchText : debouncedSearch)
@@ -964,6 +975,10 @@ struct SymptomLogView: View {
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
             HStack(spacing: 12) {
+                Button(session.l("symptoms.repeat")) {
+                    viewModel.repeatEntry(item)
+                }
+                .frame(minHeight: 44)
                 Button(session.l("symptoms.edit")) {
                     viewModel.beginEdit(item)
                 }
@@ -976,6 +991,17 @@ struct SymptomLogView: View {
         }
         .padding(10)
         .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 12))
+        .contextMenu {
+            Button(session.l("symptoms.repeat")) {
+                viewModel.repeatEntry(item)
+            }
+            Button(session.l("symptoms.edit")) {
+                viewModel.beginEdit(item)
+            }
+            Button(session.l("symptoms.delete"), role: .destructive) {
+                entryPendingDelete = item
+            }
+        }
     }
 
     private var entrySheet: some View {
