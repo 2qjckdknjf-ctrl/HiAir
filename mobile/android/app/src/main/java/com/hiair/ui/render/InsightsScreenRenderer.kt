@@ -21,6 +21,8 @@ import java.util.TimeZone
 internal object InsightsScreenRenderer {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
     private const val TARGET_DAYS = 7
+    @Volatile
+    private var selectedWindowDays: Int = 30
 
     private data class InsightCardData(
         val title: String,
@@ -67,6 +69,9 @@ internal object InsightsScreenRenderer {
 
         fun paint(data: InsightsViewData?, error: String?) {
             contentHost.removeAllViews()
+            val repaint: (InsightsViewData?, String?) -> Unit = { nextData, nextError ->
+                paint(nextData, nextError)
+            }
             if (error != null) {
                 contentHost.addView(
                     HiAirComponents.errorState(
@@ -74,7 +79,7 @@ internal object InsightsScreenRenderer {
                         title = ctx.l("common.error.title"),
                         message = error,
                         retryTitle = ctx.l("insights.retry"),
-                        onRetry = { load(ctx, contentHost, ::paint) },
+                        onRetry = { load(ctx, contentHost, repaint) },
                     ),
                 )
                 return
@@ -97,6 +102,11 @@ internal object InsightsScreenRenderer {
                 viewData.associations.isNotEmpty() ||
                 viewData.premiumPatterns.isNotEmpty()
 
+            contentHost.addView(
+                buildWindowPicker(ctx) {
+                    load(ctx, contentHost, repaint)
+                },
+            )
             contentHost.addView(buildProgressCard(ctx, viewData.loggedDays, viewData.generatedAt, hasInsights))
             contentHost.addView(buildChecklistCard(ctx))
             contentHost.addView(buildTodayCard(ctx, viewData.todaySummary, viewData.generatedAt))
@@ -123,11 +133,12 @@ internal object InsightsScreenRenderer {
             }
         }
 
-        load(ctx, contentHost, ::paint)
+        val initialPaint: (InsightsViewData?, String?) -> Unit = { data, error -> paint(data, error) }
+        load(ctx, contentHost, initialPaint)
 
         bodyContainer.addView(
             HiAirComponents.primaryButton(activity, ctx.l("insights.refresh")).apply {
-                setOnClickListener { load(ctx, contentHost, ::paint) }
+                setOnClickListener { load(ctx, contentHost, initialPaint) }
             },
         )
     }
@@ -168,6 +179,7 @@ internal object InsightsScreenRenderer {
                         accessToken = settings.accessToken.ifBlank { null },
                         profileId = profileId,
                         language = settings.preferredLanguage,
+                        windowDays = selectedWindowDays,
                     )
                     val bundle = JSONObject(bundleRaw)
                     generatedAt = HiAirHumanDate.display(
@@ -223,6 +235,7 @@ internal object InsightsScreenRenderer {
                             userId = settings.userId,
                             accessToken = settings.accessToken.ifBlank { null },
                             profileId = profileId,
+                            windowDays = selectedWindowDays,
                             language = settings.preferredLanguage,
                         )
                         val patterns = JSONObject(patternsRaw)
@@ -403,6 +416,40 @@ internal object InsightsScreenRenderer {
             container.addView(V2Ui.styledSecondaryText(activity, meta).apply { textSize = 12f })
         }
         return container
+    }
+
+    private fun buildWindowPicker(
+        ctx: RenderContext,
+        onWindowChanged: () -> Unit,
+    ): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.window.title")))
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.START
+        }
+        fun chip(days: Int, labelKey: String) {
+            val selected = selectedWindowDays == days
+            row.addView(
+                HiAirComponents.secondaryButton(activity, ctx.l(labelKey)).apply {
+                    alpha = if (selected) 1f else 0.72f
+                    setOnClickListener {
+                        if (selectedWindowDays == days) return@setOnClickListener
+                        selectedWindowDays = days
+                        onWindowChanged()
+                    }
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginEnd = HiAirSpacing.md }
+                },
+            )
+        }
+        chip(7, "insights.window.7d")
+        chip(30, "insights.window.30d")
+        section.addView(row)
+        return section
     }
 
     private fun buildTodayCard(ctx: RenderContext, todaySummary: String, generatedAt: String): LinearLayout {

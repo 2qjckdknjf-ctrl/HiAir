@@ -510,8 +510,14 @@ class ApiClient(private val baseUrl: String) {
         return request("DELETE", endpoint, null, authHeaders(userId, accessToken))
     }
 
-    fun fetchHealthInsights(userId: String, accessToken: String?, profileId: String, language: String = "ru"): String {
-        val endpoint = "$baseUrl/api/v1/health/insights?profile_id=$profileId&window_days=30&language=$language"
+    fun fetchHealthInsights(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        language: String = "ru",
+        windowDays: Int = 30,
+    ): String {
+        val endpoint = "$baseUrl/api/v1/health/insights?profile_id=$profileId&window_days=$windowDays&language=$language"
         return request("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 

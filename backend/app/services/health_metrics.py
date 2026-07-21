@@ -29,6 +29,10 @@ CANONICAL_METRICS: dict[str, dict[str, str]] = {
     "wrist_temperature": {"unit": "celsius", "category": "temperature", "tier": "3"},
     "vo2_max": {"unit": "ml_kg_min", "category": "fitness", "tier": "2"},
     "mindfulness_minutes": {"unit": "min", "category": "fitness", "tier": "2"},
+    "walking_speed": {"unit": "m_s", "category": "mobility", "tier": "2"},
+    "walking_step_length": {"unit": "m", "category": "mobility", "tier": "2"},
+    "walking_asymmetry": {"unit": "percent", "category": "mobility", "tier": "2"},
+    "walking_double_support": {"unit": "percent", "category": "mobility", "tier": "2"},
     "weight": {"unit": "kg", "category": "body", "tier": "4"},
     "height": {"unit": "cm", "category": "body", "tier": "4"},
     "body_fat": {"unit": "percent", "category": "body", "tier": "4"},
@@ -134,6 +138,8 @@ def consent_allows_metric(consent: object, metric_type: str) -> bool:
         return _flag("temperatureEnabled")
     if category == "fitness":
         return _flag("fitnessEnabled")
+    if category == "mobility":
+        return _flag("fitnessEnabled") or _flag("activityEnabled")
     if category == "body":
         return _flag("bodyMetricsEnabled")
     if category == "sensitive":

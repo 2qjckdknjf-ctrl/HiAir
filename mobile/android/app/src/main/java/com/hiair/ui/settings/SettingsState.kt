@@ -614,6 +614,8 @@ class SettingsViewModel(
     fun deleteWearableData() {
         if (state.userId.isBlank()) return
         try {
+            // Delete both legacy wearable rows and health-intelligence aggregates.
+            runCatching { apiClient.deleteHealthData(state.userId, state.accessToken) }
             apiClient.deleteWearableData(state.userId, state.accessToken)
             state = state.copy(statusText = l("settings.wearables.delete"))
             refreshWearableStatus()

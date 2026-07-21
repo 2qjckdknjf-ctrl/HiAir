@@ -89,13 +89,18 @@ def generate_explanation(
     recommendation: RecommendationCard,
     language: str = "ru",
     risk_assessment_id: str | None = None,
+    health_context: list[str] | None = None,
 ) -> tuple[str, str]:
     lang = normalize_language(language)
     system_prompt = (
-        "You are a wellness assistant for heat and air quality context. "
-        "Use only provided facts. No medical claims."
+        "You are a wellness assistant for heat, air quality, and personal recovery context. "
+        "Use only provided facts. Explain why risk changed and what helps most. No medical claims."
     )
-    user_instruction = "Generate one short plain-language explanation in Russian. Keep tone calm, actionable, and personal."
+    user_instruction = (
+        "Generate 2-3 short plain-language sentences. Cover: why today's risk, "
+        "what changed vs usual if facts allow, and the highest-impact action. "
+        "Calm, personal, no diagnosis."
+    )
     try:
         ensure_prompt_version(
             prompt_key=PROMPT_KEY,
@@ -135,12 +140,14 @@ def generate_explanation(
         "air_risk": risk.airRisk.value,
         "recommendation_headline": recommendation.headline,
         "recommendation_actions": recommendation.actions,
+        "personal_health_observations": (health_context or [])[:4],
         "guardrails": [
             "No diagnosis",
             "No treatment advice",
             "No emergency claims",
             "Action-first, calm tone",
-            "Max 2 short sentences",
+            "Max 3 short sentences",
+            "Do not invent metrics not present in facts",
         ],
         "target_language": lang,
     }

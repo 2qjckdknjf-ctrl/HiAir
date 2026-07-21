@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
+from psycopg.errors import UndefinedTable
 
 from app.api.deps import get_current_user_id
 from app.models.air import CurrentRiskResponse, DayPlanResponse, RecommendationResponse, RecomputeRiskRequest
@@ -9,7 +10,9 @@ import app.services.air_recommendation_engine as air_recommendation_engine
 import app.services.ai_explanation_service as ai_explanation_service
 import app.services.air_risk_engine as air_risk_engine
 import app.services.entitlement_service as entitlement_service
+import app.services.health_analytics_service as health_analytics_service
 import app.services.settings_repository as settings_repository
+import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
 
 router = APIRouter(prefix="/air", tags=["air"])
@@ -22,6 +25,48 @@ def _resolve_profile_for_user(profile_id: str, user_id: str):
     if profile.user_id != user_id:
         raise HTTPException(status_code=403, detail="Profile does not belong to user")
     return profile
+
+
+def _health_context_for_ai(user_id: str, profile_id: str, language: str) -> list[str]:
+    """Bounded wellness observations for AI. No raw biometric values."""
+    try:
+        consent = wearable_repository.get_active_consent(user_id)
+    except UndefinedTable:
+        return []
+    if consent is None or not getattr(consent, "isActive", True):
+        return []
+
+    entitlement = entitlement_service.get_current_entitlement(user_id)
+    if not entitlement.is_premium or not entitlement.advanced_insights_enabled:
+        return []
+
+    try:
+        bundle = health_analytics_service.build_insights_bundle(
+            user_id=user_id,
+            profile_id=profile_id,
+            window_days=30,
+            language=language,
+            require_active_consent=True,
+        )
+    except Exception:
+        return []
+
+    health_context: list[str] = []
+    for card in (bundle.get("associations") or [])[:2]:
+        title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+        observation = getattr(card, "observation", None) or (
+            card.get("observation") if isinstance(card, dict) else None
+        )
+        if title and observation:
+            health_context.append(f"{title}: {observation}")
+    for card in (bundle.get("trends") or [])[:1]:
+        title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+        observation = getattr(card, "observation", None) or (
+            card.get("observation") if isinstance(card, dict) else None
+        )
+        if title and observation:
+            health_context.append(f"{title}: {observation}")
+    return health_context[:4]
 
 
 def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> CurrentRiskResponse:
@@ -37,12 +82,14 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
     snapshot_id = air_repository.save_environment_snapshot(environment)
     assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
+    health_context = _health_context_for_ai(user_id, profile.profile_id, language)
     explanation, explanation_source = ai_explanation_service.generate_explanation(
         profile,
         risk,
         recommendation,
         language=language,
         risk_assessment_id=assessment_id,
+        health_context=health_context,
     )
     air_repository.save_recommendation(
         risk_assessment_id=assessment_id,

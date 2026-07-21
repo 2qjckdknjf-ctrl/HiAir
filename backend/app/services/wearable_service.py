@@ -6,7 +6,19 @@ from psycopg.errors import UndefinedTable
 
 from app.models.wearable import PersonalLoadSummary, WearableTodayResponse
 from app.services.personal_load_engine import PersonalLoadInput, compute_personal_load_score
+import app.services.health_sync_repository as health_sync_repository
 import app.services.wearable_repository as wearable_repository
+
+
+def _metric_primary(rows: list[dict], metric_type: str) -> float | None:
+    for row in rows:
+        if row.get("metric_type") != metric_type:
+            continue
+        for key in ("value_avg", "value_total", "value_latest"):
+            raw = row.get(key)
+            if raw is not None:
+                return float(raw)
+    return None
 
 
 def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInput:
@@ -19,6 +31,10 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
 
     source = consent.source
     today = date.today()
+    sleep_minutes: int | None = None
+    hrv_ms: float | None = None
+    hrv_baseline_7d: float | None = None
+    exercise_minutes: float | None = None
     try:
         daily = wearable_repository.get_daily_summary(user_id, today, source=source)
         now = datetime.now(tz=UTC)
@@ -28,6 +44,26 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
         baseline_30d = wearable_repository.resting_hr_baseline(user_id, 30)
     except UndefinedTable:
         return PersonalLoadInput(consent_active=False)
+
+    try:
+        today_metrics = health_sync_repository.list_metrics_for_date(user_id, today)
+        sleep_row = health_sync_repository.get_sleep_for_date(user_id, today)
+        if sleep_row and sleep_row.get("total_minutes") is not None:
+            sleep_minutes = int(sleep_row["total_minutes"])
+        # Never compare SDNN against RMSSD — lock method to today's available series.
+        hrv_metric = None
+        if _metric_primary(today_metrics, "hrv_sdnn") is not None:
+            hrv_metric = "hrv_sdnn"
+        elif _metric_primary(today_metrics, "hrv_rmssd") is not None:
+            hrv_metric = "hrv_rmssd"
+        if hrv_metric is not None:
+            hrv_ms = _metric_primary(today_metrics, hrv_metric)
+            hrv_baseline_7d = health_sync_repository.metric_baseline(user_id, hrv_metric, 7)
+        exercise_minutes = _metric_primary(today_metrics, "exercise_minutes") or _metric_primary(
+            today_metrics, "workout_duration"
+        )
+    except UndefinedTable:
+        pass
 
     env_kwargs = {}
     if environment is not None:
@@ -49,6 +85,10 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
         resting_heart_rate=daily.restingHeartRateAvg if daily else None,
         resting_heart_rate_baseline_7d=baseline_7d,
         resting_heart_rate_baseline_30d=baseline_30d,
+        sleep_minutes=sleep_minutes,
+        hrv_ms=hrv_ms,
+        hrv_baseline_7d=hrv_baseline_7d,
+        exercise_minutes=exercise_minutes,
         consent_active=True,
         **env_kwargs,
     )

@@ -41,9 +41,9 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
           HiAir uses your location to estimate heat and air-quality risk for your current area and personalize local guidance.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
-          HiAir reads steps and heart rate to estimate personal activity load during heat and poor air quality. HiAir provides wellness guidance, not medical diagnosis.
+          HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-
-          HiAir connects to Apple Health to read steps and heart rate for personal activity insights. HiAir does not write health data to Apple Health.
+          HiAir connects to Apple Health to read wellness summaries for personal activity and recovery insights. HiAir does not write health data to Apple Health.
         INFOPLIST_KEY_LSApplicationQueriesSchemes:
           - x-apple-health
       configs:

@@ -20,16 +20,19 @@ def compute_personal_patterns(
     if len(samples) < MIN_POINTS:
         return []
 
-    factors_a = ("pm25", "ozone", "temperature", "humidity", "aqi")
+    factors_a = ("pm25", "ozone", "temperature", "humidity", "aqi", "pm10")
     factors_b = (
         "cough_count",
         "wheeze_count",
         "headache_count",
         "fatigue_count",
+        "allergy_count",
         "sleep_quality",
         "steps",
         "resting_heart_rate",
         "sleep_minutes",
+        "hrv",
+        "exercise_minutes",
     )
     lang = normalize_language(language)
 

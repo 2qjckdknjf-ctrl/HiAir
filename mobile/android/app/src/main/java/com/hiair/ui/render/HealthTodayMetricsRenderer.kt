@@ -24,6 +24,7 @@ internal object HealthTodayMetricsRenderer {
         "steps",
         "distance_walking_running",
         "active_energy",
+        "basal_energy",
         "exercise_minutes",
         "stand_minutes",
         "flights_climbed",
@@ -40,6 +41,10 @@ internal object HealthTodayMetricsRenderer {
         "wrist_temperature",
         "vo2_max",
         "mindfulness_minutes",
+        "walking_speed",
+        "walking_step_length",
+        "walking_asymmetry",
+        "walking_double_support",
     )
 
     fun render(

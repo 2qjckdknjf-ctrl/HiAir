@@ -14,6 +14,7 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
                 SELECT
                     DATE(ra.created_at) AS day_key,
                     AVG(es.pm25) AS pm25,
+                    AVG(es.pm10) AS pm10,
                     AVG(es.ozone) AS ozone,
                     AVG(es.temperature_c) AS temperature,
                     AVG(es.humidity_percent) AS humidity,
@@ -21,31 +22,40 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
                     AVG(
                         CASE
                             WHEN sl.id IS NULL THEN NULL
-                            WHEN sl.cough THEN 1.0
+                            WHEN sl.cough OR sl.symptom_type IN ('cough', 'dry_cough', 'wet_cough') THEN 1.0
                             ELSE 0.0
                         END
                     ) AS cough_count,
                     AVG(
                         CASE
                             WHEN sl.id IS NULL THEN NULL
-                            WHEN sl.wheeze THEN 1.0
+                            WHEN sl.wheeze OR sl.symptom_type = 'wheeze' THEN 1.0
                             ELSE 0.0
                         END
                     ) AS wheeze_count,
                     AVG(
                         CASE
                             WHEN sl.id IS NULL THEN NULL
-                            WHEN sl.headache THEN 1.0
+                            WHEN sl.headache OR sl.symptom_type IN ('headache', 'migraine_like_pain') THEN 1.0
                             ELSE 0.0
                         END
                     ) AS headache_count,
                     AVG(
                         CASE
                             WHEN sl.id IS NULL THEN NULL
-                            WHEN sl.fatigue THEN 1.0
+                            WHEN sl.fatigue OR sl.symptom_type IN ('fatigue', 'weakness', 'low_energy') THEN 1.0
                             ELSE 0.0
                         END
                     ) AS fatigue_count,
+                    AVG(
+                        CASE
+                            WHEN sl.id IS NULL THEN NULL
+                            WHEN sl.symptom_type IN (
+                                'sneezing', 'runny_nose', 'nasal_congestion', 'itchy_eyes', 'watery_eyes'
+                            ) THEN 1.0
+                            ELSE 0.0
+                        END
+                    ) AS allergy_count,
                     AVG(sl.sleep_quality) AS sleep_quality
                 FROM risk_assessments ra
                 LEFT JOIN environment_snapshots es
@@ -101,7 +111,54 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
                         (str(owner["user_id"]), window_days),
                     )
                     for wrow in cur.fetchall():
-                        wearable_by_day[wrow["date"]] = wrow
+                        wearable_by_day[wrow["date"]] = dict(wrow)
+
+                # Prefer v2 metric daily when present (HRV / exercise).
+                cur.execute(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                          AND table_name = 'wearable_metric_daily'
+                    ) AS present
+                    """
+                )
+                metric_table = cur.fetchone()
+                if metric_table and metric_table.get("present"):
+                    cur.execute(
+                        """
+                        SELECT local_date,
+                               metric_type,
+                               COALESCE(value_avg, value_latest, value_total) AS value
+                        FROM wearable_metric_daily
+                        WHERE user_id = %s
+                          AND local_date >= CURRENT_DATE - (%s || ' days')::INTERVAL
+                          AND metric_type IN (
+                              'steps', 'resting_heart_rate', 'hrv_sdnn', 'hrv_rmssd', 'exercise_minutes'
+                          )
+                          AND quality_state IN ('ok', 'partial')
+                        """,
+                        (str(owner["user_id"]), window_days),
+                    )
+                    for mrow in cur.fetchall():
+                        day = mrow["local_date"]
+                        bucket = wearable_by_day.setdefault(day, {})
+                        metric = str(mrow["metric_type"])
+                        value = _nullable(mrow.get("value"))
+                        if metric == "steps" and bucket.get("steps_total") is None:
+                            bucket["steps_total"] = value
+                        elif metric == "resting_heart_rate" and bucket.get("resting_heart_rate_avg") is None:
+                            bucket["resting_heart_rate_avg"] = value
+                        elif metric == "hrv_sdnn":
+                            # Prefer SDNN; never mix with RMSSD in the same series.
+                            bucket["hrv"] = value
+                            bucket["hrv_method"] = "sdnn"
+                        elif metric == "hrv_rmssd" and bucket.get("hrv_method") != "sdnn":
+                            bucket["hrv"] = value
+                            bucket["hrv_method"] = "rmssd"
+                        elif metric == "exercise_minutes":
+                            bucket["exercise_minutes"] = value
 
     samples = []
     for row in rows:
@@ -111,10 +168,14 @@ def get_daily_correlation_samples(profile_id: str, window_days: int) -> list[dic
             sample["steps"] = _nullable(wrow.get("steps_total"))
             sample["resting_heart_rate"] = _nullable(wrow.get("resting_heart_rate_avg"))
             sample["sleep_minutes"] = _nullable(wrow.get("sleep_minutes"))
+            sample["hrv"] = _nullable(wrow.get("hrv"))
+            sample["exercise_minutes"] = _nullable(wrow.get("exercise_minutes"))
         else:
             sample["steps"] = None
             sample["resting_heart_rate"] = None
             sample["sleep_minutes"] = None
+            sample["hrv"] = None
+            sample["exercise_minutes"] = None
         samples.append(sample)
     return samples
 
@@ -195,6 +256,7 @@ def get_latest_personal_correlations(profile_id: str, window_days: int) -> list[
 def _to_sample(row: dict[str, object]) -> dict[str, float | None]:
     return {
         "pm25": _nullable(row.get("pm25")),
+        "pm10": _nullable(row.get("pm10")),
         "ozone": _nullable(row.get("ozone")),
         "temperature": _nullable(row.get("temperature")),
         "humidity": _nullable(row.get("humidity")),
@@ -203,6 +265,7 @@ def _to_sample(row: dict[str, object]) -> dict[str, float | None]:
         "wheeze_count": _nullable(row.get("wheeze_count")),
         "headache_count": _nullable(row.get("headache_count")),
         "fatigue_count": _nullable(row.get("fatigue_count")),
+        "allergy_count": _nullable(row.get("allergy_count")),
         "sleep_quality": _nullable(row.get("sleep_quality")),
     }
 
