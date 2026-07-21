@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
@@ -64,6 +65,7 @@ class HealthConnectService(private val context: Context) {
     val tier3Permissions = setOf(
         HealthPermission.getReadPermission(RespiratoryRateRecord::class),
         HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+        HealthPermission.getReadPermission(BodyTemperatureRecord::class),
     )
 
     val readPermissions: Set<String>
@@ -136,7 +138,7 @@ class HealthConnectService(private val context: Context) {
             .put("activityEnabled", true)
             .put("sleepStagesEnabled", true)
             .put("respiratoryEnabled", true)
-            .put("temperatureEnabled", false)
+            .put("temperatureEnabled", true)
             .put("workoutsEnabled", true)
             .put("fitnessEnabled", true)
             .put("bodyMetricsEnabled", false)
@@ -191,6 +193,7 @@ class HealthConnectService(private val context: Context) {
             appendHrv(metrics)
             appendRespiratory(metrics)
             appendOxygen(metrics)
+            appendBodyTemperature(metrics)
             appendVo2(metrics)
             appendWorkouts(metrics)
             val sleep = buildSleepJson()
@@ -409,6 +412,39 @@ class HealthConnectService(private val context: Context) {
             metrics.put(emptyMetric("oxygen_saturation", "percent", "permission_denied"))
         } catch (_: Exception) {
             metrics.put(emptyMetric("oxygen_saturation", "percent", "sync_error"))
+        }
+    }
+
+    private suspend fun appendBodyTemperature(metrics: JSONArray) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val (start, end) = todayRange()
+            val records = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = BodyTemperatureRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                )
+            ).records
+            if (records.isEmpty()) {
+                metrics.put(emptyMetric("body_temperature", "celsius"))
+                return
+            }
+            val values = records.map { it.temperature.inCelsius }
+            metrics.put(
+                metricJson(
+                    "body_temperature",
+                    "celsius",
+                    avg = values.average(),
+                    min = values.minOrNull(),
+                    max = values.maxOrNull(),
+                    latest = values.lastOrNull(),
+                    sampleCount = values.size,
+                )
+            )
+        } catch (_: SecurityException) {
+            metrics.put(emptyMetric("body_temperature", "celsius", "permission_denied"))
+        } catch (_: Exception) {
+            metrics.put(emptyMetric("body_temperature", "celsius", "sync_error"))
         }
     }
 
