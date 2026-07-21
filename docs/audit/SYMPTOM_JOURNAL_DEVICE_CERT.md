@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-21  
 **Scope:** P0 taxonomy load recovery + journal readability redesign  
-**iOS TestFlight build:** 95 (uploaded, Delivery UUID `b5339c77-77e8-499b-859d-d7aa34672ce7`)  
-**Commits:** `6c9e084` → `23fbab7` → `2be0381` → `158a32e` → `eb07d85`
+**iOS TestFlight build:** 95 — **VALID** (`b5339c77-77e8-499b-859d-d7aa34672ce7`), assigned to internal group «Первый»  
+**Commits:** `6c9e084` → `23fbab7` → `2be0381` → `158a32e` → `eb07d85` → `5a445cf`
 
 ## Root cause (confirmed)
 
