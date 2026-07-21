@@ -291,11 +291,14 @@ def create_symptom(
     payload: ComprehensiveSymptomCreateRequest,
     language: str = Query(default="ru"),
     user_id: str = Depends(get_current_user_id),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> ComprehensiveSymptomResponse:
     if not profile_access.profile_exists(payload.profileId):
         raise HTTPException(status_code=404, detail="Profile not found")
     if not profile_access.profile_belongs_to_user(payload.profileId, user_id):
         raise HTTPException(status_code=403, detail="Profile does not belong to user")
+    if idempotency_key and not payload.clientRequestId:
+        payload = payload.model_copy(update={"clientRequestId": idempotency_key.strip()[:64]})
     try:
         return symptom_entry_repository.create_comprehensive_entry(user_id, payload, language=language)
     except PsycopgError as exc:

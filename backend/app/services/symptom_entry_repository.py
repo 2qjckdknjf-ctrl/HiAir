@@ -27,11 +27,44 @@ def create_comprehensive_entry(
     category = definition.category if definition else (
         "custom" if payload.symptomType.startswith("custom:") else None
     )
-    symptom_id = str(uuid4())
     now = datetime.now(tz=timezone.utc)
     onset = payload.onsetAt or now
+    client_request_id = (payload.clientRequestId or "").strip() or None
     with get_connection() as conn:
         with conn.cursor() as cur:
+            if client_request_id:
+                cur.execute(
+                    """
+                    SELECT id, symptom_type, category, severity, onset_at, duration_minutes,
+                           ongoing, note, logged_at
+                    FROM symptom_logs
+                    WHERE user_id = %s
+                      AND client_request_id = %s
+                      AND deleted_at IS NULL
+                    LIMIT 1
+                    """,
+                    (user_id, client_request_id),
+                )
+                existing = cur.fetchone()
+                if existing is not None:
+                    red = is_red_flag(str(existing["symptom_type"]))
+                    lang = language if language in SAFETY_NOTICE else "en"
+                    return ComprehensiveSymptomResponse(
+                        id=str(existing["id"]),
+                        profileId=payload.profileId,
+                        symptomType=str(existing["symptom_type"]),
+                        category=existing.get("category"),
+                        severity=int(existing["severity"] or payload.severity),
+                        onsetAt=existing.get("onset_at") or onset,
+                        durationMinutes=existing.get("duration_minutes"),
+                        ongoing=bool(existing.get("ongoing")),
+                        note=existing.get("note"),
+                        redFlag=red,
+                        safetyNotice=SAFETY_NOTICE[lang] if red else None,
+                        loggedAt=existing.get("logged_at") or now,
+                    )
+
+            symptom_id = str(uuid4())
             cur.execute(
                 """
                 INSERT INTO symptom_logs (
@@ -41,7 +74,7 @@ def create_comprehensive_entry(
                     onset_at, duration_minutes, ongoing, frequency,
                     body_context, suspected_trigger, activity_at_onset,
                     location_context, hydration_state, medication_taken,
-                    timezone, is_custom, custom_label, created_at
+                    timezone, is_custom, custom_label, client_request_id, created_at
                 )
                 VALUES (
                     %s, %s, %s, %s, %s,
@@ -50,7 +83,7 @@ def create_comprehensive_entry(
                     %s, %s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s,
-                    %s, %s, %s, NOW()
+                    %s, %s, %s, %s, NOW()
                 )
                 """,
                 (
@@ -82,6 +115,7 @@ def create_comprehensive_entry(
                     payload.timezone,
                     payload.symptomType.startswith("custom:") or bool(payload.customLabel),
                     payload.customLabel,
+                    client_request_id,
                 ),
             )
     red = is_red_flag(payload.symptomType)

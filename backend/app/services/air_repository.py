@@ -406,10 +406,11 @@ def get_symptom_history(profile_id: str, limit: int = 50) -> list[SymptomHistory
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, profile_id, symptom_type, intensity, note, logged_at
+                SELECT id, profile_id, symptom_type, intensity, severity, note, logged_at
                 FROM symptom_logs
                 WHERE profile_id = %s
                   AND symptom_type IS NOT NULL
+                  AND deleted_at IS NULL
                 ORDER BY logged_at DESC
                 LIMIT %s
                 """,
@@ -421,7 +422,7 @@ def get_symptom_history(profile_id: str, limit: int = 50) -> list[SymptomHistory
             id=str(row["id"]),
             profileId=str(row["profile_id"]),
             symptomType=str(row["symptom_type"]),
-            intensity=int(row["intensity"] or 1),
+            intensity=int(row.get("severity") or row["intensity"] or 1),
             note=row["note"],
             loggedAt=row["logged_at"].isoformat(),
         )
