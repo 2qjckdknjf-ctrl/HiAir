@@ -71,6 +71,9 @@ final class HealthKitService: ObservableObject {
     private let defaults = UserDefaults.standard
     private let tiersKey = "hiair.health.enabledTiers"
     private let anchorKeyPrefix = "hiair.health.anchor."
+    private var authorizationInFlight: Task<Bool, Never>?
+    private let healthQueryTimeoutSeconds: TimeInterval = 12
+    private let healthCollectTimeoutSeconds: TimeInterval = 45
 
     init() {
         if let saved = defaults.array(forKey: tiersKey) as? [Int], !saved.isEmpty {
@@ -207,6 +210,22 @@ final class HealthKitService: ObservableObject {
     }
 
     func requestAuthorization(tiers: Set<Int>? = nil) async -> Bool {
+        if let authorizationInFlight {
+            return await authorizationInFlight.value
+        }
+        let task = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            return await self.performAuthorizationRequest(tiers: tiers)
+        }
+        authorizationInFlight = task
+        let result = await task.value
+        if authorizationInFlight == task {
+            authorizationInFlight = nil
+        }
+        return result
+    }
+
+    private func performAuthorizationRequest(tiers: Set<Int>?) async -> Bool {
         lastAuthorizationError = nil
         if let tiers {
             setEnabledTiers(tiers)
@@ -214,22 +233,47 @@ final class HealthKitService: ObservableObject {
         if let issueKey = configurationIssueMessage() {
             lastAuthorizationError = issueKey
             connectionState = .unavailable
+            ProductAnalytics.track("health_connect_failed", properties: ["error_code": "config"])
             return false
         }
         connectionState = .permissionRequested
+        ProductAnalytics.track("health_authorization_started")
         let types = activeReadTypes
-        let requestError = await withCheckedContinuation { continuation in
-            store.requestAuthorization(toShare: [], read: types) { _, error in
-                continuation.resume(returning: error)
+        let requestError: Error? = await withTaskGroup(of: Error?.self) { group in
+            group.addTask {
+                await withCheckedContinuation { continuation in
+                    self.store.requestAuthorization(toShare: [], read: types) { _, error in
+                        continuation.resume(returning: error)
+                    }
+                }
             }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                return NSError(
+                    domain: "com.hiair.healthkit",
+                    code: 408,
+                    userInfo: [NSLocalizedDescriptionKey: "authorization_timeout"]
+                )
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? nil
         }
         if let requestError {
-            lastAuthorizationError = Self.userFacingAuthorizationError(requestError)
-            connectionState = .permissionDenied
+            if (requestError as NSError).code == 408 {
+                lastAuthorizationError = "wearable.health.error.generic|timeout"
+                connectionState = .syncFailed
+                ProductAnalytics.track("health_connect_timeout", properties: ["stage": "authorization"])
+            } else {
+                lastAuthorizationError = Self.userFacingAuthorizationError(requestError)
+                connectionState = .permissionDenied
+                ProductAnalytics.track("health_connect_failed", properties: ["error_code": "authorization"])
+            }
             return false
         }
         // Completing the sheet registers the app; actual read grants stay opaque.
         connectionState = .connected
+        ProductAnalytics.track("health_authorization_completed", properties: ["success": "true"])
         return true
     }
 
@@ -469,8 +513,19 @@ final class HealthKitService: ObservableObject {
     }
 
     func syncHealthIntelligence(userId: String, accessToken: String, profileId: String?) async {
+        ProductAnalytics.track("health_sync_started")
         do {
-            let (snapshots, sleep) = await collectTodaySnapshots()
+            let collected = await withTimeout(seconds: healthCollectTimeoutSeconds) {
+                await self.collectTodaySnapshots()
+            }
+            guard let (snapshots, sleep) = collected else {
+                connectionState = .syncFailed
+                lastSyncError = "wearable.health.error.generic|timeout"
+                ProductAnalytics.track("health_connect_timeout", properties: ["stage": "collect"])
+                return
+            }
+            latestSnapshots = snapshots
+            latestSleep = sleep
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withFullDate]
             let dateString = formatter.string(from: Date())
@@ -545,6 +600,13 @@ final class HealthKitService: ObservableObject {
             connectionState = metrics.isEmpty && sleepPayload == nil ? .dataUnavailable : .connected
             lastSyncError = nil
             lastSyncAt = Date()
+            ProductAnalytics.track(
+                "health_sync_completed",
+                properties: [
+                    "success": "true",
+                    "empty": (metrics.isEmpty && sleepPayload == nil) ? "true" : "false",
+                ]
+            )
         } catch {
             let nsError = error as NSError
             if nsError.domain == "com.apple.healthkit", nsError.code == 6 {
@@ -554,6 +616,27 @@ final class HealthKitService: ObservableObject {
                 connectionState = .syncFailed
                 lastSyncError = error.localizedDescription
             }
+            ProductAnalytics.track("health_connect_failed", properties: ["error_code": "sync"])
+        }
+    }
+
+    private func withTimeout<T>(
+        seconds: TimeInterval,
+        operation: @escaping () async -> T
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask {
+                let value = await operation()
+                return value
+            }
+            group.addTask {
+                let ns = UInt64(max(seconds, 1) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? nil
         }
     }
 

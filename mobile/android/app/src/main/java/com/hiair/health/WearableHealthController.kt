@@ -73,11 +73,20 @@ class WearableHealthController(
         if (userId.isNotBlank()) {
             try {
                 healthService.saveConsent(userId, token)
-                healthService.syncHealthIntelligence(userId, token, profileId = null)
             } catch (_: Exception) {
-                // Non-blocking — dashboard still works without wearable sync.
+                // Consent failure still returns to UI; sync can retry later.
             }
         }
+        // Do not block Connect UI on Health Connect reads / backend sync.
         onComplete?.invoke()
+        if (userId.isNotBlank()) {
+            activity.lifecycleScope.launch {
+                try {
+                    healthService.syncHealthIntelligence(userId, token, profileId = null)
+                } catch (_: Exception) {
+                    // Non-blocking — dashboard still works without wearable sync.
+                }
+            }
+        }
     }
 }
