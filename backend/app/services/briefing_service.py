@@ -25,9 +25,16 @@ def get_due_briefings(now_utc: datetime | None = None) -> list[dict[str, str]]:
         timezone_name = str(item["timezone"] or "UTC")
         local_time = str(item["local_time"] or "07:30")
         user_id = str(item["user_id"])
-        if not _is_due(now_utc=now, local_time=local_time, timezone_name=timezone_name, last_sent_at=item["last_sent_at"]):
+        if not _is_due(
+            now_utc=now,
+            local_time=local_time,
+            timezone_name=timezone_name,
+            last_sent_at=item["last_sent_at"],
+        ):
             continue
-        due.append({"user_id": user_id, "timezone": timezone_name, "local_time": local_time})
+        due.append(
+            {"user_id": user_id, "timezone": timezone_name, "local_time": local_time}
+        )
     return due
 
 
@@ -45,8 +52,10 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
     environment = air_environment_service.load_environment(profile)
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
     risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
-    plan = air_risk_engine.build_day_plan(profile, environment)
-    recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=user_settings.preferred_language)
+    plan = air_risk_engine.build_day_plan(profile, environment, personal_load)
+    recommendation = air_recommendation_engine.generate_recommendation(
+        profile, risk, language=user_settings.preferred_language
+    )
     health_context: list[str] = []
     try:
         consent = wearable_repository.get_active_consent(user_id)
@@ -64,13 +73,16 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
                 language=user_settings.preferred_language,
                 require_active_consent=True,
             )
-            for card in (bundle.get("trends") or [])[:2]:
-                title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
-                observation = getattr(card, "observation", None) or (
-                    card.get("observation") if isinstance(card, dict) else None
-                )
-                if title and observation:
-                    health_context.append(f"{title}: {observation}")
+            for key in ("associations", "trends"):
+                for card in (bundle.get(key) or [])[:2]:
+                    title = getattr(card, "title", None) or (
+                        card.get("title") if isinstance(card, dict) else None
+                    )
+                    observation = getattr(card, "observation", None) or (
+                        card.get("observation") if isinstance(card, dict) else None
+                    )
+                    if title and observation:
+                        health_context.append(f"{title}: {observation}")
     except Exception:
         health_context = []
     explanation, _ = ai_explanation_service.generate_explanation(
@@ -82,7 +94,9 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         health_context=health_context[:4],
     )
     first_window = plan.safeWindows[0] if plan.safeWindows else None
-    window_text = f"{first_window.start}-{first_window.end}" if first_window else "later tonight"
+    window_text = (
+        f"{first_window.start}-{first_window.end}" if first_window else "later tonight"
+    )
     message = (
         f"Good morning. Today's risk is {risk.overallRisk.value}. "
         f"Best outdoor window: {window_text}. {explanation}"
@@ -90,7 +104,9 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
     return message, profile_id, risk.overallRisk.value
 
 
-def dispatch_due_briefings(now_utc: datetime | None = None, dry_run: bool = False) -> list[dict[str, str | int | bool]]:
+def dispatch_due_briefings(
+    now_utc: datetime | None = None, dry_run: bool = False
+) -> list[dict[str, str | int | bool]]:
     results: list[dict[str, str | int | bool]] = []
     for due in get_due_briefings(now_utc=now_utc):
         user_id = str(due["user_id"])
@@ -130,14 +146,18 @@ def dispatch_due_briefings(now_utc: datetime | None = None, dry_run: bool = Fals
     return results
 
 
-def _is_due(now_utc: datetime, local_time: str, timezone_name: str, last_sent_at: str | None) -> bool:
+def _is_due(
+    now_utc: datetime, local_time: str, timezone_name: str, last_sent_at: str | None
+) -> bool:
     try:
         tz = ZoneInfo(timezone_name)
     except Exception:
         tz = ZoneInfo("UTC")
     local_now = now_utc.astimezone(tz)
     expected_hour, expected_minute = _parse_local_time(local_time)
-    target_local = local_now.replace(hour=expected_hour, minute=expected_minute, second=0, microsecond=0)
+    target_local = local_now.replace(
+        hour=expected_hour, minute=expected_minute, second=0, microsecond=0
+    )
     minutes_since_target = (local_now - target_local).total_seconds() / 60.0
     within_window = 0.0 <= minutes_since_target < 5.0
     if not within_window:

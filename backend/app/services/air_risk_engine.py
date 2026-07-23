@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import math
 
@@ -25,7 +26,9 @@ RISK_ORDER = {
 }
 
 
-def _heat_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> tuple[RiskLevel, list[str]]:
+def _heat_risk(
+    environment: EnvironmentalInput, profile: UserProfileContext
+) -> tuple[RiskLevel, list[str]]:
     reasons: list[str] = []
     score = 0
     if environment.feels_like >= 40:
@@ -46,7 +49,11 @@ def _heat_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> 
         reasons.append("uv_peak")
 
     score += max(0, profile.heat_sensitivity_level - 2)
-    if profile.profile_type in (ProfileType.CHILD, ProfileType.ELDERLY, ProfileType.OUTDOOR_WORKER):
+    if profile.profile_type in (
+        ProfileType.CHILD,
+        ProfileType.ELDERLY,
+        ProfileType.OUTDOOR_WORKER,
+    ):
         score += 1
 
     if score >= 5:
@@ -58,7 +65,9 @@ def _heat_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> 
     return RiskLevel.LOW, reasons
 
 
-def _air_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> tuple[RiskLevel, list[str]]:
+def _air_risk(
+    environment: EnvironmentalInput, profile: UserProfileContext
+) -> tuple[RiskLevel, list[str]]:
     reasons: list[str] = []
     score = 0
     if environment.aqi >= 170:
@@ -86,7 +95,10 @@ def _air_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> t
         reasons.append("ozone_elevated")
 
     score += max(0, profile.respiratory_sensitivity_level - 2)
-    if profile.profile_type in (ProfileType.ASTHMA_SENSITIVE, ProfileType.ALLERGY_SENSITIVE):
+    if profile.profile_type in (
+        ProfileType.ASTHMA_SENSITIVE,
+        ProfileType.ALLERGY_SENSITIVE,
+    ):
         score += 2
 
     if score >= 6:
@@ -112,20 +124,26 @@ def _risk_from_order(value: int) -> RiskLevel:
     return RiskLevel.VERY_HIGH
 
 
-def _project_environment(environment: EnvironmentalInput, hour_offset: int) -> EnvironmentalInput:
+def _project_environment(
+    environment: EnvironmentalInput, hour_offset: int
+) -> EnvironmentalInput:
     hour_in_day = (datetime.now(timezone.utc).hour + hour_offset) % 24
     heat_wave = max(0.0, math.sin((hour_in_day - 7) / 24 * math.pi * 2))
     traffic_wave = max(0.0, math.sin((hour_in_day - 5) / 24 * math.pi * 2))
 
     projected_temp = environment.temperature + (heat_wave * 6.0) - 2.0
     projected_feels_like = environment.feels_like + (heat_wave * 7.0) - 2.5
-    projected_humidity = min(100.0, max(20.0, environment.humidity - (heat_wave * 8.0) + 3.0))
+    projected_humidity = min(
+        100.0, max(20.0, environment.humidity - (heat_wave * 8.0) + 3.0)
+    )
     projected_aqi = int(max(5.0, environment.aqi + (traffic_wave * 30.0) - 12.0))
     projected_pm25 = max(1.0, environment.pm25 + (traffic_wave * 12.0) - 5.0)
     projected_pm10 = max(1.0, environment.pm10 + (traffic_wave * 15.0) - 6.0)
     projected_ozone = max(1.0, environment.ozone + (heat_wave * 18.0) - 7.0)
     projected_uv = max(0.0, environment.uv + (heat_wave * 3.0) - 1.5)
-    projected_wind = max(0.0, environment.wind_speed + (math.cos(hour_offset / 3) * 1.2))
+    projected_wind = max(
+        0.0, environment.wind_speed + (math.cos(hour_offset / 3) * 1.2)
+    )
 
     return EnvironmentalInput(
         lat=environment.lat,
@@ -140,12 +158,83 @@ def _project_environment(environment: EnvironmentalInput, hour_offset: int) -> E
         uv=round(projected_uv, 1),
         wind_speed=round(projected_wind, 1),
         source=environment.source,
-        timestamp=(datetime.now(timezone.utc) + timedelta(hours=hour_offset)).isoformat(),
+        timestamp=(
+            datetime.now(timezone.utc) + timedelta(hours=hour_offset)
+        ).isoformat(),
         timezone=environment.timezone,
     )
 
 
-def _build_safe_windows(profile: UserProfileContext, environment: EnvironmentalInput) -> list[SafeWindow]:
+def _personal_load_for_environment(
+    environment: EnvironmentalInput,
+    personal_load: PersonalLoadInput | None,
+) -> PersonalLoadInput:
+    if personal_load is None:
+        return PersonalLoadInput(
+            heat_index=environment.feels_like,
+            temperature=environment.temperature,
+            humidity=environment.humidity,
+            aqi=environment.aqi,
+            ozone=environment.ozone,
+            pm25=environment.pm25,
+            consent_active=False,
+        )
+    return replace(
+        personal_load,
+        heat_index=environment.feels_like,
+        temperature=environment.temperature,
+        humidity=environment.humidity,
+        aqi=environment.aqi,
+        ozone=environment.ozone,
+        pm25=environment.pm25,
+    )
+
+
+def _assess_environment_risk(
+    profile: UserProfileContext,
+    environment: EnvironmentalInput,
+    personal_load: PersonalLoadInput | None = None,
+) -> tuple[
+    RiskLevel,
+    list[str],
+    RiskLevel,
+    list[str],
+    RiskLevel,
+    RiskLevel,
+    personal_load_engine.PersonalLoadResult,
+]:
+    heat_risk, heat_reasons = _heat_risk(environment, profile)
+    air_risk, air_reasons = _air_risk(environment, profile)
+    outdoor_risk = _max_risk(heat_risk, air_risk)
+
+    overall_order = max(RISK_ORDER[heat_risk], RISK_ORDER[air_risk])
+    if RISK_ORDER[heat_risk] >= 2 and RISK_ORDER[air_risk] >= 2:
+        overall_order = min(3, overall_order + 1)
+
+    personal_load_result = personal_load_engine.compute_personal_load_score(
+        _personal_load_for_environment(environment, personal_load)
+    )
+    load_bump = personal_load_engine.personal_load_risk_bump(personal_load_result.score)
+    if load_bump > 0:
+        overall_order = min(3, overall_order + load_bump)
+
+    overall_risk = _risk_from_order(overall_order)
+    return (
+        heat_risk,
+        heat_reasons,
+        air_risk,
+        air_reasons,
+        outdoor_risk,
+        overall_risk,
+        personal_load_result,
+    )
+
+
+def _build_safe_windows(
+    profile: UserProfileContext,
+    environment: EnvironmentalInput,
+    personal_load: PersonalLoadInput | None = None,
+) -> list[SafeWindow]:
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     windows: list[SafeWindow] = []
     open_windows: dict[SafeWindowType, datetime | None] = {
@@ -164,15 +253,18 @@ def _build_safe_windows(profile: UserProfileContext, environment: EnvironmentalI
     for hour_offset in range(24):
         slot_time = now + timedelta(hours=hour_offset)
         projected = _project_environment(environment, hour_offset)
-        heat_risk, _ = _heat_risk(projected, profile)
-        air_risk, _ = _air_risk(projected, profile)
-        outdoor_risk = _max_risk(heat_risk, air_risk)
+        _, _, _, _, _, overall_risk, _ = _assess_environment_risk(
+            profile, projected, personal_load
+        )
 
         status_by_type = {
-            SafeWindowType.WALK: RISK_ORDER[outdoor_risk] <= 1,
-            SafeWindowType.RUN: RISK_ORDER[outdoor_risk] == 0 and projected.feels_like < 30,
-            SafeWindowType.VENTILATION: projected.aqi <= 75 and projected.pm25 <= 18 and projected.ozone <= 80,
-            SafeWindowType.GENERAL_OUTDOOR: RISK_ORDER[outdoor_risk] <= 1,
+            SafeWindowType.WALK: RISK_ORDER[overall_risk] <= 1,
+            SafeWindowType.RUN: RISK_ORDER[overall_risk] == 0
+            and projected.feels_like < 30,
+            SafeWindowType.VENTILATION: projected.aqi <= 75
+            and projected.pm25 <= 18
+            and projected.ozone <= 80,
+            SafeWindowType.GENERAL_OUTDOOR: RISK_ORDER[overall_risk] <= 1,
         }
 
         for window_type, is_open in status_by_type.items():
@@ -180,7 +272,11 @@ def _build_safe_windows(profile: UserProfileContext, environment: EnvironmentalI
                 open_windows[window_type] = slot_time
             if is_open:
                 last_seen[window_type] = slot_time
-            if not is_open and open_windows[window_type] is not None and last_seen[window_type] is not None:
+            if (
+                not is_open
+                and open_windows[window_type] is not None
+                and last_seen[window_type] is not None
+            ):
                 confidence = 0.86 if window_type != SafeWindowType.RUN else 0.72
                 windows.append(
                     SafeWindow(
@@ -235,43 +331,33 @@ def evaluate_risk(
     environment: EnvironmentalInput,
     personal_load: PersonalLoadInput | None = None,
 ) -> RiskAssessmentResult:
-    heat_risk, heat_reasons = _heat_risk(environment, profile)
-    air_risk, air_reasons = _air_risk(environment, profile)
-    outdoor_risk = _max_risk(heat_risk, air_risk)
+    (
+        heat_risk,
+        heat_reasons,
+        air_risk,
+        air_reasons,
+        outdoor_risk,
+        overall_risk,
+        personal_load_result,
+    ) = _assess_environment_risk(profile, environment, personal_load)
 
     ventilation_order = RISK_ORDER[air_risk]
     if environment.wind_speed < 1.5:
         ventilation_order = min(3, ventilation_order + 1)
     indoor_ventilation_risk = _risk_from_order(ventilation_order)
 
-    overall_order = max(RISK_ORDER[heat_risk], RISK_ORDER[air_risk])
-    if RISK_ORDER[heat_risk] >= 2 and RISK_ORDER[air_risk] >= 2:
-        overall_order = min(3, overall_order + 1)
-
-    personal_load_result = personal_load_engine.compute_personal_load_score(
-        personal_load
-        if personal_load is not None
-        else PersonalLoadInput(
-            heat_index=environment.feels_like,
-            temperature=environment.temperature,
-            humidity=environment.humidity,
-            aqi=environment.aqi,
-            ozone=environment.ozone,
-            pm25=environment.pm25,
-            consent_active=False,
-        )
+    reason_codes = sorted(
+        set(heat_reasons + air_reasons + personal_load_result.reason_codes)
     )
-    load_bump = personal_load_engine.personal_load_risk_bump(personal_load_result.score)
-    if load_bump > 0:
-        overall_order = min(3, overall_order + load_bump)
-
-    overall_risk = _risk_from_order(overall_order)
-
-    reason_codes = sorted(set(heat_reasons + air_reasons + personal_load_result.reason_codes))
-    if any(window.type == SafeWindowType.VENTILATION for window in _build_safe_windows(profile, environment)):
+    if any(
+        window.type == SafeWindowType.VENTILATION
+        for window in _build_safe_windows(profile, environment, personal_load)
+    ):
         reason_codes.append("night_ventilation_better")
 
-    recommendation_flags = _build_recommendation_flags(overall_risk, heat_risk, air_risk, profile)
+    recommendation_flags = _build_recommendation_flags(
+        overall_risk, heat_risk, air_risk, profile
+    )
     if personal_load_result.score >= 25:
         recommendation_flags.append("reduce_exertion")
         recommendation_flags = sorted(set(recommendation_flags))
@@ -289,23 +375,34 @@ def evaluate_risk(
         airRisk=air_risk,
         outdoorRisk=outdoor_risk,
         indoorVentilationRisk=indoor_ventilation_risk,
-        safeWindows=_build_safe_windows(profile, environment),
+        safeWindows=_build_safe_windows(profile, environment, personal_load),
         recommendationFlags=recommendation_flags,
         reasonCodes=sorted(set(reason_codes)),
         personalLoad=personal_load_assessment,
     )
 
 
-def build_day_plan(profile: UserProfileContext, environment: EnvironmentalInput) -> DayPlanResponse:
+def build_day_plan(
+    profile: UserProfileContext,
+    environment: EnvironmentalInput,
+    personal_load: PersonalLoadInput | None = None,
+) -> DayPlanResponse:
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     hourly: list[HourlyRiskPoint] = []
     for hour_offset in range(24):
         projected = _project_environment(environment, hour_offset)
-        risk = evaluate_risk(profile, projected)
-        hourly.append(HourlyRiskPoint(hour=(now + timedelta(hours=hour_offset)).isoformat(), overallRisk=risk.overallRisk))
+        risk = evaluate_risk(profile, projected, personal_load)
+        hourly.append(
+            HourlyRiskPoint(
+                hour=(now + timedelta(hours=hour_offset)).isoformat(),
+                overallRisk=risk.overallRisk,
+            )
+        )
 
-    all_windows = _build_safe_windows(profile, environment)
-    ventilation_windows = [window for window in all_windows if window.type == SafeWindowType.VENTILATION]
+    all_windows = _build_safe_windows(profile, environment, personal_load)
+    ventilation_windows = [
+        window for window in all_windows if window.type == SafeWindowType.VENTILATION
+    ]
     return DayPlanResponse(
         profileId=profile.profile_id,
         timezone=profile.timezone,

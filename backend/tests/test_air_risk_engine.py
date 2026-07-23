@@ -1,5 +1,12 @@
-from app.models.air import EnvironmentalInput, ProfileType, RiskLevel, UserProfileContext
+from app.models.air import (
+    EnvironmentalInput,
+    ProfileType,
+    RiskLevel,
+    UserProfileContext,
+)
+import app.services.air_risk_engine as air_risk_engine
 from app.services.air_risk_engine import build_day_plan, evaluate_risk
+from app.services.personal_load_engine import PersonalLoadInput
 
 
 def build_profile(profile_type: ProfileType) -> UserProfileContext:
@@ -37,10 +44,15 @@ def build_environment() -> EnvironmentalInput:
 
 
 def test_asthma_profile_gets_high_risk() -> None:
-    result = evaluate_risk(build_profile(ProfileType.ASTHMA_SENSITIVE), build_environment())
+    result = evaluate_risk(
+        build_profile(ProfileType.ASTHMA_SENSITIVE), build_environment()
+    )
     assert result.overallRisk in (RiskLevel.HIGH, RiskLevel.VERY_HIGH)
     assert "asthma_caution" in result.recommendationFlags
-    assert "poor_air_quality" in result.reasonCodes or "very_poor_air_quality" in result.reasonCodes
+    assert (
+        "poor_air_quality" in result.reasonCodes
+        or "very_poor_air_quality" in result.reasonCodes
+    )
 
 
 def test_low_conditions_stay_low_for_default_profile() -> None:
@@ -71,3 +83,44 @@ def test_day_plan_contains_hourly_points_and_windows() -> None:
     plan = build_day_plan(profile, build_environment())
     assert len(plan.hourlyRisk) == 24
     assert isinstance(plan.safeWindows, list)
+
+
+def test_day_plan_applies_personal_load_to_hourly_risk(monkeypatch) -> None:
+    profile = build_profile(ProfileType.ADULT_DEFAULT)
+    environment = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=30.0,
+        feels_like=33.0,
+        humidity=55.0,
+        aqi=80,
+        pm25=15.0,
+        pm10=20.0,
+        ozone=70.0,
+        uv=4.0,
+        wind_speed=2.4,
+        source="test",
+        timestamp="2026-04-07T05:00:00+00:00",
+        timezone="UTC",
+    )
+    personal_load = PersonalLoadInput(
+        steps_today=9_000,
+        steps_last_hour=2_200,
+        exercise_minutes=50.0,
+        heat_index=33.0,
+        temperature=30.0,
+        humidity=55.0,
+        aqi=80,
+        ozone=70.0,
+        pm25=15.0,
+        consent_active=True,
+    )
+    monkeypatch.setattr(air_risk_engine, "_project_environment", lambda env, _: env)
+
+    without_load = build_day_plan(profile, environment)
+    with_load = build_day_plan(profile, environment, personal_load)
+
+    assert without_load.hourlyRisk[0].overallRisk == RiskLevel.MODERATE
+    assert with_load.hourlyRisk[0].overallRisk == RiskLevel.HIGH
+    assert any(window.type.value == "walk" for window in without_load.safeWindows)
+    assert not any(window.type.value == "walk" for window in with_load.safeWindows)

@@ -5,8 +5,9 @@ Wellness-only. No diagnoses. No exact biometric values in logs.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from psycopg.errors import UndefinedTable
@@ -26,7 +27,16 @@ from app.services.localization import normalize_language
 ReportKind = Literal["morning", "evening", "weekly"]
 
 
-def _health_observations(user_id: str, profile_id: str, language: str, window_days: int) -> list[str]:
+def _profile_timezone(timezone_name: str | None) -> ZoneInfo:
+    try:
+        return ZoneInfo(timezone_name or "UTC")
+    except Exception:
+        return ZoneInfo("UTC")
+
+
+def _health_observations(
+    user_id: str, profile_id: str, language: str, window_days: int
+) -> list[str]:
     try:
         consent = wearable_repository.get_active_consent(user_id)
     except UndefinedTable:
@@ -48,14 +58,18 @@ def _health_observations(user_id: str, profile_id: str, language: str, window_da
         return []
     observations: list[str] = []
     for card in (bundle.get("associations") or [])[:2]:
-        title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+        title = getattr(card, "title", None) or (
+            card.get("title") if isinstance(card, dict) else None
+        )
         observation = getattr(card, "observation", None) or (
             card.get("observation") if isinstance(card, dict) else None
         )
         if title and observation:
             observations.append(f"{title}: {observation}")
     for card in (bundle.get("trends") or [])[:2]:
-        title = getattr(card, "title", None) or (card.get("title") if isinstance(card, dict) else None)
+        title = getattr(card, "title", None) or (
+            card.get("title") if isinstance(card, dict) else None
+        )
         observation = getattr(card, "observation", None) or (
             card.get("observation") if isinstance(card, dict) else None
         )
@@ -121,14 +135,18 @@ def build_ai_report(
         raise HTTPException(status_code=403, detail="Profile does not belong to user")
 
     if kind in ("evening", "weekly"):
-        entitlement_service.require_feature(user_id, "advanced_insights", "advanced_insights_enabled")
+        entitlement_service.require_feature(
+            user_id, "advanced_insights", "advanced_insights_enabled"
+        )
 
     user_settings = settings_repository.get_user_settings(user_id)
     language = user_settings.preferred_language
     environment = air_environment_service.load_environment(profile)
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
     risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
-    recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
+    recommendation = air_recommendation_engine.generate_recommendation(
+        profile, risk, language=language
+    )
 
     window_days = 7 if kind == "weekly" else 30
     health_context = _health_observations(user_id, profile_id, language, window_days)
@@ -162,20 +180,15 @@ def build_ai_report(
         actions=list(recommendation.actions or []),
         load_level=(load_summary or {}).get("level"),
     )
-    # Prefer LLM explanation as the core narrative when live; wrap with kind framing.
-    if source != "template_fallback" and explanation.strip():
-        if kind == "morning":
-            narrative = explanation.strip()
-        elif kind == "evening":
-            narrative = explanation.strip()
-        else:
-            narrative = explanation.strip()
+    generated_at = datetime.now(tz=timezone.utc)
 
     return {
         "kind": kind,
         "profileId": profile_id,
-        "generatedAt": datetime.now(tz=timezone.utc),
-        "localDate": date.today().isoformat(),
+        "generatedAt": generated_at,
+        "localDate": generated_at.astimezone(_profile_timezone(profile.timezone))
+        .date()
+        .isoformat(),
         "windowDays": window_days if kind == "weekly" else 1,
         "riskLevel": risk.overallRisk.value,
         "headline": recommendation.headline,

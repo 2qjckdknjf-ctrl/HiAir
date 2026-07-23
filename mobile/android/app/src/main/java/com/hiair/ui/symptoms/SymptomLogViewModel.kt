@@ -61,6 +61,7 @@ class SymptomLogViewModel(
 
     private var favoritesStore: SymptomFavoritesStore? = null
     private var persistedFavoritesLoaded = false
+    private var hasPersistedFavorites = false
 
     private val defaultFavoriteTypes = listOf(
         "cough",
@@ -94,19 +95,20 @@ class SymptomLogViewModel(
     private fun loadPersistedFavorites() {
         if (persistedFavoritesLoaded) return
         persistedFavoritesLoaded = true
-        val stored = favoritesStore?.load().orEmpty()
-        if (stored.isNotEmpty()) {
-            state = state.copy(favorites = stored)
+        hasPersistedFavorites = favoritesStore?.hasSavedFavorites() == true
+        if (hasPersistedFavorites) {
+            state = state.copy(favorites = favoritesStore?.load().orEmpty())
         }
     }
 
     private fun persistFavorites(favorites: List<String>) {
+        hasPersistedFavorites = true
         favoritesStore?.save(favorites)
     }
 
     private fun resolvedFavorites(available: Set<String>): List<String> {
         loadPersistedFavorites()
-        return if (state.favorites.isEmpty()) {
+        return if (!hasPersistedFavorites && state.favorites.isEmpty()) {
             defaultFavoriteTypes.filter { available.contains(it) }
         } else {
             state.favorites.filter { available.contains(it) }

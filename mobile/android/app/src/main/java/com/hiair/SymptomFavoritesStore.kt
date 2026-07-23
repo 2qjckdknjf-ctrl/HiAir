@@ -9,6 +9,10 @@ class SymptomFavoritesStore(context: Context) {
         return prefs.getStringSet(KEY_FAVORITES, null)?.toList().orEmpty()
     }
 
+    fun hasSavedFavorites(): Boolean {
+        return prefs.contains(KEY_FAVORITES)
+    }
+
     fun save(favorites: List<String>) {
         prefs.edit().putStringSet(KEY_FAVORITES, favorites.toSet()).apply()
     }
