@@ -306,11 +306,25 @@ struct DashboardView: View {
         }
         .task {
             ProductAnalytics.track("dashboard_opened")
-            if !session.hasValidLocation {
-                _ = await session.bootstrapLocationFromDevice(locationService: locationService)
+            StartupDiagnostics.track(
+                "dashboard_refresh_started",
+                profilePresent: !session.profileId.isEmpty
+            )
+            // Never block first paint on location when profile already exists.
+            let hadProfile = !session.profileId.isEmpty
+            if hadProfile {
+                await reloadDashboard()
             }
-            await reloadDashboard()
+            let prepared = await session.prepareSessionForDataFetch(locationService: locationService)
+            if !hadProfile || prepared.locationAttempted || prepared.profileReady != hadProfile {
+                await reloadDashboard()
+            }
             session.markChecklistItem("risk", done: true)
+            StartupDiagnostics.track(
+                "dashboard_refresh_succeeded",
+                success: !viewModel.loadFailed,
+                profilePresent: !session.profileId.isEmpty
+            )
         }
         .onChange(of: session.locationRevision) { _ in
             Task { await reloadDashboard() }

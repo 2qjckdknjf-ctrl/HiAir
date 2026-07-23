@@ -54,6 +54,9 @@ final class AppSession: ObservableObject {
     private let keychain = KeychainStore(service: "com.hiair.app.session")
     private let supabaseAuth = SupabaseAuthService.shared
     private var authObserver: NSObjectProtocol?
+    private var locationAuthObserver: NSObjectProtocol?
+    private var inFlightPrepare: Task<SessionPrepareResult, Never>?
+    private var lastForegroundRefreshAt: Date?
 
     init() {
         let defaults = UserDefaults.standard
@@ -112,6 +115,7 @@ final class AppSession: ObservableObject {
                 self.accessToken = session.accessToken
                 self.refreshToken = session.refreshToken
                 self.authNotice = ""
+                await self.refreshEntitlement()
             }
         }
         NotificationCenter.default.addObserver(
@@ -135,7 +139,20 @@ final class AppSession: ObservableObject {
                 self?.applyEntitlement(entitlement)
             }
         }
+        locationAuthObserver = NotificationCenter.default.addObserver(
+            forName: .locationAuthorizationDidBecomeAuthorized,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                StartupDiagnostics.track("location_bootstrap_started", errorCode: "auth_granted")
+                _ = await self.bootstrapLocationFromDevice()
+                _ = await self.ensureProfileIdIfNeeded()
+            }
+        }
         Task { @MainActor [weak self] in
+            StartupDiagnostics.track("startup_begin")
             await self?.restoreSupabaseSession()
             await self?.refreshEntitlement()
         }
@@ -144,6 +161,9 @@ final class AppSession: ObservableObject {
     deinit {
         if let authObserver {
             NotificationCenter.default.removeObserver(authObserver)
+        }
+        if let locationAuthObserver {
+            NotificationCenter.default.removeObserver(locationAuthObserver)
         }
     }
 
@@ -207,12 +227,99 @@ final class AppSession: ObservableObject {
             isPremium = false
             return
         }
+        StartupDiagnostics.track("entitlement_refresh_started", profilePresent: !profileId.isEmpty)
+        let started = Date()
         do {
             let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
             applyEntitlement(status.entitlement)
+            StartupDiagnostics.track(
+                "entitlement_refresh_succeeded",
+                success: true,
+                durationMs: Int(Date().timeIntervalSince(started) * 1000),
+                profilePresent: !profileId.isEmpty
+            )
         } catch {
+            StartupDiagnostics.track(
+                "entitlement_refresh_failed",
+                success: false,
+                durationMs: Int(Date().timeIntervalSince(started) * 1000),
+                errorCode: "transient"
+            )
             // Keep current premium flag on transient errors (e.g. right after StoreKit verify).
         }
+    }
+
+    /// Single-flight startup prepare: location bootstrap + profile hydrate without blocking UI forever.
+    struct SessionPrepareResult: Equatable {
+        var profileReady: Bool
+        var locationReady: Bool
+        var locationAttempted: Bool
+    }
+
+    @discardableResult
+    func prepareSessionForDataFetch(
+        locationService: LocationProviding = LocationService.shared
+    ) async -> SessionPrepareResult {
+        if let inFlightPrepare {
+            return await inFlightPrepare.value
+        }
+        let task = Task { @MainActor [weak self] () -> SessionPrepareResult in
+            guard let self else {
+                return SessionPrepareResult(profileReady: false, locationReady: false, locationAttempted: false)
+            }
+            let started = Date()
+            StartupDiagnostics.track("session_restore_started", profilePresent: !self.profileId.isEmpty)
+            var locationAttempted = false
+            if !self.hasValidLocation {
+                locationAttempted = true
+                StartupDiagnostics.track("location_bootstrap_started")
+                let ok = await self.bootstrapLocationFromDevice(locationService: locationService)
+                StartupDiagnostics.track(
+                    "location_bootstrap_succeeded",
+                    success: ok,
+                    durationMs: Int(Date().timeIntervalSince(started) * 1000)
+                )
+            }
+            StartupDiagnostics.track("profile_load_started", profilePresent: !self.profileId.isEmpty)
+            let profileOk = await self.ensureProfileIdIfNeeded()
+            StartupDiagnostics.track(
+                "profile_load_succeeded",
+                success: profileOk,
+                durationMs: Int(Date().timeIntervalSince(started) * 1000),
+                profilePresent: profileOk
+            )
+            let result = SessionPrepareResult(
+                profileReady: profileOk,
+                locationReady: self.hasValidLocation,
+                locationAttempted: locationAttempted
+            )
+            StartupDiagnostics.track(
+                result.profileReady ? "startup_ready" : "startup_partial_ready",
+                success: result.profileReady,
+                durationMs: Int(Date().timeIntervalSince(started) * 1000),
+                profilePresent: result.profileReady
+            )
+            return result
+        }
+        inFlightPrepare = task
+        let result = await task.value
+        if inFlightPrepare == task {
+            inFlightPrepare = nil
+        }
+        return result
+    }
+
+    /// Debounced foreground refresh — does not block forever on location.
+    func refreshOnForeground(locationService: LocationProviding = LocationService.shared) async {
+        let now = Date()
+        if let lastForegroundRefreshAt, now.timeIntervalSince(lastForegroundRefreshAt) < 8 {
+            return
+        }
+        lastForegroundRefreshAt = now
+        StartupDiagnostics.track("dashboard_refresh_started", errorCode: "foreground")
+        _ = await prepareSessionForDataFetch(locationService: locationService)
+        await refreshEntitlement()
+        NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
     }
 
     func expireSessionAfterAuthFailure() {
@@ -940,6 +1047,7 @@ enum HiAirL10n {
             "paywall.verification_failed": "Не удалось проверить покупку. Premium не активирован.",
             "paywall.purchase_in_progress": "Покупка уже выполняется. Подождите завершения.",
             "paywall.restore_success": "Покупки восстановлены.",
+            "paywall.restore_nothing": "Активных Premium-покупок для этого Apple ID не найдено.",
             "paywall.generic_error": "Не удалось завершить покупку. Попробуйте ещё раз.",
             "paywall.server_error": "Сервер временно недоступен. Попробуйте чуть позже.",
             "paywall.network_error": "Нет соединения. Проверьте интернет и повторите.",
@@ -1626,6 +1734,7 @@ enum HiAirL10n {
             "paywall.verification_failed": "Purchase verification failed. Premium was not activated.",
             "paywall.purchase_in_progress": "A purchase is already in progress. Please wait.",
             "paywall.restore_success": "Purchases restored.",
+            "paywall.restore_nothing": "No active Premium purchases found for this Apple ID.",
             "paywall.generic_error": "Couldn’t complete the purchase. Please try again.",
             "paywall.server_error": "Server temporarily unavailable. Try again shortly.",
             "paywall.network_error": "No connection. Check the internet and try again.",

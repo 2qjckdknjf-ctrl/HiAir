@@ -3,6 +3,7 @@ import SwiftUI
 struct RootTabView: View {
     @EnvironmentObject var session: AppSession
     @EnvironmentObject var subscriptionService: SubscriptionService
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -44,10 +45,14 @@ struct RootTabView: View {
                 .toolbarBackground(HiAirLiquidGlass.material(for: .regular), for: .tabBar)
                 .toolbarBackground(.visible, for: .tabBar)
                 .task(id: session.userId) {
-                    if !session.hasValidLocation {
-                        _ = await session.bootstrapLocationFromDevice()
+                    _ = await session.prepareSessionForDataFetch()
+                }
+                .onChange(of: scenePhase) { phase in
+                    guard phase == .active else { return }
+                    guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
+                    Task {
+                        await session.refreshOnForeground()
                     }
-                    _ = await session.ensureProfileIdIfNeeded()
                 }
             } else {
                 OnboardingView()

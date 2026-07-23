@@ -21,6 +21,7 @@
 		218A1D239B38024245EB822C /* HealthIntelligenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18DD51FD5CC5B9ECEB95787E /* HealthIntelligenceModels.swift */; };
 		21DA068E82B7BCAB678446E2 /* PurchaseSingleFlightGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */; };
 		2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */; };
+		3AC3E0ADDBFFD0DC43F7E86C /* StartupDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ECBE1C770399F50F75291D /* StartupDiagnostics.swift */; };
 		3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */ = {isa = PBXBuildFile; fileRef = A364D644D684423921A0EDAA /* StoreProductFetching.swift */; };
 		3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */; };
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
@@ -77,6 +78,7 @@
 /* Begin PBXFileReference section */
 		009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionDiagnostics.swift; sourceTree = "<group>"; };
 		00BEEF483B33FAEC14EFDD21 /* HiAirComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirComponents.swift; sourceTree = "<group>"; };
+		02ECBE1C770399F50F75291D /* StartupDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupDiagnostics.swift; sourceTree = "<group>"; };
 		030CBAFA89BD721FF0066134 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
 		097CA85FB80A297417CADC70 /* WearableConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentView.swift; sourceTree = "<group>"; };
 		0A2CAE228241EA1938B7BC3D /* hiair-ai-guide-avatar.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "hiair-ai-guide-avatar.png"; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 				6C80D922CB3152908E2D2892 /* LocationService.swift */,
 				BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */,
 				246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */,
+				02ECBE1C770399F50F75291D /* StartupDiagnostics.swift */,
 				A364D644D684423921A0EDAA /* StoreProductFetching.swift */,
 				81AEC3B255250F766121E890 /* StoreProductIDs.swift */,
 				009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */,
@@ -423,6 +426,7 @@
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,
+				3AC3E0ADDBFFD0DC43F7E86C /* StartupDiagnostics.swift in Sources */,
 				3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */,
 				1A92F62E0EC617E5AEF0DD14 /* StoreProductIDs.swift in Sources */,
 				1C93CBBDDA86CE4492DDC214 /* SubscriptionDiagnostics.swift in Sources */,
