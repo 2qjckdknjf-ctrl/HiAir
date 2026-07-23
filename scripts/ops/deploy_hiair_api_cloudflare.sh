@@ -98,6 +98,15 @@ values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
 deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
 if deploy_sha:
     values["DEPLOY_GIT_SHA"] = deploy_sha
+required = ("DATABASE_URL", "JWT_SECRET", "DEPLOY_GIT_SHA", "SUPABASE_URL")
+missing = [key for key in required if not values.get(key)]
+if missing:
+    raise SystemExit(f"ERROR: Cloudflare secrets missing required keys: {', '.join(missing)}")
+if len(values) < 12:
+    raise SystemExit(
+        f"ERROR: Cloudflare secrets under-populated ({len(values)} keys); "
+        "refusing partial secret sync that would leave production on stale container env"
+    )
 for key in sorted(values):
     print(f"{key}={values[key]}")
 PY

@@ -58,9 +58,16 @@ export class HiAirApiContainer extends Container {
   sleepAfter = "15m";
 }
 
+function instanceName(env) {
+  const sha = typeof env.DEPLOY_GIT_SHA === "string" ? env.DEPLOY_GIT_SHA.trim() : "";
+  // Pin instance to deploy SHA so new secrets/envVars apply immediately
+  // instead of reusing a warm container with a stale environment.
+  return sha ? `prod-${sha.slice(0, 12)}` : "production";
+}
+
 export default {
   async fetch(request, env) {
-    const container = env.HIAIR_API.getByName("production");
+    const container = env.HIAIR_API.getByName(instanceName(env));
     await container.startAndWaitForPorts({
       startOptions: {
         envVars: containerEnv(env),

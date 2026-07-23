@@ -44,6 +44,11 @@ def main() -> int:
         action="store_true",
         help="Fail unless ai-summary reports provider_configured and llm_success_count >= 1",
     )
+    parser.add_argument(
+        "--expect-sha",
+        default=os.getenv("GITHUB_SHA", "").strip(),
+        help="Require /api/health deploy_git_sha to match this commit (prefix OK)",
+    )
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
     admin_token = os.getenv("NOTIFICATION_ADMIN_TOKEN", "").strip()
@@ -56,6 +61,18 @@ def main() -> int:
         print(f"health: FAIL unexpected payload={health!r}")
         return 1
     print("health: OK")
+
+    expect_sha = (args.expect_sha or "").strip()
+    if expect_sha:
+        got_sha = str(health.get("deploy_git_sha") or "").strip()
+        prefix = expect_sha[:12]
+        if not got_sha or (got_sha != expect_sha and not got_sha.startswith(prefix)):
+            print(
+                f"deploy_git_sha: FAIL expected prefix {prefix} "
+                f"got {got_sha or '(missing)'}"
+            )
+            return 1
+        print(f"deploy_git_sha: OK {got_sha[:12]}…")
 
     status, sample = _get(
         f"{base}/api/environment/snapshot?lat=41.28&lon=1.98&source=sample"

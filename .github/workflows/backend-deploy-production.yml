@@ -158,13 +158,22 @@ jobs:
               value = os.environ.get(key, "").strip()
               if not value and key in defaults:
                   value = defaults[key]
-          if value:
-              lines.append(f"{key}={value}")
+              if value:
+                  lines.append(f"{key}={value}")
           deploy_sha = os.environ.get("GITHUB_SHA", "").strip()
           if deploy_sha:
               lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")
           out.write_text("\n".join(lines) + "\n", encoding="utf-8")
           print(f"Wrote {len(lines)} secrets to {out}")
+          if len(lines) < 12:
+              raise SystemExit(
+                  f"ERROR: expected >=12 Cloudflare secrets, got {len(lines)} "
+                  "(check indentation of secrets writer loop)"
+              )
+          if not any(line.startswith("DEPLOY_GIT_SHA=") for line in lines):
+              raise SystemExit("ERROR: DEPLOY_GIT_SHA missing from Cloudflare secrets file")
+          if not any(line.startswith("DATABASE_URL=") for line in lines):
+              raise SystemExit("ERROR: DATABASE_URL missing from Cloudflare secrets file")
           PY
 
       - name: Verify Cloudflare deploy token
@@ -196,4 +205,4 @@ jobs:
 
       - name: Post-deploy API smoke
         run: |
-          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai
+          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${GITHUB_SHA}"
