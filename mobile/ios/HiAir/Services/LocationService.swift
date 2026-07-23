@@ -73,6 +73,10 @@ enum LocationServiceError: Error, Equatable {
 
 extension Notification.Name {
     static let profileLocationDidUpdate = Notification.Name("ProfileLocationDidUpdate")
+    /// Fired when authorization transitions into when-in-use / always (not on every callback).
+    static let locationAuthorizationDidBecomeAuthorized = Notification.Name(
+        "LocationAuthorizationDidBecomeAuthorized"
+    )
 }
 
 protocol LocationProviding: AnyObject {
@@ -94,6 +98,9 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
     private let manager: CLLocationManager
     private var locationContinuation: CheckedContinuation<CLLocation, Error>?
     private var timeoutTask: Task<Void, Never>?
+    private var fetchWaiters: [CheckedContinuation<CLLocation, Error>] = []
+    private var isFetchInFlight = false
+    private var previousAuthorizationStatus: CLAuthorizationStatus = .notDetermined
     private let locationTimeoutSeconds: TimeInterval = 20
 
     override init() {
@@ -102,6 +109,7 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         refreshAuthorizationStatus()
+        previousAuthorizationStatus = authorizationStatus
     }
 
     init(manager: CLLocationManager) {
@@ -110,6 +118,7 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         refreshAuthorizationStatus()
+        previousAuthorizationStatus = authorizationStatus
     }
 
     func refreshAuthorizationStatus() {
@@ -147,13 +156,17 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
 
         serviceState = .locating
         return try await withCheckedThrowingContinuation { continuation in
-            locationContinuation?.resume(throwing: LocationServiceError.timeout)
+            if isFetchInFlight {
+                fetchWaiters.append(continuation)
+                return
+            }
+            isFetchInFlight = true
             locationContinuation = continuation
             timeoutTask?.cancel()
             timeoutTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(self?.locationTimeoutSeconds ?? 20) * 1_000_000_000)
                 await MainActor.run {
-                    guard let self, self.locationContinuation != nil else { return }
+                    guard let self, self.locationContinuation != nil || !self.fetchWaiters.isEmpty else { return }
                     self.finishLocationFetch(with: .failure(LocationServiceError.timeout))
                 }
             }
@@ -192,8 +205,19 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
     private func finishLocationFetch(with result: Result<CLLocation, Error>) {
         timeoutTask?.cancel()
         timeoutTask = nil
-        let continuation = locationContinuation
+        let primary = locationContinuation
         locationContinuation = nil
+        let waiters = fetchWaiters
+        fetchWaiters = []
+        isFetchInFlight = false
+        let deliverSuccess: (CLLocation) -> Void = { location in
+            primary?.resume(returning: location)
+            waiters.forEach { $0.resume(returning: location) }
+        }
+        let deliverFailure: (Error) -> Void = { error in
+            primary?.resume(throwing: error)
+            waiters.forEach { $0.resume(throwing: error) }
+        }
         switch result {
         case let .success(location):
             if GeoCoordinates.isValid(location) {
@@ -205,11 +229,11 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
                         "accuracy_bucket": GeoCoordinates.accuracyBucket(for: location),
                     ]
                 )
-                continuation?.resume(returning: location)
+                deliverSuccess(location)
             } else {
                 serviceState = .error
                 ProductAnalytics.track("location_fetch_failed", properties: ["reason": "invalid_coordinate"])
-                continuation?.resume(throwing: LocationServiceError.invalidCoordinate)
+                deliverFailure(LocationServiceError.invalidCoordinate)
             }
         case let .failure(error):
             if let serviceError = error as? LocationServiceError, serviceError == .timeout {
@@ -218,7 +242,7 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
                 serviceState = .error
             }
             ProductAnalytics.track("location_fetch_failed", properties: ["reason": "error"])
-            continuation?.resume(throwing: error)
+            deliverFailure(error)
         }
     }
 }
@@ -226,11 +250,23 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
 extension LocationService: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
+            let previous = previousAuthorizationStatus
             refreshAuthorizationStatus()
+            previousAuthorizationStatus = authorizationStatus
             ProductAnalytics.track(
                 "location_permission_status",
                 properties: ["status": String(describing: authorizationStatus)]
             )
+            let newlyAuthorized =
+                (authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways)
+                && previous != .authorizedWhenInUse
+                && previous != .authorizedAlways
+            if newlyAuthorized {
+                NotificationCenter.default.post(
+                    name: .locationAuthorizationDidBecomeAuthorized,
+                    object: nil
+                )
+            }
         }
     }
 

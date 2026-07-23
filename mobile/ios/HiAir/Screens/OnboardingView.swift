@@ -103,8 +103,9 @@ struct OnboardingView: View {
         if step == 4 {
             locationService.requestWhenInUseAuthorization()
             _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            _ = await session.bootstrapLocationFromDevice(locationService: locationService)
+            // Permission grant is handled asynchronously via
+            // `locationAuthorizationDidBecomeAuthorized` → AppSession bootstrap.
+            // Advance onboarding without racing an 800ms sleep against the system sheet.
             step += 1
             return
         }
@@ -250,11 +251,16 @@ struct OnboardingView: View {
         guard await healthService.requestAuthorization(tiers: Set([1, 2, 3])) else { return }
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
         try? await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-        await healthService.syncHealthIntelligence(
-            userId: session.userId,
-            accessToken: session.accessToken,
-            profileId: session.profileId.isEmpty ? nil : session.profileId
-        )
+        let userId = session.userId
+        let accessToken = session.accessToken
+        let profileId = session.profileId.isEmpty ? nil : session.profileId
+        Task {
+            await healthService.syncHealthIntelligence(
+                userId: userId,
+                accessToken: accessToken,
+                profileId: profileId
+            )
+        }
     }
 
     private var onboardingDone: some View {
