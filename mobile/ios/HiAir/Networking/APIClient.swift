@@ -1320,6 +1320,27 @@ final class APIClient {
         }
     }
 
+    func fetchAIReport(
+        kind: String,
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> AIReportResponseDTO {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/ai/reports/\(kind)"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "profile_id", value: profileId)]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(AIReportResponseDTO.self, from: data)
+    }
+
     func fetchHealthInsightsBundle(
         profileId: String,
         userId: String,

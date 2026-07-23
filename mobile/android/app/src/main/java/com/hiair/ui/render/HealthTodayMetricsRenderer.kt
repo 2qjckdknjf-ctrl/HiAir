@@ -80,8 +80,33 @@ internal object HealthTodayMetricsRenderer {
             if (metricRows.isEmpty() && sleepRows.isEmpty()) {
                 addView(V2Ui.styledSecondaryText(activity, ctx.l("health.today.empty")))
             } else {
-                metricRows.forEach { (label, value) ->
-                    addView(metricTile(ctx, label, value))
+                metricRows.chunked(2).forEach { rowItems ->
+                    addView(
+                        LinearLayout(activity).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            rowItems.forEach { (label, value) ->
+                                addView(
+                                    metricTile(ctx, label, value).apply {
+                                        layoutParams = LinearLayout.LayoutParams(
+                                            0,
+                                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                                            1f,
+                                        ).apply {
+                                            marginEnd = V2Ui.dp(activity, 6)
+                                            topMargin = V2Ui.dp(activity, 4)
+                                        }
+                                    },
+                                )
+                            }
+                            if (rowItems.size == 1) {
+                                addView(
+                                    LinearLayout(activity).apply {
+                                        layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
+                                    },
+                                )
+                            }
+                        },
+                    )
                 }
                 if (sleepRows.isNotEmpty()) {
                     addView(
@@ -198,7 +223,7 @@ internal object HealthTodayMetricsRenderer {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = V2Ui.dp(activity, 4) }
+            )
             addView(V2Ui.styledSecondaryText(activity, label).apply {
                 textSize = 12f
                 setTextColor(Tokens.Text.tertiary)

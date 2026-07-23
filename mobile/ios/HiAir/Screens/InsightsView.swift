@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 
 @MainActor
@@ -290,13 +291,14 @@ struct InsightsView: View {
 
     private var windowPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(session.l("insights.window.title"))
-                .font(AuroraTokens.Typography.titleMD)
-                .foregroundStyle(HiAirV2Theme.primaryText)
+            HiAirSectionHeader(title: session.l("insights.window.title"))
             HStack(spacing: 8) {
                 windowChip(days: 7, title: session.l("insights.window.7d"))
                 windowChip(days: 30, title: session.l("insights.window.30d"))
             }
+            Text(session.l("insights.window.hint"))
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.tertiary)
         }
         .v2Card()
     }
@@ -448,29 +450,48 @@ struct InsightsView: View {
     private func insightCard(_ card: HealthInsightCardDTO) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(card.title)
-                .font(AuroraTokens.Typography.titleMD)
-                .foregroundStyle(HiAirV2Theme.primaryText)
+                .font(HiAirTypography.titleMD)
+                .foregroundStyle(HiAirColors.Text.primary)
             Text(card.observation)
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
+            if let points = card.chart?.points, points.count >= 2 {
+                Chart(points) { point in
+                    LineMark(
+                        x: .value("Day", point.date),
+                        y: .value("Value", point.value)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(HiAirColors.Brand.orbCyan.gradient)
+                    AreaMark(
+                        x: .value("Day", point.date),
+                        y: .value("Value", point.value)
+                    )
+                    .foregroundStyle(HiAirColors.Brand.orbCyan.opacity(0.12))
+                }
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .frame(height: 72)
+                .accessibilityHidden(true)
+            }
             if let recommendation = card.recommendation, !recommendation.isEmpty {
                 Text(recommendation)
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
             }
             Text(confidenceLabel(card.confidence))
-                .font(AuroraTokens.Typography.caption)
-                .foregroundStyle(HiAirV2Theme.tertiaryText)
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.tertiary)
             if let why = card.whyShown {
                 Text(why)
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.tertiary)
             }
             if let limitations = card.limitations {
                 ForEach(limitations, id: \.self) { line in
                     Text(line)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.tertiary)
                 }
             }
         }

@@ -47,6 +47,17 @@ struct HealthSyncResponseDTO: Codable {
     let syncStatus: String
 }
 
+struct InsightChartPointDTO: Codable, Identifiable {
+    var id: String { date }
+    let date: String
+    let value: Double
+}
+
+struct InsightChartDTO: Codable {
+    let metric: String?
+    let points: [InsightChartPointDTO]?
+}
+
 struct HealthInsightCardDTO: Codable, Identifiable {
     var id: String { insightKey }
     let insightKey: String
@@ -59,6 +70,23 @@ struct HealthInsightCardDTO: Codable, Identifiable {
     let supportingFactors: [String]?
     let limitations: [String]?
     let whyShown: String?
+    let chart: InsightChartDTO?
+}
+
+struct AIReportResponseDTO: Codable {
+    let kind: String
+    let profileId: String
+    let generatedAt: String
+    let localDate: String
+    let windowDays: Int
+    let riskLevel: String
+    let headline: String
+    let narrative: String
+    let actions: [String]
+    let healthContextPresent: Bool
+    let healthObservationCount: Int
+    let explanationSource: String?
+    let environmentSource: String?
 }
 
 struct HealthInsightsBundleDTO: Codable {
@@ -85,6 +113,7 @@ struct HealthDataStatusDTO: Codable {
     let syncStatus: String?
     let metricDays: Int?
     let sleepDays: Int?
+    let consentActive: Bool?
 }
 
 struct HealthSummaryMetricDTO: Codable, Identifiable {

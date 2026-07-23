@@ -1,5 +1,6 @@
 package com.hiair.ui.render
 
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -11,6 +12,7 @@ data class RenderContext(
     val rootShell: RootShellViewModel,
     val titleView: TextView,
     val bodyContainer: LinearLayout,
+    val overlayContainer: FrameLayout,
     val persistSession: () -> Unit,
     val clearSession: () -> Unit,
     val rerender: () -> Unit

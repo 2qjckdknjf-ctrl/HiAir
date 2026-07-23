@@ -460,6 +460,47 @@ struct HiAirLoadingView: View {
     }
 }
 
+/// Soft shimmer placeholders for first-load dashboard / list screens.
+struct HiAirSkeletonCard: View {
+    var lines: Int = 3
+    var height: CGFloat = 88
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+            RoundedRectangle(cornerRadius: HiAirRadius.sm, style: .continuous)
+                .fill(HiAirColors.Overlay.subtle)
+                .frame(width: 120, height: 14)
+            ForEach(0..<max(1, lines), id: \.self) { index in
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(HiAirColors.Overlay.subtle)
+                    .frame(height: index == lines - 1 ? 12 : 16)
+                    .frame(maxWidth: index == lines - 1 ? .infinity : CGFloat(220 - index * 28), alignment: .leading)
+            }
+        }
+        .padding(HiAirSpacing.md)
+        .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
+        .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
+        .opacity(pulse ? 0.55 : 0.92)
+        .animation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true), value: pulse)
+        .onAppear { pulse = true }
+        .accessibilityHidden(true)
+    }
+}
+
+struct HiAirSkeletonStack: View {
+    var cards: Int = 3
+
+    var body: some View {
+        VStack(spacing: HiAirSpacing.md) {
+            ForEach(0..<max(1, cards), id: \.self) { index in
+                HiAirSkeletonCard(lines: index == 0 ? 4 : 3, height: index == 0 ? 160 : 96)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 struct HiAirErrorView: View {
     let title: String
     let message: String
