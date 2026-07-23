@@ -1,14 +1,20 @@
 # Real Device QA Report
 
+## Stage 0 update (2026-07-23)
+
+Production API is now on `0243952` (matches `main`). Latest TestFlight is build **109** (`VALID`, `READY_FOR_BETA_TESTING`). Synthetic Health / AI / Premium API smokes PASS. Interactive HealthKit / Health Connect / StoreKit / geo matrices remain **NOT RUN** on a physical device — see `docs/audit/STAGE0_FINAL_CERTIFICATION.md`.
+
+Do **not** claim `HEALTH INTELLIGENCE E2E VERIFIED` without real wearable records on device.
+
 ## Health Intelligence release certification (2026-07-21)
 
 ### Executive status
 
 **PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA**
 
-Production API is on `28696b0` with synthetic Health Intelligence smoke PASS. TestFlight **build 103** is VALID and assigned to «Первый». Interactive HealthKit / Health Connect / StoreKit / geo matrices are **still NOT RUN** on a physical device in this session.
+*(Historical snapshot below; superseded for SHA/TF by Stage 0 update above.)*
 
-Do **not** claim `HEALTH INTELLIGENCE E2E VERIFIED` without real wearable records on device.
+Production API was on `28696b0` with synthetic Health Intelligence smoke PASS. TestFlight **build 103** was VALID and assigned to «Первый». Interactive HealthKit / Health Connect / StoreKit / geo matrices are **still NOT RUN** on a physical device in this session.
 
 ---
 
