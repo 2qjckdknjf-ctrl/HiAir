@@ -17,6 +17,7 @@ final class AppSession: ObservableObject {
         static let latitude = "session.latitude"
         static let longitude = "session.longitude"
         static let locationSource = "session.locationSource"
+        static let displayPlaceName = "session.displayPlaceName"
         static let dateOfBirth = "session.dateOfBirth"
     }
 
@@ -43,6 +44,9 @@ final class AppSession: ObservableObject {
     @Published var longitude = 0.0 { didSet { persist() } }
     @Published var locationSource: LocationSource = .unknown { didSet { persist() } }
     @Published var locationRevision = 0
+    /// Resolved locality (Barcelona / Castelldefels). Cached for instant cold-start chip.
+    @Published var displayPlaceName: String? = nil { didSet { persist() } }
+    @Published var isResolvingPlaceName = false
     @Published var dateOfBirth: Date? { didSet { persist() } }
     @Published var checklistCompletedItems: Set<String> = [] { didSet { persist() } }
     @Published var checklistHidden = false { didSet { persist() } }
@@ -76,6 +80,10 @@ final class AppSession: ObservableObject {
             locationSource = parsed
         } else {
             locationSource = .unknown
+        }
+        displayPlaceName = defaults.string(forKey: Keys.displayPlaceName)
+        if displayPlaceName?.isEmpty == true {
+            displayPlaceName = nil
         }
         if let birthRaw = defaults.string(forKey: Keys.dateOfBirth) {
             dateOfBirth = Self.birthDateFormatter.date(from: birthRaw)
@@ -280,6 +288,9 @@ final class AppSession: ObservableObject {
                     success: ok,
                     durationMs: Int(Date().timeIntervalSince(started) * 1000)
                 )
+            } else if self.displayPlaceName == nil || self.displayPlaceName?.isEmpty == true {
+                // Instant chip from cache happens in init; resolve if missing.
+                Task { await self.resolvePlaceNameIfNeeded() }
             }
             StartupDiagnostics.track("profile_load_started", profilePresent: !self.profileId.isEmpty)
             let profileOk = await self.ensureProfileIdIfNeeded()
@@ -352,6 +363,7 @@ final class AppSession: ObservableObject {
         longitude = profile.homeLon
         locationSource = .cached
         locationRevision += 1
+        Task { await self.resolvePlaceNameIfNeeded() }
     }
 
     @discardableResult
@@ -363,7 +375,27 @@ final class AppSession: ObservableObject {
         longitude = lon
         locationSource = .device
         locationRevision += 1
+        // Geocode immediately — do not await profile PATCH / health / premium.
+        Task { await self.resolvePlaceNameIfNeeded() }
         return await syncProfileLocationIfNeeded()
+    }
+
+    /// Reverse-geocode current coords into `displayPlaceName` (cached; non-blocking for other work).
+    func resolvePlaceNameIfNeeded() async {
+        guard hasValidLocation else { return }
+        RuntimePerformanceProbe.begin("place_resolve")
+        isResolvingPlaceName = true
+        defer { isResolvingPlaceName = false }
+        let lat = latitude
+        let lon = longitude
+        let name = await PlaceGeocodingService.shared.resolvePlaceName(lat: lat, lon: lon)
+        if let name, !name.isEmpty {
+            displayPlaceName = name
+            RuntimePerformanceProbe.end("place_resolve", success: true)
+            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+        } else {
+            RuntimePerformanceProbe.end("place_resolve", success: false, errorCode: "geocode_empty")
+        }
     }
 
     func syncProfileLocationIfNeeded() async -> Bool {
@@ -461,6 +493,11 @@ final class AppSession: ObservableObject {
         defaults.set(latitude, forKey: Keys.latitude)
         defaults.set(longitude, forKey: Keys.longitude)
         defaults.set(locationSource.rawValue, forKey: Keys.locationSource)
+        if let displayPlaceName, !displayPlaceName.isEmpty {
+            defaults.set(displayPlaceName, forKey: Keys.displayPlaceName)
+        } else {
+            defaults.removeObject(forKey: Keys.displayPlaceName)
+        }
         if let dateOfBirth {
             defaults.set(Self.birthDateFormatter.string(from: dateOfBirth), forKey: Keys.dateOfBirth)
         } else {

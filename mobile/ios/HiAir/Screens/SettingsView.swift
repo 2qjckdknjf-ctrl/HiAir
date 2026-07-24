@@ -300,7 +300,10 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func refreshWearableStatus() async {
-        let hkState = HealthKitService.shared.refreshAuthorizationState()
+        // Prefer live connectionState; do not clobber Connected while sync is still running.
+        let hkState = HealthKitService.shared.connectionState == .notConnected
+            ? HealthKitService.shared.refreshAuthorizationState()
+            : HealthKitService.shared.connectionState
         guard !userId.isEmpty else {
             wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
             return
@@ -308,9 +311,14 @@ final class SettingsViewModel: ObservableObject {
         do {
             let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
             let consentActive = today.consent?.isActive == true
-            wearableStatus = wearableStatusLabel(for: hkState, consentActive: consentActive)
+            let effective: WearableConnectionState =
+                (hkState == .connected || consentActive) ? .connected : hkState
+            wearableStatus = wearableStatusLabel(for: effective, consentActive: consentActive || hkState == .connected)
         } catch {
-            wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
+            wearableStatus = wearableStatusLabel(
+                for: hkState,
+                consentActive: hkState == .connected
+            )
         }
     }
 

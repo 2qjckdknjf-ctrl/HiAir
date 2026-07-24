@@ -70,6 +70,7 @@ final class HealthKitService: ObservableObject {
     private let consentVersion = "health-intelligence-v1"
     private let defaults = UserDefaults.standard
     private let tiersKey = "hiair.health.enabledTiers"
+    private let authorizationCompletedKey = "hiair.health.authorizationCompleted"
     private let anchorKeyPrefix = "hiair.health.anchor."
     private var authorizationInFlight: Task<Bool, Never>?
     private var syncInFlight: Task<Void, Never>?
@@ -79,6 +80,11 @@ final class HealthKitService: ObservableObject {
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
     /// Overridable for unit tests (default 45s collect).
     var healthCollectTimeoutNanoseconds: UInt64 = 45_000_000_000
+
+    private var authorizationCompleted: Bool {
+        get { defaults.bool(forKey: authorizationCompletedKey) }
+        set { defaults.set(newValue, forKey: authorizationCompletedKey) }
+    }
 
     init() {
         if let saved = defaults.array(forKey: tiersKey) as? [Int], !saved.isEmpty {
@@ -205,10 +211,18 @@ final class HealthKitService: ObservableObject {
             connectionState = .unavailable
             return .unavailable
         }
-        // HealthKit read authorization is intentionally opaque.
-        if lastSyncAt != nil || !latestSnapshots.isEmpty {
-            connectionState = .connected
-            return .connected
+        // Connected means authorization/consent completed — not full HK sync.
+        // Never downgrade post-auth Connected while background sync is still running.
+        if authorizationCompleted || lastSyncAt != nil || !latestSnapshots.isEmpty {
+            if connectionState != .permissionDenied && connectionState != .unavailable {
+                connectionState = .connected
+            }
+            return connectionState == .permissionDenied || connectionState == .unavailable
+                ? connectionState
+                : .connected
+        }
+        if connectionState == .permissionRequested || connectionState == .permissionDenied {
+            return connectionState
         }
         connectionState = .notConnected
         return .notConnected
@@ -265,6 +279,7 @@ final class HealthKitService: ObservableObject {
                 return false
             }
             // Completing the sheet registers the app; actual read grants stay opaque.
+            authorizationCompleted = true
             connectionState = .connected
             ProductAnalytics.track("health_authorization_completed", properties: ["success": "true"])
             return true
@@ -669,6 +684,7 @@ final class HealthKitService: ObservableObject {
 
     func revokeConsent(userId: String, accessToken: String) async {
         _ = try? await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
+        authorizationCompleted = false
         connectionState = .notConnected
         latestSnapshots = []
         latestSleep = nil
@@ -678,6 +694,7 @@ final class HealthKitService: ObservableObject {
     func deleteHealthData(userId: String, accessToken: String) async {
         _ = try? await apiClient.deleteHealthData(userId: userId, accessToken: accessToken)
         _ = try? await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
+        authorizationCompleted = false
         connectionState = .notConnected
         latestSnapshots = []
         latestSleep = nil

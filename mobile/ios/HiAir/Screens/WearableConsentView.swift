@@ -82,29 +82,35 @@ struct WearableConsentView: View {
             return
         }
         // Request activity + heart + respiratory/temperature so Insights can use SpO2/temp when available.
+        RuntimePerformanceProbe.begin("health_connect_ui")
         let granted = await healthService.requestAuthorization(tiers: [1, 2, 3])
         if granted {
-            do {
-                try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-            } catch {
-                healthService.reportConnectionState(.syncFailed)
-                showHealthPathHint = true
-                return
-            }
-            // Leave the sheet immediately after authorization + consent.
-            // Heavy HK reads and backend sync must not block Connect UI.
+            // Connected immediately after permission — consent + reads run in background.
+            healthService.reportConnectionState(.connected)
             let userId = session.userId
             let accessToken = session.accessToken
             let profileId = session.profileId.isEmpty ? nil : session.profileId
+            RuntimePerformanceProbe.end("health_connect_ui", success: true)
             onComplete?()
             if !fromOnboarding { dismiss() }
-            healthService.startBackgroundHealthSync(
-                userId: userId,
-                accessToken: accessToken,
-                profileId: profileId
-            )
+            Task {
+                do {
+                    try await healthService.saveConsent(userId: userId, accessToken: accessToken)
+                } catch {
+                    await MainActor.run {
+                        healthService.reportConnectionState(.syncFailed)
+                    }
+                    return
+                }
+                healthService.startBackgroundHealthSync(
+                    userId: userId,
+                    accessToken: accessToken,
+                    profileId: profileId
+                )
+            }
             return
         }
+        RuntimePerformanceProbe.end("health_connect_ui", success: false, errorCode: "denied")
         showHealthPathHint = true
         if healthService.connectionState != .permissionDenied {
             healthService.reportConnectionState(.permissionDenied)

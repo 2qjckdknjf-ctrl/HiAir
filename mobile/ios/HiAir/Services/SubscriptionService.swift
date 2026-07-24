@@ -255,19 +255,8 @@ final class SubscriptionService: ObservableObject {
             correlationId: String(correlationId)
         )
 
-        if let restored = try await syncVerifiedEntitlementsIfPresent(
-            userId: userId,
-            accessToken: accessToken,
-            correlationId: String(correlationId)
-        ) {
-            SubscriptionDiagnostics.log(
-                "purchase_restored_existing_entitlement",
-                productId: product.id,
-                entitlementActive: restored.entitlement?.isPremium == true,
-                correlationId: String(correlationId)
-            )
-            return restored
-        }
+        // Do not scan currentEntitlements before purchase — that path added multi-second
+        // latency before the StoreKit sheet. Restore still uses syncVerifiedEntitlementsIfPresent.
 
         let result = try await product.purchase()
         switch result {
@@ -280,6 +269,21 @@ final class SubscriptionService: ObservableObject {
                     resultType: "verified",
                     verificationState: "verified",
                     correlationId: String(correlationId)
+                )
+                // Optimistic unlock immediately after StoreKit verification (before backend).
+                let optimistic = UserEntitlementResponse(
+                    userId: userId,
+                    plan: product.id.contains("yearly") ? "yearly" : "monthly",
+                    isPremium: true,
+                    maxProfiles: 5,
+                    extendedForecastEnabled: true,
+                    customAlertsEnabled: true,
+                    exportReportsEnabled: true,
+                    advancedInsightsEnabled: true
+                )
+                NotificationCenter.default.post(
+                    name: .subscriptionEntitlementDidUpdate,
+                    object: optimistic
                 )
                 return try await processVerifiedTransaction(
                     verification,

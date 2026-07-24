@@ -63,7 +63,13 @@ final class DashboardViewModel: ObservableObject {
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
             morningReport = try? await morningTask
-            wearableConnectionState = healthService.refreshAuthorizationState()
+            // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
+            let live = healthService.connectionState
+            if live == .connected || live == .permissionRequested {
+                wearableConnectionState = live
+            } else {
+                wearableConnectionState = healthService.refreshAuthorizationState()
+            }
             riskLevel = result.risk.overallRisk
             explanation = result.explanation
             headline = result.recommendation.headline
@@ -185,7 +191,11 @@ struct DashboardView: View {
     }
 
     private var locationLabel: String {
+        if let place = session.displayPlaceName, !place.isEmpty {
+            return place
+        }
         if session.hasValidLocation {
+            // Coords known but geocode pending/failed — keep short area fallback.
             return session.l("dashboard.location")
         }
         return session.l("dashboard.location_unknown")
@@ -196,17 +206,22 @@ struct DashboardView: View {
             _ = await session.ensureProfileIdIfNeeded()
         }
         // Never block dashboard/geo refresh on HealthKit sync.
-        if !session.userId.isEmpty,
-           healthService.refreshAuthorizationState() == .connected || healthService.lastSyncAt != nil {
-            let userId = session.userId
-            let accessToken = session.accessToken
-            let profileId = session.profileId.isEmpty ? nil : session.profileId
-            Task {
-                await healthService.syncHealthIntelligence(
-                    userId: userId,
-                    accessToken: accessToken,
-                    profileId: profileId
-                )
+        if !session.userId.isEmpty {
+            let hk = healthService.connectionState
+            let connected = hk == .connected
+                || healthService.refreshAuthorizationState() == .connected
+                || healthService.lastSyncAt != nil
+            if connected {
+                let userId = session.userId
+                let accessToken = session.accessToken
+                let profileId = session.profileId.isEmpty ? nil : session.profileId
+                Task {
+                    await healthService.syncHealthIntelligence(
+                        userId: userId,
+                        accessToken: accessToken,
+                        profileId: profileId
+                    )
+                }
             }
         }
         await viewModel.refresh(
@@ -328,6 +343,12 @@ struct DashboardView: View {
         }
         .onChange(of: session.locationRevision) { _ in
             Task { await reloadDashboard() }
+        }
+        .onChange(of: session.displayPlaceName) { _ in
+            // Place chip updates without full dashboard reload.
+        }
+        .onChange(of: healthService.connectionState) { newState in
+            viewModel.wearableConnectionState = newState
         }
         .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { _ in
             Task { await reloadDashboard() }

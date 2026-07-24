@@ -248,22 +248,33 @@ struct OnboardingView: View {
         guard healthService.isHealthDataAvailable() else { return }
         if healthService.configurationIssueMessage() != nil { return }
         healthService.setEnabledTiers(Set([1, 2, 3]))
-        guard await healthService.requestAuthorization(tiers: Set([1, 2, 3])) else { return }
-        guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
-        do {
-            try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-        } catch {
-            // Consent persistence failed — do not sync health payloads.
+        RuntimePerformanceProbe.begin("health_connect_ui")
+        let granted = await healthService.requestAuthorization(tiers: Set([1, 2, 3]))
+        guard granted else {
+            RuntimePerformanceProbe.end("health_connect_ui", success: false, errorCode: "denied")
             return
         }
+        guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
+            RuntimePerformanceProbe.end("health_connect_ui", success: false, errorCode: "no_session")
+            return
+        }
+        healthService.reportConnectionState(.connected)
         let userId = session.userId
         let accessToken = session.accessToken
         let profileId = session.profileId.isEmpty ? nil : session.profileId
-        healthService.startBackgroundHealthSync(
-            userId: userId,
-            accessToken: accessToken,
-            profileId: profileId
-        )
+        RuntimePerformanceProbe.end("health_connect_ui", success: true)
+        Task {
+            do {
+                try await healthService.saveConsent(userId: userId, accessToken: accessToken)
+            } catch {
+                return
+            }
+            healthService.startBackgroundHealthSync(
+                userId: userId,
+                accessToken: accessToken,
+                profileId: profileId
+            )
+        }
     }
 
     private var onboardingDone: some View {
