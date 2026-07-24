@@ -81,8 +81,8 @@ class WearableHealthController(
 
     fun syncIfPermitted(userId: String, accessToken: String?, profileId: String? = null) {
         if (userId.isBlank() || !healthService.isHealthConnectAvailable()) return
-        // Fail closed: OS permissions alone are not enough without durable consent.
-        if (!healthService.hasDurableConsent) return
+        // Fail closed: OS permissions alone are not enough; consent must match this account.
+        if (!healthService.hasDurableConsentFor(userId)) return
         val generation = connectGeneration
         syncJob?.cancel()
         syncJob = activity.lifecycleScope.launch {
@@ -90,6 +90,23 @@ class WearableHealthController(
             val granted = healthService.grantedPermissions()
             if (granted.any { it in healthService.tier1Permissions }) {
                 healthService.syncHealthIntelligence(userId, accessToken, profileId)
+            }
+        }
+    }
+
+    /**
+     * Call when auth identity changes (login / OAuth / expiry) so another account
+     * cannot inherit durable consent or in-flight sync from the previous user.
+     */
+    fun onAuthenticatedUserChanged(userId: String) {
+        if (userId.isBlank()) {
+            cancelPendingOperations()
+            return
+        }
+        if (!healthService.hasDurableConsentFor(userId)) {
+            // Different account (or no consent): drop previous account's session + jobs.
+            if (healthService.consentUserId.isNotBlank() && healthService.consentUserId != userId) {
+                cancelPendingOperations()
             }
         }
     }
@@ -123,7 +140,7 @@ class WearableHealthController(
                 )
                 when (result.outcome) {
                     WearableConnectFlow.Outcome.CONSENT_SAVED_SYNC_STARTED -> {
-                        healthService.markConsentPersisted()
+                        healthService.markConsentPersisted(userId)
                     }
                     WearableConnectFlow.Outcome.CONSENT_FAILED -> {
                         healthService.markConsentFailed(result.consentError?.message ?: "consent_failed")

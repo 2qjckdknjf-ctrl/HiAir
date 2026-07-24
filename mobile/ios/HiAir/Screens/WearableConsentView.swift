@@ -98,14 +98,11 @@ struct WearableConsentView: View {
             let profileId = session.profileId.isEmpty ? nil : session.profileId
             onComplete?()
             if !fromOnboarding { dismiss() }
-            Task {
-                await healthService.syncHealthIntelligence(
-                    userId: userId,
-                    accessToken: accessToken,
-                    profileId: profileId
-                )
-                await healthService.syncWearableHourlySummary(userId: userId, accessToken: accessToken)
-            }
+            healthService.startBackgroundHealthSync(
+                userId: userId,
+                accessToken: accessToken,
+                profileId: profileId
+            )
             return
         }
         showHealthPathHint = true
