@@ -341,6 +341,27 @@ final class SubscriptionService: ObservableObject {
                 signedTransactions.append(signed)
             }
         }
+        for await result in Transaction.unfinished {
+            guard case .verified(let transaction) = result else { continue }
+            guard StoreProductIDs.all.contains(transaction.productID) else {
+                await transaction.finish()
+                continue
+            }
+            if let signed = try? signedTransactionString(from: result) {
+                signedTransactions.append(signed)
+            }
+            do {
+                _ = try await processVerifiedTransaction(
+                    result,
+                    transaction: transaction,
+                    userId: userId,
+                    accessToken: accessToken,
+                    correlationId: "restore_unfinished"
+                )
+            } catch {
+                continue
+            }
+        }
         let response = try await apiClient.restoreSubscriptions(
             userId: userId,
             platform: "ios",
@@ -427,12 +448,14 @@ final class SubscriptionService: ObservableObject {
                 correlationId: correlationId
             )
             if response.entitlement?.isPremium == true {
-                await transaction.finish()
                 NotificationCenter.default.post(
                     name: .subscriptionEntitlementDidUpdate,
                     object: response.entitlement
                 )
             }
+            // Always finish after a successful backend verify to avoid retry loops
+            // that leave Premium UI stuck on pending when entitlement flags lag.
+            await transaction.finish()
             return response
         } catch let error as APIError {
             processedTransactionIds.remove(transaction.id)

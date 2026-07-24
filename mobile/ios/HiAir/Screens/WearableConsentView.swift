@@ -66,12 +66,15 @@ struct WearableConsentView: View {
     private func connect() async {
         working = true
         defer { working = false }
+        ProductAnalytics.track("health_connect_started")
         guard healthService.isHealthDataAvailable() else {
             healthService.reportAuthorizationIssue("wearable.health.error.unavailable_device")
             healthService.reportConnectionState(.unavailable)
             showHealthPathHint = true
+            ProductAnalytics.track("health_availability_checked", properties: ["available": "false"])
             return
         }
+        ProductAnalytics.track("health_availability_checked", properties: ["available": "true"])
         if let issue = healthService.configurationIssueMessage() {
             healthService.reportAuthorizationIssue(issue)
             healthService.reportConnectionState(.unavailable)
@@ -83,17 +86,26 @@ struct WearableConsentView: View {
         if granted {
             do {
                 try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-                await healthService.syncHealthIntelligence(
-                    userId: session.userId,
-                    accessToken: session.accessToken,
-                    profileId: session.profileId.isEmpty ? nil : session.profileId
-                )
-                await healthService.syncWearableHourlySummary(userId: session.userId, accessToken: session.accessToken)
             } catch {
                 healthService.reportConnectionState(.syncFailed)
+                showHealthPathHint = true
+                return
             }
+            // Leave the sheet immediately after authorization + consent.
+            // Heavy HK reads and backend sync must not block Connect UI.
+            let userId = session.userId
+            let accessToken = session.accessToken
+            let profileId = session.profileId.isEmpty ? nil : session.profileId
             onComplete?()
             if !fromOnboarding { dismiss() }
+            Task {
+                await healthService.syncHealthIntelligence(
+                    userId: userId,
+                    accessToken: accessToken,
+                    profileId: profileId
+                )
+                await healthService.syncWearableHourlySummary(userId: userId, accessToken: accessToken)
+            }
             return
         }
         showHealthPathHint = true

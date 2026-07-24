@@ -71,6 +71,12 @@ final class HealthKitService: ObservableObject {
     private let defaults = UserDefaults.standard
     private let tiersKey = "hiair.health.enabledTiers"
     private let anchorKeyPrefix = "hiair.health.anchor."
+    private var authorizationInFlight: Task<Bool, Never>?
+    private let healthQueryTimeoutSeconds: TimeInterval = 12
+    /// Overridable for unit tests (default 60s).
+    var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
+    /// Overridable for unit tests (default 45s collect).
+    var healthCollectTimeoutNanoseconds: UInt64 = 45_000_000_000
 
     init() {
         if let saved = defaults.array(forKey: tiersKey) as? [Int], !saved.isEmpty {
@@ -207,6 +213,22 @@ final class HealthKitService: ObservableObject {
     }
 
     func requestAuthorization(tiers: Set<Int>? = nil) async -> Bool {
+        if let authorizationInFlight {
+            return await authorizationInFlight.value
+        }
+        let task = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            return await self.performAuthorizationRequest(tiers: tiers)
+        }
+        authorizationInFlight = task
+        let result = await task.value
+        if authorizationInFlight == task {
+            authorizationInFlight = nil
+        }
+        return result
+    }
+
+    private func performAuthorizationRequest(tiers: Set<Int>?) async -> Bool {
         lastAuthorizationError = nil
         if let tiers {
             setEnabledTiers(tiers)
@@ -214,23 +236,37 @@ final class HealthKitService: ObservableObject {
         if let issueKey = configurationIssueMessage() {
             lastAuthorizationError = issueKey
             connectionState = .unavailable
+            ProductAnalytics.track("health_connect_failed", properties: ["error_code": "config"])
             return false
         }
         connectionState = .permissionRequested
+        ProductAnalytics.track("health_authorization_started")
         let types = activeReadTypes
-        let requestError = await withCheckedContinuation { continuation in
-            store.requestAuthorization(toShare: [], read: types) { _, error in
-                continuation.resume(returning: error)
+        let outcome = await HealthKitTimeoutRace.raceCallback(
+            timeoutNanoseconds: authorizationTimeoutNanoseconds
+        ) { (finish: @escaping @Sendable (NSError?) -> Void) in
+            self.store.requestAuthorization(toShare: [], read: types) { _, error in
+                finish(error as NSError?)
             }
         }
-        if let requestError {
-            lastAuthorizationError = Self.userFacingAuthorizationError(requestError)
-            connectionState = .permissionDenied
+        switch outcome {
+        case .timedOut:
+            lastAuthorizationError = "wearable.health.error.generic|timeout"
+            connectionState = .syncFailed
+            ProductAnalytics.track("health_connect_timeout", properties: ["stage": "authorization"])
             return false
+        case let .value(requestError):
+            if let requestError {
+                lastAuthorizationError = Self.userFacingAuthorizationError(requestError)
+                connectionState = .permissionDenied
+                ProductAnalytics.track("health_connect_failed", properties: ["error_code": "authorization"])
+                return false
+            }
+            // Completing the sheet registers the app; actual read grants stay opaque.
+            connectionState = .connected
+            ProductAnalytics.track("health_authorization_completed", properties: ["success": "true"])
+            return true
         }
-        // Completing the sheet registers the app; actual read grants stay opaque.
-        connectionState = .connected
-        return true
     }
 
     static func openHealthApp() {
@@ -469,8 +505,21 @@ final class HealthKitService: ObservableObject {
     }
 
     func syncHealthIntelligence(userId: String, accessToken: String, profileId: String?) async {
+        ProductAnalytics.track("health_sync_started")
         do {
-            let (snapshots, sleep) = await collectTodaySnapshots()
+            let collectOutcome = await HealthKitTimeoutRace.raceAsync(
+                timeoutNanoseconds: healthCollectTimeoutNanoseconds
+            ) {
+                await self.collectTodaySnapshots()
+            }
+            guard case let .value((snapshots, sleep)) = collectOutcome else {
+                connectionState = .syncFailed
+                lastSyncError = "wearable.health.error.generic|timeout"
+                ProductAnalytics.track("health_connect_timeout", properties: ["stage": "collect"])
+                return
+            }
+            latestSnapshots = snapshots
+            latestSleep = sleep
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withFullDate]
             let dateString = formatter.string(from: Date())
@@ -545,6 +594,13 @@ final class HealthKitService: ObservableObject {
             connectionState = metrics.isEmpty && sleepPayload == nil ? .dataUnavailable : .connected
             lastSyncError = nil
             lastSyncAt = Date()
+            ProductAnalytics.track(
+                "health_sync_completed",
+                properties: [
+                    "success": "true",
+                    "empty": (metrics.isEmpty && sleepPayload == nil) ? "true" : "false",
+                ]
+            )
         } catch {
             let nsError = error as NSError
             if nsError.domain == "com.apple.healthkit", nsError.code == 6 {
@@ -554,6 +610,7 @@ final class HealthKitService: ObservableObject {
                 connectionState = .syncFailed
                 lastSyncError = error.localizedDescription
             }
+            ProductAnalytics.track("health_connect_failed", properties: ["error_code": "sync"])
         }
     }
 

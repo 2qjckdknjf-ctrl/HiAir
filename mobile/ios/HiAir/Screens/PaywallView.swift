@@ -326,9 +326,11 @@ struct PaywallView: View {
                 accessToken: session.accessToken
             )
             session.applyEntitlement(status.entitlement)
-            statusMessage = session.l("paywall.restore_success")
             if status.entitlement?.isPremium == true || session.isPremium {
+                statusMessage = session.l("paywall.restore_success")
                 dismiss()
+            } else {
+                statusMessage = session.l("paywall.restore_nothing")
             }
         } catch SubscriptionServiceError.purchaseInProgress {
             statusMessage = session.l("paywall.purchase_in_progress")

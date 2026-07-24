@@ -207,6 +207,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             overlayContainer = overlayContainer,
             persistSession = ::persistSession,
             clearSession = {
+                wearableHealthController.cancelPendingOperations()
                 sessionStore.clear()
                 rootShell.settingsViewModel.clearEntitlementState()
             },

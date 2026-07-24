@@ -1,5 +1,15 @@
 # Real Device QA Report
 
+## P0 Device Recovery (2026-07-23)
+
+**CODE FIXED — WAITING FOR PHYSICAL RETEST**
+
+Fixes are on branch `fix/p0-device-recovery` (startup / geo / HealthKit / StoreKit). Do **not** mark Startup, Location, HealthKit, or Premium as device PASS until a TestFlight build **>109** completes the Phase 18 matrix on a physical iPhone.
+
+Evidence index: `docs/audit/P0_DEVICE_RECOVERY_FINAL_REPORT.md`
+
+---
+
 ## Stage 0 update (2026-07-23)
 
 Production API is now on `0243952` (matches `main`). Latest TestFlight is build **109** (`VALID`, `READY_FOR_BETA_TESTING`). Synthetic Health / AI / Premium API smokes PASS. Interactive HealthKit / Health Connect / StoreKit / geo matrices remain **NOT RUN** on a physical device — see `docs/audit/STAGE0_FINAL_CERTIFICATION.md`.

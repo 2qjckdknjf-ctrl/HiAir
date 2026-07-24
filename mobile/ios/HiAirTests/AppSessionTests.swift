@@ -57,4 +57,29 @@ final class AppSessionTests: XCTestCase {
         XCTAssertTrue(session.onboardingCompleted)
         XCTAssertFalse(session.checklistHidden)
     }
+
+    @MainActor
+    func testPrepareSessionSingleFlightReturnsConsistentResult() async {
+        let session = AppSession()
+        session.userId = "user-prepare"
+        session.accessToken = "token"
+        // Without network/location, prepare should complete (partial) and not hang.
+        async let first = session.prepareSessionForDataFetch()
+        async let second = session.prepareSessionForDataFetch()
+        let a = await first
+        let b = await second
+        XCTAssertEqual(a.profileReady, b.profileReady)
+        XCTAssertEqual(a.locationReady, b.locationReady)
+    }
+
+    @MainActor
+    func testHasValidLocationRejectsNullIsland() {
+        let session = AppSession()
+        session.latitude = 0
+        session.longitude = 0
+        XCTAssertFalse(session.hasValidLocation)
+        session.latitude = 41.39
+        session.longitude = 2.17
+        XCTAssertTrue(session.hasValidLocation)
+    }
 }

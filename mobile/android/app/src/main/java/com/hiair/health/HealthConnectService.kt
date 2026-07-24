@@ -43,6 +43,55 @@ enum class WearableConnectionState {
 
 class HealthConnectService(private val context: Context) {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
+    private val consentPrefs = context.getSharedPreferences(CONSENT_PREFS, Context.MODE_PRIVATE)
+
+    /** True only after a successful backend consent persistence (session + durable prefs). */
+    @Volatile
+    var hasDurableConsent: Boolean = consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false)
+        private set
+
+    @Volatile
+    var lastConsentError: String? = null
+        private set
+
+    @Volatile
+    var lastConnectionState: WearableConnectionState =
+        if (consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false)) {
+            WearableConnectionState.CONNECTED
+        } else {
+            WearableConnectionState.NOT_CONNECTED
+        }
+        private set
+
+    fun markConsentPersisted() {
+        hasDurableConsent = true
+        lastConsentError = null
+        lastConnectionState = WearableConnectionState.CONNECTED
+        consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, true).apply()
+    }
+
+    fun markConsentFailed(message: String) {
+        hasDurableConsent = false
+        lastConsentError = message
+        lastConnectionState = WearableConnectionState.SYNC_FAILED
+        consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, false).apply()
+    }
+
+    fun clearConsentSession() {
+        hasDurableConsent = false
+        lastConsentError = null
+        lastConnectionState = WearableConnectionState.NOT_CONNECTED
+        consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, false).apply()
+    }
+
+    fun markConsentRevoked() {
+        clearConsentSession()
+    }
+
+    companion object {
+        private const val CONSENT_PREFS = "hiair_wearable_consent"
+        private const val KEY_DURABLE_CONSENT = "durable_consent"
+    }
 
     val tier1Permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
