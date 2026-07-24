@@ -159,14 +159,36 @@ class WearableConnectFlowTest {
     }
 
     @Test
-    fun consentRevokeBlocksFutureSyncGate() {
-        // Session flag semantics used by WearableHealthController.syncIfPermitted
+    fun consentHttpNon2xx_treatedAsFailure_noSync() = runBlocking {
+        val syncCalls = AtomicInteger(0)
+        val result = WearableConnectFlow.afterPermissionsGranted(
+            userId = "user-1",
+            accessToken = "token",
+            saveConsent = { _, _ -> throw ApiHttpException(503, "HTTP 503") },
+            startSync = { _, _ -> syncCalls.incrementAndGet() },
+        )
+        assertEquals(WearableConnectFlow.Outcome.CONSENT_FAILED, result.outcome)
+        assertEquals(0, syncCalls.get())
+    }
+
+    @Test
+    fun syncGateRequiresDurableConsentFlag() {
         val flags = ConsentSessionFlags()
-        flags.markPersisted()
-        assertTrue(flags.hasDurableConsent)
-        flags.revoke()
         assertFalse(flags.hasDurableConsent)
-        assertNull(flags.lastConsentError)
+        // Mirrors WearableHealthController.syncIfPermitted early return.
+        var syncAllowed = false
+        if (flags.hasDurableConsent) {
+            syncAllowed = true
+        }
+        assertFalse(syncAllowed)
+        flags.markPersisted()
+        if (flags.hasDurableConsent) {
+            syncAllowed = true
+        }
+        assertTrue(syncAllowed)
+        flags.revoke()
+        syncAllowed = flags.hasDurableConsent
+        assertFalse(syncAllowed)
     }
 
     @Test

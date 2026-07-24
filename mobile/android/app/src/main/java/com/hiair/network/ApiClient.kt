@@ -472,7 +472,7 @@ class ApiClient(private val baseUrl: String) {
 
     fun saveWearableConsent(userId: String, accessToken: String?, body: String): String {
         val endpoint = "$baseUrl/api/v1/wearables/consent"
-        return request("POST", endpoint, body, authHeaders(userId, accessToken))
+        return requestStrict("POST", endpoint, body, authHeaders(userId, accessToken))
     }
 
     fun revokeWearableConsent(userId: String, accessToken: String?): String {

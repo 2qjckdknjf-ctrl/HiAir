@@ -11,7 +11,7 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Wires Health Connect permission requests and backend consent/sync from the main activity.
- * Sync is never started unless consent persistence succeeds.
+ * Sync is never started unless consent persistence succeeds (HTTP 2xx).
  */
 class WearableHealthController(
     private val activity: ComponentActivity,
@@ -37,6 +37,7 @@ class WearableHealthController(
     private var pendingAccessToken: String? = null
     private var connectGeneration: Long = 0L
     private var connectJob: Job? = null
+    private var syncJob: Job? = null
     private val connectMutex = Mutex()
 
     fun requestConnect(userId: String, accessToken: String?, onComplete: () -> Unit) {
@@ -70,6 +71,8 @@ class WearableHealthController(
         connectGeneration += 1
         connectJob?.cancel()
         connectJob = null
+        syncJob?.cancel()
+        syncJob = null
         pendingUserId = ""
         pendingAccessToken = null
         pendingCallback = null
@@ -78,7 +81,12 @@ class WearableHealthController(
 
     fun syncIfPermitted(userId: String, accessToken: String?, profileId: String? = null) {
         if (userId.isBlank() || !healthService.isHealthConnectAvailable()) return
-        activity.lifecycleScope.launch {
+        // Fail closed: OS permissions alone are not enough without durable consent.
+        if (!healthService.hasDurableConsent) return
+        val generation = connectGeneration
+        syncJob?.cancel()
+        syncJob = activity.lifecycleScope.launch {
+            if (generation != connectGeneration) return@launch
             val granted = healthService.grantedPermissions()
             if (granted.any { it in healthService.tier1Permissions }) {
                 healthService.syncHealthIntelligence(userId, accessToken, profileId)
@@ -100,11 +108,15 @@ class WearableHealthController(
                         healthService.saveConsent(uid, access)
                     },
                     startSync = { uid, access ->
-                        activity.lifecycleScope.launch {
-                            try {
-                                healthService.syncHealthIntelligence(uid, access, profileId = null)
-                            } catch (_: Exception) {
-                                // Non-blocking — dashboard still works without wearable sync.
+                        if (generation == connectGeneration) {
+                            syncJob?.cancel()
+                            syncJob = activity.lifecycleScope.launch syncLaunch@{
+                                if (generation != connectGeneration) return@syncLaunch
+                                try {
+                                    healthService.syncHealthIntelligence(uid, access, profileId = null)
+                                } catch (_: Exception) {
+                                    // Non-blocking — dashboard still works without wearable sync.
+                                }
                             }
                         }
                     },
