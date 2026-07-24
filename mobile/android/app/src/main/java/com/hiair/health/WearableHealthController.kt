@@ -2,13 +2,16 @@ package com.hiair.health
 
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
-import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Wires Health Connect permission requests and backend consent/sync from the main activity.
+ * Sync is never started unless consent persistence succeeds.
  */
 class WearableHealthController(
     private val activity: ComponentActivity,
@@ -24,11 +27,17 @@ class WearableHealthController(
                     completeConnect(callback)
                 }
             } else {
+                healthService.markConsentFailed("permission_denied")
                 callback?.invoke()
             }
         }
 
     private var pendingCallback: (() -> Unit)? = null
+    private var pendingUserId: String = ""
+    private var pendingAccessToken: String? = null
+    private var connectGeneration: Long = 0L
+    private var connectJob: Job? = null
+    private val connectMutex = Mutex()
 
     fun requestConnect(userId: String, accessToken: String?, onComplete: () -> Unit) {
         if (userId.isBlank()) {
@@ -54,6 +63,19 @@ class WearableHealthController(
         }
     }
 
+    /**
+     * Call on logout / account switch so pending consent/sync cannot leak across users.
+     */
+    fun cancelPendingOperations() {
+        connectGeneration += 1
+        connectJob?.cancel()
+        connectJob = null
+        pendingUserId = ""
+        pendingAccessToken = null
+        pendingCallback = null
+        healthService.clearConsentSession()
+    }
+
     fun syncIfPermitted(userId: String, accessToken: String?, profileId: String? = null) {
         if (userId.isBlank() || !healthService.isHealthConnectAvailable()) return
         activity.lifecycleScope.launch {
@@ -64,29 +86,47 @@ class WearableHealthController(
         }
     }
 
-    private var pendingUserId: String = ""
-    private var pendingAccessToken: String? = null
-
     private suspend fun completeConnect(onComplete: (() -> Unit)?) {
-        val userId = pendingUserId
-        val token = pendingAccessToken
-        if (userId.isNotBlank()) {
-            try {
-                healthService.saveConsent(userId, token)
-            } catch (_: Exception) {
-                // Consent failure still returns to UI; sync can retry later.
-            }
-        }
-        // Do not block Connect UI on Health Connect reads / backend sync.
-        onComplete?.invoke()
-        if (userId.isNotBlank()) {
-            activity.lifecycleScope.launch {
-                try {
-                    healthService.syncHealthIntelligence(userId, token, profileId = null)
-                } catch (_: Exception) {
-                    // Non-blocking — dashboard still works without wearable sync.
+        connectMutex.withLock {
+            val generation = connectGeneration
+            val userId = pendingUserId
+            val token = pendingAccessToken
+            val job = activity.lifecycleScope.launch {
+                val result = WearableConnectFlow.afterPermissionsGranted(
+                    userId = userId,
+                    accessToken = token,
+                    isCancelled = { generation != connectGeneration },
+                    saveConsent = { uid, access ->
+                        healthService.saveConsent(uid, access)
+                    },
+                    startSync = { uid, access ->
+                        activity.lifecycleScope.launch {
+                            try {
+                                healthService.syncHealthIntelligence(uid, access, profileId = null)
+                            } catch (_: Exception) {
+                                // Non-blocking — dashboard still works without wearable sync.
+                            }
+                        }
+                    },
+                )
+                when (result.outcome) {
+                    WearableConnectFlow.Outcome.CONSENT_SAVED_SYNC_STARTED -> {
+                        healthService.markConsentPersisted()
+                    }
+                    WearableConnectFlow.Outcome.CONSENT_FAILED -> {
+                        healthService.markConsentFailed(result.consentError?.message ?: "consent_failed")
+                    }
+                    WearableConnectFlow.Outcome.CANCELLED,
+                    WearableConnectFlow.Outcome.SKIPPED_BLANK_USER -> {
+                        // No sync; leave UI recoverable.
+                    }
+                }
+                if (generation == connectGeneration) {
+                    onComplete?.invoke()
                 }
             }
+            connectJob = job
+            job.join()
         }
     }
 }

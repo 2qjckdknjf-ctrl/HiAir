@@ -44,6 +44,41 @@ enum class WearableConnectionState {
 class HealthConnectService(private val context: Context) {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
 
+    /** True only after a successful backend consent persistence in this session. */
+    @Volatile
+    var hasDurableConsent: Boolean = false
+        private set
+
+    @Volatile
+    var lastConsentError: String? = null
+        private set
+
+    @Volatile
+    var lastConnectionState: WearableConnectionState = WearableConnectionState.NOT_CONNECTED
+        private set
+
+    fun markConsentPersisted() {
+        hasDurableConsent = true
+        lastConsentError = null
+        lastConnectionState = WearableConnectionState.CONNECTED
+    }
+
+    fun markConsentFailed(message: String) {
+        hasDurableConsent = false
+        lastConsentError = message
+        lastConnectionState = WearableConnectionState.SYNC_FAILED
+    }
+
+    fun clearConsentSession() {
+        hasDurableConsent = false
+        lastConsentError = null
+        lastConnectionState = WearableConnectionState.NOT_CONNECTED
+    }
+
+    fun markConsentRevoked() {
+        clearConsentSession()
+    }
+
     val tier1Permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
