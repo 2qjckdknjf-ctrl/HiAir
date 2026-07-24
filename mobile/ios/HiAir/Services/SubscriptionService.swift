@@ -270,7 +270,8 @@ final class SubscriptionService: ObservableObject {
                     verificationState: "verified",
                     correlationId: String(correlationId)
                 )
-                // Optimistic unlock immediately after StoreKit verification (before backend).
+                // Activating immediately after StoreKit verification (before backend).
+                // Not permanent truth — pending until server confirms; terminal reject rolls back.
                 let optimistic = UserEntitlementResponse(
                     userId: userId,
                     plan: product.id.contains("yearly") ? "yearly" : "monthly",
@@ -283,15 +284,28 @@ final class SubscriptionService: ObservableObject {
                 )
                 NotificationCenter.default.post(
                     name: .subscriptionEntitlementDidUpdate,
-                    object: optimistic
+                    object: optimistic,
+                    userInfo: ["activationPending": true]
                 )
-                return try await processVerifiedTransaction(
-                    verification,
-                    transaction: transaction,
-                    userId: userId,
-                    accessToken: accessToken,
-                    correlationId: String(correlationId)
-                )
+                do {
+                    return try await processVerifiedTransaction(
+                        verification,
+                        transaction: transaction,
+                        userId: userId,
+                        accessToken: accessToken,
+                        correlationId: String(correlationId)
+                    )
+                } catch let error as APIError {
+                    if Self.isTerminalSubscriptionRejection(error) {
+                        NotificationCenter.default.post(
+                            name: .subscriptionEntitlementDidUpdate,
+                            object: nil,
+                            userInfo: ["rollback": true]
+                        )
+                    }
+                    // Transient failures keep Activating + unfinished transaction for safe retry.
+                    throw error
+                }
             case .unverified(_, let error):
                 SubscriptionDiagnostics.log(
                     "transaction_unverified",
@@ -454,7 +468,15 @@ final class SubscriptionService: ObservableObject {
             if response.entitlement?.isPremium == true {
                 NotificationCenter.default.post(
                     name: .subscriptionEntitlementDidUpdate,
-                    object: response.entitlement
+                    object: response.entitlement,
+                    userInfo: ["activationPending": false]
+                )
+            } else {
+                // Server explicitly denied entitlement for a verified transaction.
+                NotificationCenter.default.post(
+                    name: .subscriptionEntitlementDidUpdate,
+                    object: nil,
+                    userInfo: ["rollback": true]
                 )
             }
             // Always finish after a successful backend verify to avoid retry loops
@@ -571,6 +593,16 @@ final class SubscriptionService: ObservableObject {
             return HiAirL10n.t("paywall.server_error", lang: lang)
         case .invalidURL, .invalidResponse:
             return HiAirL10n.t("paywall.network_error", lang: lang)
+        }
+    }
+
+    /// 4xx (except timeout/rate-limit) → permanent reject; do not keep optimistic Premium.
+    static func isTerminalSubscriptionRejection(_ error: APIError) -> Bool {
+        switch error {
+        case .server(let code), .serverWithDetail(let code, _):
+            return (400..<500).contains(code) && code != 408 && code != 429
+        case .invalidURL, .invalidResponse:
+            return false
         }
     }
 }
