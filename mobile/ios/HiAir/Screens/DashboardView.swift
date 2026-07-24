@@ -65,9 +65,10 @@ final class DashboardViewModel: ObservableObject {
             morningReport = try? await morningTask
             // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
             let live = healthService.connectionState
-            if live == .connected || live == .permissionRequested {
+            switch live {
+            case .connected, .permissionRequested, .systemAuthorized, .consentSaving, .consentFailed:
                 wearableConnectionState = live
-            } else {
+            default:
                 wearableConnectionState = healthService.refreshAuthorizationState()
             }
             riskLevel = result.risk.overallRisk
@@ -206,22 +207,18 @@ struct DashboardView: View {
             _ = await session.ensureProfileIdIfNeeded()
         }
         // Never block dashboard/geo refresh on HealthKit sync.
-        if !session.userId.isEmpty {
-            let hk = healthService.connectionState
-            let connected = hk == .connected
-                || healthService.refreshAuthorizationState() == .connected
-                || healthService.lastSyncAt != nil
-            if connected {
-                let userId = session.userId
-                let accessToken = session.accessToken
-                let profileId = session.profileId.isEmpty ? nil : session.profileId
-                Task {
-                    await healthService.syncHealthIntelligence(
-                        userId: userId,
-                        accessToken: accessToken,
-                        profileId: profileId
-                    )
-                }
+        // Sync only after durable HiAir consent for the current account.
+        if !session.userId.isEmpty,
+           healthService.hasDurableConsent(for: session.userId) {
+            let userId = session.userId
+            let accessToken = session.accessToken
+            let profileId = session.profileId.isEmpty ? nil : session.profileId
+            Task {
+                await healthService.syncHealthIntelligence(
+                    userId: userId,
+                    accessToken: accessToken,
+                    profileId: profileId
+                )
             }
         }
         await viewModel.refresh(

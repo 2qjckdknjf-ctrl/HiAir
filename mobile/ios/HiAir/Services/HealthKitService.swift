@@ -5,6 +5,11 @@ import UIKit
 enum WearableConnectionState: String, Equatable {
     case notConnected
     case permissionRequested
+    /// System HealthKit sheet completed; HiAir consent not yet durable.
+    case systemAuthorized
+    /// Backend consent persistence in progress.
+    case consentSaving
+    case consentFailed
     case connected
     case permissionDenied
     case dataUnavailable
@@ -70,20 +75,80 @@ final class HealthKitService: ObservableObject {
     private let consentVersion = "health-intelligence-v1"
     private let defaults = UserDefaults.standard
     private let tiersKey = "hiair.health.enabledTiers"
-    private let authorizationCompletedKey = "hiair.health.authorizationCompleted"
     private let anchorKeyPrefix = "hiair.health.anchor."
     private var authorizationInFlight: Task<Bool, Never>?
     private var syncInFlight: Task<Void, Never>?
     private var syncGeneration: UInt64 = 0
+    /// Authenticated HiAir user that owns current connection/consent presentation state.
+    private(set) var boundUserId: String = ""
     private let healthQueryTimeoutSeconds: TimeInterval = 12
     /// Overridable for unit tests (default 60s).
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
     /// Overridable for unit tests (default 45s collect).
     var healthCollectTimeoutNanoseconds: UInt64 = 45_000_000_000
 
-    private var authorizationCompleted: Bool {
-        get { defaults.bool(forKey: authorizationCompletedKey) }
-        set { defaults.set(newValue, forKey: authorizationCompletedKey) }
+    private func authorizationCompletedKey(for userId: String) -> String {
+        "hiair.health.authorizationCompleted.\(userId)"
+    }
+
+    private func consentPersistedKey(for userId: String) -> String {
+        "hiair.health.consentPersisted.\(userId)"
+    }
+
+    func hasSystemAuthorization(for userId: String) -> Bool {
+        !userId.isEmpty && defaults.bool(forKey: authorizationCompletedKey(for: userId))
+    }
+
+    func hasDurableConsent(for userId: String) -> Bool {
+        !userId.isEmpty && defaults.bool(forKey: consentPersistedKey(for: userId))
+    }
+
+    /// Bind / rehydrate account-scoped Health presentation after login.
+    func bindAccount(userId: String) {
+        boundUserId = userId
+        guard !userId.isEmpty else {
+            connectionState = .notConnected
+            return
+        }
+        if hasDurableConsent(for: userId) {
+            connectionState = .connected
+        } else if hasSystemAuthorization(for: userId) {
+            connectionState = .systemAuthorized
+        } else {
+            connectionState = .notConnected
+        }
+    }
+
+    /// Logout / account switch: cancel work and clear presentation; keep HK system permission.
+    func clearAccountSession() {
+        cancelPendingSync()
+        boundUserId = ""
+        connectionState = .notConnected
+        lastSyncError = nil
+        lastAuthorizationError = nil
+        lastSyncAt = nil
+        latestSnapshots = []
+        latestSleep = nil
+    }
+
+    private func markSystemAuthorized(for userId: String) {
+        guard !userId.isEmpty else { return }
+        defaults.set(true, forKey: authorizationCompletedKey(for: userId))
+        boundUserId = userId
+        connectionState = .systemAuthorized
+    }
+
+    private func markConsentPersisted(for userId: String) {
+        guard !userId.isEmpty else { return }
+        defaults.set(true, forKey: consentPersistedKey(for: userId))
+        defaults.set(true, forKey: authorizationCompletedKey(for: userId))
+        boundUserId = userId
+        connectionState = .connected
+    }
+
+    private func clearConsentPersisted(for userId: String) {
+        guard !userId.isEmpty else { return }
+        defaults.set(false, forKey: consentPersistedKey(for: userId))
     }
 
     init() {
@@ -211,15 +276,21 @@ final class HealthKitService: ObservableObject {
             connectionState = .unavailable
             return .unavailable
         }
-        // Connected means authorization/consent completed — not full HK sync.
-        // Never downgrade post-auth Connected while background sync is still running.
-        if authorizationCompleted || lastSyncAt != nil || !latestSnapshots.isEmpty {
+        let userId = boundUserId
+        if !userId.isEmpty, hasDurableConsent(for: userId) {
             if connectionState != .permissionDenied && connectionState != .unavailable {
                 connectionState = .connected
             }
             return connectionState == .permissionDenied || connectionState == .unavailable
                 ? connectionState
                 : .connected
+        }
+        if !userId.isEmpty, hasSystemAuthorization(for: userId) {
+            if connectionState == .consentSaving || connectionState == .consentFailed {
+                return connectionState
+            }
+            connectionState = .systemAuthorized
+            return .systemAuthorized
         }
         if connectionState == .permissionRequested || connectionState == .permissionDenied {
             return connectionState
@@ -228,13 +299,13 @@ final class HealthKitService: ObservableObject {
         return .notConnected
     }
 
-    func requestAuthorization(tiers: Set<Int>? = nil) async -> Bool {
+    func requestAuthorization(tiers: Set<Int>? = nil, userId: String = "") async -> Bool {
         if let authorizationInFlight {
             return await authorizationInFlight.value
         }
         let task = Task { @MainActor [weak self] () -> Bool in
             guard let self else { return false }
-            return await self.performAuthorizationRequest(tiers: tiers)
+            return await self.performAuthorizationRequest(tiers: tiers, userId: userId)
         }
         authorizationInFlight = task
         let result = await task.value
@@ -244,7 +315,7 @@ final class HealthKitService: ObservableObject {
         return result
     }
 
-    private func performAuthorizationRequest(tiers: Set<Int>?) async -> Bool {
+    private func performAuthorizationRequest(tiers: Set<Int>?, userId: String) async -> Bool {
         lastAuthorizationError = nil
         if let tiers {
             setEnabledTiers(tiers)
@@ -278,9 +349,12 @@ final class HealthKitService: ObservableObject {
                 ProductAnalytics.track("health_connect_failed", properties: ["error_code": "authorization"])
                 return false
             }
-            // Completing the sheet registers the app; actual read grants stay opaque.
-            authorizationCompleted = true
-            connectionState = .connected
+            // System sheet completed — durable HiAir consent is a separate step.
+            if !userId.isEmpty {
+                markSystemAuthorized(for: userId)
+            } else {
+                connectionState = .systemAuthorized
+            }
             ProductAnalytics.track("health_authorization_completed", properties: ["success": "true"])
             return true
         }
@@ -496,29 +570,45 @@ final class HealthKitService: ObservableObject {
     // MARK: - Sync
 
     func saveConsent(userId: String, accessToken: String) async throws {
+        guard !userId.isEmpty else {
+            throw NSError(domain: "com.hiair.healthkit", code: 401, userInfo: [
+                NSLocalizedDescriptionKey: "missing_user",
+            ])
+        }
+        connectionState = .consentSaving
         let tiers = enabledTiers
-        _ = try await apiClient.saveWearableConsent(
-            userId: userId,
-            accessToken: accessToken,
-            payload: WearableConsentPayload(
-                platform: "ios",
-                source: "apple_health",
-                stepsEnabled: tiers.contains(1),
-                heartRateEnabled: tiers.contains(2),
-                restingHeartRateEnabled: tiers.contains(2),
-                hrvEnabled: tiers.contains(2),
-                sleepEnabled: tiers.contains(1),
-                activityEnabled: tiers.contains(1),
-                sleepStagesEnabled: tiers.contains(1),
-                respiratoryEnabled: tiers.contains(3),
-                temperatureEnabled: tiers.contains(3),
-                workoutsEnabled: tiers.contains(1),
-                fitnessEnabled: tiers.contains(2),
-                bodyMetricsEnabled: tiers.contains(4),
-                sensitiveMetricsEnabled: false,
-                consentVersion: consentVersion
+        do {
+            _ = try await apiClient.saveWearableConsent(
+                userId: userId,
+                accessToken: accessToken,
+                payload: WearableConsentPayload(
+                    platform: "ios",
+                    source: "apple_health",
+                    stepsEnabled: tiers.contains(1),
+                    heartRateEnabled: tiers.contains(2),
+                    restingHeartRateEnabled: tiers.contains(2),
+                    hrvEnabled: tiers.contains(2),
+                    sleepEnabled: tiers.contains(1),
+                    activityEnabled: tiers.contains(1),
+                    sleepStagesEnabled: tiers.contains(1),
+                    respiratoryEnabled: tiers.contains(3),
+                    temperatureEnabled: tiers.contains(3),
+                    workoutsEnabled: tiers.contains(1),
+                    fitnessEnabled: tiers.contains(2),
+                    bodyMetricsEnabled: tiers.contains(4),
+                    sensitiveMetricsEnabled: false,
+                    consentVersion: consentVersion
+                )
             )
-        )
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            markConsentPersisted(for: userId)
+        } catch {
+            if boundUserId.isEmpty || boundUserId == userId {
+                connectionState = .consentFailed
+                clearConsentPersisted(for: userId)
+            }
+            throw error
+        }
     }
 
     func cancelPendingSync() {
@@ -527,26 +617,37 @@ final class HealthKitService: ObservableObject {
         syncInFlight = nil
     }
 
-    /// Background collect+sync that is cancelled on logout / identity change.
+    /// Background collect+sync — only after durable consent for this account.
     func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
+        guard hasDurableConsent(for: userId) else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing"])
+            return
+        }
         let generation = syncGeneration
         let expectedUserId = userId
         syncInFlight?.cancel()
         syncInFlight = Task { [weak self] in
             guard let self else { return }
             guard generation == self.syncGeneration, !Task.isCancelled else { return }
+            guard self.boundUserId.isEmpty || self.boundUserId == expectedUserId else { return }
             await self.syncHealthIntelligence(
                 userId: expectedUserId,
                 accessToken: accessToken,
                 profileId: profileId
             )
             guard generation == self.syncGeneration, !Task.isCancelled else { return }
+            guard self.boundUserId.isEmpty || self.boundUserId == expectedUserId else { return }
             await self.syncWearableHourlySummary(userId: expectedUserId, accessToken: accessToken)
         }
     }
 
     func syncHealthIntelligence(userId: String, accessToken: String, profileId: String?) async {
         guard !Task.isCancelled else { return }
+        guard hasDurableConsent(for: userId) else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing"])
+            return
+        }
+        guard boundUserId.isEmpty || boundUserId == userId else { return }
         ProductAnalytics.track("health_sync_started")
         do {
             let collectOutcome = await HealthKitTimeoutRace.raceAsync(
@@ -555,6 +656,7 @@ final class HealthKitService: ObservableObject {
                 await self.collectTodaySnapshots()
             }
             guard !Task.isCancelled else { return }
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
             guard case let .value((snapshots, sleep)) = collectOutcome else {
                 connectionState = .syncFailed
                 lastSyncError = "wearable.health.error.generic|timeout"
@@ -663,11 +765,14 @@ final class HealthKitService: ObservableObject {
     }
 
     func syncWearableHourlySummary(userId: String, accessToken: String) async {
+        guard hasDurableConsent(for: userId) else { return }
+        guard boundUserId.isEmpty || boundUserId == userId else { return }
         // Hourly still uses legacy endpoint for personal load recent-steps windows.
         let hourly = await fetchHourlyActivitySummary()
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
         for entry in hourly where entry.steps > 0 || entry.hrAvg != nil {
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
             _ = try? await apiClient.uploadWearableHourlySummary(
                 userId: userId,
                 accessToken: accessToken,
@@ -684,21 +789,27 @@ final class HealthKitService: ObservableObject {
 
     func revokeConsent(userId: String, accessToken: String) async {
         _ = try? await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
-        authorizationCompleted = false
-        connectionState = .notConnected
-        latestSnapshots = []
-        latestSleep = nil
-        lastSyncAt = nil
+        clearConsentPersisted(for: userId)
+        defaults.set(false, forKey: authorizationCompletedKey(for: userId))
+        if boundUserId == userId || boundUserId.isEmpty {
+            connectionState = .notConnected
+            latestSnapshots = []
+            latestSleep = nil
+            lastSyncAt = nil
+        }
     }
 
     func deleteHealthData(userId: String, accessToken: String) async {
         _ = try? await apiClient.deleteHealthData(userId: userId, accessToken: accessToken)
         _ = try? await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
-        authorizationCompleted = false
-        connectionState = .notConnected
-        latestSnapshots = []
-        latestSleep = nil
-        lastSyncAt = nil
+        clearConsentPersisted(for: userId)
+        defaults.set(false, forKey: authorizationCompletedKey(for: userId))
+        if boundUserId == userId || boundUserId.isEmpty {
+            connectionState = .notConnected
+            latestSnapshots = []
+            latestSleep = nil
+            lastSyncAt = nil
+        }
     }
 
     // MARK: - Legacy helpers kept for dashboard
