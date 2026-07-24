@@ -174,33 +174,43 @@ class WearableConnectFlowTest {
     @Test
     fun syncGateRequiresDurableConsentFlag() {
         val flags = ConsentSessionFlags()
-        assertFalse(flags.hasDurableConsent)
-        // Mirrors WearableHealthController.syncIfPermitted early return.
+        assertFalse(flags.hasDurableConsentFor("user-1"))
         var syncAllowed = false
-        if (flags.hasDurableConsent) {
+        if (flags.hasDurableConsentFor("user-1")) {
             syncAllowed = true
         }
         assertFalse(syncAllowed)
-        flags.markPersisted()
-        if (flags.hasDurableConsent) {
+        flags.markPersisted("user-1")
+        if (flags.hasDurableConsentFor("user-1")) {
             syncAllowed = true
         }
         assertTrue(syncAllowed)
         flags.revoke()
-        syncAllowed = flags.hasDurableConsent
+        syncAllowed = flags.hasDurableConsentFor("user-1")
         assertFalse(syncAllowed)
+    }
+
+    @Test
+    fun durableConsentIsScopedToUserId() {
+        val flags = ConsentSessionFlags()
+        flags.markPersisted("user-a")
+        assertTrue(flags.hasDurableConsentFor("user-a"))
+        assertFalse(flags.hasDurableConsentFor("user-b"))
+        flags.switchAccount("user-b")
+        assertFalse(flags.hasDurableConsentFor("user-a"))
+        assertFalse(flags.hasDurableConsentFor("user-b"))
     }
 
     @Test
     fun persistedConsentRequiredBeforeConnectedUi() {
         val flags = ConsentSessionFlags()
-        assertFalse(flags.hasDurableConsent)
+        assertFalse(flags.hasDurableConsentFor("user-1"))
         assertEquals(WearableConnectionState.NOT_CONNECTED, flags.lastConnectionState)
         flags.markFailed("timeout")
-        assertFalse(flags.hasDurableConsent)
+        assertFalse(flags.hasDurableConsentFor("user-1"))
         assertEquals(WearableConnectionState.SYNC_FAILED, flags.lastConnectionState)
-        flags.markPersisted()
-        assertTrue(flags.hasDurableConsent)
+        flags.markPersisted("user-1")
+        assertTrue(flags.hasDurableConsentFor("user-1"))
         assertEquals(WearableConnectionState.CONNECTED, flags.lastConnectionState)
     }
 
@@ -225,26 +235,41 @@ class WearableConnectFlowTest {
 private class ConsentSessionFlags {
     var hasDurableConsent: Boolean = false
         private set
+    var consentUserId: String = ""
+        private set
     var lastConsentError: String? = null
         private set
     var lastConnectionState: WearableConnectionState = WearableConnectionState.NOT_CONNECTED
         private set
 
-    fun markPersisted() {
+    fun hasDurableConsentFor(userId: String): Boolean {
+        return hasDurableConsent && userId.isNotBlank() && userId == consentUserId
+    }
+
+    fun markPersisted(userId: String) {
         hasDurableConsent = true
+        consentUserId = userId
         lastConsentError = null
         lastConnectionState = WearableConnectionState.CONNECTED
     }
 
     fun markFailed(message: String) {
         hasDurableConsent = false
+        consentUserId = ""
         lastConsentError = message
         lastConnectionState = WearableConnectionState.SYNC_FAILED
     }
 
     fun revoke() {
         hasDurableConsent = false
+        consentUserId = ""
         lastConsentError = null
         lastConnectionState = WearableConnectionState.NOT_CONNECTED
+    }
+
+    fun switchAccount(newUserId: String) {
+        if (consentUserId.isNotBlank() && consentUserId != newUserId) {
+            revoke()
+        }
     }
 }

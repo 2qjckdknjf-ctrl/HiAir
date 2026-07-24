@@ -243,6 +243,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     private fun persistSession() {
         val state = rootShell.settingsViewModel.state
+        wearableHealthController.onAuthenticatedUserChanged(state.userId)
         sessionStore.save(
             StoredSession(
                 email = state.email,

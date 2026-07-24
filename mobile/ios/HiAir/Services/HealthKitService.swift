@@ -72,6 +72,8 @@ final class HealthKitService: ObservableObject {
     private let tiersKey = "hiair.health.enabledTiers"
     private let anchorKeyPrefix = "hiair.health.anchor."
     private var authorizationInFlight: Task<Bool, Never>?
+    private var syncInFlight: Task<Void, Never>?
+    private var syncGeneration: UInt64 = 0
     private let healthQueryTimeoutSeconds: TimeInterval = 12
     /// Overridable for unit tests (default 60s).
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
@@ -504,7 +506,32 @@ final class HealthKitService: ObservableObject {
         )
     }
 
+    func cancelPendingSync() {
+        syncGeneration &+= 1
+        syncInFlight?.cancel()
+        syncInFlight = nil
+    }
+
+    /// Background collect+sync that is cancelled on logout / identity change.
+    func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
+        let generation = syncGeneration
+        let expectedUserId = userId
+        syncInFlight?.cancel()
+        syncInFlight = Task { [weak self] in
+            guard let self else { return }
+            guard generation == self.syncGeneration, !Task.isCancelled else { return }
+            await self.syncHealthIntelligence(
+                userId: expectedUserId,
+                accessToken: accessToken,
+                profileId: profileId
+            )
+            guard generation == self.syncGeneration, !Task.isCancelled else { return }
+            await self.syncWearableHourlySummary(userId: expectedUserId, accessToken: accessToken)
+        }
+    }
+
     func syncHealthIntelligence(userId: String, accessToken: String, profileId: String?) async {
+        guard !Task.isCancelled else { return }
         ProductAnalytics.track("health_sync_started")
         do {
             let collectOutcome = await HealthKitTimeoutRace.raceAsync(
@@ -512,6 +539,7 @@ final class HealthKitService: ObservableObject {
             ) {
                 await self.collectTodaySnapshots()
             }
+            guard !Task.isCancelled else { return }
             guard case let .value((snapshots, sleep)) = collectOutcome else {
                 connectionState = .syncFailed
                 lastSyncError = "wearable.health.error.generic|timeout"

@@ -171,6 +171,7 @@ final class AppSession: ObservableObject {
         Task {
             await supabaseAuth.signOut()
         }
+        HealthKitService.shared.cancelPendingSync()
         userId = ""
         email = ""
         accessToken = ""

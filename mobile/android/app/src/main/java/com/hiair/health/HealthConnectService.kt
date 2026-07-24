@@ -45,9 +45,13 @@ class HealthConnectService(private val context: Context) {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
     private val consentPrefs = context.getSharedPreferences(CONSENT_PREFS, Context.MODE_PRIVATE)
 
-    /** True only after a successful backend consent persistence (session + durable prefs). */
+    /** True only after successful backend consent for `consentUserId`. */
     @Volatile
-    var hasDurableConsent: Boolean = consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false)
+    var hasDurableConsent: Boolean = false
+        private set
+
+    @Volatile
+    var consentUserId: String = ""
         private set
 
     @Volatile
@@ -55,33 +59,58 @@ class HealthConnectService(private val context: Context) {
         private set
 
     @Volatile
-    var lastConnectionState: WearableConnectionState =
-        if (consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false)) {
+    var lastConnectionState: WearableConnectionState = WearableConnectionState.NOT_CONNECTED
+        private set
+
+    init {
+        consentUserId = consentPrefs.getString(KEY_CONSENT_USER_ID, "").orEmpty()
+        hasDurableConsent = consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false) && consentUserId.isNotBlank()
+        lastConnectionState = if (hasDurableConsent) {
             WearableConnectionState.CONNECTED
         } else {
             WearableConnectionState.NOT_CONNECTED
         }
-        private set
+    }
 
-    fun markConsentPersisted() {
+    fun hasDurableConsentFor(userId: String): Boolean {
+        return hasDurableConsent && userId.isNotBlank() && userId == consentUserId
+    }
+
+    fun markConsentPersisted(userId: String) {
+        if (userId.isBlank()) {
+            clearConsentSession()
+            return
+        }
         hasDurableConsent = true
+        consentUserId = userId
         lastConsentError = null
         lastConnectionState = WearableConnectionState.CONNECTED
-        consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, true).apply()
+        consentPrefs.edit()
+            .putBoolean(KEY_DURABLE_CONSENT, true)
+            .putString(KEY_CONSENT_USER_ID, userId)
+            .apply()
     }
 
     fun markConsentFailed(message: String) {
         hasDurableConsent = false
+        consentUserId = ""
         lastConsentError = message
         lastConnectionState = WearableConnectionState.SYNC_FAILED
-        consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, false).apply()
+        consentPrefs.edit()
+            .putBoolean(KEY_DURABLE_CONSENT, false)
+            .remove(KEY_CONSENT_USER_ID)
+            .apply()
     }
 
     fun clearConsentSession() {
         hasDurableConsent = false
+        consentUserId = ""
         lastConsentError = null
         lastConnectionState = WearableConnectionState.NOT_CONNECTED
-        consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, false).apply()
+        consentPrefs.edit()
+            .putBoolean(KEY_DURABLE_CONSENT, false)
+            .remove(KEY_CONSENT_USER_ID)
+            .apply()
     }
 
     fun markConsentRevoked() {
@@ -91,6 +120,7 @@ class HealthConnectService(private val context: Context) {
     companion object {
         private const val CONSENT_PREFS = "hiair_wearable_consent"
         private const val KEY_DURABLE_CONSENT = "durable_consent"
+        private const val KEY_CONSENT_USER_ID = "consent_user_id"
     }
 
     val tier1Permissions = setOf(

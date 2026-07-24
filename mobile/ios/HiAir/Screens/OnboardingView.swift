@@ -259,13 +259,11 @@ struct OnboardingView: View {
         let userId = session.userId
         let accessToken = session.accessToken
         let profileId = session.profileId.isEmpty ? nil : session.profileId
-        Task {
-            await healthService.syncHealthIntelligence(
-                userId: userId,
-                accessToken: accessToken,
-                profileId: profileId
-            )
-        }
+        healthService.startBackgroundHealthSync(
+            userId: userId,
+            accessToken: accessToken,
+            profileId: profileId
+        )
     }
 
     private var onboardingDone: some View {
