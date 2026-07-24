@@ -657,6 +657,11 @@ final class HealthKitService: ObservableObject {
             }
             guard !Task.isCancelled else { return }
             guard boundUserId.isEmpty || boundUserId == userId else { return }
+            // Re-check durable consent after collect — revoke may have cancelled mid-flight.
+            guard hasDurableConsent(for: userId) else {
+                ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_revoked_mid_sync"])
+                return
+            }
             guard case let .value((snapshots, sleep)) = collectOutcome else {
                 connectionState = .syncFailed
                 lastSyncError = "wearable.health.error.generic|timeout"
@@ -703,6 +708,11 @@ final class HealthKitService: ObservableObject {
                 )
             }
             let idempotency = "ios-\(dateString)-\(Int(Date().timeIntervalSince1970 / 300))"
+            guard !Task.isCancelled, hasDurableConsent(for: userId) else {
+                ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_revoked_before_upload"])
+                return
+            }
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
             _ = try await apiClient.syncHealthData(
                 userId: userId,
                 accessToken: accessToken,
@@ -772,6 +782,8 @@ final class HealthKitService: ObservableObject {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
         for entry in hourly where entry.steps > 0 || entry.hrAvg != nil {
+            guard !Task.isCancelled else { return }
+            guard hasDurableConsent(for: userId) else { return }
             guard boundUserId.isEmpty || boundUserId == userId else { return }
             _ = try? await apiClient.uploadWearableHourlySummary(
                 userId: userId,
@@ -788,6 +800,7 @@ final class HealthKitService: ObservableObject {
     }
 
     func revokeConsent(userId: String, accessToken: String) async {
+        cancelPendingSync()
         _ = try? await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
         clearConsentPersisted(for: userId)
         defaults.set(false, forKey: authorizationCompletedKey(for: userId))
@@ -800,6 +813,7 @@ final class HealthKitService: ObservableObject {
     }
 
     func deleteHealthData(userId: String, accessToken: String) async {
+        cancelPendingSync()
         _ = try? await apiClient.deleteHealthData(userId: userId, accessToken: accessToken)
         _ = try? await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
         clearConsentPersisted(for: userId)

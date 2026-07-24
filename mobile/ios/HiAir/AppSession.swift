@@ -150,6 +150,10 @@ final class AppSession: ObservableObject {
                     self.rollbackPremiumActivation()
                     return
                 }
+                // Ignore stale entitlement notifications for a different account.
+                if let entitlement, !entitlement.userId.isEmpty, entitlement.userId != self.userId {
+                    return
+                }
                 if pending {
                     if let entitlement {
                         self.beginPremiumActivation(optimistic: entitlement)

@@ -221,6 +221,36 @@ final class SessionLogoutIsolationTests: XCTestCase {
     }
 
     @MainActor
+    func testEntitlementNotificationIgnoresOtherAccount() {
+        let session = AppSession()
+        session.userId = "user-b"
+        session.isPremium = false
+        let foreign = UserEntitlementResponse(
+            userId: "user-a",
+            plan: "monthly",
+            isPremium: true,
+            maxProfiles: 5,
+            extendedForecastEnabled: true,
+            customAlertsEnabled: true,
+            exportReportsEnabled: true,
+            advancedInsightsEnabled: true
+        )
+        NotificationCenter.default.post(
+            name: .subscriptionEntitlementDidUpdate,
+            object: foreign,
+            userInfo: ["activationPending": true]
+        )
+        // Allow MainActor observer Task to run.
+        let exp = expectation(description: "entitlement_ignored")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            XCTAssertFalse(session.isPremium)
+            XCTAssertFalse(session.premiumActivationPending)
+            exp.fulfill()
+        }
+        wait(for: [exp], timeout: 1.0)
+    }
+
+    @MainActor
     func testTerminalRejectionHelper() {
         XCTAssertTrue(
             SubscriptionService.isTerminalSubscriptionRejection(.server(statusCode: 400))
