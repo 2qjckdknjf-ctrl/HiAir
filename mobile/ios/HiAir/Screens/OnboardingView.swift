@@ -250,7 +250,12 @@ struct OnboardingView: View {
         healthService.setEnabledTiers(Set([1, 2, 3]))
         guard await healthService.requestAuthorization(tiers: Set([1, 2, 3])) else { return }
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
-        try? await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
+        do {
+            try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
+        } catch {
+            // Consent persistence failed — do not sync health payloads.
+            return
+        }
         let userId = session.userId
         let accessToken = session.accessToken
         let profileId = session.profileId.isEmpty ? nil : session.profileId
