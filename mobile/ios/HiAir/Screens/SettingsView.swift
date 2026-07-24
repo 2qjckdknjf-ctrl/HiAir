@@ -327,11 +327,15 @@ final class SettingsViewModel: ObservableObject {
         switch hkState {
         case .connected where consentActive:
             return "\(prefix): \(l("settings.wearables.connected"))"
+        case .consentSaving, .systemAuthorized:
+            return "\(prefix): \(l("wearable.consent.saving"))"
+        case .consentFailed:
+            return "\(prefix): \(l("wearable.consent.failed"))"
         case .permissionDenied:
             return "\(prefix): \(l("settings.wearables.denied"))"
         case .unavailable:
             return l("wearable.dashboard.unavailable")
-        default:
+        case .connected, .notConnected, .permissionRequested, .dataUnavailable, .syncFailed, .partial:
             return consentActive
                 ? "\(prefix): \(l("settings.wearables.connected"))"
                 : l("wearable.dashboard.not_connected")
