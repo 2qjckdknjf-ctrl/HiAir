@@ -321,6 +321,10 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         )
     }
 
+    override fun blockWearableSyncLocally() {
+        wearableHealthController.cancelPendingOperations()
+    }
+
     override fun bootstrapLocation(onComplete: () -> Unit) {
         locationController.bootstrapLocation(onComplete)
     }

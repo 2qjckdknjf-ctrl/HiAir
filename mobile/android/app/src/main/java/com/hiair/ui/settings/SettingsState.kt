@@ -614,7 +614,7 @@ class SettingsViewModel(
     fun deleteWearableData() {
         if (state.userId.isBlank()) return
         try {
-            // Delete both legacy wearable rows and health-intelligence aggregates.
+            // Caller must clear local consent / cancel sync before this (WearableHealthHost).
             runCatching { apiClient.deleteHealthData(state.userId, state.accessToken) }
             apiClient.deleteWearableData(state.userId, state.accessToken)
             state = state.copy(statusText = l("settings.wearables.delete"))
@@ -627,6 +627,7 @@ class SettingsViewModel(
     fun disconnectWearables() {
         if (state.userId.isBlank()) return
         try {
+            // Caller must clear local consent / cancel sync before this (WearableHealthHost).
             apiClient.revokeWearableConsent(state.userId, state.accessToken)
             refreshWearableStatus()
         } catch (_: Exception) {

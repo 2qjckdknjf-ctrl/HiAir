@@ -470,6 +470,7 @@ internal object SettingsScreenRenderer {
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
                 setOnClickListener {
                     Thread {
+                        (activity as? WearableHealthHost)?.blockWearableSyncLocally()
                         rootShell.settingsViewModel.disconnectWearables()
                         activity.runOnUiThread {
                             statusText.text = rootShell.settingsViewModel.state.statusText
@@ -480,6 +481,7 @@ internal object SettingsScreenRenderer {
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
                 setOnClickListener {
                     Thread {
+                        (activity as? WearableHealthHost)?.blockWearableSyncLocally()
                         rootShell.settingsViewModel.deleteWearableData()
                         activity.runOnUiThread {
                             statusText.text = rootShell.settingsViewModel.state.statusText

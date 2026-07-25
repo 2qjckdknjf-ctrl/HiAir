@@ -341,11 +341,14 @@ class HealthConnectService(private val context: Context) {
     }
 
     fun deleteHealthData(userId: String, accessToken: String?): String {
+        // Local consent off before any remote delete — in-flight sync must not pass gates.
+        clearConsentSession()
         apiClient.deleteHealthData(userId, accessToken)
         return apiClient.deleteWearableData(userId, accessToken)
     }
 
     fun revokeConsent(userId: String, accessToken: String?): String {
+        clearConsentSession()
         return apiClient.revokeWearableConsent(userId, accessToken)
     }
 
