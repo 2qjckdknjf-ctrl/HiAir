@@ -1,9 +1,9 @@
 # P0 Runtime Performance & UX Recovery
 
-**Branch:** `fix/p0-runtime-ux-recovery`  
-**PR:** #34  
+**Branch:** `fix/p0-runtime-ux-recovery` (PR #34)  
+**Final head:** `cac4b12` → merged `cda6722` on `main`  
 **Baseline device:** TestFlight **118** (physical iPhone — user-reported)  
-**Code tip:** after this PR lands, need TF **>118** for device re-measure
+**Retest build:** TestFlight **127** VALID → «Первый» (`IN_BETA_TESTING`)
 
 ## Root causes (proven in code)
 
@@ -27,37 +27,42 @@
 | **Consent cleared too late** | `revokeLocalConsentImmediately` clears durable consent + cancels sync **before** any remote await; remote failure → `remoteRevokePending` / `revokeFailed` with sync still blocked |
 | **Premium rollback without userId** | Rollback notifications carry `userId`; `AppSession.shouldApplyRollbackNotification` ignores foreign/unattributed rollbacks |
 
-## Changes (speed preserved)
+## Key fix commits
 
-1. **Location:** `PlaceGeocodingService` latest-wins + account presentation; instant same-account nearby cache; geocode after coords.
-2. **HealthKit:** System auth exits UI wait immediately → consent save → Connected → background sync only after durable consent via cancellable coordinator.
-3. **Premium:** Activating on StoreKit `.verified`; bounded `/me` retries; terminal reject rollback; account-isolated on logout.
-4. **Probe:** `RuntimePerformanceProbe` stages unchanged.
+| Commit | Change |
+|--------|--------|
+| `93e4182` | Route dashboard health sync through cancellable coordinator |
+| `0936a2a` | Revoke local health consent before remote operations |
+| `f8f45d5` | Cover revoke/delete/account-switch sync races |
+| `879546e` | Attribute premium rollback notifications to account |
+| `cac4b12` | Isolate place cache tests + rollback gate coverage |
+| `cda6722` | Merge PR #34 into `main` |
 
-## Measurements
+## CI / review (merge gate)
 
-### Before (TF 118 — physical, user-reported / code-bounded)
-
-| Stage | Before |
+| Item | Result |
 |------|--------|
-| City chip → real locality | **never** (structural; not a duration) |
-| Health Connect → Connected UI | **~20–45s** (sync-gated; collect timeout 45s) |
-| Premium unlock after purchase | **~20–30s** (user-reported) |
+| Final PR head | `cac4b12` |
+| Unresolved threads | 0 |
+| ios-build (push) | PASS [30156640948](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/30156640948) |
+| ios-build (PR) | PASS [30156642010](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/30156642010) |
+| Security Reviewer | PASS |
+| Find vulnerabilities | PASS |
+| Xcode Cloud Archive | PASS |
+| Backend/Android CI | path-filtered (no backend/android delta on final head); local Android previously PASS |
 
-### After (this branch — lab / unit only)
+## TestFlight
 
-| Stage | After (lab) | Evidence |
-|------|-------------|---------|
-| `beginPremiumActivation` | **immediate Activating** | `SessionLogoutIsolationTests` |
-| Connected only with durable consent | **gate enforced** | `HealthConsentGateTests` |
-| Account B ≠ A's Connected/city | **isolated** | `HealthConsentGateTests` + `SessionLogoutIsolationTests` |
-| Place presentation account-scoped | **no cross-account leak** | `PlaceGeocodingServiceTests` |
-| Dashboard sync + revoke | **upload attempts = 0** | `HealthSyncCoordinatorRaceTests` |
-| Consent cleared before remote await | **asserted in remote hook** | `testRevokeClearsConsentBeforeRemoteAwait` |
-| Premium rollback account-gated | **foreign/unattributed ignored** | `testRollbackNotificationRequiresMatchingAccount` |
-| `RuntimePerformanceProbe` unit | duration ≥0 ms recorded | `testRuntimeProbeRecordsDuration` |
+| Item | Result |
+|------|--------|
+| Version | 0.1.0 |
+| Build | **127** |
+| ASC id | `3fc99d09-b232-4bce-a7a1-1f72449f9bbb` |
+| Status | VALID / `IN_BETA_TESTING` |
+| Group | «Первый» |
+| Merge SHA | `cda6722` |
 
-### Physical device (required for PASS)
+## Physical device
 
 | Stage | Target | Status |
 |------|--------|--------|
@@ -69,18 +74,6 @@
 | Server-confirmed Premium | <2s | **NOT RUN** |
 | Revoke during sync | no upload | **NOT RUN** |
 
-Do **not** claim device PASS until TF >118 matrix is measured on a physical iPhone with Console/`RuntimePerformanceProbe` durations.
-
-## Regression
-
-| Check | Result |
-|------|--------|
-| Backend pytest | PASS (~72% cov) |
-| iOS unit (consent/account/geocode/premium/races) | PASS (`HealthSyncCoordinatorRaceTests` 12/12) |
-| Android assemble + unit | PASS |
-| Final gate | (run before merge) |
-
 ## Verdict
 
-**PR REVIEW BLOCKERS REMAIN** until fresh review + green CI on the new head; then merge → TF >118 → physical retest.  
-Target post-merge lab verdict: **CODE FIXED — WAITING FOR PHYSICAL RETEST**.
+**CODE FIXED — WAITING FOR PHYSICAL RETEST** on TestFlight **127**.

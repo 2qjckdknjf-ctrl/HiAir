@@ -1,5 +1,30 @@
 # Real Device QA Report
 
+## P0 Runtime UX Recovery (2026-07-25)
+
+**CODE FIXED — WAITING FOR PHYSICAL RETEST**
+
+PR #34 merged to `main` @ `cda6722`. TestFlight **build 127** is **VALID**, assigned to «Первый», `IN_BETA_TESTING`.
+
+Do **not** mark City / Health / Premium / revoke-safety as device PASS until the physical iPhone matrix below is measured on **TF 127**.
+
+Evidence index: `docs/audit/P0_RUNTIME_UX_RECOVERY.md`
+
+### Physical matrix (TF 127) — NOT RUN
+
+| Flow | Target | Result |
+|------|--------|--------|
+| Cached same-account city | immediate | **NOT RUN** |
+| New locality | <3 s | **NOT RUN** |
+| Health permission UI exit | immediate | **NOT RUN** |
+| Health background sync | non-blocking | **NOT RUN** |
+| Premium Activating | immediate | **NOT RUN** |
+| Premium server confirm | <2 s | **NOT RUN** |
+| Revoke during sync | no upload | **NOT RUN** |
+| Account isolation | no leakage | **NOT RUN** |
+
+---
+
 ## P0 Device Recovery (2026-07-23)
 
 **CODE FIXED — WAITING FOR PHYSICAL RETEST**

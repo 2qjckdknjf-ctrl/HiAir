@@ -1,22 +1,24 @@
 # 08 Known Gaps
 
-Updated: 2026-07-21 (Health Intelligence release certification)
+Updated: 2026-07-25 (PR #34 Runtime UX Recovery merged · TF 127)
 
 ## P0 (block first 10 real users)
 
-- **Physical HealthKit / Health Connect E2E pending:** Production `28696b0` + synthetic health smoke PASS; TestFlight **103** VALID («Первый»); device matrices still **NOT RUN**. See `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- **Physical Runtime UX retest pending:** PR #34 merged (`cda6722`); TestFlight **127** VALID («Первый»); city / Health revoke / Premium matrix still **NOT RUN** on physical iPhone. See `docs/audit/P0_RUNTIME_UX_RECOVERY.md`.
+- **Physical HealthKit / Health Connect E2E pending:** synthetic health smoke PASS; device matrices still **NOT RUN**.
 - **Maestro physical iOS automation tooling:** driver build/connect flaky on Maestro 2.7 + Xcode 26.6 — not a product FAIL; blocks unattended UI certification.
-- **StoreKit sandbox purchase:** retest on **TF 103**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
+- **StoreKit sandbox purchase:** retest on **TF 127**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
 - **Android physical + Play Billing:** no USB device this session; Play Console app for `com.hiair` EXTERNALLY BLOCKED.
-- **Cloudflare CI credential durability:** Custom API Token rotated 2026-07-21; prefer long-lived token (runbook).
+- **Cloudflare CI credential durability:** prefer long-lived Custom API Token (runbook).
 - **Use release / TestFlight builds against production** — debug variants point to localhost.
 - **Push notifications not wired on mobile** — sequenced after device QA.
 
-## Closed this certification pass
+## Closed this pass (PR #34)
 
-- Health Intelligence PR #30 merged; prod deploy SHA `28696b0`.
-- Insights `window_days=7` unblocked; `consentActive` on insights status; Android release keystore path fixed (signed v2 APK).
-- Prod synthetic smoke harness: `scripts/release/health_intelligence_production_smoke.py`.
+- Untracked Dashboard Health sync → cancellable coordinator.
+- Local durable consent cleared before remote revoke/delete await.
+- Premium rollback notifications account-attributed.
+- Fresh iOS CI + Security + Xcode Cloud green; PR merged; TF **127** distributed.
 
 ## P1 (important before wider beta)
 

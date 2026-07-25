@@ -1,5 +1,10 @@
 # P0 Device Recovery — Final Report
 
+**Superseded for Runtime UX closure by:** `docs/audit/P0_RUNTIME_UX_RECOVERY.md`  
+**Current:** `main` @ `cda6722` · TestFlight **127** VALID («Первый») · Verdict **CODE FIXED — WAITING FOR PHYSICAL RETEST**
+
+---
+
 **Date:** 2026-07-23  
 **Branch:** `fix/p0-device-recovery`  
 **Base:** `main` @ `5ffb6f2` (production API code `0243952`)  

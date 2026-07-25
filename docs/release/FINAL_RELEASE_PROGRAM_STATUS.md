@@ -1,36 +1,32 @@
 # HiAir — Final Release Program Status
 
-**Updated:** 2026-07-21 (Health Intelligence release certification)  
-**Branch:** `main` @ `28696b0`  
-**Production SHA:** `28696b020aa1a0e7c895e2e17a0b95431dac1690`  
-**Health Intelligence:** PRODUCTION LIVE + synthetic smoke PASS; **device HealthKit/HC E2E NOT VERIFIED**  
-**TestFlight:** build **103** VALID (`dce5426e-14b0-4fb1-bbf4-0c04648afaa2`) → «Первый»  
-**Verdict:** **PRODUCTION DEPLOYED — WAITING FOR DEVICE HEALTH DATA**
+**Updated:** 2026-07-25 (PR #34 Runtime UX Recovery merged)  
+**Branch:** `main` @ `cda6722`  
+**Production API SHA:** `02439521f3c56eb7ebe0fe6119d0be2179138293` (unchanged by this PR)  
+**TestFlight:** build **127** VALID (`3fc99d09-b232-4bce-a7a1-1f72449f9bbb`) → «Первый» (`IN_BETA_TESTING`)  
+**Verdict:** **CODE FIXED — WAITING FOR PHYSICAL RETEST**
 
 ---
 
-## Engineering closed
+## Engineering closed (PR #34)
 
 | Area | Status | Evidence |
 |------|--------|----------|
-| Production API | LIVE | health 200; SHA `28696b0` |
-| Health Intelligence merge | MERGED | PR #30 `6eae02a` + follow-ups |
-| Health routes unauth | LIVE | summary/sync/data **401** |
-| Synthetic auth health smoke | PASS | 14-day sync, insights 7/30, delete, privacy |
-| Live AI | PASS | `current-risk` llm; post-deploy smoke |
-| Backend pytest + final gate | PASS | local full suite + prior gate |
-| iOS build 103 | DISTRIBUTED | TestFlight VALID + internal testers |
-| Android signed release | PASS | v2 signed; API `https://api.hiair.io` |
+| PR #34 merge | MERGED | `cda6722` |
+| Health sync coordinator | FIXED | all entry points → `startBackgroundHealthSync` |
+| Revoke/delete local-first | FIXED | consent cleared before remote await |
+| Premium rollback attribution | FIXED | `userId` required on rollback notifications |
+| Fresh CI on merge head | PASS | ios-build + Security + Xcode Cloud Archive |
+| Backend redeploy | NOT REQUIRED | no backend delta; health SHA `0243952` |
 
 ## Operator / device certification required
 
 | Area | Status | Owner action |
 |------|--------|--------------|
-| iPhone HealthKit E2E | NOT RUN | TF **103** checklist in `REAL_DEVICE_QA_REPORT.md` |
-| Android Health Connect E2E | NOT RUN | Physical device + signed APK |
-| StoreKit sandbox purchase | NOT RUN | Retest on TF 103 |
+| iPhone Runtime UX matrix (TF 127) | NOT RUN | city / Health / revoke / Premium timings |
+| Android physical E2E | NOT RUN | device + signed APK |
+| StoreKit sandbox purchase | NOT RUN | retest on TF 127 |
 | Play Billing E2E | EXTERNALLY BLOCKED | No Play Console app for `com.hiair` |
-| Accessibility device audit | NOT RUN | Dynamic Type / VoiceOver / Dark Mode |
 
 ## Release configuration
 
@@ -41,10 +37,4 @@
 | iOS debug | `http://127.0.0.1:8000` |
 | iOS release / TestFlight | `https://api.hiair.io` |
 
-## Key commits
-
-- `6eae02a` — Merge PR #30 Health Intelligence 100
-- `7dcad23` — fix: 7-day insights window + prod smoke harness; iOS build bump
-- `28696b0` — fix: consentActive on insights; Android keystore root; iOS build **103**
-
-See `docs/release/qa/REAL_DEVICE_QA_REPORT.md` and `docs/audit/HEALTH_INTELLIGENCE_100_SPRINT_REPORT.md`.
+See `docs/audit/P0_RUNTIME_UX_RECOVERY.md` and `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.

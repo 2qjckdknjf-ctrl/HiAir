@@ -1,34 +1,34 @@
-# Next agent handoff — P0 Device Recovery
+# Next agent handoff — P0 Runtime UX Recovery
 
 ## Current state
 
-- Branch: `fix/p0-device-recovery` (PR to `main`)
+- **main** @ `cda6722` (PR #34 merged)
+- Canonical iOS build number: **127**
+- TestFlight **127** VALID → «Первый» (`IN_BETA_TESTING`)
+- Production API: `deploy_git_sha=0243952` (backend unchanged by PR #34; no redeploy)
 - Verdict: **CODE FIXED — WAITING FOR PHYSICAL RETEST**
-- Production API still on `0243952` until PR merge + deploy
-- TF 109 is pre-fix; need build >109 after merge
 
 ## What was fixed (code)
 
-1. Startup single-flight + foreground refresh + diagnostics  
-2. Location auth-grant auto-bootstrap + serialized fetches  
-3. HealthKit/HC Connect no longer blocks on full sync; timeouts  
-4. StoreKit finish-after-verify; unfinished restore; entitlement refresh on session change  
+1. City: account-scoped reverse geocode + latest-wins + logout isolation  
+2. Health: durable consent gate; cancellable `startBackgroundHealthSync` coordinator; revoke/delete clears local consent **before** remote await  
+3. Premium: Activating optimistic unlock; account-attributed rollback; logout clears pending  
+4. CI flake: serialized health/place races; isolated PlaceGeocoding actor in unit tests  
 
 ## Required next steps
 
-1. Merge PR after CI green (no P0/P1 in review)  
-2. If backend unchanged: skip API redeploy; confirm health SHA still `0243952` or newer  
-3. Archive/upload TestFlight >109; assign «Первый»  
-4. Run Phase 18 physical matrix on real iPhone  
-5. Only then upgrade verdict to `IOS DEVICE RECOVERY VERIFIED`
+1. Physical iPhone matrix on **TF 127** (city / Health / revoke during sync / Premium / RuntimePerformanceProbe)  
+2. Only then upgrade verdict to device-verified  
+3. Android device still pending; Play Billing still externally blocked  
 
 ## Do not
 
 - Claim device PASS from simulator  
-- Bypass Premium gates  
-- Merge with failing CI  
+- Bypass Premium or Health consent gates  
+- Publish App Store production  
 
 ## Docs
 
-- `docs/audit/P0_DEVICE_RECOVERY_BASELINE.md`  
-- `docs/audit/P0_DEVICE_RECOVERY_FINAL_REPORT.md`
+- `docs/audit/P0_RUNTIME_UX_RECOVERY.md`  
+- `docs/audit/P0_DEVICE_RECOVERY_FINAL_REPORT.md`  
+- `docs/release/qa/REAL_DEVICE_QA_REPORT.md`
