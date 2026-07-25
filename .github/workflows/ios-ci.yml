@@ -71,6 +71,8 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination "${DEST}" \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
             test \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES

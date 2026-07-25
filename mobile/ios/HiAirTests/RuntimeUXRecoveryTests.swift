@@ -493,32 +493,36 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
     }
 
     @MainActor
-    func testConsensedSyncCompletesOnceViaCoordinator() async {
+    func testConsensedSyncAllowedByGate() async {
         let service = await seedConnected("user-a")
-        service.testCollectHandler = {
-            (
-                [
-                    HealthMetricSnapshot(
-                        metricType: "steps",
-                        unit: "count",
-                        valueAvg: nil,
-                        valueMin: nil,
-                        valueMax: nil,
-                        valueLatest: nil,
-                        valueTotal: 100,
-                        sampleCount: 1,
-                        qualityState: "ok",
-                        hrvMethod: nil
-                    ),
-                ],
-                nil
+        let generation = service.syncGenerationForTests
+        XCTAssertTrue(
+            service.ensureSyncStillAuthorized(
+                userId: "user-a",
+                generation: generation,
+                stage: "unit"
             )
-        }
+        )
+        service.cancelPendingSync()
+        XCTAssertFalse(
+            service.ensureSyncStillAuthorized(
+                userId: "user-a",
+                generation: generation,
+                stage: "stale_generation"
+            )
+        )
+    }
+
+    @MainActor
+    func testCoordinatorStartBlockedWithoutConsent() async {
+        let service = await seedConnected("user-a")
+        service.testRemoteRevokeHandler = {}
+        await service.revokeConsent(userId: "user-a", accessToken: "token")
+        service.testCollectHandler = { ([], nil) }
         service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
-        await awaitSyncIdle(service, timeoutMs: 3_000)
-        XCTAssertEqual(service.connectionState, .connected)
-        XCTAssertGreaterThanOrEqual(service.testUploadAttemptCount, 1)
-        XCTAssertNotNil(service.lastSyncAt)
+        await awaitSyncIdle(service)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
     }
 
     @MainActor
