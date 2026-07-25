@@ -10,6 +10,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import httpx
 import jwt
@@ -32,6 +33,11 @@ PRODUCT_TO_PLAN: dict[str, str] = {
     "basic_yearly": "basic_yearly",
 }
 
+_APPLE_ROOT_CERT_DIR = Path(__file__).resolve().parents[1] / "resources" / "apple_root_certs"
+
+# Injected in unit tests to supply a cryptographically verified Apple transaction payload.
+_apple_transaction_decoder = None
+
 
 @dataclass(frozen=True)
 class StoreVerifierConfig:
@@ -39,14 +45,25 @@ class StoreVerifierConfig:
     google_mode: str
     apple_bundle_id: str
     google_package_name: str
+    apple_environment: str
+    apple_app_apple_id: int | None
 
 
 def _config_from_env() -> StoreVerifierConfig:
+    app_apple_id_raw = os.getenv("APPLE_APP_APPLE_ID", "").strip()
+    app_apple_id: int | None = None
+    if app_apple_id_raw:
+        try:
+            app_apple_id = int(app_apple_id_raw)
+        except ValueError as exc:
+            raise RuntimeError("APPLE_APP_APPLE_ID must be an integer") from exc
     return StoreVerifierConfig(
         apple_mode=os.getenv("APPLE_STORE_VERIFIER_MODE", "stub").strip().lower(),
         google_mode=os.getenv("GOOGLE_PLAY_VERIFIER_MODE", "stub").strip().lower(),
         apple_bundle_id=os.getenv("APPLE_BUNDLE_ID", "com.hiair.app").strip(),
         google_package_name=os.getenv("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair").strip(),
+        apple_environment=os.getenv("APPLE_STORE_ENVIRONMENT", "sandbox").strip().lower(),
+        apple_app_apple_id=app_apple_id,
     )
 
 
@@ -64,7 +81,8 @@ def _period_end_for_plan(plan_id: str, now: datetime | None = None) -> datetime:
     return anchor + timedelta(days=30)
 
 
-def _decode_jws_payload(signed_transaction: str) -> dict:
+def _decode_jws_payload_unverified(signed_transaction: str) -> dict:
+    """Decode JWS payload without signature checks. Stub / inspection only."""
     parts = signed_transaction.split(".")
     if len(parts) < 2:
         raise ValueError("Invalid signed transaction format")
@@ -77,6 +95,23 @@ def _decode_jws_payload(signed_transaction: str) -> dict:
     return data
 
 
+def _jws_alg(signed_transaction: str) -> str:
+    parts = signed_transaction.split(".")
+    if len(parts) < 1:
+        return ""
+    header = parts[0]
+    padding = "=" * (-len(header) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(header + padding)
+        data = json.loads(raw.decode("utf-8"))
+    except (ValueError, json.JSONDecodeError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    alg = data.get("alg")
+    return str(alg).strip() if alg is not None else ""
+
+
 def _product_id_from_payload(payload: dict, fallback: str | None) -> str:
     for key in ("productId", "product_id"):
         value = payload.get(key)
@@ -85,57 +120,237 @@ def _product_id_from_payload(payload: dict, fallback: str | None) -> str:
     return (fallback or "").strip()
 
 
-def _transaction_id_from_payload(payload: dict, signed_transaction: str) -> str:
+def _transaction_id_from_payload(payload: dict) -> str:
     for key in ("transactionId", "transaction_id", "transaction_id_numeric"):
         value = payload.get(key)
         if value is not None and str(value).strip():
             return str(value).strip()
-    return hashlib.sha256(signed_transaction.encode()).hexdigest()[:32]
+    return ""
 
 
-def _original_transaction_id_from_payload(payload: dict, transaction_id: str) -> str:
+def _original_transaction_id_from_payload(payload: dict) -> str:
     for key in ("originalTransactionId", "original_transaction_id"):
         value = payload.get(key)
         if value is not None and str(value).strip():
             return str(value).strip()
-    return transaction_id
+    return ""
+
+
+def _require_live_field(payload: dict, *keys: str) -> object:
+    for key in keys:
+        value = payload.get(key)
+        if value is not None and str(value).strip():
+            return value
+    raise ValueError(f"Apple transaction missing required field: {keys[0]}")
+
+
+def _load_apple_root_certificates() -> list[bytes]:
+    if not _APPLE_ROOT_CERT_DIR.is_dir():
+        raise RuntimeError("Apple root certificate directory is missing")
+    certs: list[bytes] = []
+    for path in sorted(_APPLE_ROOT_CERT_DIR.glob("*.cer")):
+        data = path.read_bytes()
+        if data:
+            certs.append(data)
+    if not certs:
+        raise RuntimeError("Apple root certificates are unavailable")
+    return certs
+
+
+def _resolve_apple_environment(name: str):
+    from appstoreserverlibrary.models.Environment import Environment
+
+    normalized = name.strip().lower()
+    if normalized in ("production", "prod"):
+        return Environment.PRODUCTION
+    if normalized == "sandbox":
+        return Environment.SANDBOX
+    if normalized == "xcode":
+        return Environment.XCODE
+    if normalized in ("localtesting", "local_testing", "local"):
+        return Environment.LOCAL_TESTING
+    raise RuntimeError(
+        f"Unknown APPLE_STORE_ENVIRONMENT={name!r}; expected sandbox, production, xcode, or localtesting"
+    )
+
+
+def _build_apple_signed_data_verifier(cfg: StoreVerifierConfig):
+    from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
+
+    environment = _resolve_apple_environment(cfg.apple_environment)
+    app_apple_id = cfg.apple_app_apple_id
+    if environment.name == "PRODUCTION" and app_apple_id is None:
+        raise RuntimeError("APPLE_APP_APPLE_ID is required when APPLE_STORE_ENVIRONMENT=production")
+    return SignedDataVerifier(
+        _load_apple_root_certificates(),
+        True,
+        environment,
+        cfg.apple_bundle_id,
+        app_apple_id,
+    )
+
+
+def _verified_payload_from_apple_object(decoded: object) -> dict:
+    """Normalize library / mock decoded transaction into a plain dict."""
+    if isinstance(decoded, dict):
+        return decoded
+
+    def _attr(name: str):
+        value = getattr(decoded, name, None)
+        if value is None:
+            return None
+        # Enum-like (Environment, etc.)
+        if hasattr(value, "value"):
+            return value.value
+        return value
+
+    payload = {
+        "bundleId": _attr("bundleId") or _attr("bundle_id"),
+        "environment": _attr("environment"),
+        "productId": _attr("productId") or _attr("product_id"),
+        "transactionId": _attr("transactionId") or _attr("transaction_id"),
+        "originalTransactionId": _attr("originalTransactionId") or _attr("original_transaction_id"),
+        "expiresDate": _attr("expiresDate") or _attr("expires_date"),
+        "revocationDate": _attr("revocationDate") or _attr("revocation_date"),
+        "revocationReason": _attr("revocationReason") or _attr("revocation_reason"),
+        "type": _attr("type"),
+        "inAppOwnershipType": _attr("inAppOwnershipType"),
+        "transactionReason": _attr("transactionReason"),
+    }
+    return {key: value for key, value in payload.items() if value is not None}
+
+
+def verify_and_decode_apple_signed_transaction(signed_transaction: str, cfg: StoreVerifierConfig) -> dict:
+    """
+    Cryptographically verify an App Store signed transaction (fail-closed).
+
+    Never logs the signed transaction or receipt body.
+    """
+    if _apple_transaction_decoder is not None:
+        return _verified_payload_from_apple_object(_apple_transaction_decoder(signed_transaction, cfg))
+
+    alg = _jws_alg(signed_transaction)
+    if not alg or alg.lower() == "none":
+        raise ValueError("Apple transaction signature algorithm is missing or untrusted")
+
+    try:
+        from appstoreserverlibrary.signed_data_verifier import VerificationException
+    except ImportError as exc:
+        raise RuntimeError("Apple App Store Server Library is not installed") from exc
+
+    try:
+        verifier = _build_apple_signed_data_verifier(cfg)
+        decoded = verifier.verify_and_decode_signed_transaction(signed_transaction)
+    except VerificationException as exc:
+        logger.warning("apple_jws_verification_failed status=%s", getattr(exc, "status", "unknown"))
+        raise ValueError("Apple transaction verification failed") from exc
+    except Exception as exc:  # network / cert / config — fail closed
+        logger.warning("apple_jws_verifier_unavailable error_type=%s", type(exc).__name__)
+        raise RuntimeError("Apple transaction verifier unavailable") from exc
+
+    return _verified_payload_from_apple_object(decoded)
+
+
+def _status_from_apple_payload(payload: dict, expires_at: datetime) -> SubscriptionStatus:
+    now = datetime.now(tz=UTC)
+    if payload.get("revocationDate") is not None:
+        return "refunded"
+    status_raw = str(payload.get("status") or "active")
+    status = _normalize_status(status_raw, expires_at)
+    if expires_at < now and status in ("active", "trialing", "grace_period"):
+        return "expired"
+    return status
+
+
+def _verify_ios_live(signed_transaction: str, product_id: str | None, cfg: StoreVerifierConfig) -> VerifiedStorePurchase:
+    payload = verify_and_decode_apple_signed_transaction(signed_transaction, cfg)
+
+    bundle_id = str(_require_live_field(payload, "bundleId", "bundle_id")).strip()
+    if bundle_id != cfg.apple_bundle_id:
+        raise ValueError("Apple transaction bundle ID mismatch")
+
+    environment = str(_require_live_field(payload, "environment")).strip()
+    expected_env = _resolve_apple_environment(cfg.apple_environment)
+    expected_value = getattr(expected_env, "value", str(expected_env))
+    if environment != expected_value and environment.lower() != str(expected_value).lower():
+        raise ValueError("Apple transaction environment mismatch")
+
+    resolved_product = str(_require_live_field(payload, "productId", "product_id")).strip()
+    if product_id and product_id.strip() and resolved_product != product_id.strip():
+        raise ValueError("Apple transaction product ID mismatch")
+    plan_id = plan_id_for_product(resolved_product)
+
+    expires_raw = _require_live_field(payload, "expiresDate", "expires_date", "expirationDate", "expires_at")
+    expires_at = _parse_ts(expires_raw)
+
+    transaction_id = str(_require_live_field(payload, "transactionId", "transaction_id", "transaction_id_numeric")).strip()
+    original = str(
+        _require_live_field(payload, "originalTransactionId", "original_transaction_id")
+    ).strip()
+
+    status = _status_from_apple_payload(payload, expires_at)
+
+    logger.info(
+        "apple_live_verify product_id=%s status=%s expires_at=%s",
+        resolved_product,
+        status,
+        expires_at.isoformat(),
+    )
+    return VerifiedStorePurchase(
+        platform="ios",
+        provider="apple",
+        product_id=resolved_product,
+        plan_id=plan_id,
+        status=status,
+        transaction_id=transaction_id,
+        original_transaction_id=original,
+        purchase_token=None,
+        expires_at=expires_at,
+        auto_renew=bool(payload.get("autoRenew", True)) and status in ("active", "trialing", "grace_period"),
+    )
+
+
+def _verify_ios_stub(signed_transaction: str, product_id: str | None) -> VerifiedStorePurchase:
+    payload = _decode_jws_payload_unverified(signed_transaction)
+    resolved_product = _product_id_from_payload(payload, product_id)
+    if not resolved_product:
+        raise ValueError("product_id is required for iOS verification")
+    plan_id = plan_id_for_product(resolved_product)
+    expires_raw = (
+        payload.get("expiresDate")
+        or payload.get("expires_date")
+        or payload.get("expirationDate")
+        or payload.get("expires_at")
+    )
+    if expires_raw:
+        expires_at = _parse_ts(expires_raw)
+    else:
+        expires_at = _period_end_for_plan(plan_id)
+    status_raw = str(payload.get("status") or "active")
+    status = _normalize_status(status_raw, expires_at)
+    transaction_id = _transaction_id_from_payload(payload) or hashlib.sha256(signed_transaction.encode()).hexdigest()[:32]
+    original = _original_transaction_id_from_payload(payload) or transaction_id
+    return VerifiedStorePurchase(
+        platform="ios",
+        provider="apple",
+        product_id=resolved_product,
+        plan_id=plan_id,
+        status=status,
+        transaction_id=transaction_id,
+        original_transaction_id=original,
+        purchase_token=None,
+        expires_at=expires_at,
+        auto_renew=bool(payload.get("autoRenew", True)),
+    )
 
 
 def verify_ios_purchase(signed_transaction: str, product_id: str | None = None) -> VerifiedStorePurchase:
     cfg = _config_from_env()
-    if cfg.apple_mode in ("stub", "live"):
-        payload = _decode_jws_payload(signed_transaction)
-        resolved_product = _product_id_from_payload(payload, product_id)
-        if not resolved_product:
-            raise ValueError("product_id is required for iOS verification")
-        plan_id = plan_id_for_product(resolved_product)
-        expires_raw = (
-            payload.get("expiresDate")
-            or payload.get("expires_date")
-            or payload.get("expirationDate")
-            or payload.get("expires_at")
-        )
-        if expires_raw:
-            expires_at = _parse_ts(expires_raw)
-        else:
-            expires_at = _period_end_for_plan(plan_id)
-        status_raw = str(payload.get("status") or "active")
-        status = _normalize_status(status_raw, expires_at)
-        transaction_id = _transaction_id_from_payload(payload, signed_transaction)
-        original = _original_transaction_id_from_payload(payload, transaction_id)
-        return VerifiedStorePurchase(
-            platform="ios",
-            provider="apple",
-            product_id=resolved_product,
-            plan_id=plan_id,
-            status=status,
-            transaction_id=transaction_id,
-            original_transaction_id=original,
-            purchase_token=None,
-            expires_at=expires_at,
-            auto_renew=bool(payload.get("autoRenew", True)),
-        )
-
+    if cfg.apple_mode == "stub":
+        return _verify_ios_stub(signed_transaction, product_id)
+    if cfg.apple_mode == "live":
+        # Fail-closed: never silently fall back to stub decode.
+        return _verify_ios_live(signed_transaction, product_id, cfg)
     raise ValueError(f"Unsupported APPLE_STORE_VERIFIER_MODE: {cfg.apple_mode}")
 
 
@@ -351,3 +566,10 @@ def build_stub_ios_jws(product_id: str, *, expires_at: datetime | None = None, s
     }
     body = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     return f"{header}.{body}.stub"
+
+
+def build_unsigned_ios_jws(payload: dict, *, alg: str = "none") -> str:
+    """Test helper: unsigned / tampered JWS shapes (never accepted in live mode)."""
+    header = base64.urlsafe_b64encode(json.dumps({"alg": alg}).encode()).decode().rstrip("=")
+    body = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    return f"{header}.{body}."

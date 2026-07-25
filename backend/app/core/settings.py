@@ -46,6 +46,8 @@ class Settings:
     apple_store_verifier_mode: str = os.getenv("APPLE_STORE_VERIFIER_MODE", "stub")
     google_play_verifier_mode: str = os.getenv("GOOGLE_PLAY_VERIFIER_MODE", "stub")
     apple_bundle_id: str = os.getenv("APPLE_BUNDLE_ID", "com.hiair.app")
+    apple_store_environment: str = os.getenv("APPLE_STORE_ENVIRONMENT", "sandbox")
+    apple_app_apple_id: str = os.getenv("APPLE_APP_APPLE_ID", "").strip()
     google_play_package_name: str = os.getenv("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
     weather_api_provider: str = os.getenv("WEATHER_API_PROVIDER", "openmeteo")
     weather_api_key: str = os.getenv("WEATHER_API_KEY", "")
