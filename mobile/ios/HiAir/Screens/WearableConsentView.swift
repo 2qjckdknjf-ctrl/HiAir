@@ -190,6 +190,16 @@ struct WearableLoadCardView: View {
             Text(session.l("wearable.consent.saving"))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
+        case .revoking, .remoteRevokePending:
+            Text(session.l("wearable.consent.revoking"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+        case .revokeFailed:
+            Text(session.l("wearable.consent.revoke_failed"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Button(session.l("wearable.consent.retry"), action: onConnect)
+                .buttonStyle(HiAirSecondaryButtonStyle())
         case .consentFailed:
             Text(session.l("wearable.consent.failed"))
                 .font(HiAirTypography.bodyMD)

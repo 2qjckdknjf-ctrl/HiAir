@@ -331,6 +331,10 @@ final class SettingsViewModel: ObservableObject {
             return "\(prefix): \(l("wearable.consent.saving"))"
         case .consentFailed:
             return "\(prefix): \(l("wearable.consent.failed"))"
+        case .revoking, .remoteRevokePending:
+            return "\(prefix): \(l("wearable.consent.revoking"))"
+        case .revokeFailed:
+            return "\(prefix): \(l("wearable.consent.revoke_failed"))"
         case .permissionDenied:
             return "\(prefix): \(l("settings.wearables.denied"))"
         case .unavailable:
