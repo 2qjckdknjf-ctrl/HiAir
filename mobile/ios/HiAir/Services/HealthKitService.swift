@@ -91,6 +91,8 @@ final class HealthKitService: ObservableObject {
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
     /// Overridable for unit tests (default 45s collect).
     var healthCollectTimeoutNanoseconds: UInt64 = 45_000_000_000
+    /// Injectable sleeper for timeout races (tests use ImmediateNanosleeper).
+    var timeoutSleeper: any Nanosleeping = SystemNanosleeper()
     /// Test seam: replace HealthKit collect (deterministic race tests).
     var testCollectHandler: (() async -> ([HealthMetricSnapshot], HealthSleepSnapshot?))?
     /// Test seam: run before each network upload (e.g. slow remote).
@@ -98,7 +100,9 @@ final class HealthKitService: ObservableObject {
     /// Test seam: replace remote revoke/delete network calls.
     var testRemoteRevokeHandler: (() async throws -> Void)?
     var testRemoteDeleteHandler: (() async throws -> Void)?
-    /// Counts upload attempts that passed the consent/generation gate.
+    /// Counts times the upload gate was reached (before hook / network).
+    private(set) var testUploadGateReachedCount: Int = 0
+    /// Counts upload attempts that passed the consent/generation gate after the hook.
     private(set) var testUploadAttemptCount: Int = 0
     var syncGenerationForTests: UInt64 { syncGeneration }
     var hasSyncInFlightForTests: Bool { syncInFlight != nil }
@@ -350,7 +354,8 @@ final class HealthKitService: ObservableObject {
         ProductAnalytics.track("health_authorization_started")
         let types = activeReadTypes
         let outcome = await HealthKitTimeoutRace.raceCallback(
-            timeoutNanoseconds: authorizationTimeoutNanoseconds
+            timeoutNanoseconds: authorizationTimeoutNanoseconds,
+            sleeper: timeoutSleeper
         ) { (finish: @escaping @Sendable (NSError?) -> Void) in
             self.store.requestAuthorization(toShare: [], read: types) { _, error in
                 finish(error as NSError?)
@@ -671,21 +676,7 @@ final class HealthKitService: ObservableObject {
 
     /// Canonical public entry — all Views must use this (not unstructured sync Tasks).
     func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
-        guard hasDurableConsent(for: userId) else {
-            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing", "stage": "start"])
-            return
-        }
-        switch connectionState {
-        case .revoking, .remoteRevokePending, .revokeFailed:
-            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "state_blocks_sync", "stage": "start"])
-            return
-        default:
-            break
-        }
-        // Single-flight: replace any prior operation with a fresh generation-bound task.
-        syncInFlight?.cancel()
-        syncGeneration &+= 1
-        let generation = syncGeneration
+        guard let generation = beginHealthSyncGeneration(userId: userId) else { return }
         let expectedUserId = userId
         syncInFlight = Task { [weak self] in
             guard let self else { return }
@@ -697,28 +688,78 @@ final class HealthKitService: ObservableObject {
                     }
                 }
             }
-            guard self.ensureSyncStillAuthorized(
-                userId: expectedUserId,
-                generation: generation,
-                stage: "coordinator_start"
-            ) else { return }
-            await self.performHealthSync(
+            await self.runHealthSyncPipeline(
                 userId: expectedUserId,
                 accessToken: accessToken,
                 profileId: profileId,
                 generation: generation
             )
-            guard self.ensureSyncStillAuthorized(
-                userId: expectedUserId,
-                generation: generation,
-                stage: "before_hourly"
-            ) else { return }
-            await self.syncWearableHourlySummary(
-                userId: expectedUserId,
-                accessToken: accessToken,
-                generation: generation
-            )
         }
+    }
+
+    /// Deterministic, awaitable sync for unit tests (same gates as production coordinator).
+    func runHealthSyncForTests(userId: String, accessToken: String, profileId: String?) async {
+        guard let generation = beginHealthSyncGeneration(userId: userId) else { return }
+        // Placeholder so cancelPendingSync / hasSyncInFlightForTests behave like production.
+        syncInFlight = Task {}
+        defer {
+            if syncGeneration == generation {
+                syncInFlight = nil
+            }
+        }
+        await runHealthSyncPipeline(
+            userId: userId,
+            accessToken: accessToken,
+            profileId: profileId,
+            generation: generation
+        )
+    }
+
+    private func beginHealthSyncGeneration(userId: String) -> UInt64? {
+        guard hasDurableConsent(for: userId) else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing", "stage": "start"])
+            return nil
+        }
+        switch connectionState {
+        case .revoking, .remoteRevokePending, .revokeFailed:
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "state_blocks_sync", "stage": "start"])
+            return nil
+        default:
+            break
+        }
+        // Single-flight: replace any prior operation with a fresh generation-bound task.
+        syncInFlight?.cancel()
+        syncGeneration &+= 1
+        return syncGeneration
+    }
+
+    private func runHealthSyncPipeline(
+        userId: String,
+        accessToken: String,
+        profileId: String?,
+        generation: UInt64
+    ) async {
+        guard ensureSyncStillAuthorized(
+            userId: userId,
+            generation: generation,
+            stage: "coordinator_start"
+        ) else { return }
+        await performHealthSync(
+            userId: userId,
+            accessToken: accessToken,
+            profileId: profileId,
+            generation: generation
+        )
+        guard ensureSyncStillAuthorized(
+            userId: userId,
+            generation: generation,
+            stage: "before_hourly"
+        ) else { return }
+        await syncWearableHourlySummary(
+            userId: userId,
+            accessToken: accessToken,
+            generation: generation
+        )
     }
 
     /// Legacy name — always routes through the cancellable coordinator.
@@ -743,7 +784,8 @@ final class HealthKitService: ObservableObject {
                 (snapshots, sleep) = await testCollectHandler()
             } else {
                 let collectOutcome = await HealthKitTimeoutRace.raceAsync(
-                    timeoutNanoseconds: healthCollectTimeoutNanoseconds
+                    timeoutNanoseconds: healthCollectTimeoutNanoseconds,
+                    sleeper: self.timeoutSleeper
                 ) {
                     await self.collectTodaySnapshots()
                 }
@@ -889,6 +931,7 @@ final class HealthKitService: ObservableObject {
         guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: stage) else {
             return false
         }
+        testUploadGateReachedCount += 1
         if let testBeforeUploadHook {
             await testBeforeUploadHook()
             guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "\(stage)_after_hook") else {
@@ -995,7 +1038,21 @@ final class HealthKitService: ObservableObject {
         testBeforeUploadHook = nil
         testRemoteRevokeHandler = nil
         testRemoteDeleteHandler = nil
+        testUploadGateReachedCount = 0
         testUploadAttemptCount = 0
+        authorizationTimeoutNanoseconds = 60_000_000_000
+        healthCollectTimeoutNanoseconds = 45_000_000_000
+        timeoutSleeper = SystemNanosleeper()
+    }
+
+    /// Call from unit-test setUp to keep the shared singleton deterministic and fast.
+    func prepareForUnitTests() {
+        cancelPendingSync()
+        clearAccountSession()
+        resetTestHooks()
+        authorizationTimeoutNanoseconds = 1_000_000
+        healthCollectTimeoutNanoseconds = 1_000_000
+        timeoutSleeper = ImmediateNanosleeper()
     }
 
     // MARK: - Legacy helpers kept for dashboard

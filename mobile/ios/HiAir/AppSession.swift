@@ -351,8 +351,9 @@ final class AppSession: ObservableObject {
 
     @discardableResult
     func prepareSessionForDataFetch(
-        locationService: LocationProviding = LocationService.shared
+        locationService: LocationProviding? = nil
     ) async -> SessionPrepareResult {
+        let locationService = locationService ?? LocationService.shared
         if let inFlightPrepare {
             return await inFlightPrepare.value
         }
@@ -406,7 +407,8 @@ final class AppSession: ObservableObject {
     }
 
     /// Debounced foreground refresh — does not block forever on location.
-    func refreshOnForeground(locationService: LocationProviding = LocationService.shared) async {
+    func refreshOnForeground(locationService: LocationProviding? = nil) async {
+        let locationService = locationService ?? LocationService.shared
         let now = Date()
         if let lastForegroundRefreshAt, now.timeIntervalSince(lastForegroundRefreshAt) < 8 {
             return
@@ -529,7 +531,8 @@ final class AppSession: ObservableObject {
         }
     }
 
-    func bootstrapLocationFromDevice(locationService: LocationProviding = LocationService.shared) async -> Bool {
+    func bootstrapLocationFromDevice(locationService: LocationProviding? = nil) async -> Bool {
+        let locationService = locationService ?? LocationService.shared
         locationService.refreshAuthorizationStatus()
         switch locationService.authorizationStatus {
         case .notDetermined:

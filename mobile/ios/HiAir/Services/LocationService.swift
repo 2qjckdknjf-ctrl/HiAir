@@ -79,6 +79,7 @@ extension Notification.Name {
     )
 }
 
+@MainActor
 protocol LocationProviding: AnyObject {
     var authorizationStatus: CLAuthorizationStatus { get }
     var serviceState: LocationServiceState { get }
@@ -100,11 +101,12 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
     private var timeoutTask: Task<Void, Never>?
     private var fetchWaiters: [CheckedContinuation<CLLocation, Error>] = []
     private var isFetchInFlight = false
+    private let locationTimeoutSeconds: TimeInterval
     private var previousAuthorizationStatus: CLAuthorizationStatus = .notDetermined
-    private let locationTimeoutSeconds: TimeInterval = 20
 
     override init() {
         manager = CLLocationManager()
+        locationTimeoutSeconds = 20
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
@@ -112,8 +114,9 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
         previousAuthorizationStatus = authorizationStatus
     }
 
-    init(manager: CLLocationManager) {
+    init(manager: CLLocationManager, timeoutSeconds: TimeInterval = 20) {
         self.manager = manager
+        self.locationTimeoutSeconds = timeoutSeconds
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
@@ -133,7 +136,12 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
 
     func fetchCurrentLocation() async throws -> CLLocation {
         refreshAuthorizationStatus()
-        guard CLLocationManager.locationServicesEnabled() else {
+        // Avoid CLLocationManager.locationServicesEnabled() on the main actor — it can block UI.
+        // Prefer authorization status; treat .notDetermined/.denied/.restricted via switch below.
+        let servicesEnabled = await Task.detached(priority: .userInitiated) {
+            CLLocationManager.locationServicesEnabled()
+        }.value
+        guard servicesEnabled else {
             serviceState = .servicesDisabled
             throw LocationServiceError.servicesDisabled
         }
@@ -180,10 +188,7 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
     }
 
     private func updateStateFromAuthorization() {
-        guard CLLocationManager.locationServicesEnabled() else {
-            serviceState = .servicesDisabled
-            return
-        }
+        // Do not call locationServicesEnabled() synchronously on MainActor.
         switch authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             if serviceState != .locating {

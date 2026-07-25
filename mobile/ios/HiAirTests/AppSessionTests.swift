@@ -1,5 +1,22 @@
+import CoreLocation
 import XCTest
 @testable import HiAir
+
+@MainActor
+private final class ImmediateLocationStub: LocationProviding {
+    var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
+    var serviceState: LocationServiceState = .authorized
+    var fetchCalls = 0
+
+    func refreshAuthorizationStatus() {}
+    func requestWhenInUseAuthorization() {}
+    func openAppSettings() {}
+
+    func fetchCurrentLocation() async throws -> CLLocation {
+        fetchCalls += 1
+        return CLLocation(latitude: 41.3874, longitude: 2.1686)
+    }
+}
 
 final class AppSessionTests: XCTestCase {
     func testLocalizationFallbackUsesKeyForUnknownValue() {
@@ -62,14 +79,19 @@ final class AppSessionTests: XCTestCase {
     func testPrepareSessionSingleFlightReturnsConsistentResult() async {
         let session = AppSession()
         session.userId = "user-prepare"
-        session.accessToken = "token"
-        // Without network/location, prepare should complete (partial) and not hang.
-        async let first = session.prepareSessionForDataFetch()
-        async let second = session.prepareSessionForDataFetch()
+        // No access token → profile bootstrap skips network.
+        session.accessToken = ""
+        // Valid coords → skip device location bootstrap path.
+        session.latitude = 41.3874
+        session.longitude = 2.1686
+        let location = ImmediateLocationStub()
+        async let first = session.prepareSessionForDataFetch(locationService: location)
+        async let second = session.prepareSessionForDataFetch(locationService: location)
         let a = await first
         let b = await second
         XCTAssertEqual(a.profileReady, b.profileReady)
         XCTAssertEqual(a.locationReady, b.locationReady)
+        XCTAssertEqual(location.fetchCalls, 0)
     }
 
     @MainActor

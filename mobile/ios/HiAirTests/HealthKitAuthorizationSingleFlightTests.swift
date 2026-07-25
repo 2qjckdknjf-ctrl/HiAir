@@ -23,15 +23,20 @@ final class HealthKitAuthorizationSingleFlightTests: XCTestCase {
     func testConcurrentConnect_oneOperation() async {
         let flight = AuthorizationSingleFlight()
         let counter = Counter()
+        let hold = TestAsyncGate()
+        let started = TestAsyncGate()
         async let a = flight.request {
             await counter.increment()
-            try? await Task.sleep(nanoseconds: 40_000_000)
+            await started.open()
+            await hold.wait()
             return true
         }
+        await started.wait()
         async let b = flight.request {
             await counter.increment()
             return true
         }
+        await hold.open()
         let results = await (a, b)
         XCTAssertTrue(results.0)
         XCTAssertTrue(results.1)

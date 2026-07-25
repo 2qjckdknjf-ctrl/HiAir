@@ -2,9 +2,12 @@ import XCTest
 @testable import HiAir
 
 final class HealthKitTimeoutRaceTests: XCTestCase {
+    private let fastSleeper = ImmediateNanosleeper()
+
     func testCallbackNeverArrives_timeoutReturns() async {
         let outcome: HealthKitTimeoutRace.Outcome<Bool> = await HealthKitTimeoutRace.raceCallback(
-            timeoutNanoseconds: 20_000_000
+            timeoutNanoseconds: 1,
+            sleeper: fastSleeper
         ) { (_: @escaping @Sendable (Bool) -> Void) in
             // Never finishes.
         }
@@ -14,7 +17,10 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
     }
 
     func testCallbackBeforeTimeout_returnsValue() async {
-        let outcome = await HealthKitTimeoutRace.raceCallback(timeoutNanoseconds: 500_000_000) { finish in
+        let outcome = await HealthKitTimeoutRace.raceCallback(
+            timeoutNanoseconds: 1_000_000_000,
+            sleeper: SystemNanosleeper()
+        ) { finish in
             finish("ok")
         }
         guard case let .value(value) = outcome else {
@@ -40,7 +46,10 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
 
     func testCallbackError_propagatesAsValue() async {
         let error = NSError(domain: "HealthKitTest", code: 1)
-        let outcome = await HealthKitTimeoutRace.raceCallback(timeoutNanoseconds: 500_000_000) { finish in
+        let outcome = await HealthKitTimeoutRace.raceCallback(
+            timeoutNanoseconds: 1_000_000_000,
+            sleeper: SystemNanosleeper()
+        ) { finish in
             finish(error)
         }
         guard case let .value(value) = outcome else {
@@ -60,17 +69,25 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
     }
 
     func testAsyncOperationNeverCompletes_timeoutReturns() async {
-        let outcome = await HealthKitTimeoutRace.raceAsync(timeoutNanoseconds: 20_000_000) {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        let hang = TestAsyncGate()
+        let outcome = await HealthKitTimeoutRace.raceAsync(
+            timeoutNanoseconds: 1,
+            sleeper: fastSleeper
+        ) {
+            await hang.wait()
             return "late"
         }
         guard case .timedOut = outcome else {
             return XCTFail("Expected collect timeout")
         }
+        await hang.open()
     }
 
     func testAsyncOperationBeforeTimeout_returnsValue() async {
-        let outcome = await HealthKitTimeoutRace.raceAsync(timeoutNanoseconds: 500_000_000) {
+        let outcome = await HealthKitTimeoutRace.raceAsync(
+            timeoutNanoseconds: 1_000_000_000,
+            sleeper: SystemNanosleeper()
+        ) {
             "snapshots"
         }
         guard case let .value(value) = outcome else {
@@ -80,28 +97,35 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
     }
 
     func testLateAsyncAfterTimeout_ignored() async {
+        let hang = TestAsyncGate()
         let started = expectation(description: "late work started")
-        let outcome = await HealthKitTimeoutRace.raceAsync(timeoutNanoseconds: 30_000_000) {
+        let outcome = await HealthKitTimeoutRace.raceAsync(
+            timeoutNanoseconds: 1,
+            sleeper: fastSleeper
+        ) {
             started.fulfill()
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            await hang.wait()
             return "should-be-ignored"
         }
         guard case .timedOut = outcome else {
             return XCTFail("Expected timeout")
         }
         await fulfillment(of: [started], timeout: 1.0)
-        // Give late completion a moment; gate must stay timedOut (already returned).
-        try? await Task.sleep(nanoseconds: 250_000_000)
+        await hang.open()
     }
 
     func testRetryAfterTimeout_newRaceSucceeds() async {
         let first: HealthKitTimeoutRace.Outcome<Bool> = await HealthKitTimeoutRace.raceCallback(
-            timeoutNanoseconds: 20_000_000
+            timeoutNanoseconds: 1,
+            sleeper: fastSleeper
         ) { (_: @escaping @Sendable (Bool) -> Void) in }
         guard case .timedOut = first else {
             return XCTFail("Expected first timeout")
         }
-        let second = await HealthKitTimeoutRace.raceCallback(timeoutNanoseconds: 500_000_000) { finish in
+        let second = await HealthKitTimeoutRace.raceCallback(
+            timeoutNanoseconds: 1_000_000_000,
+            sleeper: SystemNanosleeper()
+        ) { finish in
             finish(true)
         }
         guard case let .value(ok) = second else {
@@ -111,16 +135,21 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
     }
 
     func testCancellationDoesNotHangCaller() async {
+        let hang = TestAsyncGate()
         let parent = Task {
             let _: HealthKitTimeoutRace.Outcome<Bool> = await HealthKitTimeoutRace.raceCallback(
-                timeoutNanoseconds: 2_000_000_000
-            ) { (_: @escaping @Sendable (Bool) -> Void) in }
+                timeoutNanoseconds: 60_000_000_000,
+                sleeper: SystemNanosleeper()
+            ) { (_: @escaping @Sendable (Bool) -> Void) in
+                // never completes
+            }
+            _ = hang
         }
-        // Let the race install its waiter, then cancel.
-        try? await Task.sleep(nanoseconds: 5_000_000)
+        await Task.yield()
         parent.cancel()
         let started = Date()
         _ = await parent.value
         XCTAssertLessThan(Date().timeIntervalSince(started), 1.0)
+        await hang.open()
     }
 }

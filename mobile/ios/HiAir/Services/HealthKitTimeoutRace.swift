@@ -1,5 +1,24 @@
 import Foundation
 
+/// Deterministic sleep seam for unit tests (avoid real multi-second waits).
+protocol Nanosleeping: Sendable {
+    func sleep(nanoseconds: UInt64) async
+}
+
+struct SystemNanosleeper: Nanosleeping {
+    func sleep(nanoseconds: UInt64) async {
+        try? await Task.sleep(nanoseconds: nanoseconds)
+    }
+}
+
+/// Test sleeper: completes immediately (or after optional cooperative yield).
+struct ImmediateNanosleeper: Nanosleeping {
+    func sleep(nanoseconds: UInt64) async {
+        // Cooperative yield only — never wall-clock sleep.
+        await Task.yield()
+    }
+}
+
 /// One-shot completion gate: resumes a waiter exactly once; late completions are ignored.
 final class OneShotCompletionGate<Value>: @unchecked Sendable {
     private let lock = NSLock()
@@ -44,6 +63,49 @@ final class OneShotCompletionGate<Value>: @unchecked Sendable {
     }
 }
 
+/// Controllable async gate for race tests (lock-based; safe with MainActor Tasks).
+final class TestAsyncGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var opened = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        lock.lock()
+        if opened {
+            lock.unlock()
+            return
+        }
+        lock.unlock()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                lock.lock()
+                if opened || Task.isCancelled {
+                    lock.unlock()
+                    cont.resume()
+                } else {
+                    continuation = cont
+                    lock.unlock()
+                }
+            }
+        } onCancel: {
+            lock.lock()
+            let pending = continuation
+            continuation = nil
+            lock.unlock()
+            pending?.resume()
+        }
+    }
+
+    func open() {
+        lock.lock()
+        opened = true
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume()
+    }
+}
+
 /// Timeout race that returns without awaiting a hung callback / child task.
 enum HealthKitTimeoutRace {
     enum Outcome<Value> {
@@ -56,6 +118,7 @@ enum HealthKitTimeoutRace {
     /// Caller cancellation completes immediately with `.timedOut`.
     static func raceCallback<Value: Sendable>(
         timeoutNanoseconds: UInt64,
+        sleeper: any Nanosleeping = SystemNanosleeper(),
         operation: @escaping (@escaping @Sendable (Value) -> Void) -> Void
     ) async -> Outcome<Value> {
         let gate = OneShotCompletionGate<Outcome<Value>>()
@@ -70,7 +133,7 @@ enum HealthKitTimeoutRace {
                 }
 
                 Task {
-                    try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                    await sleeper.sleep(nanoseconds: timeoutNanoseconds)
                     _ = gate.complete(.timedOut)
                 }
             }
@@ -82,6 +145,7 @@ enum HealthKitTimeoutRace {
     /// Race an async operation against a timeout without awaiting a hung operation after timeout.
     static func raceAsync<Value: Sendable>(
         timeoutNanoseconds: UInt64,
+        sleeper: any Nanosleeping = SystemNanosleeper(),
         operation: @escaping @Sendable () async -> Value
     ) async -> Outcome<Value> {
         let gate = OneShotCompletionGate<Outcome<Value>>()
@@ -96,7 +160,7 @@ enum HealthKitTimeoutRace {
                 }
 
                 Task {
-                    try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                    await sleeper.sleep(nanoseconds: timeoutNanoseconds)
                     work.cancel()
                     _ = gate.complete(.timedOut)
                 }

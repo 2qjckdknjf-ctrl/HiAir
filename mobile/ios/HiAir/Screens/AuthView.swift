@@ -78,9 +78,7 @@ final class AuthViewModel: ObservableObject {
             case .session(let authSession):
                 return authSession
             case .emailConfirmationRequired(let confirmedEmail):
-                if let bridged = try await emailBridgeSession(email: email, password: password, signup: true) {
-                    return bridged
-                }
+                // Never fall back to bridge auto-confirm — that would bypass email proof.
                 session.authNotice = String(format: session.l("auth.confirm_email"), confirmedEmail)
                 throw AuthFlowError.confirmationRequired
             }
@@ -116,8 +114,13 @@ final class AuthViewModel: ObservableObject {
             if case .server(let code) = apiError, code == 404 {
                 return nil
             }
-            if case .serverWithDetail(let code, _) = apiError, code == 404 {
-                return nil
+            if case .serverWithDetail(let code, let detail) = apiError {
+                if code == 404 {
+                    return nil
+                }
+                if signup && code == 403 && detail.lowercased().contains("confirm") {
+                    throw AuthFlowError.confirmationRequired
+                }
             }
             throw apiError
         }
