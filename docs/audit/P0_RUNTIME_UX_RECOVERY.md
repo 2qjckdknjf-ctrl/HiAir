@@ -25,6 +25,7 @@
 | Optimistic Premium | Activating (`premiumActivationPending`) after StoreKit verified; backend confirm clears pending; terminal 4xx rolls back; logout clears |
 | **Untracked Dashboard sync** | Dashboard uses only `startBackgroundHealthSync` (single `syncInFlight` + `syncGeneration`); no unstructured `Task` + direct sync |
 | **Consent cleared too late** | `revokeLocalConsentImmediately` clears durable consent + cancels sync **before** any remote await; remote failure → `remoteRevokePending` / `revokeFailed` with sync still blocked |
+| **Premium rollback without userId** | Rollback notifications carry `userId`; `AppSession.shouldApplyRollbackNotification` ignores foreign/unattributed rollbacks |
 
 ## Changes (speed preserved)
 
@@ -53,6 +54,7 @@
 | Place presentation account-scoped | **no cross-account leak** | `PlaceGeocodingServiceTests` |
 | Dashboard sync + revoke | **upload attempts = 0** | `HealthSyncCoordinatorRaceTests` |
 | Consent cleared before remote await | **asserted in remote hook** | `testRevokeClearsConsentBeforeRemoteAwait` |
+| Premium rollback account-gated | **foreign/unattributed ignored** | `testRollbackNotificationRequiresMatchingAccount` |
 | `RuntimePerformanceProbe` unit | duration ≥0 ms recorded | `testRuntimeProbeRecordsDuration` |
 
 ### Physical device (required for PASS)
