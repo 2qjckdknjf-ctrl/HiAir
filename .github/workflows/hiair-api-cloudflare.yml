@@ -99,6 +99,8 @@ jobs:
               "APPLE_STORE_VERIFIER_MODE",
               "GOOGLE_PLAY_VERIFIER_MODE",
               "APPLE_BUNDLE_ID",
+              "APPLE_STORE_ENVIRONMENT",
+              "APPLE_APP_APPLE_ID",
               "GOOGLE_PLAY_PACKAGE_NAME",
               "WEATHER_API_PROVIDER",
               "WEATHER_API_KEY",
@@ -107,8 +109,6 @@ jobs:
           }
           defaults = {
               "APP_ENV": "production",
-              "APPLE_STORE_VERIFIER_MODE": "stub",
-              "GOOGLE_PLAY_VERIFIER_MODE": "stub",
               "APPLE_BUNDLE_ID": "com.hiair.app",
               "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
               "HIAIR_AUTH_EMAIL_BRIDGE_ENABLED": "true",
@@ -121,8 +121,19 @@ jobs:
                   value = defaults[key]
               if value:
                   lines.append(f"{key}={value}")
+          env_map = dict(line.split("=", 1) for line in lines)
+          apple_mode = env_map.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
+          apple_store_env = env_map.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()
+          apple_app_id = env_map.get("APPLE_APP_APPLE_ID", "").strip()
+          if apple_mode != "live":
+              raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
+          if apple_store_env not in ("production", "prod"):
+              raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
+          if not apple_app_id.isdigit():
+              raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
           out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-          print(f"Wrote {len(lines)} secrets to {out}")
+          print(f"Wrote {len(lines)} secrets to {out} (values not logged)")
+          print("Synced keys: " + ", ".join(sorted(env_map)))
           PY
 
       - name: Deploy API to Cloudflare Containers

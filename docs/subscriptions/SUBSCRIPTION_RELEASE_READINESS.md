@@ -63,6 +63,8 @@ cd mobile/ios && xcodebuild -project HiAir.xcodeproj -scheme HiAir -sdk iphonesi
 |----------|-------------|------------|
 | `SUBSCRIPTION_PROVIDER` | `stub` | `apple` / `google` (not `stub`) |
 | `APPLE_STORE_VERIFIER_MODE` | `stub` | **`live`** |
+| `APPLE_STORE_ENVIRONMENT` | `sandbox` | **`production`** |
+| `APPLE_APP_APPLE_ID` | empty | **numeric App Store Connect Apple ID** |
 | `GOOGLE_PLAY_VERIFIER_MODE` | `stub` | **`live`** |
 | `SUBSCRIPTION_WEBHOOK_SECRET` | optional locally | **required** |
 | `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | — | required when live |

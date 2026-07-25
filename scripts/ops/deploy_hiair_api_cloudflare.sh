@@ -70,16 +70,18 @@ allowed = {
     "NOTIFICATIONS_PROVIDER_MODE",
     "SUBSCRIPTION_PROVIDER",
     "SUBSCRIPTION_WEBHOOK_SECRET",
-    "APPLE_STORE_VERIFIER_MODE",
-    "GOOGLE_PLAY_VERIFIER_MODE",
-    "APPLE_BUNDLE_ID",
-    "GOOGLE_PLAY_PACKAGE_NAME",
-    "DEPLOY_GIT_SHA",
-    "WEATHER_API_PROVIDER",
-    "WEATHER_API_KEY",
-    "AQI_API_PROVIDER",
-    "AQI_API_KEY",
-}
+  "APPLE_STORE_VERIFIER_MODE",
+  "GOOGLE_PLAY_VERIFIER_MODE",
+  "APPLE_BUNDLE_ID",
+  "APPLE_STORE_ENVIRONMENT",
+  "APPLE_APP_APPLE_ID",
+  "GOOGLE_PLAY_PACKAGE_NAME",
+  "DEPLOY_GIT_SHA",
+  "WEATHER_API_PROVIDER",
+  "WEATHER_API_KEY",
+  "AQI_API_PROVIDER",
+  "AQI_API_KEY",
+};
 values = {}
 for raw in Path("${ENV_FILE}").read_text(encoding="utf-8").splitlines():
     line = raw.strip()
@@ -90,10 +92,25 @@ for raw in Path("${ENV_FILE}").read_text(encoding="utf-8").splitlines():
     if key in allowed and value.strip():
         values[key] = value.strip()
 values.setdefault("APP_ENV", "production")
-values.setdefault("APPLE_STORE_VERIFIER_MODE", "stub")
-values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
 values.setdefault("APPLE_BUNDLE_ID", "com.hiair.app")
 values.setdefault("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
+# Never silently default production Apple verification to stub.
+app_env = values.get("APP_ENV", "production").strip().lower()
+if app_env in ("production", "prod", "staging"):
+    apple_mode = values.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
+    apple_store_env = values.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()
+    apple_app_id = values.get("APPLE_APP_APPLE_ID", "").strip()
+    if apple_mode != "live":
+        raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
+    if apple_store_env not in ("production", "prod"):
+        raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
+    if not apple_app_id.isdigit():
+        raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
+else:
+    values.setdefault("APPLE_STORE_VERIFIER_MODE", "stub")
+    values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
+    values.setdefault("APPLE_STORE_ENVIRONMENT", "sandbox")
+values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", values.get("GOOGLE_PLAY_VERIFIER_MODE", "stub"))
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
 deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
 if deploy_sha:
@@ -107,8 +124,14 @@ if len(values) < 12:
         f"ERROR: Cloudflare secrets under-populated ({len(values)} keys); "
         "refusing partial secret sync that would leave production on stale container env"
     )
+# Keys only on stderr — never print secret values to logs.
+import sys
+print("Syncing Cloudflare secret keys:", file=sys.stderr)
 for key in sorted(values):
-    print(f"{key}={values[key]}")
+    print(f"  - {key}", file=sys.stderr)
+print(f"Wrote {len(values)} secrets (values redacted from logs)", file=sys.stderr)
+for key, value in sorted(values.items()):
+    print(f"{key}={value}")
 PY
 
 (

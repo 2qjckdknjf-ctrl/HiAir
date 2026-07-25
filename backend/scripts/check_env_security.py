@@ -112,14 +112,45 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         checks.append(CheckResult("OK", f"SUBSCRIPTION_PROVIDER={subscription_provider}."))
 
     apple_mode = env.get("APPLE_STORE_VERIFIER_MODE", "stub").strip().lower()
+    apple_env = env.get("APPLE_STORE_ENVIRONMENT", "sandbox").strip().lower()
+    apple_app_id = env.get("APPLE_APP_APPLE_ID", "").strip()
     if apple_mode not in ("stub", "live"):
         checks.append(CheckResult("ERROR", "APPLE_STORE_VERIFIER_MODE must be stub or live."))
-    elif protected_env and apple_mode == "live":
+    elif protected_env and apple_mode == "stub":
+        checks.append(
+            CheckResult(
+                "ERROR",
+                "APPLE_STORE_VERIFIER_MODE=stub is forbidden in production/staging.",
+            )
+        )
+    elif apple_mode == "live":
+        if apple_env not in ("sandbox", "production", "prod", "xcode", "localtesting", "local_testing", "local"):
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    "APPLE_STORE_ENVIRONMENT must be sandbox, production, xcode, or localtesting.",
+                )
+            )
+        if protected_env and apple_env not in ("production", "prod"):
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    "APPLE_STORE_ENVIRONMENT must be production in protected environments.",
+                )
+            )
+        if apple_env in ("production", "prod"):
+            if not apple_app_id:
+                checks.append(
+                    CheckResult("ERROR", "APPLE_APP_APPLE_ID is required for production Apple verification.")
+                )
+            elif not apple_app_id.isdigit():
+                checks.append(CheckResult("ERROR", "APPLE_APP_APPLE_ID must be numeric."))
+        # API credentials are optional for JWS verify (root certs + SignedDataVerifier);
+        # issuer/key are used for App Store Server API history calls when configured.
         for key in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"):
-            if not env.get(key, "").strip():
-                checks.append(CheckResult("ERROR", f"{key} is required when APPLE_STORE_VERIFIER_MODE=live."))
-        if all(env.get(k, "").strip() for k in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY")):
-            checks.append(CheckResult("OK", "Apple live verifier credentials present."))
+            if protected_env and not env.get(key, "").strip():
+                checks.append(CheckResult("WARN", f"{key} missing (needed for App Store Server API lookups)."))
+        checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE=live env={apple_env}."))
     else:
         checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE={apple_mode}."))
 
