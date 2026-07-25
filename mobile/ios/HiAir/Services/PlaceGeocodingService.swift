@@ -35,10 +35,16 @@ actor PlaceGeocodingService {
         inFlight = nil
         inFlightKey = nil
         boundUserId = ""
+        testPresentationOverride = nil
         clearPresentationCache()
     }
 
+    private var testPresentationOverride: (name: String, lat: Double, lon: Double, userId: String)?
+
     func presentationPlaceName(for userId: String) -> String? {
+        if let override = testPresentationOverride, override.userId == userId {
+            return override.name
+        }
         let defaults = UserDefaults.standard
         guard defaults.string(forKey: presentationOwnerKey) == userId else { return nil }
         let name = defaults.string(forKey: presentationNameKey)
@@ -46,6 +52,9 @@ actor PlaceGeocodingService {
     }
 
     func presentationCoordinate(for userId: String) -> (lat: Double, lon: Double)? {
+        if let override = testPresentationOverride, override.userId == userId {
+            return (override.lat, override.lon)
+        }
         let defaults = UserDefaults.standard
         guard defaults.string(forKey: presentationOwnerKey) == userId,
               defaults.object(forKey: presentationLatKey) != nil,
@@ -184,6 +193,7 @@ actor PlaceGeocodingService {
 
     func clearCacheForTests() {
         clearPresentationCache()
+        testPresentationOverride = nil
         requestGeneration &+= 1
         inFlight?.cancel()
         inFlight = nil
@@ -192,6 +202,7 @@ actor PlaceGeocodingService {
     }
 
     func setPresentationForTests(name: String, lat: Double, lon: Double, userId: String) {
+        testPresentationOverride = (name, lat, lon, userId)
         persistPresentation(name: name, lat: lat, lon: lon, userId: userId)
     }
 
