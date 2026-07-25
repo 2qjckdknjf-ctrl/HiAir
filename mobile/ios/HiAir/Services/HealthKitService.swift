@@ -11,6 +11,11 @@ enum WearableConnectionState: String, Equatable {
     case consentSaving
     case consentFailed
     case connected
+    /// Local consent revoked; remote revoke/delete in flight.
+    case revoking
+    /// Local consent cleared; waiting for remote revoke retry.
+    case remoteRevokePending
+    case revokeFailed
     case permissionDenied
     case dataUnavailable
     case syncFailed
@@ -86,6 +91,17 @@ final class HealthKitService: ObservableObject {
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
     /// Overridable for unit tests (default 45s collect).
     var healthCollectTimeoutNanoseconds: UInt64 = 45_000_000_000
+    /// Test seam: replace HealthKit collect (deterministic race tests).
+    var testCollectHandler: (() async -> ([HealthMetricSnapshot], HealthSleepSnapshot?))?
+    /// Test seam: run before each network upload (e.g. slow remote).
+    var testBeforeUploadHook: (() async -> Void)?
+    /// Test seam: replace remote revoke/delete network calls.
+    var testRemoteRevokeHandler: (() async throws -> Void)?
+    var testRemoteDeleteHandler: (() async throws -> Void)?
+    /// Counts upload attempts that passed the consent/generation gate.
+    private(set) var testUploadAttemptCount: Int = 0
+    var syncGenerationForTests: UInt64 { syncGeneration }
+    var hasSyncInFlightForTests: Bool { syncInFlight != nil }
 
     private func authorizationCompletedKey(for userId: String) -> String {
         "hiair.health.authorizationCompleted.\(userId)"
@@ -276,6 +292,13 @@ final class HealthKitService: ObservableObject {
             connectionState = .unavailable
             return .unavailable
         }
+        // Preserve in-progress revoke UI; local consent is already cleared.
+        switch connectionState {
+        case .revoking, .remoteRevokePending, .revokeFailed, .consentSaving, .consentFailed:
+            return connectionState
+        default:
+            break
+        }
         let userId = boundUserId
         if !userId.isEmpty, hasDurableConsent(for: userId) {
             if connectionState != .permissionDenied && connectionState != .unavailable {
@@ -286,9 +309,6 @@ final class HealthKitService: ObservableObject {
                 : .connected
         }
         if !userId.isEmpty, hasSystemAuthorization(for: userId) {
-            if connectionState == .consentSaving || connectionState == .consentFailed {
-                return connectionState
-            }
             connectionState = .systemAuthorized
             return .systemAuthorized
         }
@@ -617,55 +637,131 @@ final class HealthKitService: ObservableObject {
         syncInFlight = nil
     }
 
-    /// Background collect+sync — only after durable consent for this account.
-    func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
-        guard hasDurableConsent(for: userId) else {
-            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing"])
-            return
+    /// Shared upload/sync gate: cancel + generation + account + durable consent.
+    func ensureSyncStillAuthorized(
+        userId: String,
+        generation: UInt64,
+        stage: String
+    ) -> Bool {
+        guard !Task.isCancelled else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "cancelled", "stage": stage])
+            return false
         }
-        let generation = syncGeneration
-        let expectedUserId = userId
-        syncInFlight?.cancel()
-        syncInFlight = Task { [weak self] in
-            guard let self else { return }
-            guard generation == self.syncGeneration, !Task.isCancelled else { return }
-            guard self.boundUserId.isEmpty || self.boundUserId == expectedUserId else { return }
-            await self.syncHealthIntelligence(
-                userId: expectedUserId,
-                accessToken: accessToken,
-                profileId: profileId
-            )
-            guard generation == self.syncGeneration, !Task.isCancelled else { return }
-            guard self.boundUserId.isEmpty || self.boundUserId == expectedUserId else { return }
-            await self.syncWearableHourlySummary(userId: expectedUserId, accessToken: accessToken)
+        guard generation == syncGeneration else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "stale_generation", "stage": stage])
+            return false
+        }
+        guard !userId.isEmpty, boundUserId.isEmpty || boundUserId == userId else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "account_mismatch", "stage": stage])
+            return false
+        }
+        guard hasDurableConsent(for: userId) else {
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing", "stage": stage])
+            return false
+        }
+        switch connectionState {
+        case .revoking, .remoteRevokePending, .revokeFailed, .notConnected, .consentFailed,
+             .permissionDenied, .unavailable, .permissionRequested, .systemAuthorized, .consentSaving:
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "state_blocks_sync", "stage": stage])
+            return false
+        case .connected, .dataUnavailable, .syncFailed, .partial:
+            return true
         }
     }
 
-    func syncHealthIntelligence(userId: String, accessToken: String, profileId: String?) async {
-        guard !Task.isCancelled else { return }
+    /// Canonical public entry — all Views must use this (not unstructured sync Tasks).
+    func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
         guard hasDurableConsent(for: userId) else {
-            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing"])
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing", "stage": "start"])
             return
         }
-        guard boundUserId.isEmpty || boundUserId == userId else { return }
+        switch connectionState {
+        case .revoking, .remoteRevokePending, .revokeFailed:
+            ProductAnalytics.track("health_sync_blocked", properties: ["reason": "state_blocks_sync", "stage": "start"])
+            return
+        default:
+            break
+        }
+        // Single-flight: replace any prior operation with a fresh generation-bound task.
+        syncInFlight?.cancel()
+        syncGeneration &+= 1
+        let generation = syncGeneration
+        let expectedUserId = userId
+        syncInFlight = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if self.syncGeneration == generation {
+                        self.syncInFlight = nil
+                    }
+                }
+            }
+            guard self.ensureSyncStillAuthorized(
+                userId: expectedUserId,
+                generation: generation,
+                stage: "coordinator_start"
+            ) else { return }
+            await self.performHealthSync(
+                userId: expectedUserId,
+                accessToken: accessToken,
+                profileId: profileId,
+                generation: generation
+            )
+            guard self.ensureSyncStillAuthorized(
+                userId: expectedUserId,
+                generation: generation,
+                stage: "before_hourly"
+            ) else { return }
+            await self.syncWearableHourlySummary(
+                userId: expectedUserId,
+                accessToken: accessToken,
+                generation: generation
+            )
+        }
+    }
+
+    /// Legacy name — always routes through the cancellable coordinator.
+    func syncWearableDailySummary(userId: String, accessToken: String) async {
+        startBackgroundHealthSync(userId: userId, accessToken: accessToken, profileId: nil)
+    }
+
+    private func performHealthSync(
+        userId: String,
+        accessToken: String,
+        profileId: String?,
+        generation: UInt64
+    ) async {
+        guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "before_collect") else {
+            return
+        }
         ProductAnalytics.track("health_sync_started")
         do {
-            let collectOutcome = await HealthKitTimeoutRace.raceAsync(
-                timeoutNanoseconds: healthCollectTimeoutNanoseconds
-            ) {
-                await self.collectTodaySnapshots()
+            let snapshots: [HealthMetricSnapshot]
+            let sleep: HealthSleepSnapshot?
+            if let testCollectHandler {
+                (snapshots, sleep) = await testCollectHandler()
+            } else {
+                let collectOutcome = await HealthKitTimeoutRace.raceAsync(
+                    timeoutNanoseconds: healthCollectTimeoutNanoseconds
+                ) {
+                    await self.collectTodaySnapshots()
+                }
+                guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "after_collect") else {
+                    return
+                }
+                guard case let .value((collectedSnapshots, collectedSleep)) = collectOutcome else {
+                    if generation == syncGeneration {
+                        connectionState = .syncFailed
+                        lastSyncError = "wearable.health.error.generic|timeout"
+                    }
+                    ProductAnalytics.track("health_connect_timeout", properties: ["stage": "collect"])
+                    return
+                }
+                snapshots = collectedSnapshots
+                sleep = collectedSleep
             }
-            guard !Task.isCancelled else { return }
-            guard boundUserId.isEmpty || boundUserId == userId else { return }
-            // Re-check durable consent after collect — revoke may have cancelled mid-flight.
-            guard hasDurableConsent(for: userId) else {
-                ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_revoked_mid_sync"])
-                return
-            }
-            guard case let .value((snapshots, sleep)) = collectOutcome else {
-                connectionState = .syncFailed
-                lastSyncError = "wearable.health.error.generic|timeout"
-                ProductAnalytics.track("health_connect_timeout", properties: ["stage": "collect"])
+            guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "before_payload") else {
                 return
             }
             latestSnapshots = snapshots
@@ -708,11 +804,27 @@ final class HealthKitService: ObservableObject {
                 )
             }
             let idempotency = "ios-\(dateString)-\(Int(Date().timeIntervalSince1970 / 300))"
-            guard !Task.isCancelled, hasDurableConsent(for: userId) else {
-                ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_revoked_before_upload"])
+            guard await prepareUpload(userId: userId, generation: generation, stage: "health_sync") else {
                 return
             }
-            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            if testCollectHandler != nil {
+                guard await prepareUpload(userId: userId, generation: generation, stage: "daily_summary") else {
+                    return
+                }
+                guard generation == syncGeneration, boundUserId.isEmpty || boundUserId == userId else { return }
+                connectionState = metrics.isEmpty && sleepPayload == nil ? .dataUnavailable : .connected
+                lastSyncError = nil
+                lastSyncAt = Date()
+                ProductAnalytics.track(
+                    "health_sync_completed",
+                    properties: [
+                        "success": "true",
+                        "empty": (metrics.isEmpty && sleepPayload == nil) ? "true" : "false",
+                        "mode": "test",
+                    ]
+                )
+                return
+            }
             _ = try await apiClient.syncHealthData(
                 userId: userId,
                 accessToken: accessToken,
@@ -729,11 +841,13 @@ final class HealthKitService: ObservableObject {
                     cursorMetadata: ["mode": "foreground_daily"]
                 )
             )
-            // Keep legacy daily path for personalLoad consumers.
             let steps = snapshots.first(where: { $0.metricType == "steps" })?.valueTotal.map { Int($0) }
             let hr = snapshots.first(where: { $0.metricType == "heart_rate" })
             let resting = snapshots.first(where: { $0.metricType == "resting_heart_rate" })?.valueLatest
-            _ = try? await apiClient.uploadWearableDailySummary(
+            guard await prepareUpload(userId: userId, generation: generation, stage: "daily_summary") else {
+                return
+            }
+            _ = try await apiClient.uploadWearableDailySummary(
                 userId: userId,
                 accessToken: accessToken,
                 payload: WearableDailySummaryPayload(
@@ -746,6 +860,7 @@ final class HealthKitService: ObservableObject {
                     source: "apple_health"
                 )
             )
+            guard generation == syncGeneration, boundUserId.isEmpty || boundUserId == userId else { return }
             connectionState = metrics.isEmpty && sleepPayload == nil ? .dataUnavailable : .connected
             lastSyncError = nil
             lastSyncAt = Date()
@@ -757,6 +872,7 @@ final class HealthKitService: ObservableObject {
                 ]
             )
         } catch {
+            guard generation == syncGeneration else { return }
             let nsError = error as NSError
             if nsError.domain == "com.apple.healthkit", nsError.code == 6 {
                 connectionState = .syncFailed
@@ -769,22 +885,42 @@ final class HealthKitService: ObservableObject {
         }
     }
 
-    /// Backward-compatible entry used by existing screens.
-    func syncWearableDailySummary(userId: String, accessToken: String) async {
-        await syncHealthIntelligence(userId: userId, accessToken: accessToken, profileId: nil)
+    private func prepareUpload(userId: String, generation: UInt64, stage: String) async -> Bool {
+        guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: stage) else {
+            return false
+        }
+        if let testBeforeUploadHook {
+            await testBeforeUploadHook()
+            guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "\(stage)_after_hook") else {
+                return false
+            }
+        }
+        testUploadAttemptCount += 1
+        return true
     }
 
-    func syncWearableHourlySummary(userId: String, accessToken: String) async {
-        guard hasDurableConsent(for: userId) else { return }
-        guard boundUserId.isEmpty || boundUserId == userId else { return }
-        // Hourly still uses legacy endpoint for personal load recent-steps windows.
-        let hourly = await fetchHourlyActivitySummary()
+    func syncWearableHourlySummary(
+        userId: String,
+        accessToken: String,
+        generation: UInt64? = nil
+    ) async {
+        let generation = generation ?? syncGeneration
+        guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "hourly_start") else {
+            return
+        }
+        let hourly: [(hourStart: Date, steps: Int, hrAvg: Double?, hrMax: Double?)]
+        if testCollectHandler != nil {
+            // Deterministic tests skip real hourly HealthKit queries.
+            hourly = []
+        } else {
+            hourly = await fetchHourlyActivitySummary()
+        }
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
         for entry in hourly where entry.steps > 0 || entry.hrAvg != nil {
-            guard !Task.isCancelled else { return }
-            guard hasDurableConsent(for: userId) else { return }
-            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            guard await prepareUpload(userId: userId, generation: generation, stage: "hourly_batch") else {
+                return
+            }
             _ = try? await apiClient.uploadWearableHourlySummary(
                 userId: userId,
                 accessToken: accessToken,
@@ -799,31 +935,67 @@ final class HealthKitService: ObservableObject {
         }
     }
 
-    func revokeConsent(userId: String, accessToken: String) async {
+    /// Immediately blocks sync and clears local durable consent (before any network await).
+    private func revokeLocalConsentImmediately(userId: String, presenting state: WearableConnectionState) {
         cancelPendingSync()
-        _ = try? await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
         clearConsentPersisted(for: userId)
         defaults.set(false, forKey: authorizationCompletedKey(for: userId))
         if boundUserId == userId || boundUserId.isEmpty {
-            connectionState = .notConnected
+            connectionState = state
             latestSnapshots = []
             latestSleep = nil
             lastSyncAt = nil
+            lastSyncError = nil
+        }
+    }
+
+    func revokeConsent(userId: String, accessToken: String) async {
+        revokeLocalConsentImmediately(userId: userId, presenting: .revoking)
+        do {
+            if let testRemoteRevokeHandler {
+                try await testRemoteRevokeHandler()
+            } else {
+                _ = try await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
+            }
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            connectionState = .notConnected
+        } catch {
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            connectionState = .remoteRevokePending
+            lastSyncError = error.localizedDescription
+            ProductAnalytics.track("health_revoke_remote_failed", properties: ["error_code": "remote"])
         }
     }
 
     func deleteHealthData(userId: String, accessToken: String) async {
-        cancelPendingSync()
-        _ = try? await apiClient.deleteHealthData(userId: userId, accessToken: accessToken)
-        _ = try? await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
-        clearConsentPersisted(for: userId)
-        defaults.set(false, forKey: authorizationCompletedKey(for: userId))
-        if boundUserId == userId || boundUserId.isEmpty {
-            connectionState = .notConnected
-            latestSnapshots = []
-            latestSleep = nil
-            lastSyncAt = nil
+        revokeLocalConsentImmediately(userId: userId, presenting: .revoking)
+        let prefix = anchorKeyPrefix
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            defaults.removeObject(forKey: key)
         }
+        do {
+            if let testRemoteDeleteHandler {
+                try await testRemoteDeleteHandler()
+            } else {
+                _ = try await apiClient.deleteHealthData(userId: userId, accessToken: accessToken)
+                _ = try await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
+            }
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            connectionState = .notConnected
+        } catch {
+            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            connectionState = .revokeFailed
+            lastSyncError = error.localizedDescription
+            ProductAnalytics.track("health_delete_remote_failed", properties: ["error_code": "remote"])
+        }
+    }
+
+    func resetTestHooks() {
+        testCollectHandler = nil
+        testBeforeUploadHook = nil
+        testRemoteRevokeHandler = nil
+        testRemoteDeleteHandler = nil
+        testUploadAttemptCount = 0
     }
 
     // MARK: - Legacy helpers kept for dashboard

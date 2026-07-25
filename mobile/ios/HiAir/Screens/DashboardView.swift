@@ -66,7 +66,8 @@ final class DashboardViewModel: ObservableObject {
             // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
             let live = healthService.connectionState
             switch live {
-            case .connected, .permissionRequested, .systemAuthorized, .consentSaving, .consentFailed:
+            case .connected, .permissionRequested, .systemAuthorized, .consentSaving, .consentFailed,
+                 .revoking, .remoteRevokePending, .revokeFailed:
                 wearableConnectionState = live
             default:
                 wearableConnectionState = healthService.refreshAuthorizationState()
@@ -207,19 +208,13 @@ struct DashboardView: View {
             _ = await session.ensureProfileIdIfNeeded()
         }
         // Never block dashboard/geo refresh on HealthKit sync.
-        // Sync only after durable HiAir consent for the current account.
-        if !session.userId.isEmpty,
-           healthService.hasDurableConsent(for: session.userId) {
-            let userId = session.userId
-            let accessToken = session.accessToken
-            let profileId = session.profileId.isEmpty ? nil : session.profileId
-            Task {
-                await healthService.syncHealthIntelligence(
-                    userId: userId,
-                    accessToken: accessToken,
-                    profileId: profileId
-                )
-            }
+        // Sync only via cancellable coordinator after durable consent.
+        if !session.userId.isEmpty {
+            healthService.startBackgroundHealthSync(
+                userId: session.userId,
+                accessToken: session.accessToken,
+                profileId: session.profileId.isEmpty ? nil : session.profileId
+            )
         }
         await viewModel.refresh(
             userId: session.userId,
