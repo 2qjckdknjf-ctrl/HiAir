@@ -23,11 +23,13 @@
 | Cross-account city disclosure | `displayPlaceName` not persisted globally; Place presentation cache owner-scoped; logout invalidates |
 | Stale reverse-geocode | Coordinate-keyed latest-wins; cancel/replace in-flight; ignore stale generation/account |
 | Optimistic Premium | Activating (`premiumActivationPending`) after StoreKit verified; backend confirm clears pending; terminal 4xx rolls back; logout clears |
+| **Untracked Dashboard sync** | Dashboard uses only `startBackgroundHealthSync` (single `syncInFlight` + `syncGeneration`); no unstructured `Task` + direct sync |
+| **Consent cleared too late** | `revokeLocalConsentImmediately` clears durable consent + cancels sync **before** any remote await; remote failure → `remoteRevokePending` / `revokeFailed` with sync still blocked |
 
 ## Changes (speed preserved)
 
 1. **Location:** `PlaceGeocodingService` latest-wins + account presentation; instant same-account nearby cache; geocode after coords.
-2. **HealthKit:** System auth exits UI wait immediately → consent save → Connected → background sync only after durable consent.
+2. **HealthKit:** System auth exits UI wait immediately → consent save → Connected → background sync only after durable consent via cancellable coordinator.
 3. **Premium:** Activating on StoreKit `.verified`; bounded `/me` retries; terminal reject rollback; account-isolated on logout.
 4. **Probe:** `RuntimePerformanceProbe` stages unchanged.
 
@@ -49,6 +51,8 @@
 | Connected only with durable consent | **gate enforced** | `HealthConsentGateTests` |
 | Account B ≠ A's Connected/city | **isolated** | `HealthConsentGateTests` + `SessionLogoutIsolationTests` |
 | Place presentation account-scoped | **no cross-account leak** | `PlaceGeocodingServiceTests` |
+| Dashboard sync + revoke | **upload attempts = 0** | `HealthSyncCoordinatorRaceTests` |
+| Consent cleared before remote await | **asserted in remote hook** | `testRevokeClearsConsentBeforeRemoteAwait` |
 | `RuntimePerformanceProbe` unit | duration ≥0 ms recorded | `testRuntimeProbeRecordsDuration` |
 
 ### Physical device (required for PASS)
@@ -61,6 +65,7 @@
 | Consent persistence | bounded, visible | **NOT RUN** |
 | Premium Activating | immediate | **NOT RUN** |
 | Server-confirmed Premium | <2s | **NOT RUN** |
+| Revoke during sync | no upload | **NOT RUN** |
 
 Do **not** claim device PASS until TF >118 matrix is measured on a physical iPhone with Console/`RuntimePerformanceProbe` durations.
 
@@ -68,12 +73,12 @@ Do **not** claim device PASS until TF >118 matrix is measured on a physical iPho
 
 | Check | Result |
 |------|--------|
-| Backend pytest | (run in PR validation) |
-| iOS unit (consent/account/geocode/premium) | (run in PR validation) |
-| Android assemble + unit | (run in PR validation) |
-| Final gate | (run in PR validation) |
+| Backend pytest | PASS (~72% cov) |
+| iOS unit (consent/account/geocode/premium/races) | PASS (`HealthSyncCoordinatorRaceTests` 12/12) |
+| Android assemble + unit | PASS |
+| Final gate | (run before merge) |
 
 ## Verdict
 
-**CODE FIXED — WAITING FOR PHYSICAL RETEST on TF >118**  
-Merge forbidden until High/P1/Medium review findings = 0 and threads resolved after new head.
+**PR REVIEW BLOCKERS REMAIN** until fresh review + green CI on the new head; then merge → TF >118 → physical retest.  
+Target post-merge lab verdict: **CODE FIXED — WAITING FOR PHYSICAL RETEST**.
