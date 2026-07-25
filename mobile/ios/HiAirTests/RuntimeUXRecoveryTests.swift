@@ -104,14 +104,15 @@ final class HealthConsentGateTests: XCTestCase {
     @MainActor
     func testSyncBlockedWithoutDurableConsent() async {
         let service = HealthKitService.shared
+        service.resetTestHooks()
         UserDefaults.standard.set(true, forKey: "hiair.health.authorizationCompleted.user-a")
         service.bindAccount(userId: "user-a")
         XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
         service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
         // Without durable consent, sync must not flip to connected via artifacts.
         XCTAssertNotEqual(service.connectionState, .connected)
-        await service.syncHealthIntelligence(userId: "user-a", accessToken: "token", profileId: nil)
         XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
         XCTAssertNil(service.lastSyncAt)
     }
 
@@ -293,3 +294,215 @@ final class PremiumOptimisticUnlockTests: XCTestCase {
         XCTAssertFalse(session.isPremium)
     }
 }
+
+final class HealthSyncCoordinatorRaceTests: XCTestCase {
+    @MainActor
+    private func seedConnected(_ userId: String) -> HealthKitService {
+        let service = HealthKitService.shared
+        service.resetTestHooks()
+        service.clearAccountSession()
+        UserDefaults.standard.set(true, forKey: "hiair.health.authorizationCompleted.\(userId)")
+        UserDefaults.standard.set(true, forKey: "hiair.health.consentPersisted.\(userId)")
+        service.bindAccount(userId: userId)
+        XCTAssertEqual(service.connectionState, .connected)
+        XCTAssertTrue(service.hasDurableConsent(for: userId))
+        return service
+    }
+
+    @MainActor
+    func testRevokeClearsConsentBeforeRemoteAwait() async {
+        let service = seedConnected("user-a")
+        var sawClearedBeforeAwait = false
+        service.testRemoteRevokeHandler = {
+            XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+            XCTAssertEqual(service.connectionState, .revoking)
+            sawClearedBeforeAwait = true
+        }
+        await service.revokeConsent(userId: "user-a", accessToken: "token")
+        XCTAssertTrue(sawClearedBeforeAwait)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        XCTAssertEqual(service.connectionState, .notConnected)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+    }
+
+    @MainActor
+    func testDeleteClearsConsentBeforeRemoteAwait() async {
+        let service = seedConnected("user-a")
+        var sawClearedBeforeAwait = false
+        service.testRemoteDeleteHandler = {
+            XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+            XCTAssertEqual(service.connectionState, .revoking)
+            sawClearedBeforeAwait = true
+        }
+        await service.deleteHealthData(userId: "user-a", accessToken: "token")
+        XCTAssertTrue(sawClearedBeforeAwait)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        XCTAssertEqual(service.connectionState, .notConnected)
+    }
+
+    @MainActor
+    func testDashboardStyleSyncRevokePreventsUpload() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            return ([], nil)
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        service.testRemoteRevokeHandler = {}
+        await service.revokeConsent(userId: "user-a", accessToken: "token")
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        XCTAssertNotEqual(service.connectionState, .connected)
+    }
+
+    @MainActor
+    func testDeleteDuringSyncPreventsUpload() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            return ([], nil)
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        service.testRemoteDeleteHandler = {}
+        await service.deleteHealthData(userId: "user-a", accessToken: "token")
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+    }
+
+    @MainActor
+    func testLogoutDuringSyncPreventsUpload() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            return ([], nil)
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        service.clearAccountSession()
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertEqual(service.connectionState, .notConnected)
+    }
+
+    @MainActor
+    func testAccountSwitchDuringSyncDoesNotUploadForOldAccount() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            return ([], nil)
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        service.clearAccountSession()
+        service.bindAccount(userId: "user-b")
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertEqual(service.connectionState, .notConnected)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-b"))
+    }
+
+    @MainActor
+    func testCancelAfterCollectBeforeUpload() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = { ([], nil) }
+        service.testBeforeUploadHook = {
+            service.cancelPendingSync()
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+    }
+
+    @MainActor
+    func testDuplicateStartReplacesGeneration() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            return ([], nil)
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        let firstGeneration = service.syncGenerationForTests
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        let secondGeneration = service.syncGenerationForTests
+        XCTAssertGreaterThan(secondGeneration, firstGeneration)
+        service.cancelPendingSync()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+
+    @MainActor
+    func testSlowRemoteRevokeStillBlocksSync() async {
+        let service = seedConnected("user-a")
+        service.testRemoteRevokeHandler = {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        let revokeTask = Task { await service.revokeConsent(userId: "user-a", accessToken: "token") }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        await revokeTask.value
+        XCTAssertEqual(service.connectionState, .notConnected)
+    }
+
+    @MainActor
+    func testRemoteRevokeFailureKeepsSyncBlocked() async {
+        let service = seedConnected("user-a")
+        service.testRemoteRevokeHandler = {
+            throw NSError(domain: "test", code: 500, userInfo: [NSLocalizedDescriptionKey: "remote"])
+        }
+        await service.revokeConsent(userId: "user-a", accessToken: "token")
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        XCTAssertEqual(service.connectionState, .remoteRevokePending)
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+    }
+
+    @MainActor
+    func testConsensedSyncCompletesOnceViaCoordinator() async {
+        let service = seedConnected("user-a")
+        service.testCollectHandler = {
+            (
+                [
+                    HealthMetricSnapshot(
+                        metricType: "steps",
+                        unit: "count",
+                        valueAvg: nil,
+                        valueMin: nil,
+                        valueMax: nil,
+                        valueLatest: nil,
+                        valueTotal: 100,
+                        sampleCount: 1,
+                        qualityState: "ok",
+                        hrvMethod: nil
+                    ),
+                ],
+                nil
+            )
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(service.connectionState, .connected)
+        XCTAssertEqual(service.testUploadAttemptCount, 2) // health_sync + daily_summary test path
+        XCTAssertNotNil(service.lastSyncAt)
+    }
+
+    @MainActor
+    func testReconnectRequiredAfterRevoke() async {
+        let service = seedConnected("user-a")
+        service.testRemoteRevokeHandler = {}
+        await service.revokeConsent(userId: "user-a", accessToken: "token")
+        XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        // Restore only after explicit durable consent again.
+        UserDefaults.standard.set(true, forKey: "hiair.health.consentPersisted.user-a")
+        UserDefaults.standard.set(true, forKey: "hiair.health.authorizationCompleted.user-a")
+        service.bindAccount(userId: "user-a")
+        XCTAssertEqual(service.connectionState, .connected)
+    }
+}
+
