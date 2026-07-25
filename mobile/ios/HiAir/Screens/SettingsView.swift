@@ -300,7 +300,10 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func refreshWearableStatus() async {
-        let hkState = HealthKitService.shared.refreshAuthorizationState()
+        // Prefer live connectionState; do not clobber Connected while sync is still running.
+        let hkState = HealthKitService.shared.connectionState == .notConnected
+            ? HealthKitService.shared.refreshAuthorizationState()
+            : HealthKitService.shared.connectionState
         guard !userId.isEmpty else {
             wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
             return
@@ -308,9 +311,14 @@ final class SettingsViewModel: ObservableObject {
         do {
             let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
             let consentActive = today.consent?.isActive == true
-            wearableStatus = wearableStatusLabel(for: hkState, consentActive: consentActive)
+            let effective: WearableConnectionState =
+                (hkState == .connected || consentActive) ? .connected : hkState
+            wearableStatus = wearableStatusLabel(for: effective, consentActive: consentActive || hkState == .connected)
         } catch {
-            wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
+            wearableStatus = wearableStatusLabel(
+                for: hkState,
+                consentActive: hkState == .connected
+            )
         }
     }
 
@@ -319,11 +327,19 @@ final class SettingsViewModel: ObservableObject {
         switch hkState {
         case .connected where consentActive:
             return "\(prefix): \(l("settings.wearables.connected"))"
+        case .consentSaving, .systemAuthorized:
+            return "\(prefix): \(l("wearable.consent.saving"))"
+        case .consentFailed:
+            return "\(prefix): \(l("wearable.consent.failed"))"
+        case .revoking, .remoteRevokePending:
+            return "\(prefix): \(l("wearable.consent.revoking"))"
+        case .revokeFailed:
+            return "\(prefix): \(l("wearable.consent.revoke_failed"))"
         case .permissionDenied:
             return "\(prefix): \(l("settings.wearables.denied"))"
         case .unavailable:
             return l("wearable.dashboard.unavailable")
-        default:
+        case .connected, .notConnected, .permissionRequested, .dataUnavailable, .syncFailed, .partial:
             return consentActive
                 ? "\(prefix): \(l("settings.wearables.connected"))"
                 : l("wearable.dashboard.not_connected")

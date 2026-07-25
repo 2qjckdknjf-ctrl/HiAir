@@ -37,6 +37,11 @@ struct WearableConsentView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                     }
+                    if healthService.connectionState == .consentFailed {
+                        Text(session.l("wearable.consent.failed"))
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                    }
                     #if DEBUG
                     Text(String(format: session.l("wearable.health.build_label"), healthService.diagnostics().buildNumber))
                         .font(HiAirTypography.caption)
@@ -48,7 +53,7 @@ struct WearableConsentView: View {
                             if !fromOnboarding { dismiss() }
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
-                        Button(working ? session.l("common.loading") : session.l("wearable.consent.connect")) {
+                        Button(connectButtonTitle) {
                             Task { await connect() }
                         }
                         .buttonStyle(HiAirGradientButtonStyle())
@@ -61,6 +66,19 @@ struct WearableConsentView: View {
             }
         }
         .hiAirPageBackground()
+    }
+
+    private var connectButtonTitle: String {
+        switch healthService.connectionState {
+        case .consentSaving:
+            return session.l("wearable.consent.saving")
+        case .consentFailed:
+            return session.l("wearable.consent.retry")
+        case .systemAuthorized where working:
+            return session.l("wearable.consent.saving")
+        default:
+            return working ? session.l("common.loading") : session.l("wearable.consent.connect")
+        }
     }
 
     private func connect() async {
@@ -81,21 +99,27 @@ struct WearableConsentView: View {
             showHealthPathHint = true
             return
         }
+        guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
+            healthService.reportAuthorizationIssue("wearable.health.error.generic|missing_session")
+            showHealthPathHint = true
+            return
+        }
         // Request activity + heart + respiratory/temperature so Insights can use SpO2/temp when available.
-        let granted = await healthService.requestAuthorization(tiers: [1, 2, 3])
+        RuntimePerformanceProbe.begin("health_connect_ui")
+        let userId = session.userId
+        let accessToken = session.accessToken
+        let profileId = session.profileId.isEmpty ? nil : session.profileId
+        let granted = await healthService.requestAuthorization(tiers: [1, 2, 3], userId: userId)
         if granted {
+            // Exit system wait immediately — durable consent is the Connected gate.
+            RuntimePerformanceProbe.end("health_connect_ui", success: true)
             do {
-                try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
+                try await healthService.saveConsent(userId: userId, accessToken: accessToken)
             } catch {
-                healthService.reportConnectionState(.syncFailed)
                 showHealthPathHint = true
                 return
             }
-            // Leave the sheet immediately after authorization + consent.
-            // Heavy HK reads and backend sync must not block Connect UI.
-            let userId = session.userId
-            let accessToken = session.accessToken
-            let profileId = session.profileId.isEmpty ? nil : session.profileId
+            guard session.userId == userId else { return }
             onComplete?()
             if !fromOnboarding { dismiss() }
             healthService.startBackgroundHealthSync(
@@ -105,6 +129,7 @@ struct WearableConsentView: View {
             )
             return
         }
+        RuntimePerformanceProbe.end("health_connect_ui", success: false, errorCode: "denied")
         showHealthPathHint = true
         if healthService.connectionState != .permissionDenied {
             healthService.reportConnectionState(.permissionDenied)
@@ -161,6 +186,26 @@ struct WearableLoadCardView: View {
                     .font(HiAirTypography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
             }
+        case .systemAuthorized, .consentSaving:
+            Text(session.l("wearable.consent.saving"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+        case .revoking, .remoteRevokePending:
+            Text(session.l("wearable.consent.revoking"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+        case .revokeFailed:
+            Text(session.l("wearable.consent.revoke_failed"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Button(session.l("wearable.consent.retry"), action: onConnect)
+                .buttonStyle(HiAirSecondaryButtonStyle())
+        case .consentFailed:
+            Text(session.l("wearable.consent.failed"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Button(session.l("wearable.consent.retry"), action: onConnect)
+                .buttonStyle(HiAirSecondaryButtonStyle())
         case .permissionDenied:
             Text(session.l("wearable.dashboard.denied"))
                 .font(HiAirTypography.bodyMD)
@@ -174,7 +219,7 @@ struct WearableLoadCardView: View {
             Text(session.l("wearable.dashboard.unavailable"))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
-        default:
+        case .notConnected, .permissionRequested, .unavailable, .partial:
             Text(session.l("wearable.dashboard.not_connected"))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)

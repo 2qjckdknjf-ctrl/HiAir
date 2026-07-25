@@ -273,6 +273,7 @@ struct PaywallView: View {
         purchasingProductId = product.id
         defer { purchasingProductId = nil }
         statusMessage = session.l("paywall.purchasing")
+        RuntimePerformanceProbe.begin("premium_unlock")
 
         do {
             let status = try await subscriptionService.purchase(
@@ -282,28 +283,42 @@ struct PaywallView: View {
             )
             session.applyEntitlement(status.entitlement)
             if status.entitlement?.isPremium == true || session.isPremium {
+                RuntimePerformanceProbe.end("premium_unlock", success: true)
                 statusMessage = session.l("paywall.success")
                 dismiss()
                 return
             }
-            await session.refreshEntitlement()
-            if session.isPremium {
-                statusMessage = session.l("paywall.success")
-                dismiss()
-            } else {
-                statusMessage = session.l("paywall.verify_pending")
+            // Bounded fast /me retries (not 8s foreground debounce).
+            statusMessage = session.l("paywall.verify_pending")
+            for _ in 0..<4 {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                await session.refreshEntitlement()
+                if session.isPremium {
+                    RuntimePerformanceProbe.end("premium_unlock", success: true)
+                    statusMessage = session.l("paywall.success")
+                    dismiss()
+                    return
+                }
             }
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "entitlement_lag")
+            statusMessage = session.l("paywall.verify_pending")
         } catch SubscriptionServiceError.cancelled {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "cancelled")
             statusMessage = session.l("paywall.purchase_cancelled")
         } catch SubscriptionServiceError.pending {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "pending")
             statusMessage = session.l("paywall.purchase_pending")
         } catch SubscriptionServiceError.verificationFailed {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "verify_failed")
             statusMessage = session.l("paywall.verification_failed")
         } catch SubscriptionServiceError.purchaseInProgress {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "in_progress")
             statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "api")
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "generic")
             statusMessage = session.l("paywall.generic_error")
         }
     }

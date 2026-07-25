@@ -67,6 +67,7 @@ struct OnboardingView: View {
                         Task { await handlePrimaryAction() }
                     }
                     .buttonStyle(HiAirGradientButtonStyle())
+                    .disabled(step == 5 && (healthService.connectionState == .consentSaving))
                 }
             }
             .hiAirContentWidth(for: width)
@@ -91,7 +92,16 @@ struct OnboardingView: View {
             return session.l("onboarding.permissions.allow")
         }
         if step == 5 {
-            return session.l("wearable.consent.connect")
+            switch healthService.connectionState {
+            case .consentSaving, .systemAuthorized:
+                return session.l("wearable.consent.saving")
+            case .consentFailed:
+                return session.l("wearable.consent.retry")
+            case .connected:
+                return session.l("onboarding.next")
+            default:
+                return session.l("wearable.consent.connect")
+            }
         }
         if isLastStep {
             return session.l("onboarding.open_forecast")
@@ -110,8 +120,11 @@ struct OnboardingView: View {
             return
         }
         if step == 5 {
+            if healthService.connectionState == .connected {
+                step += 1
+                return
+            }
             await connectHealthFromOnboarding()
-            step += 1
             return
         }
         if isLastStep {
@@ -237,6 +250,22 @@ struct OnboardingView: View {
             Text(session.l("wearable.consent.disclaimer"))
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
+            switch healthService.connectionState {
+            case .consentSaving, .systemAuthorized:
+                Text(session.l("wearable.consent.saving"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            case .connected:
+                Text(session.l("wearable.consent.connected"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            case .consentFailed:
+                Text(session.l("wearable.consent.failed"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+            default:
+                EmptyView()
+            }
             Button(session.l("wearable.consent.skip")) {
                 step += 1
             }
@@ -247,23 +276,51 @@ struct OnboardingView: View {
     private func connectHealthFromOnboarding() async {
         guard healthService.isHealthDataAvailable() else { return }
         if healthService.configurationIssueMessage() != nil { return }
-        healthService.setEnabledTiers(Set([1, 2, 3]))
-        guard await healthService.requestAuthorization(tiers: Set([1, 2, 3])) else { return }
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
-        do {
-            try await healthService.saveConsent(userId: session.userId, accessToken: session.accessToken)
-        } catch {
-            // Consent persistence failed — do not sync health payloads.
-            return
-        }
+        healthService.setEnabledTiers(Set([1, 2, 3]))
         let userId = session.userId
         let accessToken = session.accessToken
         let profileId = session.profileId.isEmpty ? nil : session.profileId
-        healthService.startBackgroundHealthSync(
-            userId: userId,
-            accessToken: accessToken,
-            profileId: profileId
+        // Retry path: consent already authorized at system level.
+        if healthService.connectionState == .consentFailed
+            || healthService.hasSystemAuthorization(for: userId) {
+            do {
+                try await healthService.saveConsent(userId: userId, accessToken: accessToken)
+                guard session.userId == userId else { return }
+                healthService.startBackgroundHealthSync(
+                    userId: userId,
+                    accessToken: accessToken,
+                    profileId: profileId
+                )
+                step += 1
+            } catch {
+                // Stay on step with consentFailed + Retry.
+            }
+            return
+        }
+        RuntimePerformanceProbe.begin("health_connect_ui")
+        let granted = await healthService.requestAuthorization(
+            tiers: Set([1, 2, 3]),
+            userId: userId
         )
+        guard granted else {
+            RuntimePerformanceProbe.end("health_connect_ui", success: false, errorCode: "denied")
+            return
+        }
+        RuntimePerformanceProbe.end("health_connect_ui", success: true)
+        guard session.userId == userId else { return }
+        do {
+            try await healthService.saveConsent(userId: userId, accessToken: accessToken)
+            guard session.userId == userId else { return }
+            healthService.startBackgroundHealthSync(
+                userId: userId,
+                accessToken: accessToken,
+                profileId: profileId
+            )
+            step += 1
+        } catch {
+            // Consent failure stays recoverable on this step — do not show Connected.
+        }
     }
 
     private var onboardingDone: some View {

@@ -17,6 +17,7 @@ final class AppSession: ObservableObject {
         static let latitude = "session.latitude"
         static let longitude = "session.longitude"
         static let locationSource = "session.locationSource"
+        static let displayPlaceName = "session.displayPlaceName"
         static let dateOfBirth = "session.dateOfBirth"
     }
 
@@ -43,12 +44,17 @@ final class AppSession: ObservableObject {
     @Published var longitude = 0.0 { didSet { persist() } }
     @Published var locationSource: LocationSource = .unknown { didSet { persist() } }
     @Published var locationRevision = 0
+    /// Resolved locality (Barcelona / Castelldefels). Cached for instant cold-start chip.
+    @Published var displayPlaceName: String? = nil { didSet { persist() } }
+    @Published var isResolvingPlaceName = false
     @Published var dateOfBirth: Date? { didSet { persist() } }
     @Published var checklistCompletedItems: Set<String> = [] { didSet { persist() } }
     @Published var checklistHidden = false { didSet { persist() } }
     @Published var showOnboardingFromSettings = false
     @Published var showPaywall = false
     @Published var isPremium = false
+    /// True after StoreKit verified until backend confirms or terminal rollback.
+    @Published var premiumActivationPending = false
     @Published var selectedTab = 0
     private let apiClient = APIClient.live()
     private let keychain = KeychainStore(service: "com.hiair.app.session")
@@ -57,6 +63,8 @@ final class AppSession: ObservableObject {
     private var locationAuthObserver: NSObjectProtocol?
     private var inFlightPrepare: Task<SessionPrepareResult, Never>?
     private var lastForegroundRefreshAt: Date?
+    /// Invalidates in-flight reverse-geocode applies after logout / newer coords.
+    private var placeResolveGeneration: UInt64 = 0
 
     init() {
         let defaults = UserDefaults.standard
@@ -77,6 +85,9 @@ final class AppSession: ObservableObject {
         } else {
             locationSource = .unknown
         }
+        // Do not restore a global city name — presentation is account-scoped via PlaceGeocodingService.
+        displayPlaceName = nil
+        defaults.removeObject(forKey: Keys.displayPlaceName)
         if let birthRaw = defaults.string(forKey: Keys.dateOfBirth) {
             dateOfBirth = Self.birthDateFormatter.date(from: birthRaw)
         }
@@ -110,11 +121,7 @@ final class AppSession: ObservableObject {
                     self.logout()
                     return
                 }
-                self.userId = session.userId
-                self.email = session.email
-                self.accessToken = session.accessToken
-                self.refreshToken = session.refreshToken
-                self.authNotice = ""
+                self.installAuthSession(session)
                 await self.refreshEntitlement()
             }
         }
@@ -135,8 +142,31 @@ final class AppSession: ObservableObject {
             queue: .main
         ) { [weak self] note in
             let entitlement = note.object as? UserEntitlementResponse
+            let pending = note.userInfo?["activationPending"] as? Bool ?? false
+            let rollback = note.userInfo?["rollback"] as? Bool ?? false
             Task { @MainActor [weak self] in
-                self?.applyEntitlement(entitlement)
+                guard let self else { return }
+                if rollback {
+                    // Require account attribution so a delayed terminal rejection
+                    // from a previous session cannot clear the signed-in account.
+                    guard Self.shouldApplyRollbackNotification(
+                        currentUserId: self.userId,
+                        notedUserId: note.userInfo?["userId"] as? String
+                    ) else { return }
+                    self.rollbackPremiumActivation()
+                    return
+                }
+                // Ignore stale entitlement notifications for a different account.
+                if let entitlement, !entitlement.userId.isEmpty, entitlement.userId != self.userId {
+                    return
+                }
+                if pending {
+                    if let entitlement {
+                        self.beginPremiumActivation(optimistic: entitlement)
+                    }
+                    return
+                }
+                self.confirmPremiumActivation(entitlement)
             }
         }
         locationAuthObserver = NotificationCenter.default.addObserver(
@@ -154,6 +184,13 @@ final class AppSession: ObservableObject {
         Task { @MainActor [weak self] in
             StartupDiagnostics.track("startup_begin")
             await self?.restoreSupabaseSession()
+            if let self, !self.userId.isEmpty {
+                HealthKitService.shared.bindAccount(userId: self.userId)
+                await PlaceGeocodingService.shared.bindAccount(userId: self.userId)
+                if let cached = await PlaceGeocodingService.shared.presentationPlaceName(for: self.userId) {
+                    self.displayPlaceName = cached
+                }
+            }
             await self?.refreshEntitlement()
         }
     }
@@ -171,20 +208,33 @@ final class AppSession: ObservableObject {
         Task {
             await supabaseAuth.signOut()
         }
-        HealthKitService.shared.cancelPendingSync()
+        clearAccountPresentationState()
         userId = ""
         email = ""
         accessToken = ""
         refreshToken = ""
         authNotice = ""
         profileId = ""
-        isPremium = false
         selectedTab = 0
         latitude = 0.0
         longitude = 0.0
         locationSource = .unknown
         locationRevision = 0
         APIClient.setAuthState(nil)
+    }
+
+    /// Clears city / Health / Premium presentation owned by the signed-in session.
+    /// Does not revoke system HealthKit permission.
+    func clearAccountPresentationState() {
+        placeResolveGeneration &+= 1
+        displayPlaceName = nil
+        isResolvingPlaceName = false
+        isPremium = false
+        premiumActivationPending = false
+        HealthKitService.shared.clearAccountSession()
+        Task {
+            await PlaceGeocodingService.shared.invalidateSession()
+        }
     }
 
     func markChecklistItem(_ id: String, done: Bool) {
@@ -217,22 +267,64 @@ final class AppSession: ObservableObject {
         accessToken = auth.accessToken
         refreshToken = auth.refreshToken
         authNotice = ""
+        HealthKitService.shared.bindAccount(userId: auth.userId)
+        Task {
+            await PlaceGeocodingService.shared.bindAccount(userId: auth.userId)
+            if let cached = await PlaceGeocodingService.shared.presentationPlaceName(for: auth.userId) {
+                await MainActor.run {
+                    guard self.userId == auth.userId else { return }
+                    self.displayPlaceName = cached
+                }
+            }
+        }
     }
 
-    func applyEntitlement(_ entitlement: UserEntitlementResponse?) {
+    func applyEntitlement(_ entitlement: UserEntitlementResponse?, activationPending: Bool = false) {
         isPremium = entitlement?.isPremium ?? false
+        if entitlement?.isPremium == true {
+            premiumActivationPending = activationPending
+        } else {
+            premiumActivationPending = false
+        }
+    }
+
+    func beginPremiumActivation(optimistic: UserEntitlementResponse) {
+        isPremium = optimistic.isPremium
+        premiumActivationPending = true
+    }
+
+    func confirmPremiumActivation(_ entitlement: UserEntitlementResponse?) {
+        applyEntitlement(entitlement, activationPending: false)
+    }
+
+    func rollbackPremiumActivation() {
+        isPremium = false
+        premiumActivationPending = false
+    }
+
+    /// Rollback notifications must be account-attributed; unattributed or foreign IDs are ignored.
+    static func shouldApplyRollbackNotification(currentUserId: String, notedUserId: String?) -> Bool {
+        guard let notedUserId, !notedUserId.isEmpty, !currentUserId.isEmpty else { return false }
+        return notedUserId == currentUserId
     }
 
     func refreshEntitlement() async {
         guard !userId.isEmpty, !accessToken.isEmpty else {
             isPremium = false
+            premiumActivationPending = false
             return
         }
         StartupDiagnostics.track("entitlement_refresh_started", profilePresent: !profileId.isEmpty)
         let started = Date()
         do {
             let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
-            applyEntitlement(status.entitlement)
+            if status.entitlement?.isPremium == true {
+                confirmPremiumActivation(status.entitlement)
+            } else if premiumActivationPending {
+                // Keep Activating through temporary /me lag; terminal reject rolls back elsewhere.
+            } else {
+                applyEntitlement(status.entitlement)
+            }
             StartupDiagnostics.track(
                 "entitlement_refresh_succeeded",
                 success: true,
@@ -246,7 +338,7 @@ final class AppSession: ObservableObject {
                 durationMs: Int(Date().timeIntervalSince(started) * 1000),
                 errorCode: "transient"
             )
-            // Keep current premium flag on transient errors (e.g. right after StoreKit verify).
+            // Keep current premium / Activating flag on transient errors.
         }
     }
 
@@ -280,6 +372,9 @@ final class AppSession: ObservableObject {
                     success: ok,
                     durationMs: Int(Date().timeIntervalSince(started) * 1000)
                 )
+            } else if self.displayPlaceName == nil || self.displayPlaceName?.isEmpty == true {
+                // Instant chip from cache happens in init; resolve if missing.
+                Task { await self.resolvePlaceNameIfNeeded() }
             }
             StartupDiagnostics.track("profile_load_started", profilePresent: !self.profileId.isEmpty)
             let profileOk = await self.ensureProfileIdIfNeeded()
@@ -327,11 +422,11 @@ final class AppSession: ObservableObject {
         guard !(userId.isEmpty && accessToken.isEmpty) else {
             return
         }
+        clearAccountPresentationState()
         userId = ""
         accessToken = ""
         refreshToken = ""
         profileId = ""
-        isPremium = false
         selectedTab = 0
         authNotice = l("auth.session_expired")
         APIClient.setAuthState(nil)
@@ -352,6 +447,7 @@ final class AppSession: ObservableObject {
         longitude = profile.homeLon
         locationSource = .cached
         locationRevision += 1
+        Task { await self.resolvePlaceNameIfNeeded() }
     }
 
     @discardableResult
@@ -363,7 +459,47 @@ final class AppSession: ObservableObject {
         longitude = lon
         locationSource = .device
         locationRevision += 1
+        // Geocode immediately — do not await profile PATCH / health / premium.
+        Task { await self.resolvePlaceNameIfNeeded() }
         return await syncProfileLocationIfNeeded()
+    }
+
+    /// Reverse-geocode current coords into `displayPlaceName` (cached; non-blocking for other work).
+    func resolvePlaceNameIfNeeded() async {
+        guard hasValidLocation else { return }
+        let userId = self.userId
+        guard !userId.isEmpty else { return }
+        let lat = latitude
+        let lon = longitude
+        placeResolveGeneration &+= 1
+        let generation = placeResolveGeneration
+        // Instant UI from same-account nearby cache.
+        if let cached = await PlaceGeocodingService.shared.reusablePresentationName(
+            userId: userId,
+            lat: lat,
+            lon: lon
+        ) {
+            displayPlaceName = cached
+        }
+        RuntimePerformanceProbe.begin("place_resolve")
+        isResolvingPlaceName = true
+        defer { isResolvingPlaceName = false }
+        let name = await PlaceGeocodingService.shared.resolvePlaceName(
+            lat: lat,
+            lon: lon,
+            userId: userId
+        )
+        // Ignore stale results after logout, account switch, or newer coordinate.
+        guard generation == placeResolveGeneration else { return }
+        guard self.userId == userId else { return }
+        guard abs(self.latitude - lat) < 0.0005, abs(self.longitude - lon) < 0.0005 else { return }
+        if let name, !name.isEmpty {
+            displayPlaceName = name
+            RuntimePerformanceProbe.end("place_resolve", success: true)
+            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+        } else {
+            RuntimePerformanceProbe.end("place_resolve", success: false, errorCode: "geocode_empty")
+        }
     }
 
     func syncProfileLocationIfNeeded() async -> Bool {
@@ -461,6 +597,8 @@ final class AppSession: ObservableObject {
         defaults.set(latitude, forKey: Keys.latitude)
         defaults.set(longitude, forKey: Keys.longitude)
         defaults.set(locationSource.rawValue, forKey: Keys.locationSource)
+        // City presentation is account-scoped in PlaceGeocodingService — do not persist globally.
+        defaults.removeObject(forKey: Keys.displayPlaceName)
         if let dateOfBirth {
             defaults.set(Self.birthDateFormatter.string(from: dateOfBirth), forKey: Keys.dateOfBirth)
         } else {
@@ -725,6 +863,12 @@ enum HiAirL10n {
             "wearable.consent.disclaimer": "HiAir не ставит диагнозы и не заменяет врача.",
             "wearable.consent.connect": "Подключить",
             "wearable.consent.skip": "Пропустить",
+            "wearable.consent.saving": "Сохраняем подключение…",
+            "wearable.consent.failed": "Не удалось сохранить согласие. Повторите попытку.",
+            "wearable.consent.retry": "Повторить",
+            "wearable.consent.connected": "Здоровье подключено",
+            "wearable.consent.revoking": "Отключаем здоровье…",
+            "wearable.consent.revoke_failed": "Не удалось завершить отключение на сервере. Повторите.",
             "wearable.dashboard.title": "Нагрузка сегодня",
             "wearable.dashboard.steps": "Шаги",
             "wearable.dashboard.hr_normal": "Пульс: в норме",
@@ -1412,6 +1556,12 @@ enum HiAirL10n {
             "wearable.consent.disclaimer": "HiAir provides wellness guidance, not medical diagnosis.",
             "wearable.consent.connect": "Connect",
             "wearable.consent.skip": "Skip",
+            "wearable.consent.saving": "Saving connection…",
+            "wearable.consent.failed": "Couldn’t save consent. Please try again.",
+            "wearable.consent.retry": "Retry",
+            "wearable.consent.connected": "Health connected",
+            "wearable.consent.revoking": "Disconnecting health…",
+            "wearable.consent.revoke_failed": "Couldn’t finish server disconnect. Please retry.",
             "wearable.dashboard.title": "Load today",
             "wearable.dashboard.steps": "Steps",
             "wearable.dashboard.hr_normal": "Heart rate: normal",
@@ -1952,6 +2102,12 @@ enum HiAirL10n {
             "wearable.consent.disclaimer": "HiAir ofrece bienestar, no diagnóstico médico.",
             "wearable.consent.connect": "Conectar",
             "wearable.consent.skip": "Omitir",
+            "wearable.consent.saving": "Guardando conexión…",
+            "wearable.consent.failed": "No se pudo guardar el consentimiento. Inténtalo de nuevo.",
+            "wearable.consent.retry": "Reintentar",
+            "wearable.consent.connected": "Salud conectada",
+            "wearable.consent.revoking": "Desconectando salud…",
+            "wearable.consent.revoke_failed": "No se pudo completar la desconexión en el servidor. Reintenta.",
             "wearable.dashboard.title": "Carga hoy",
             "wearable.dashboard.steps": "Pasos",
             "wearable.dashboard.hr_normal": "Pulso: normal",
