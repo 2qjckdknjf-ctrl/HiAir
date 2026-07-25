@@ -26,8 +26,8 @@ final class PlaceGeocodingServiceTests: XCTestCase {
     }
 
     func testPresentationCacheIsAccountScoped() async {
-        let service = PlaceGeocodingService.shared
-        await service.clearCacheForTests()
+        // Isolated actor — never share with AppSession logout Tasks that invalidate `.shared`.
+        let service = PlaceGeocodingService()
         await service.setPresentationForTests(
             name: "Barcelona",
             lat: 41.3874,
@@ -54,8 +54,7 @@ final class PlaceGeocodingServiceTests: XCTestCase {
     }
 
     func testInvalidateSessionClearsPresentation() async {
-        let service = PlaceGeocodingService.shared
-        await service.clearCacheForTests()
+        let service = PlaceGeocodingService()
         await service.setPresentationForTests(
             name: "Barcelona",
             lat: 41.3874,
@@ -257,6 +256,40 @@ final class SessionLogoutIsolationTests: XCTestCase {
             exp.fulfill()
         }
         wait(for: [exp], timeout: 1.0)
+    }
+
+    @MainActor
+    func testRollbackNotificationRequiresMatchingAccount() {
+        XCTAssertFalse(
+            AppSession.shouldApplyRollbackNotification(currentUserId: "user-b", notedUserId: "user-a")
+        )
+        XCTAssertFalse(
+            AppSession.shouldApplyRollbackNotification(currentUserId: "user-b", notedUserId: nil)
+        )
+        XCTAssertFalse(
+            AppSession.shouldApplyRollbackNotification(currentUserId: "user-b", notedUserId: "")
+        )
+        XCTAssertFalse(
+            AppSession.shouldApplyRollbackNotification(currentUserId: "", notedUserId: "user-b")
+        )
+        XCTAssertTrue(
+            AppSession.shouldApplyRollbackNotification(currentUserId: "user-b", notedUserId: "user-b")
+        )
+
+        let session = AppSession()
+        session.userId = "user-b"
+        session.isPremium = true
+        session.premiumActivationPending = true
+        if AppSession.shouldApplyRollbackNotification(currentUserId: session.userId, notedUserId: "user-a") {
+            session.rollbackPremiumActivation()
+        }
+        XCTAssertTrue(session.isPremium)
+        XCTAssertTrue(session.premiumActivationPending)
+        if AppSession.shouldApplyRollbackNotification(currentUserId: session.userId, notedUserId: "user-b") {
+            session.rollbackPremiumActivation()
+        }
+        XCTAssertFalse(session.isPremium)
+        XCTAssertFalse(session.premiumActivationPending)
     }
 
     @MainActor

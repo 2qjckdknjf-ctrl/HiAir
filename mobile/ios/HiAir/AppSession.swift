@@ -147,6 +147,12 @@ final class AppSession: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if rollback {
+                    // Require account attribution so a delayed terminal rejection
+                    // from a previous session cannot clear the signed-in account.
+                    guard Self.shouldApplyRollbackNotification(
+                        currentUserId: self.userId,
+                        notedUserId: note.userInfo?["userId"] as? String
+                    ) else { return }
                     self.rollbackPremiumActivation()
                     return
                 }
@@ -294,6 +300,12 @@ final class AppSession: ObservableObject {
     func rollbackPremiumActivation() {
         isPremium = false
         premiumActivationPending = false
+    }
+
+    /// Rollback notifications must be account-attributed; unattributed or foreign IDs are ignored.
+    static func shouldApplyRollbackNotification(currentUserId: String, notedUserId: String?) -> Bool {
+        guard let notedUserId, !notedUserId.isEmpty, !currentUserId.isEmpty else { return false }
+        return notedUserId == currentUserId
     }
 
     func refreshEntitlement() async {

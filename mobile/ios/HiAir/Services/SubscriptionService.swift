@@ -300,7 +300,7 @@ final class SubscriptionService: ObservableObject {
                         NotificationCenter.default.post(
                             name: .subscriptionEntitlementDidUpdate,
                             object: nil,
-                            userInfo: ["rollback": true]
+                            userInfo: ["rollback": true, "userId": userId]
                         )
                     }
                     // Transient failures keep Activating + unfinished transaction for safe retry.
@@ -476,7 +476,7 @@ final class SubscriptionService: ObservableObject {
                 NotificationCenter.default.post(
                     name: .subscriptionEntitlementDidUpdate,
                     object: nil,
-                    userInfo: ["rollback": true]
+                    userInfo: ["rollback": true, "userId": userId]
                 )
             }
             // Always finish after a successful backend verify to avoid retry loops
