@@ -36,12 +36,15 @@ class StoredSessionTest {
         `when`(editor.putString("access_token", "access-123")).thenReturn(editor)
         `when`(editor.putString("refresh_token", "refresh-123")).thenReturn(editor)
         `when`(editor.putString("profile_id", "profile-123")).thenReturn(editor)
+        `when`(editor.putLong("account_generation", 1L)).thenReturn(editor)
         `when`(editor.clear()).thenReturn(editor)
+        `when`(editor.commit()).thenReturn(true)
         `when`(prefs.getString("email", "")).thenReturn("person@example.com")
         `when`(prefs.getString("user_id", "")).thenReturn("user-123")
         `when`(prefs.getString("access_token", "")).thenReturn("access-123")
         `when`(prefs.getString("refresh_token", "")).thenReturn("refresh-123")
         `when`(prefs.getString("profile_id", "")).thenReturn("profile-123")
+        `when`(prefs.getLong("account_generation", 0L)).thenReturn(0L)
 
         val store = SessionStore(prefs)
         val initial = StoredSession(
@@ -63,6 +66,6 @@ class StoredSessionTest {
 
         store.clear()
         verify(editor).clear()
-        verify(editor, times(2)).apply()
+        verify(editor).commit()
     }
 }

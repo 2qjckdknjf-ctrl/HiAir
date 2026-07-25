@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.hiair.OnboardingStore
 import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
@@ -28,6 +29,7 @@ import com.hiair.location.LocationBootstrapHost
 import com.hiair.location.LocationController
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.render.FirstRunOnboardingRenderer
+import kotlinx.coroutines.launch
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
@@ -243,7 +245,6 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     private fun persistSession() {
         val state = rootShell.settingsViewModel.state
-        wearableHealthController.onAuthenticatedUserChanged(state.userId)
         sessionStore.save(
             StoredSession(
                 email = state.email,
@@ -252,6 +253,11 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
                 refreshToken = state.refreshToken,
                 profileId = state.profileId
             )
+        )
+        wearableHealthController.onAuthenticatedUserChanged(
+            userId = state.userId,
+            accountGeneration = sessionStore.accountGeneration(),
+            accessToken = state.accessToken.ifBlank { null },
         )
     }
 
@@ -319,6 +325,18 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             userId = state.userId,
             accessToken = state.accessToken.ifBlank { null },
         )
+    }
+
+    override fun revokeWearablesLocalFirst(deleteData: Boolean, onComplete: (Boolean) -> Unit) {
+        val state = rootShell.settingsViewModel.state
+        lifecycleScope.launch {
+            val ok = wearableHealthController.revokeLocalFirst(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                deleteData = deleteData,
+            )
+            onComplete(ok)
+        }
     }
 
     override fun bootstrapLocation(onComplete: () -> Unit) {

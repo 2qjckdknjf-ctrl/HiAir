@@ -27,6 +27,8 @@ import com.hiair.network.AppConfig
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -38,12 +40,138 @@ enum class WearableConnectionState {
     DATA_UNAVAILABLE,
     SYNC_FAILED,
     UNAVAILABLE,
-    PARTIAL
+    PARTIAL,
+    REVOKING,
+    REMOTE_REVOKE_PENDING,
+    REVOKE_FAILED,
 }
 
-class HealthConnectService(private val context: Context) {
+class HealthConnectService(
+    private val context: Context,
+    cleanupApiOverride: WearableCleanupApi? = null,
+) {
     private val apiClient = ApiClient(AppConfig.apiBaseUrl)
     private val consentPrefs = context.getSharedPreferences(CONSENT_PREFS, Context.MODE_PRIVATE)
+    private val cleanupApi: WearableCleanupApi = cleanupApiOverride ?: object : WearableCleanupApi {
+        override fun deleteHealthData(userId: String, accessToken: String?): String {
+            return apiClient.deleteHealthData(userId, accessToken)
+        }
+
+        override fun deleteWearableData(userId: String, accessToken: String?): String {
+            return apiClient.deleteWearableData(userId, accessToken)
+        }
+
+        override fun revokeWearableConsent(userId: String, accessToken: String?): String {
+            return apiClient.revokeWearableConsent(userId, accessToken)
+        }
+    }
+    private val cleanupStore = object : CleanupProgressStore {
+        override fun read(): CleanupProgress {
+            return CleanupProgress(
+                accountUserId = consentPrefs.getString(KEY_CLEANUP_ACCOUNT_USER_ID, "").orEmpty(),
+                pending = consentPrefs.getBoolean(KEY_PENDING_REMOTE_CLEANUP, false),
+                locallyRevoked = consentPrefs.getBoolean(KEY_LOCALLY_REVOKED, false),
+                deleteDataRequested = consentPrefs.getBoolean(KEY_CLEANUP_DELETE_DATA, false),
+                healthDeleteDone = consentPrefs.getBoolean(KEY_CLEANUP_HEALTH_DONE, false),
+                wearableDeleteDone = consentPrefs.getBoolean(KEY_CLEANUP_WEARABLE_DONE, false),
+                consentRevokeDone = consentPrefs.getBoolean(KEY_CLEANUP_REVOKE_DONE, false),
+                lastErrorCategory = consentPrefs.getString(KEY_CLEANUP_ERROR_CATEGORY, null),
+            )
+        }
+
+        override fun write(progress: CleanupProgress) {
+            pendingRemoteCleanup = progress.pending
+            locallyRevoked = progress.locallyRevoked
+            lastConsentError = progress.lastErrorCategory
+            // Active consent is never restored by a tombstone write.
+            if (progress.hasPendingTombstone() || progress.locallyRevoked) {
+                hasDurableConsent = false
+            }
+            lastConnectionState = when {
+                progress.hasPendingTombstone() &&
+                    (consentUserId.isBlank() || consentUserId == progress.accountUserId) ->
+                    WearableConnectionState.REMOTE_REVOKE_PENDING
+                progress.locallyRevoked && !progress.pending -> WearableConnectionState.NOT_CONNECTED
+                else -> lastConnectionState
+            }
+            val editor = consentPrefs.edit()
+                .putBoolean(KEY_PENDING_REMOTE_CLEANUP, progress.pending)
+                .putBoolean(KEY_LOCALLY_REVOKED, progress.locallyRevoked)
+                .putBoolean(KEY_CLEANUP_DELETE_DATA, progress.deleteDataRequested)
+                .putBoolean(KEY_CLEANUP_HEALTH_DONE, progress.healthDeleteDone)
+                .putBoolean(KEY_CLEANUP_WEARABLE_DONE, progress.wearableDeleteDone)
+                .putBoolean(KEY_CLEANUP_REVOKE_DONE, progress.consentRevokeDone)
+            if (progress.accountUserId.isBlank()) {
+                editor.remove(KEY_CLEANUP_ACCOUNT_USER_ID)
+            } else {
+                editor.putString(KEY_CLEANUP_ACCOUNT_USER_ID, progress.accountUserId)
+            }
+            if (progress.lastErrorCategory.isNullOrBlank()) {
+                editor.remove(KEY_CLEANUP_ERROR_CATEGORY)
+            } else {
+                editor.putString(KEY_CLEANUP_ERROR_CATEGORY, progress.lastErrorCategory)
+            }
+            // Successful cleanup clears tombstone account id; do not wipe active consent user here
+            // unless this write is finishing a revoke for the active account.
+            if (!progress.pending && progress.locallyRevoked && progress.accountUserId.isBlank()) {
+                hasDurableConsent = false
+                consentUserId = ""
+                editor.putBoolean(KEY_DURABLE_CONSENT, false).remove(KEY_CONSENT_USER_ID)
+            } else if (progress.hasPendingTombstone()) {
+                editor.putBoolean(KEY_DURABLE_CONSENT, false)
+            }
+            editor.commit()
+        }
+
+        override fun onLocalRevokeStarted() {
+            bumpSyncGeneration()
+            hasDurableConsent = false
+            lastConnectionState = WearableConnectionState.REVOKING
+            consentPrefs.edit().putBoolean(KEY_DURABLE_CONSENT, false).commit()
+        }
+    }
+    private val remoteCleanup = WearableRemoteCleanup(cleanupApi, cleanupStore)
+    private val sessionCoordinator = WearableConsentSessionCoordinator(
+        cleanup = remoteCleanup,
+        store = cleanupStore,
+        onActiveConsentCleared = {
+            bumpSyncGeneration()
+            hasDurableConsent = false
+            consentUserId = ""
+            lastConsentError = cleanupStore.read().lastErrorCategory
+            // Preserve tombstone volatiles from durable store.
+            val tombstone = cleanupStore.read()
+            pendingRemoteCleanup = tombstone.pending
+            locallyRevoked = tombstone.locallyRevoked || tombstone.hasPendingTombstone()
+            lastConnectionState = when {
+                tombstone.hasPendingTombstone() -> WearableConnectionState.REMOTE_REVOKE_PENDING
+                else -> WearableConnectionState.NOT_CONNECTED
+            }
+            consentPrefs.edit()
+                .putBoolean(KEY_DURABLE_CONSENT, false)
+                .remove(KEY_CONSENT_USER_ID)
+                .commit()
+            // Intentionally do NOT clear KEY_PENDING_* / KEY_CLEANUP_* tombstone keys.
+        },
+        onConsentPersisted = { userId ->
+            hasDurableConsent = true
+            consentUserId = userId
+            locallyRevoked = false
+            // pendingRemoteCleanup stays true only if another account's tombstone exists;
+            // for this account it must be clear (canGrantConsent already enforced).
+            val tombstone = cleanupStore.read()
+            pendingRemoteCleanup = tombstone.hasPendingTombstone() && tombstone.accountUserId != userId
+            lastConsentError = null
+            lastConnectionState = WearableConnectionState.CONNECTED
+            consentPrefs.edit()
+                .putBoolean(KEY_DURABLE_CONSENT, true)
+                .putString(KEY_CONSENT_USER_ID, userId)
+                .putBoolean(KEY_LOCALLY_REVOKED, false)
+                .commit()
+        },
+        readConsentUserId = { consentUserId },
+        readHasDurableConsent = { hasDurableConsent },
+    )
 
     /** True only after successful backend consent for `consentUserId`. */
     @Volatile
@@ -62,18 +190,71 @@ class HealthConnectService(private val context: Context) {
     var lastConnectionState: WearableConnectionState = WearableConnectionState.NOT_CONNECTED
         private set
 
+    /** Durable local revoke — survives process restart and blocks uploads even if remote cleanup failed. */
+    @Volatile
+    var locallyRevoked: Boolean = false
+        private set
+
+    /** Remote revoke/delete still needs retry; uploads remain blocked. */
+    @Volatile
+    var pendingRemoteCleanup: Boolean = false
+        private set
+
+    @Volatile
+    var accountGeneration: Long = 0L
+        private set
+
+    @Volatile
+    var syncGeneration: Long = 0L
+        private set
+
+    @Volatile
+    var lastUploadBlockReason: HealthUploadGate.BlockReason? = null
+        private set
+
     init {
         consentUserId = consentPrefs.getString(KEY_CONSENT_USER_ID, "").orEmpty()
-        hasDurableConsent = consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false) && consentUserId.isNotBlank()
-        lastConnectionState = if (hasDurableConsent) {
-            WearableConnectionState.CONNECTED
-        } else {
-            WearableConnectionState.NOT_CONNECTED
+        val tombstoneAccount = consentPrefs.getString(KEY_CLEANUP_ACCOUNT_USER_ID, "").orEmpty()
+        locallyRevoked = consentPrefs.getBoolean(KEY_LOCALLY_REVOKED, false)
+        pendingRemoteCleanup = consentPrefs.getBoolean(KEY_PENDING_REMOTE_CLEANUP, false)
+        accountGeneration = consentPrefs.getLong(KEY_ACCOUNT_GENERATION, 0L)
+        syncGeneration = consentPrefs.getLong(KEY_SYNC_GENERATION, 0L)
+        val storedConsent = consentPrefs.getBoolean(KEY_DURABLE_CONSENT, false) && consentUserId.isNotBlank()
+        val pendingDeleteBlocks =
+            pendingRemoteCleanup &&
+                tombstoneAccount.isNotBlank() &&
+                tombstoneAccount == consentUserId &&
+                consentPrefs.getBoolean(KEY_CLEANUP_DELETE_DATA, false)
+        hasDurableConsent = storedConsent && !locallyRevoked && !pendingDeleteBlocks
+        lastConsentError = consentPrefs.getString(KEY_CLEANUP_ERROR_CATEGORY, null)
+        lastConnectionState = when {
+            pendingRemoteCleanup && (consentUserId.isBlank() || consentUserId == tombstoneAccount) ->
+                WearableConnectionState.REMOTE_REVOKE_PENDING
+            hasDurableConsent -> WearableConnectionState.CONNECTED
+            else -> WearableConnectionState.NOT_CONNECTED
         }
     }
 
     fun hasDurableConsentFor(userId: String): Boolean {
-        return hasDurableConsent && userId.isNotBlank() && userId == consentUserId
+        if (userId.isBlank()) return false
+        if (cleanupStore.read().blocksConsentFor(userId) || cleanupStore.read().blocksUploadsFor(userId)) {
+            return false
+        }
+        return hasDurableConsent &&
+            !locallyRevoked &&
+            userId == consentUserId
+    }
+
+    fun bindAccountGeneration(generation: Long) {
+        accountGeneration = generation
+        consentPrefs.edit().putLong(KEY_ACCOUNT_GENERATION, generation).apply()
+    }
+
+    fun bumpSyncGeneration(): Long {
+        val next = syncGeneration + 1L
+        syncGeneration = next
+        consentPrefs.edit().putLong(KEY_SYNC_GENERATION, next).commit()
+        return next
     }
 
     fun markConsentPersisted(userId: String) {
@@ -81,14 +262,10 @@ class HealthConnectService(private val context: Context) {
             clearConsentSession()
             return
         }
-        hasDurableConsent = true
-        consentUserId = userId
-        lastConsentError = null
-        lastConnectionState = WearableConnectionState.CONNECTED
-        consentPrefs.edit()
-            .putBoolean(KEY_DURABLE_CONSENT, true)
-            .putString(KEY_CONSENT_USER_ID, userId)
-            .apply()
+        if (!sessionCoordinator.tryMarkConsentPersisted(userId)) {
+            markConsentFailed("cleanup_pending_blocks_consent")
+            return
+        }
     }
 
     fun markConsentFailed(message: String) {
@@ -102,25 +279,121 @@ class HealthConnectService(private val context: Context) {
             .apply()
     }
 
+    /**
+     * Clears active consent/session only. Account-bound cleanup tombstone is preserved
+     * so logout/account switch cannot drop a pending delete.
+     */
     fun clearConsentSession() {
+        sessionCoordinator.clearActiveConsentPreservingTombstone()
+    }
+
+    /**
+     * Local-first revoke: immediately blocks uploads and persists an account-bound tombstone.
+     */
+    fun markConsentRevokedLocally(userId: String, deleteData: Boolean = false) {
+        val resolvedUserId = userId.ifBlank { cleanupStore.read().accountUserId }
+        if (resolvedUserId.isBlank()) return
+        sessionCoordinator.beginRevoke(accountUserId = resolvedUserId, deleteData = deleteData)
+        val progress = cleanupStore.read()
+        pendingRemoteCleanup = progress.pending
+        locallyRevoked = progress.locallyRevoked
         hasDurableConsent = false
         consentUserId = ""
-        lastConsentError = null
+    }
+
+    fun markRemoteCleanupSucceeded() {
+        cleanupStore.write(
+            CleanupProgress(
+                accountUserId = "",
+                pending = false,
+                locallyRevoked = true,
+                deleteDataRequested = false,
+                healthDeleteDone = false,
+                wearableDeleteDone = false,
+                consentRevokeDone = true,
+                lastErrorCategory = null,
+            )
+        )
+        hasDurableConsent = false
+        consentUserId = ""
+        pendingRemoteCleanup = false
+        locallyRevoked = true
         lastConnectionState = WearableConnectionState.NOT_CONNECTED
-        consentPrefs.edit()
-            .putBoolean(KEY_DURABLE_CONSENT, false)
-            .remove(KEY_CONSENT_USER_ID)
-            .apply()
+    }
+
+    fun markRemoteCleanupFailed(message: String) {
+        val current = cleanupStore.read()
+        cleanupStore.write(
+            current.copy(
+                pending = true,
+                locallyRevoked = true,
+                lastErrorCategory = message,
+            )
+        )
+        hasDurableConsent = false
+        lastConnectionState = WearableConnectionState.REMOTE_REVOKE_PENDING
     }
 
     fun markConsentRevoked() {
-        clearConsentSession()
+        val userId = consentUserId.ifBlank { cleanupStore.read().accountUserId }
+        markConsentRevokedLocally(userId = userId, deleteData = false)
+        markRemoteCleanupSucceeded()
+    }
+
+    /** Durable delete-vs-revoke intent surviving restart / logout. */
+    fun pendingCleanupDeletesData(): Boolean = cleanupStore.read().deleteDataRequested
+
+    fun cleanupProgressSnapshot(): CleanupProgress = cleanupStore.read()
+
+    fun pendingCleanupAccountUserId(): String = cleanupStore.read().accountUserId
+
+    fun hasPendingCleanupTombstone(): Boolean = cleanupStore.read().hasPendingTombstone()
+
+    fun uploadGateSnapshot(userId: String): HealthUploadGate.Snapshot {
+        val tombstone = cleanupStore.read()
+        val pendingForUser = tombstone.blocksUploadsFor(userId)
+        return HealthUploadGate.Snapshot(
+            userId = userId,
+            accountGeneration = accountGeneration,
+            syncGeneration = syncGeneration,
+            hasDurableConsent = hasDurableConsent,
+            consentUserId = consentUserId,
+            locallyRevoked = pendingForUser || (locallyRevoked && (consentUserId.isBlank() || consentUserId == userId)),
+            pendingRemoteCleanup = pendingForUser,
+        )
+    }
+
+    fun ensureUploadAllowed(
+        userId: String,
+        expectedAccountGeneration: Long,
+        expectedSyncGeneration: Long,
+    ) {
+        val reason = HealthUploadGate.assertAllowed(
+            expectedUserId = userId,
+            expectedAccountGeneration = expectedAccountGeneration,
+            expectedSyncGeneration = expectedSyncGeneration,
+            snapshot = uploadGateSnapshot(userId),
+        )
+        lastUploadBlockReason = reason
+        if (reason != null) {
+            throw IllegalStateException("health_upload_blocked:$reason")
+        }
     }
 
     companion object {
         private const val CONSENT_PREFS = "hiair_wearable_consent"
         private const val KEY_DURABLE_CONSENT = "durable_consent"
         private const val KEY_CONSENT_USER_ID = "consent_user_id"
+        private const val KEY_LOCALLY_REVOKED = "locally_revoked"
+        private const val KEY_PENDING_REMOTE_CLEANUP = "pending_remote_cleanup"
+        private const val KEY_CLEANUP_ACCOUNT_USER_ID = "cleanup_account_user_id"
+        private const val KEY_CLEANUP_DELETE_DATA = "cleanup_delete_data"
+        private const val KEY_CLEANUP_HEALTH_DONE = "cleanup_health_done"
+        private const val KEY_CLEANUP_WEARABLE_DONE = "cleanup_wearable_done"
+        private const val KEY_CLEANUP_REVOKE_DONE = "cleanup_revoke_done"
+        private const val KEY_CLEANUP_ERROR_CATEGORY = "cleanup_error_category"
+        private const val KEY_ACCOUNT_GENERATION = "account_generation"
+        private const val KEY_SYNC_GENERATION = "sync_generation"
     }
 
     val tier1Permissions = setOf(
@@ -204,7 +477,7 @@ class HealthConnectService(private val context: Context) {
         return records.lastOrNull()?.beatsPerMinute?.toDouble()
     }
 
-    fun saveConsent(userId: String, accessToken: String?): String {
+    suspend fun saveConsent(userId: String, accessToken: String?): String = withContext(Dispatchers.IO) {
         val payload = JSONObject()
             .put("platform", "android")
             .put("source", "health_connect")
@@ -222,7 +495,7 @@ class HealthConnectService(private val context: Context) {
             .put("bodyMetricsEnabled", false)
             .put("sensitiveMetricsEnabled", false)
             .put("consentVersion", "health-intelligence-v1")
-        return apiClient.saveWearableConsent(userId, accessToken, payload.toString())
+        apiClient.saveWearableConsent(userId, accessToken, payload.toString())
     }
 
     suspend fun syncWearableDailySummary(userId: String, accessToken: String?): WearableConnectionState {
@@ -233,9 +506,14 @@ class HealthConnectService(private val context: Context) {
         userId: String,
         accessToken: String?,
         profileId: String?,
+        expectedAccountGeneration: Long = accountGeneration,
+        expectedSyncGeneration: Long = syncGeneration,
     ): WearableConnectionState {
         return try {
             if (!isHealthConnectAvailable()) return WearableConnectionState.UNAVAILABLE
+            if (!hasDurableConsentFor(userId)) return WearableConnectionState.NOT_CONNECTED
+            ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
+
             val granted = grantedPermissions()
             val metrics = JSONArray()
             appendAggregateMetric(metrics, "steps", "count", "steps")
@@ -294,6 +572,9 @@ class HealthConnectService(private val context: Context) {
             appendWorkouts(metrics)
             val sleep = buildSleepJson()
 
+            // Re-check immediately before first upload (revoke may have raced during collection).
+            ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
+
             val localDate = LocalDate.now().toString()
             val payload = JSONObject()
                 .put("profileId", profileId)
@@ -307,46 +588,93 @@ class HealthConnectService(private val context: Context) {
                 .put("sleep", sleep)
                 .put("cursorMetadata", JSONObject().put("mode", "foreground_daily"))
 
-            apiClient.syncHealthData(userId, accessToken, payload.toString())
+            withContext(Dispatchers.IO) {
+                ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
+                apiClient.syncHealthData(userId, accessToken, payload.toString())
 
-            // Legacy daily for personalLoad — reuse steps already aggregated above.
-            var stepsTotal: Long? = null
-            for (i in 0 until metrics.length()) {
-                val row = metrics.optJSONObject(i) ?: continue
-                if (row.optString("metricType") == "steps" && !row.isNull("valueTotal")) {
-                    stepsTotal = row.optDouble("valueTotal").toLong()
-                    break
+                // Re-check between uploads.
+                ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
+
+                var stepsTotal: Long? = null
+                for (i in 0 until metrics.length()) {
+                    val row = metrics.optJSONObject(i) ?: continue
+                    if (row.optString("metricType") == "steps" && !row.isNull("valueTotal")) {
+                        stepsTotal = row.optDouble("valueTotal").toLong()
+                        break
+                    }
                 }
+                val legacy = JSONObject()
+                    .put("date", localDate)
+                    .put("stepsTotal", stepsTotal)
+                    .put("heartRateAvg", hr.first)
+                    .put("heartRateMin", hr.second)
+                    .put("heartRateMax", hr.third)
+                    .put("restingHeartRateAvg", resting)
+                    .put("source", "health_connect")
+                apiClient.uploadWearableDailySummary(userId, accessToken, legacy.toString())
             }
-            val legacy = JSONObject()
-                .put("date", localDate)
-                .put("stepsTotal", stepsTotal)
-                .put("heartRateAvg", hr.first)
-                .put("heartRateMin", hr.second)
-                .put("heartRateMax", hr.third)
-                .put("restingHeartRateAvg", resting)
-                .put("source", "health_connect")
-            apiClient.uploadWearableDailySummary(userId, accessToken, legacy.toString())
 
             WearableConnectionState.CONNECTED
         } catch (_: SecurityException) {
             WearableConnectionState.PERMISSION_DENIED
+        } catch (blocked: IllegalStateException) {
+            if (blocked.message?.startsWith("health_upload_blocked:") == true) {
+                WearableConnectionState.NOT_CONNECTED
+            } else {
+                WearableConnectionState.SYNC_FAILED
+            }
         } catch (_: Exception) {
             WearableConnectionState.SYNC_FAILED
         }
     }
 
-    fun fetchWearableToday(userId: String, accessToken: String?): String {
-        return apiClient.fetchWearableToday(userId, accessToken)
+    suspend fun fetchWearableToday(userId: String, accessToken: String?): String = withContext(Dispatchers.IO) {
+        apiClient.fetchWearableToday(userId, accessToken)
     }
 
-    fun deleteHealthData(userId: String, accessToken: String?): String {
-        apiClient.deleteHealthData(userId, accessToken)
-        return apiClient.deleteWearableData(userId, accessToken)
+    suspend fun deleteHealthData(userId: String, accessToken: String?): String = withContext(Dispatchers.IO) {
+        // Prefer atomic orchestrator for delete+revoke; keep direct deletes for rare callers.
+        cleanupApi.deleteHealthData(userId, accessToken)
+        cleanupApi.deleteWearableData(userId, accessToken)
     }
 
-    fun revokeConsent(userId: String, accessToken: String?): String {
-        return apiClient.revokeWearableConsent(userId, accessToken)
+    suspend fun revokeConsent(userId: String, accessToken: String?): String = withContext(Dispatchers.IO) {
+        cleanupApi.revokeWearableConsent(userId, accessToken)
+    }
+
+    /**
+     * Production remote cleanup path: delete (optional) + revoke, fail-closed on any non-2xx / timeout.
+     * Account isolation: only runs when [userId] matches the durable tombstone account.
+     */
+    suspend fun performRemoteCleanup(userId: String, accessToken: String?): Boolean = withContext(Dispatchers.IO) {
+        val result = sessionCoordinator.runCleanupForAuthenticatedUser(userId, accessToken)
+        val progress = result.progress
+        pendingRemoteCleanup = progress.pending
+        locallyRevoked = progress.locallyRevoked || progress.hasPendingTombstone()
+        if (result.remoteCleanupSucceeded) {
+            hasDurableConsent = false
+            consentUserId = ""
+        }
+        result.remoteCleanupSucceeded
+    }
+
+    /**
+     * Retry remote revoke/delete without re-enabling uploads.
+     * No-op when tombstone belongs to a different account (never uses token B for user A).
+     */
+    suspend fun retryRemoteCleanup(userId: String, accessToken: String?, deleteData: Boolean = false): Boolean {
+        val tombstone = cleanupStore.read()
+        if (tombstone.hasPendingTombstone() && tombstone.accountUserId != userId) {
+            return false
+        }
+        if (deleteData && tombstone.hasPendingTombstone() && tombstone.accountUserId == userId && !tombstone.deleteDataRequested) {
+            sessionCoordinator.beginRevoke(accountUserId = userId, deleteData = true)
+        }
+        if (!tombstone.hasPendingTombstone() && tombstone.isRemoteFullyComplete()) {
+            return true
+        }
+        if (!tombstone.hasPendingTombstone() && !tombstone.locallyRevoked) return true
+        return performRemoteCleanup(userId, accessToken)
     }
 
     private suspend fun aggregateLong(): Long? {

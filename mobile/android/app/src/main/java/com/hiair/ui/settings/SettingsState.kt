@@ -613,11 +613,9 @@ class SettingsViewModel(
 
     fun deleteWearableData() {
         if (state.userId.isBlank()) return
+        // Prefer host local-first path; this method remains for tests / fallbacks.
         try {
-            // Delete both legacy wearable rows and health-intelligence aggregates.
-            runCatching { apiClient.deleteHealthData(state.userId, state.accessToken) }
-            apiClient.deleteWearableData(state.userId, state.accessToken)
-            state = state.copy(statusText = l("settings.wearables.delete"))
+            state = state.copy(statusText = l("settings.wearables.local_stopped"))
             refreshWearableStatus()
         } catch (_: Exception) {
             state = state.copy(statusText = l("settings.privacy_export_failed"))
@@ -627,11 +625,22 @@ class SettingsViewModel(
     fun disconnectWearables() {
         if (state.userId.isBlank()) return
         try {
-            apiClient.revokeWearableConsent(state.userId, state.accessToken)
+            state = state.copy(statusText = l("settings.wearables.local_stopped"))
             refreshWearableStatus()
         } catch (_: Exception) {
             state = state.copy(statusText = l("settings.privacy_export_failed"))
         }
+    }
+
+    fun applyWearableRevokeResult(remoteCleanupSucceeded: Boolean, deleteData: Boolean) {
+        state = state.copy(
+            wearableStatus = l("wearable.dashboard.not_connected"),
+            statusText = if (remoteCleanupSucceeded) {
+                if (deleteData) l("settings.wearables.delete") else l("settings.wearables.disconnected")
+            } else {
+                l("settings.wearables.remote_cleanup_pending")
+            },
+        )
     }
 
     fun loadSubscriptionPlans() {
