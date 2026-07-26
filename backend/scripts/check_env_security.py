@@ -155,15 +155,36 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE={apple_mode}."))
 
     google_mode = env.get("GOOGLE_PLAY_VERIFIER_MODE", "stub").strip().lower()
+    google_package = env.get("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair").strip()
     if google_mode not in ("stub", "live"):
         checks.append(CheckResult("ERROR", "GOOGLE_PLAY_VERIFIER_MODE must be stub or live."))
-    elif protected_env and google_mode == "live" and not env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip():
+    elif protected_env and google_mode == "stub":
         checks.append(
             CheckResult(
                 "ERROR",
-                "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is required when GOOGLE_PLAY_VERIFIER_MODE=live.",
+                "GOOGLE_PLAY_VERIFIER_MODE=stub is forbidden in production/staging.",
             )
         )
+    elif google_mode == "live":
+        if protected_env and not google_package:
+            checks.append(CheckResult("ERROR", "GOOGLE_PLAY_PACKAGE_NAME is required for live Google verification."))
+        if not env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip():
+            if protected_env:
+                checks.append(
+                    CheckResult(
+                        "ERROR",
+                        "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is required when GOOGLE_PLAY_VERIFIER_MODE=live.",
+                    )
+                )
+            else:
+                checks.append(
+                    CheckResult(
+                        "WARN",
+                        "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON missing for live mode (required before Android verify).",
+                    )
+                )
+        else:
+            checks.append(CheckResult("OK", f"GOOGLE_PLAY_VERIFIER_MODE=live package={google_package or 'unset'}."))
     else:
         checks.append(CheckResult("OK", f"GOOGLE_PLAY_VERIFIER_MODE={google_mode}."))
 
@@ -215,6 +236,33 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         )
     elif openai_key:
         checks.append(CheckResult("OK", "OPENAI_API_KEY is configured."))
+
+    sample_fallback_raw = env.get("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK", "").strip().lower()
+    if protected_env:
+        # Missing key defaults fail-closed in settings.py for protected APP_ENV.
+        if sample_fallback_raw in ("true", "1", "yes"):
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=true is forbidden in production/staging.",
+                )
+            )
+        else:
+            checks.append(
+                CheckResult(
+                    "OK",
+                    "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK disabled for protected environment.",
+                )
+            )
+    elif sample_fallback_raw in ("false", "0", "no"):
+        checks.append(CheckResult("OK", "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=false."))
+    else:
+        checks.append(
+            CheckResult(
+                "OK",
+                "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK allowed for non-protected environment.",
+            )
+        )
 
     return checks
 

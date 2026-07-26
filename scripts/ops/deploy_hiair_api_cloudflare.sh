@@ -76,6 +76,8 @@ allowed = {
   "APPLE_STORE_ENVIRONMENT",
   "APPLE_APP_APPLE_ID",
   "GOOGLE_PLAY_PACKAGE_NAME",
+  "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+  "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
   "DEPLOY_GIT_SHA",
   "WEATHER_API_PROVIDER",
   "WEATHER_API_KEY",
@@ -100,12 +102,20 @@ if app_env in ("production", "prod", "staging"):
     apple_mode = values.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
     apple_store_env = values.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()
     apple_app_id = values.get("APPLE_APP_APPLE_ID", "").strip()
+    google_mode = values.get("GOOGLE_PLAY_VERIFIER_MODE", "").strip().lower()
+    google_sa = values.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
     if apple_mode != "live":
         raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
     if apple_store_env not in ("production", "prod"):
         raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
     if not apple_app_id.isdigit():
         raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
+    if google_mode != "live":
+        raise SystemExit("ERROR: production deploy requires GOOGLE_PLAY_VERIFIER_MODE=live")
+    if not google_sa:
+        raise SystemExit("ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+    # Fail-closed: never serve synthetic sample/mock environment data in protected deploys.
+    values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
 else:
     values.setdefault("APPLE_STORE_VERIFIER_MODE", "stub")
     values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")

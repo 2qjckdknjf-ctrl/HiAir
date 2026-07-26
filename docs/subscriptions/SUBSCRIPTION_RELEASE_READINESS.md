@@ -11,7 +11,7 @@ Code, unit tests, and CI-style builds are green. **Store sandbox purchases are n
 | Rule | Detail |
 |------|--------|
 | **No stub premium in production** | `SUBSCRIPTION_PROVIDER=stub` and `APPLE_STORE_VERIFIER_MODE=stub` / `GOOGLE_PLAY_VERIFIER_MODE=stub` must **not** be used to grant premium in `APP_ENV=production` or `staging`. |
-| **Live verifiers** | Production requires `APPLE_STORE_VERIFIER_MODE=live` + Apple API key material, and `GOOGLE_PLAY_VERIFIER_MODE=live` + `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. |
+| **Live verifiers** | Production requires `APPLE_STORE_VERIFIER_MODE=live` + Apple API key material, and `GOOGLE_PLAY_VERIFIER_MODE=live` + `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. Deploy/`check_env_security` **reject** Google stub in production/staging. Live Google parsing is fail-closed (exact **unique** product match — ambiguous duplicate `lineItems` rejected; required `expiryTime` / `latestOrderId` / `subscriptionState`; `prepaidPlan` ⇒ `auto_renew=false`; `autoRenewingPlan.autoRenewEnabled` must be an explicit boolean; no plan-length / token-hash / default-`True` synthesis). |
 | **Manual activate/cancel** | `POST /api/subscriptions/activate` and `/cancel` only when `SUBSCRIPTION_PROVIDER=stub` **and** `APP_ENV` is development/test — blocked in staging/production. |
 | **Webhook secret** | `SUBSCRIPTION_WEBHOOK_SECRET` required (≥16 chars) for any externally reachable webhook. |
 

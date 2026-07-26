@@ -55,8 +55,42 @@ def test_deploy_script_rejects_production_stub_and_redacts_secret_values() -> No
     assert "APPLE_STORE_VERIFIER_MODE=live" in text
     assert "APPLE_STORE_ENVIRONMENT=production" in text
     assert "numeric APPLE_APP_APPLE_ID" in text
+    assert "GOOGLE_PLAY_VERIFIER_MODE=live" in text
+    assert "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in text
+    assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK" in text
+    assert 'values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"' in text
     assert "file=sys.stderr" in text
     assert 'print(f"{key}={values[key]}")' not in text
+
+
+def test_cloudflare_worker_forwards_google_and_sample_env_keys() -> None:
+    text = _read("infra/cloudflare/hiair-api/src/index.js")
+    assert "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in text
+    assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK" in text
+
+
+def test_check_env_security_rejects_production_sample_fallback() -> None:
+    module = _load_check_env_security()
+    results = module._run_checks(
+        {
+            "APP_ENV": "production",
+            "JWT_SECRET": "x" * 32,
+            "DATABASE_URL": "postgresql://hiair:hiair@localhost:5432/hiair",
+            "APPLE_STORE_VERIFIER_MODE": "live",
+            "APPLE_STORE_ENVIRONMENT": "production",
+            "APPLE_APP_APPLE_ID": "1234567890",
+            "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
+            "SUBSCRIPTION_PROVIDER": "apple",
+            "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
+            "GOOGLE_PLAY_VERIFIER_MODE": "live",
+            "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON": '{"client_email":"a@b.c","private_key":"k"}',
+            "NOTIFICATIONS_PROVIDER_MODE": "stub",
+            "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "true",
+        }
+    )
+    errors = [item.message for item in results if item.level == "ERROR"]
+    assert any("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=true" in msg for msg in errors)
 
 
 def test_check_env_security_rejects_production_stub() -> None:
@@ -70,12 +104,35 @@ def test_check_env_security_rejects_production_stub() -> None:
             "APPLE_STORE_ENVIRONMENT": "sandbox",
             "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
             "SUBSCRIPTION_PROVIDER": "stub",
-            "GOOGLE_PLAY_VERIFIER_MODE": "stub",
+            "GOOGLE_PLAY_VERIFIER_MODE": "live",
+            "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON": '{"client_email":"a@b.c","private_key":"k"}',
             "NOTIFICATIONS_PROVIDER_MODE": "stub",
         }
     )
     errors = [item.message for item in results if item.level == "ERROR"]
     assert any("APPLE_STORE_VERIFIER_MODE=stub" in msg for msg in errors)
+
+
+def test_check_env_security_rejects_production_google_stub() -> None:
+    module = _load_check_env_security()
+    results = module._run_checks(
+        {
+            "APP_ENV": "production",
+            "JWT_SECRET": "x" * 32,
+            "DATABASE_URL": "postgresql://hiair:hiair@localhost:5432/hiair",
+            "APPLE_STORE_VERIFIER_MODE": "live",
+            "APPLE_STORE_ENVIRONMENT": "production",
+            "APPLE_APP_APPLE_ID": "1234567890",
+            "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
+            "SUBSCRIPTION_PROVIDER": "apple",
+            "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
+            "GOOGLE_PLAY_VERIFIER_MODE": "stub",
+            "NOTIFICATIONS_PROVIDER_MODE": "stub",
+        }
+    )
+    errors = [item.message for item in results if item.level == "ERROR"]
+    assert any("GOOGLE_PLAY_VERIFIER_MODE=stub" in msg for msg in errors)
 
 
 def test_check_env_security_rejects_non_production_apple_env_in_prod() -> None:
@@ -91,7 +148,9 @@ def test_check_env_security_rejects_non_production_apple_env_in_prod() -> None:
             "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
             "SUBSCRIPTION_PROVIDER": "apple",
             "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
-            "GOOGLE_PLAY_VERIFIER_MODE": "stub",
+            "GOOGLE_PLAY_VERIFIER_MODE": "live",
+            "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON": '{"client_email":"a@b.c","private_key":"k"}',
             "NOTIFICATIONS_PROVIDER_MODE": "stub",
         }
     )
@@ -112,9 +171,33 @@ def test_check_env_security_rejects_non_numeric_app_apple_id() -> None:
             "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
             "SUBSCRIPTION_PROVIDER": "apple",
             "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
-            "GOOGLE_PLAY_VERIFIER_MODE": "stub",
+            "GOOGLE_PLAY_VERIFIER_MODE": "live",
+            "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON": '{"client_email":"a@b.c","private_key":"k"}',
             "NOTIFICATIONS_PROVIDER_MODE": "stub",
         }
     )
     errors = [item.message for item in results if item.level == "ERROR"]
     assert any("APPLE_APP_APPLE_ID must be numeric" in msg for msg in errors)
+
+
+def test_check_env_security_rejects_live_google_without_service_account() -> None:
+    module = _load_check_env_security()
+    results = module._run_checks(
+        {
+            "APP_ENV": "production",
+            "JWT_SECRET": "x" * 32,
+            "DATABASE_URL": "postgresql://hiair:hiair@localhost:5432/hiair",
+            "APPLE_STORE_VERIFIER_MODE": "live",
+            "APPLE_STORE_ENVIRONMENT": "production",
+            "APPLE_APP_APPLE_ID": "1234567890",
+            "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
+            "SUBSCRIPTION_PROVIDER": "google",
+            "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
+            "GOOGLE_PLAY_VERIFIER_MODE": "live",
+            "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+            "NOTIFICATIONS_PROVIDER_MODE": "stub",
+        }
+    )
+    errors = [item.message for item in results if item.level == "ERROR"]
+    assert any("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in msg for msg in errors)

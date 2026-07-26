@@ -380,6 +380,7 @@ def verify_android_purchase(product_id: str, purchase_token: str) -> VerifiedSto
         )
 
     if cfg.google_mode == "live":
+        # Fail-closed: never silently fall back to stub decode / synthesized fields.
         return _verify_google_play_live(cfg.google_package_name, product_id, purchase_token)
     raise ValueError(f"Unsupported GOOGLE_PLAY_VERIFIER_MODE: {cfg.google_mode}")
 
@@ -391,13 +392,19 @@ def _load_google_service_account() -> dict:
             "GOOGLE_PLAY_VERIFIER_MODE=live requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON "
             "(inline JSON or path to service account file)."
         )
-    if raw.startswith("{"):
+    if raw.startswith("{") or raw.startswith("["):
         data = json.loads(raw)
     else:
         with open(raw, encoding="utf-8") as handle:
             data = json.load(handle)
     if not isinstance(data, dict):
         raise RuntimeError("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON must decode to a JSON object")
+    client_email = data.get("client_email")
+    private_key = data.get("private_key")
+    if not isinstance(client_email, str) or not client_email.strip():
+        raise RuntimeError("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON missing client_email")
+    if not isinstance(private_key, str) or not private_key.strip():
+        raise RuntimeError("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON missing private_key")
     return data
 
 
@@ -441,36 +448,84 @@ def _google_fetch_subscription_v2(package_name: str, purchase_token: str, access
     return data
 
 
-def _google_line_item_for_product(data: dict, product_id: str) -> dict | None:
+def _google_line_item_for_product(data: dict, product_id: str) -> dict:
+    """Return the unique line item for product_id. Ambiguous duplicates fail closed."""
     line_items = data.get("lineItems")
-    if not isinstance(line_items, list):
-        return None
-    for item in line_items:
-        if isinstance(item, dict) and item.get("productId") == product_id:
-            return item
-    if line_items and isinstance(line_items[0], dict):
-        return line_items[0]
-    return None
+    if not isinstance(line_items, list) or not line_items:
+        raise ValueError("Google Play subscription missing lineItems")
+    matches = [
+        item
+        for item in line_items
+        if isinstance(item, dict) and str(item.get("productId") or "").strip() == product_id
+    ]
+    if not matches:
+        raise ValueError("Google Play subscription product ID mismatch")
+    if len(matches) > 1:
+        raise ValueError(
+            "Google Play subscription has ambiguous duplicate lineItems for product"
+        )
+    return matches[0]
+
+
+def _google_auto_renew_from_line_item(line_item: dict) -> bool:
+    """
+    Fail-closed auto-renew mapping for subscriptions v2 line items.
+
+    - prepaidPlan => False (never synthesize True)
+    - autoRenewingPlan requires an explicit boolean autoRenewEnabled
+    - missing / both plan types / non-boolean => reject (no default True)
+    """
+    prepaid = line_item.get("prepaidPlan")
+    auto_renewing = line_item.get("autoRenewingPlan")
+    has_prepaid = isinstance(prepaid, dict)
+    has_auto = isinstance(auto_renewing, dict)
+    if has_prepaid and has_auto:
+        raise ValueError("Google Play line item has both prepaidPlan and autoRenewingPlan")
+    if has_prepaid:
+        return False
+    if not has_auto:
+        raise ValueError("Google Play line item missing autoRenewingPlan or prepaidPlan")
+    if "autoRenewEnabled" not in auto_renewing:
+        raise ValueError("Google Play autoRenewingPlan missing autoRenewEnabled")
+    enabled = auto_renewing["autoRenewEnabled"]
+    if not isinstance(enabled, bool):
+        raise ValueError("Google Play autoRenewEnabled must be a boolean")
+    return enabled
+
+
+def _google_require_transaction_id(data: dict) -> str:
+    latest_order_id = data.get("latestOrderId")
+    if latest_order_id is not None and str(latest_order_id).strip():
+        return str(latest_order_id).strip()
+    raise ValueError("Google Play subscription missing latestOrderId")
 
 
 def _google_status_from_subscription(
     data: dict,
     product_id: str,
-    plan_id: str,
-    purchase_token: str,
 ) -> tuple[SubscriptionStatus, datetime, bool, str]:
+    """
+    Map a Google Play subscriptions v2 payload to entitlement fields (fail-closed).
+
+    Live mode never synthesizes expiry from plan length or transaction IDs from
+    purchase-token hashes.
+    """
     now = datetime.now(tz=UTC)
     line_item = _google_line_item_for_product(data, product_id)
-    expiry_raw = line_item.get("expiryTime") if line_item else None
-    expires_at = _parse_ts(expiry_raw) if expiry_raw else _period_end_for_plan(plan_id, now)
+    expiry_raw = line_item.get("expiryTime")
+    if expiry_raw is None or not str(expiry_raw).strip():
+        raise ValueError("Google Play subscription missing expiryTime")
+    expires_at = _parse_ts(expiry_raw)
+    transaction_id = _google_require_transaction_id(data)
 
-    auto_renew = True
-    if line_item and isinstance(line_item.get("autoRenewingPlan"), dict):
-        auto_renew = bool(line_item["autoRenewingPlan"].get("autoRenewEnabled", True))
+    auto_renew = _google_auto_renew_from_line_item(line_item)
 
-    state_raw = str(data.get("subscriptionState") or "SUBSCRIPTION_STATE_UNSPECIFIED")
+    state_raw = str(data.get("subscriptionState") or "").strip()
+    if not state_raw or state_raw == "SUBSCRIPTION_STATE_UNSPECIFIED":
+        raise ValueError("Google Play subscription missing subscriptionState")
+
     if expires_at < now:
-        return "expired", expires_at, False, _google_transaction_id(data, purchase_token)
+        return "expired", expires_at, False, transaction_id
 
     state_map: dict[str, SubscriptionStatus] = {
         "SUBSCRIPTION_STATE_ACTIVE": "active",
@@ -481,39 +536,43 @@ def _google_status_from_subscription(
         "SUBSCRIPTION_STATE_EXPIRED": "expired",
         "SUBSCRIPTION_STATE_CANCELED": "canceled",
     }
-    status = state_map.get(state_raw, "unknown")
+    if state_raw not in state_map:
+        raise ValueError(f"Google Play subscription unrecognized state: {state_raw}")
+    status = state_map[state_raw]
     if status == "canceled" and expires_at >= now:
+        # Canceled but still within paid period — access continues without renew.
         status = "active"
         auto_renew = False
 
-    return status, expires_at, auto_renew, _google_transaction_id(data, purchase_token)
+    return status, expires_at, auto_renew, transaction_id
 
 
-def _google_transaction_id(data: dict, purchase_token: str) -> str:
-    latest_order_id = data.get("latestOrderId")
-    if latest_order_id is not None and str(latest_order_id).strip():
-        return str(latest_order_id).strip()
-    return hashlib.sha256(purchase_token.encode()).hexdigest()[:32]
+def verified_purchase_from_google_subscription(
+    data: dict,
+    *,
+    package_name: str,
+    product_id: str,
+    purchase_token: str,
+) -> VerifiedStorePurchase:
+    """
+    Fail-closed mapping from a Google Play subscriptions v2 response.
 
+    Used by the live verifier and unit tests (no network). Never logs tokens.
+    """
+    if not package_name.strip():
+        raise ValueError("Google Play package name is required")
+    if not product_id.strip():
+        raise ValueError("Google Play product ID is required")
+    if not purchase_token.strip():
+        raise ValueError("Google Play purchase token is required")
 
-def _verify_google_play_live(package_name: str, product_id: str, purchase_token: str) -> VerifiedStorePurchase:
+    response_package = data.get("packageName") or data.get("package_name")
+    if response_package is not None and str(response_package).strip():
+        if str(response_package).strip() != package_name.strip():
+            raise ValueError("Google Play package name mismatch")
+
     plan_id = plan_id_for_product(product_id)
-    service_account = _load_google_service_account()
-    access_token = _google_access_token(service_account)
-    data = _google_fetch_subscription_v2(package_name, purchase_token, access_token)
-    status, expires_at, auto_renew, transaction_id = _google_status_from_subscription(
-        data,
-        product_id,
-        plan_id,
-        purchase_token,
-    )
-    logger.info(
-        "google_play_verify product_id=%s subscription_state=%s status=%s expires_at=%s",
-        product_id,
-        data.get("subscriptionState"),
-        status,
-        expires_at.isoformat(),
-    )
+    status, expires_at, auto_renew, transaction_id = _google_status_from_subscription(data, product_id)
     return VerifiedStorePurchase(
         platform="android",
         provider="google",
@@ -526,6 +585,38 @@ def _verify_google_play_live(package_name: str, product_id: str, purchase_token:
         expires_at=expires_at,
         auto_renew=auto_renew,
     )
+
+
+def _verify_google_play_live(package_name: str, product_id: str, purchase_token: str) -> VerifiedStorePurchase:
+    if not package_name.strip():
+        raise RuntimeError("GOOGLE_PLAY_PACKAGE_NAME is required for live verification")
+    if not purchase_token.strip():
+        raise ValueError("Google Play purchase token is required")
+    plan_id_for_product(product_id)  # unknown product fail-closed before network
+    service_account = _load_google_service_account()
+    try:
+        access_token = _google_access_token(service_account)
+        data = _google_fetch_subscription_v2(package_name, purchase_token, access_token)
+    except ValueError:
+        raise
+    except Exception as exc:  # network / oauth / transport — fail closed
+        logger.warning("google_play_verifier_unavailable error_type=%s", type(exc).__name__)
+        raise RuntimeError("Google Play verifier unavailable") from exc
+
+    purchase = verified_purchase_from_google_subscription(
+        data,
+        package_name=package_name,
+        product_id=product_id,
+        purchase_token=purchase_token,
+    )
+    logger.info(
+        "google_play_verify product_id=%s subscription_state=%s status=%s expires_at=%s",
+        product_id,
+        data.get("subscriptionState"),
+        purchase.status,
+        purchase.expires_at.isoformat(),
+    )
+    return purchase
 
 
 def _normalize_status(raw: str, expires_at: datetime) -> SubscriptionStatus:
