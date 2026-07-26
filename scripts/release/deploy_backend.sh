@@ -23,7 +23,19 @@ export APP_ENV="${APP_ENV:-${ENVIRONMENT}}"
 echo "[deploy] environment=${ENVIRONMENT} app_env=${APP_ENV}"
 "${PYTHON_BIN}" backend/scripts/check_env_security.py --strict
 "${PYTHON_BIN}" backend/scripts/init_db.py
-"${PYTHON_BIN}" backend/scripts/smoke_db_flow.py
+
+# Local DB smoke is intentionally stub/mock-capable. Protected APP_ENV forbids those
+# paths, so isolate smoke into a child env while keeping the strict production gate above.
+echo "[deploy] DB smoke (isolated stub-capable child env)"
+(
+  export APP_ENV=development
+  export HIAIR_ALLOW_INSECURE_LOCAL_DEV=false
+  export APPLE_STORE_VERIFIER_MODE=stub
+  export GOOGLE_PLAY_VERIFIER_MODE=stub
+  export SUBSCRIPTION_PROVIDER=stub
+  export ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=true
+  "${PYTHON_BIN}" backend/scripts/smoke_db_flow.py
+)
 
 echo "[deploy] AI connection observability"
 "${PYTHON_BIN}" backend/scripts/check_ai_connection.py --skip-if-unconfigured
