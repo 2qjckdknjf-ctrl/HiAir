@@ -90,18 +90,22 @@ def test_github_deploy_workflows_sync_google_sa_and_forbid_sample(rel: str) -> N
     assert "SUBSCRIPTION_PROVIDER != stub" in text
 
 
-def test_deploy_backend_isolates_db_smoke_from_protected_modes() -> None:
+def test_deploy_backend_skips_stub_smoke_in_protected_envs() -> None:
     text = _read("scripts/release/deploy_backend.sh")
-    assert "smoke_db_flow.py" in text
-    assert "APP_ENV=development" in text
-    assert "APPLE_STORE_VERIFIER_MODE=stub" in text
-    assert "GOOGLE_PLAY_VERIFIER_MODE=stub" in text
-    assert "SUBSCRIPTION_PROVIDER=stub" in text
     assert "check_env_security.py --strict" in text
-    # Strict gate must run before the isolated smoke child env.
-    assert text.index("check_env_security.py --strict") < text.index("smoke_db_flow.py")
-    assert text.index("APP_ENV=development") < text.index("smoke_db_flow.py")
+    assert "smoke_db_flow.py" in text
+    assert "skipping stub DB smoke against protected environment" in text
+    assert "post-deploy live smoke" in text
+    assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=true" not in text
 
+
+def test_cloudflare_workflow_maps_notification_admin_token() -> None:
+    text = _read(".github/workflows/hiair-api-cloudflare.yml")
+    assert "NOTIFICATION_ADMIN_TOKEN: ${{ secrets.NOTIFICATION_ADMIN_TOKEN }}" in text
+    assert "post_deploy_api_smoke.py --require-live-ai" in text
+
+
+def test_sync_script_contains_production_contract_keys() -> None:
     text = _read("scripts/release/sync_github_env_secrets.py")
     for key in (
         "HIAIR_AUTH_PROVIDER",
