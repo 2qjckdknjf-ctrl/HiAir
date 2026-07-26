@@ -125,18 +125,15 @@ def signup_with_password(email: str, password: str) -> dict[str, str]:
             raise SupabaseAdminAuthError(_safe_auth_failure_message(response))
         payload = response.json()
 
-    # Signup may return a user without a session when email confirmation is required.
+    # Signup may return tokens for an unconfirmed user when the project policy
+    # still requires email confirmation — never issue a session in that case.
     access_token = str(payload.get("access_token") or "").strip()
     refresh_token = str(payload.get("refresh_token") or "").strip()
     user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
-    if not access_token or not refresh_token:
-        logger.info("supabase_signup_confirmation_required")
-        raise SupabaseEmailConfirmationRequired(
-            "Check your email to confirm your account before signing in."
-        )
-    # Defense: if identities empty / confirmed_at missing, still require confirmation.
     confirmed_at = user.get("email_confirmed_at") or user.get("confirmed_at")
-    if user and confirmed_at is None and not access_token:
+    email_confirmed = isinstance(confirmed_at, str) and bool(confirmed_at.strip())
+    if not access_token or not refresh_token or not email_confirmed:
+        logger.info("supabase_signup_confirmation_required")
         raise SupabaseEmailConfirmationRequired(
             "Check your email to confirm your account before signing in."
         )

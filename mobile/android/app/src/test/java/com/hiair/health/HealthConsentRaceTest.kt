@@ -87,6 +87,42 @@ class HealthConsentRaceTest {
     }
 
     @Test
+    fun coldStart_restoreSessionBinding_retriesPendingWithRestoredTokenNotOtherAccount() {
+        // Production path: AppMainActivity.restoreSession() must immediately call
+        // onAuthenticatedUserChanged(restoredUser, generation, restoredToken).
+        val api = FakeCleanupApi(failOn = setOf("revokeWearableConsent"), status = 500)
+        val memory = InMemoryCleanupStore()
+        val cleanup = WearableRemoteCleanup(api, memory)
+        val session = SessionHarness(cleanup, memory)
+        cleanup.beginLocalRevoke("user-a", deleteData = true)
+        cleanup.runRemoteCleanup("user-a", "token-old")
+        session.clearActiveConsentPreservingTombstone()
+
+        // Cold start: durable tombstone survives process death; no active consent.
+        val restoredStore = InMemoryCleanupStore(initial = memory.read())
+        val retryApi = FakeCleanupApi()
+        val retryCleanup = WearableRemoteCleanup(retryApi, restoredStore)
+        val coldStart = SessionHarness(retryCleanup, restoredStore)
+
+        assertTrue(restoredStore.read().hasPendingTombstone())
+        assertEquals("user-a", restoredStore.read().accountUserId)
+
+        // Other account's restored session must never use its token for A's tombstone.
+        val other = coldStart.runCleanupForAuthenticatedUser("user-b", "token-b")
+        assertTrue(other.skippedForAccountMismatch)
+        assertTrue(other.apiCalls.isEmpty())
+        assertTrue(retryApi.tokenCalls.none { it.second == "token-b" })
+        assertTrue(restoredStore.read().hasPendingTombstone())
+
+        // Matching restored session retries remaining steps with restored token only.
+        val result = coldStart.runCleanupForAuthenticatedUser("user-a", "token-restored")
+        assertTrue(result.remoteCleanupSucceeded)
+        assertEquals(listOf("revokeWearableConsent"), result.apiCalls)
+        assertEquals(0, retryApi.tokenCalls.count { it.second != "token-restored" })
+        assertFalse(restoredStore.read().hasPendingTombstone())
+    }
+
+    @Test
     fun logoutRestart_loginSameUser_runsOnlyRemainingSteps() {
         val api = FakeCleanupApi(failOn = setOf("revokeWearableConsent"), status = 500)
         val memory = InMemoryCleanupStore()

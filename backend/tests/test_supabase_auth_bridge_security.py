@@ -237,6 +237,53 @@ def test_unconfirmed_email_not_auto_confirmed_via_bridge(monkeypatch) -> None:
     assert "confirm" in response.json()["detail"].lower()
 
 
+def test_signup_tokens_without_email_confirmation_require_confirmation(monkeypatch) -> None:
+    """Regression: tokens + unconfirmed user must not become a usable session."""
+    _patch_settings(
+        monkeypatch,
+        hiair_auth_email_bridge_enabled=True,
+        hiair_auth_provider="supabase",
+        supabase_url="https://example.supabase.co",
+        supabase_anon_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.anon",
+    )
+
+    def handler(url, params=None, headers=None, json=None):  # noqa: A002
+        assert url.endswith("/auth/v1/signup")
+        assert "email_confirm" not in (json or {})
+        assert "/admin/users" not in url
+        return _FakeResponse(
+            200,
+            {
+                "access_token": "leaked-access-token",
+                "refresh_token": "leaked-refresh-token",
+                "user": {
+                    "id": "55555555-5555-5555-5555-555555555555",
+                    "email": "unconfirmed@example.com",
+                    "email_confirmed_at": None,
+                    "confirmed_at": None,
+                },
+            },
+        )
+
+    fake = _FakeClient(handler)
+    monkeypatch.setattr(httpx, "Client", lambda timeout=20.0: fake)
+    client = TestClient(app)
+    response = client.post(
+        "/api/auth/supabase/signup",
+        json={"email": "unconfirmed@example.com", "password": "ValidPass123!"},
+    )
+    assert response.status_code == 403
+    detail = response.json()["detail"].lower()
+    assert "confirm" in detail
+    # No account-enumeration / no session leak.
+    body = response.json()
+    assert "access_token" not in body
+    assert "refresh_token" not in body
+    assert "already" not in detail
+    assert "exists" not in detail
+    assert "leaked" not in detail
+
+
 def test_service_role_not_required_for_bridge(monkeypatch) -> None:
     _patch_settings(
         monkeypatch,

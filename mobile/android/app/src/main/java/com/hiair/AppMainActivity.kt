@@ -68,6 +68,11 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             rootShell.settingsViewModel.setUserId(oauthSession.userId)
             rootShell.settingsViewModel.setAccessToken(oauthSession.accessToken)
             rootShell.settingsViewModel.setRefreshToken(oauthSession.refreshToken)
+            wearableHealthController.onAuthenticatedUserChanged(
+                userId = oauthSession.userId,
+                accountGeneration = sessionStore.accountGeneration(),
+                accessToken = oauthSession.accessToken.ifBlank { null },
+            )
         }
         ApiClient.configureAuth(
             provider = {
@@ -241,6 +246,13 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         rootShell.settingsViewModel.setAccessToken(stored.accessToken)
         rootShell.settingsViewModel.setRefreshToken(stored.refreshToken)
         rootShell.settingsViewModel.setProfileId(stored.profileId)
+        // Bind restored identity immediately so durable revoke/delete tombstones
+        // retry on cold start with this account's token (never another user's).
+        wearableHealthController.onAuthenticatedUserChanged(
+            userId = stored.userId,
+            accountGeneration = sessionStore.accountGeneration(),
+            accessToken = stored.accessToken.ifBlank { null },
+        )
     }
 
     private fun persistSession() {
