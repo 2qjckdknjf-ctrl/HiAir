@@ -138,3 +138,13 @@ def validate_runtime_settings(current: Settings) -> None:
             current, "supabase_url", ""
         ):
             raise RuntimeError("SUPABASE_URL must be configured when HIAIR_AUTH_PROVIDER=supabase.")
+        apple_mode = getattr(current, "apple_store_verifier_mode", "stub").strip().lower()
+        google_mode = getattr(current, "google_play_verifier_mode", "stub").strip().lower()
+        if apple_mode == "stub":
+            raise RuntimeError("APPLE_STORE_VERIFIER_MODE=stub is forbidden in protected environments.")
+        if google_mode == "stub":
+            raise RuntimeError("GOOGLE_PLAY_VERIFIER_MODE=stub is forbidden in protected environments.")
+        if google_mode not in ("live", "disabled"):
+            raise RuntimeError("GOOGLE_PLAY_VERIFIER_MODE must be live or disabled in protected environments.")
+        if getattr(current, "subscription_provider", "stub").strip().lower() == "stub":
+            raise RuntimeError("SUBSCRIPTION_PROVIDER=stub is forbidden in protected environments.")

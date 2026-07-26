@@ -77,7 +77,9 @@ def test_protected_google_disabled_passes_without_service_account() -> None:
     errors = [item.message for item in results if item.level == "ERROR"]
     assert not any("GOOGLE_PLAY" in msg for msg in errors)
     warnings = [item.message for item in results if item.level == "WARN"]
-    assert any("disabled" in msg and "Android billing" in msg for msg in warnings)
+    assert not any("GOOGLE_PLAY_VERIFIER_MODE=disabled" in msg for msg in warnings)
+    oks = [item.message for item in results if item.level == "OK"]
+    assert any("GOOGLE_PLAY_VERIFIER_MODE=disabled" in msg for msg in oks)
 
 
 def test_protected_google_live_without_service_account_fails() -> None:

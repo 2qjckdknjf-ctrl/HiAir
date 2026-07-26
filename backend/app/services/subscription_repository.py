@@ -146,6 +146,7 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
 
     with get_connection() as conn:
         with conn.cursor() as cur:
+            _assert_store_purchase_owner(cur, user_id=user_id, purchase=purchase)
             cur.execute(
                 """
                 INSERT INTO user_subscriptions (
@@ -201,6 +202,7 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
                     status = EXCLUDED.status,
                     expires_at = EXCLUDED.expires_at,
                     verified_at = NOW()
+                WHERE provider_transactions.user_id = EXCLUDED.user_id
                 """,
                 (
                     str(uuid4()),
@@ -224,6 +226,60 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
         source_subscription_id=subscription_row_id,
     )
     return get_user_subscription(user_id)
+
+
+def _assert_store_purchase_owner(cur, *, user_id: str, purchase: VerifiedStorePurchase) -> None:
+    """Reject cross-account receipt replay (same store id → different HiAir user)."""
+    clauses: list[str] = []
+    params: list[str] = []
+    if purchase.original_transaction_id:
+        clauses.append("original_transaction_id = %s")
+        params.append(purchase.original_transaction_id)
+    if purchase.purchase_token:
+        clauses.append("purchase_token = %s")
+        params.append(purchase.purchase_token)
+    if purchase.transaction_id:
+        clauses.append("latest_transaction_id = %s")
+        params.append(purchase.transaction_id)
+        clauses.append("provider_subscription_id = %s")
+        params.append(purchase.transaction_id)
+    if clauses:
+        cur.execute(
+            f"""
+            SELECT user_id
+            FROM user_subscriptions
+            WHERE ({' OR '.join(clauses)})
+              AND user_id <> %s
+            LIMIT 1
+            """,
+            (*params, user_id),
+        )
+        row = cur.fetchone()
+        if row is not None:
+            raise PermissionError("Purchase is already linked to another account.")
+
+    tx_clauses: list[str] = ["transaction_id = %s"]
+    tx_params: list[str] = [purchase.transaction_id]
+    if purchase.original_transaction_id:
+        tx_clauses.append("original_transaction_id = %s")
+        tx_params.append(purchase.original_transaction_id)
+    if purchase.purchase_token:
+        tx_clauses.append("purchase_token = %s")
+        tx_params.append(purchase.purchase_token)
+    cur.execute(
+        f"""
+        SELECT user_id
+        FROM provider_transactions
+        WHERE provider = %s
+          AND ({' OR '.join(tx_clauses)})
+          AND user_id <> %s
+        LIMIT 1
+        """,
+        (purchase.provider, *tx_params, user_id),
+    )
+    bound = cur.fetchone()
+    if bound is not None:
+        raise PermissionError("Purchase is already linked to another account.")
 
 
 def cancel_subscription(user_id: str) -> SubscriptionStatusResponse:
@@ -288,27 +344,27 @@ def apply_provider_webhook_event(event: ProviderWebhookEvent) -> SubscriptionSta
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            user_id = event.user_id
-            if not user_id:
-                cur.execute(
-                    """
-                    SELECT user_id
-                    FROM user_subscriptions
-                    WHERE provider_subscription_id = %s
-                       OR original_transaction_id = %s
-                       OR purchase_token = %s
-                    LIMIT 1
-                    """,
-                    (
-                        event.provider_subscription_id,
-                        event.original_transaction_id or "",
-                        event.purchase_token or "",
-                    ),
-                )
-                mapped = cur.fetchone()
-                if mapped is None:
-                    raise ValueError("Cannot resolve user_id for provider subscription")
-                user_id = str(mapped["user_id"])
+            user_id = None
+            # Never trust caller-supplied user_id from webhook JSON — resolve via store ids only.
+            cur.execute(
+                """
+                SELECT user_id
+                FROM user_subscriptions
+                WHERE provider_subscription_id = %s
+                   OR original_transaction_id = %s
+                   OR purchase_token = %s
+                LIMIT 1
+                """,
+                (
+                    event.provider_subscription_id,
+                    event.original_transaction_id or "",
+                    event.purchase_token or "",
+                ),
+            )
+            mapped = cur.fetchone()
+            if mapped is None:
+                raise ValueError("Cannot resolve user_id for provider subscription")
+            user_id = str(mapped["user_id"])
 
             cur.execute(
                 """

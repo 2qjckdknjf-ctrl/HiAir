@@ -135,8 +135,8 @@ def test_check_env_security_accepts_production_google_disabled() -> None:
     )
     errors = [item.message for item in results if item.level == "ERROR"]
     assert errors == []
-    warnings = [item.message for item in results if item.level == "WARN"]
-    assert any("GOOGLE_PLAY_VERIFIER_MODE=disabled" in msg for msg in warnings)
+    oks = [item.message for item in results if item.level == "OK"]
+    assert any("GOOGLE_PLAY_VERIFIER_MODE=disabled" in msg for msg in oks)
 
 
 def test_check_env_security_rejects_production_sample_fallback() -> None:

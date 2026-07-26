@@ -149,7 +149,12 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         # issuer/key are used for App Store Server API history calls when configured.
         for key in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"):
             if protected_env and not env.get(key, "").strip():
-                checks.append(CheckResult("WARN", f"{key} missing (needed for App Store Server API lookups)."))
+                checks.append(
+                    CheckResult(
+                        "OK",
+                        f"{key} unset (optional; JWS verify does not require App Store Server API keys).",
+                    )
+                )
         checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE=live env={apple_env}."))
     else:
         checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE={apple_mode}."))
@@ -166,13 +171,14 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
             )
         )
     elif google_mode == "disabled":
+        # Intentional iOS-first production posture — OK for --strict (not a WARN).
         checks.append(
             CheckResult(
-                "WARN",
-                "GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable; not STORE SANDBOX READY.",
+                "OK",
+                "GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable; "
+                "not STORE SANDBOX READY; no service account required.",
             )
         )
-        checks.append(CheckResult("OK", "GOOGLE_PLAY_VERIFIER_MODE=disabled (no service account required)."))
     elif google_mode == "live":
         if protected_env and not google_package:
             checks.append(CheckResult("ERROR", "GOOGLE_PLAY_PACKAGE_NAME is required for live Google verification."))
