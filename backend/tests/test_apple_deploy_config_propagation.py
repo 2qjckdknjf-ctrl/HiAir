@@ -55,8 +55,9 @@ def test_deploy_script_rejects_production_stub_and_redacts_secret_values() -> No
     assert "APPLE_STORE_VERIFIER_MODE=live" in text
     assert "APPLE_STORE_ENVIRONMENT=production" in text
     assert "numeric APPLE_APP_APPLE_ID" in text
-    assert "GOOGLE_PLAY_VERIFIER_MODE=live" in text
+    assert "GOOGLE_PLAY_VERIFIER_MODE=live or disabled" in text
     assert "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in text
+    assert "when GOOGLE_PLAY_VERIFIER_MODE=live" in text
     assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK" in text
     assert 'values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"' in text
     assert "file=sys.stderr" in text
@@ -80,10 +81,62 @@ def test_github_deploy_workflows_sync_google_sa_and_forbid_sample(rel: str) -> N
     text = _read(rel)
     assert "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in text
     assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK" in text
-    assert "GOOGLE_PLAY_VERIFIER_MODE=live" in text
+    assert "GOOGLE_PLAY_VERIFIER_MODE=live or disabled" in text
+    assert "when GOOGLE_PLAY_VERIFIER_MODE=live" in text
     assert 'ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"' in text or (
         'ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false"' in text
     )
+    assert "HIAIR_AUTH_PROVIDER" in text
+    assert "SUBSCRIPTION_PROVIDER != stub" in text
+
+
+def test_sync_script_contains_production_contract_keys() -> None:
+    text = _read("scripts/release/sync_github_env_secrets.py")
+    for key in (
+        "HIAIR_AUTH_PROVIDER",
+        "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
+        "APPLE_STORE_VERIFIER_MODE",
+        "APPLE_STORE_ENVIRONMENT",
+        "APPLE_APP_APPLE_ID",
+        "APPLE_BUNDLE_ID",
+        "GOOGLE_PLAY_VERIFIER_MODE",
+        "GOOGLE_PLAY_PACKAGE_NAME",
+        "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+        "PRODUCTION_CONTRACT_KEYS",
+    ):
+        assert key in text
+    assert "gh" in text
+    assert "secret" in text
+    assert "set" in text
+    # Must not pass Authorization tokens via curl -H CLI args.
+    assert 'Authorization: token' not in text
+    assert "curl" not in text
+
+
+def test_check_env_security_accepts_production_google_disabled() -> None:
+    module = _load_check_env_security()
+    results = module._run_checks(
+        {
+            "APP_ENV": "production",
+            "JWT_SECRET": "x" * 32,
+            "DATABASE_URL": "postgresql://hiair:hiair@localhost:5432/hiair",
+            "APPLE_STORE_VERIFIER_MODE": "live",
+            "APPLE_STORE_ENVIRONMENT": "production",
+            "APPLE_APP_APPLE_ID": "6773610034",
+            "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
+            "SUBSCRIPTION_PROVIDER": "apple",
+            "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
+            "GOOGLE_PLAY_VERIFIER_MODE": "disabled",
+            "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+            "NOTIFICATION_ADMIN_TOKEN": "notification-admin-token-16",
+            "NOTIFICATIONS_PROVIDER_MODE": "stub",
+            "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false",
+        }
+    )
+    errors = [item.message for item in results if item.level == "ERROR"]
+    assert errors == []
+    warnings = [item.message for item in results if item.level == "WARN"]
+    assert any("GOOGLE_PLAY_VERIFIER_MODE=disabled" in msg for msg in warnings)
 
 
 def test_check_env_security_rejects_production_sample_fallback() -> None:

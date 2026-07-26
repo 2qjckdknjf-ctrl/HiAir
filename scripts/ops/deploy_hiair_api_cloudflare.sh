@@ -40,6 +40,7 @@ echo "[api] syncing wrangler secrets from ${ENV_FILE}"
 TMP_SECRETS="$(mktemp)"
 python3 <<PY >"${TMP_SECRETS}"
 import os
+import sys
 from pathlib import Path
 
 allowed = {
@@ -104,16 +105,35 @@ if app_env in ("production", "prod", "staging"):
     apple_app_id = values.get("APPLE_APP_APPLE_ID", "").strip()
     google_mode = values.get("GOOGLE_PLAY_VERIFIER_MODE", "").strip().lower()
     google_sa = values.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
+    auth_provider = values.get("HIAIR_AUTH_PROVIDER", "").strip().lower()
+    subscription_provider = values.get("SUBSCRIPTION_PROVIDER", "").strip().lower()
     if apple_mode != "live":
         raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
     if apple_store_env not in ("production", "prod"):
         raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
     if not apple_app_id.isdigit():
         raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
-    if google_mode != "live":
-        raise SystemExit("ERROR: production deploy requires GOOGLE_PLAY_VERIFIER_MODE=live")
-    if not google_sa:
-        raise SystemExit("ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+    if google_mode not in ("live", "disabled"):
+        raise SystemExit(
+            "ERROR: production deploy requires GOOGLE_PLAY_VERIFIER_MODE=live or disabled"
+        )
+    if google_mode == "live" and not google_sa:
+        raise SystemExit(
+            "ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON "
+            "when GOOGLE_PLAY_VERIFIER_MODE=live"
+        )
+    if google_mode == "disabled":
+        print(
+            "WARNING: GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable "
+            "(not STORE SANDBOX READY)",
+            file=sys.stderr,
+        )
+    if auth_provider and auth_provider != "supabase":
+        raise SystemExit("ERROR: production deploy requires HIAIR_AUTH_PROVIDER=supabase")
+    if not auth_provider:
+        values["HIAIR_AUTH_PROVIDER"] = "supabase"
+    if not subscription_provider or subscription_provider == "stub":
+        raise SystemExit("ERROR: production deploy requires SUBSCRIPTION_PROVIDER != stub")
     # Fail-closed: never serve synthetic sample/mock environment data in protected deploys.
     values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
 else:
@@ -121,6 +141,7 @@ else:
     values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
     values.setdefault("APPLE_STORE_ENVIRONMENT", "sandbox")
 values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", values.get("GOOGLE_PLAY_VERIFIER_MODE", "stub"))
+values.setdefault("HIAIR_AUTH_PROVIDER", values.get("HIAIR_AUTH_PROVIDER", "supabase"))
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
 deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
 if deploy_sha:
@@ -135,7 +156,6 @@ if len(values) < 12:
         "refusing partial secret sync that would leave production on stale container env"
     )
 # Keys only on stderr — never print secret values to logs.
-import sys
 print("Syncing Cloudflare secret keys:", file=sys.stderr)
 for key in sorted(values):
     print(f"  - {key}", file=sys.stderr)

@@ -156,8 +156,8 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
 
     google_mode = env.get("GOOGLE_PLAY_VERIFIER_MODE", "stub").strip().lower()
     google_package = env.get("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair").strip()
-    if google_mode not in ("stub", "live"):
-        checks.append(CheckResult("ERROR", "GOOGLE_PLAY_VERIFIER_MODE must be stub or live."))
+    if google_mode not in ("stub", "live", "disabled"):
+        checks.append(CheckResult("ERROR", "GOOGLE_PLAY_VERIFIER_MODE must be stub, live, or disabled."))
     elif protected_env and google_mode == "stub":
         checks.append(
             CheckResult(
@@ -165,6 +165,14 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
                 "GOOGLE_PLAY_VERIFIER_MODE=stub is forbidden in production/staging.",
             )
         )
+    elif google_mode == "disabled":
+        checks.append(
+            CheckResult(
+                "WARN",
+                "GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable; not STORE SANDBOX READY.",
+            )
+        )
+        checks.append(CheckResult("OK", "GOOGLE_PLAY_VERIFIER_MODE=disabled (no service account required)."))
     elif google_mode == "live":
         if protected_env and not google_package:
             checks.append(CheckResult("ERROR", "GOOGLE_PLAY_PACKAGE_NAME is required for live Google verification."))

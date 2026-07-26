@@ -709,14 +709,15 @@ class SettingsViewModel(
         state = state.copy(isPremium = premium)
     }
 
-    fun verifyAndroidPurchase(productId: String, purchaseToken: String, onComplete: (() -> Unit)? = null) {
+    fun verifyAndroidPurchase(productId: String, purchaseToken: String, onComplete: ((Boolean) -> Unit)? = null) {
         if (state.userId.isBlank()) {
             state = state.copy(paywallStatusText = l("settings.user_id_required"))
-            onComplete?.invoke()
+            onComplete?.invoke(false)
             return
         }
         state = state.copy(loading = true, paywallStatusText = l("paywall.verifying"))
         Thread {
+            var activated = false
             try {
                 val verifyRaw = apiClient.verifyAndroidSubscription(
                     userId = state.userId,
@@ -727,19 +728,21 @@ class SettingsViewModel(
                 applyEntitlementFromSubscriptionJson(verifyRaw)
                 if (SubscriptionEntitlementParser.isPremiumFromSubscriptionJson(verifyRaw)) {
                     val json = JSONObject(verifyRaw)
+                    activated = true
                     state = state.copy(
                         loading = false,
                         subscriptionStatus = json.optString("status", "active"),
                         paywallStatusText = l("paywall.success"),
                         statusText = l("settings.subscription_activated")
                     )
-                    onComplete?.invoke()
+                    onComplete?.invoke(true)
                     return@Thread
                 }
                 try {
                     val meRaw = apiClient.fetchMySubscription(state.userId, state.accessToken)
                     applyEntitlementFromSubscriptionJson(meRaw)
                     val json = JSONObject(meRaw)
+                    activated = state.isPremium
                     state = state.copy(
                         loading = false,
                         subscriptionStatus = json.optString("status", "active"),
@@ -760,13 +763,23 @@ class SettingsViewModel(
                         }
                     )
                 }
+            } catch (error: ApiHttpException) {
+                val message = if (error.statusCode == 503) {
+                    l("paywall.android_billing_unavailable")
+                } else {
+                    l("paywall.verify_failed")
+                }
+                state = state.copy(
+                    loading = false,
+                    paywallStatusText = message
+                )
             } catch (_: Exception) {
                 state = state.copy(
                     loading = false,
                     paywallStatusText = l("paywall.verify_failed")
                 )
             }
-            onComplete?.invoke()
+            onComplete?.invoke(activated)
         }.start()
     }
 

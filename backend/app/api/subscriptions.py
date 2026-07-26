@@ -83,6 +83,12 @@ def verify_ios_subscription(
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
 
+def _android_billing_unavailable(exc: Exception) -> HTTPException:
+    detail = getattr(exc, "args", ("Android billing is temporarily unavailable.",))
+    message = detail[0] if detail else "Android billing is temporarily unavailable."
+    return HTTPException(status_code=503, detail=str(message))
+
+
 @router.post("/android/verify", response_model=SubscriptionStatusResponse)
 def verify_android_subscription(
     payload: AndroidVerifyRequest,
@@ -109,6 +115,8 @@ def verify_android_subscription(
             getattr(result, "current_period_end", None),
         )
         return result
+    except subscription_store.GooglePlayVerifierDisabledError as exc:
+        raise _android_billing_unavailable(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -129,11 +137,15 @@ def restore_subscriptions(
                 purchase = subscription_store.verify_ios_purchase(signed)
                 latest = subscription_repository.apply_verified_purchase(user_id=user_id, purchase=purchase)
         elif payload.platform == "android":
+            # Refuse before any token decode / entitlement write when Google billing is disabled.
+            subscription_store.assert_google_play_verifier_enabled()
             for item in payload.android_purchases:
                 purchase = subscription_store.verify_android_purchase(item.product_id, item.purchase_token)
                 latest = subscription_repository.apply_verified_purchase(user_id=user_id, purchase=purchase)
         else:
             raise HTTPException(status_code=400, detail="Restore supports ios or android platform only")
+    except subscription_store.GooglePlayVerifierDisabledError as exc:
+        raise _android_billing_unavailable(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -188,6 +200,10 @@ async def subscription_webhook_google(
     request: Request,
     x_webhook_signature: str | None = Header(default=None, alias="X-Goog-Channel-Token"),
 ) -> SubscriptionWebhookAck:
+    try:
+        subscription_store.assert_google_play_verifier_enabled()
+    except subscription_store.GooglePlayVerifierDisabledError as exc:
+        raise _android_billing_unavailable(exc) from exc
     return await _handle_provider_webhook("google", request, x_webhook_signature)
 
 

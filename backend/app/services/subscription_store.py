@@ -24,6 +24,16 @@ IOS_YEARLY = "com.hiair.premium.yearly"
 ANDROID_MONTHLY = "hiair_premium_monthly"
 ANDROID_YEARLY = "hiair_premium_yearly"
 
+# Public, non-leaky message for fail-closed disabled Android billing.
+GOOGLE_PLAY_DISABLED_DETAIL = "Android billing is temporarily unavailable."
+
+
+class GooglePlayVerifierDisabledError(RuntimeError):
+    """Raised when GOOGLE_PLAY_VERIFIER_MODE=disabled — never grants Premium."""
+
+    def __init__(self) -> None:
+        super().__init__(GOOGLE_PLAY_DISABLED_DETAIL)
+
 PRODUCT_TO_PLAN: dict[str, str] = {
     IOS_MONTHLY: "premium_monthly",
     IOS_YEARLY: "premium_yearly",
@@ -356,6 +366,11 @@ def verify_ios_purchase(signed_transaction: str, product_id: str | None = None) 
 
 def verify_android_purchase(product_id: str, purchase_token: str) -> VerifiedStorePurchase:
     cfg = _config_from_env()
+    if cfg.google_mode == "disabled":
+        # Fail-closed: no Google calls, no token decode, no entitlement grant.
+        logger.warning("google_play_verifier_disabled product_id=%s", product_id)
+        raise GooglePlayVerifierDisabledError()
+
     plan_id = plan_id_for_product(product_id)
 
     if cfg.google_mode == "stub":
@@ -383,6 +398,12 @@ def verify_android_purchase(product_id: str, purchase_token: str) -> VerifiedSto
         # Fail-closed: never silently fall back to stub decode / synthesized fields.
         return _verify_google_play_live(cfg.google_package_name, product_id, purchase_token)
     raise ValueError(f"Unsupported GOOGLE_PLAY_VERIFIER_MODE: {cfg.google_mode}")
+
+
+def assert_google_play_verifier_enabled() -> None:
+    """Raise when Android billing surfaces must refuse traffic (disabled mode)."""
+    if _config_from_env().google_mode == "disabled":
+        raise GooglePlayVerifierDisabledError()
 
 
 def _load_google_service_account() -> dict:

@@ -23,9 +23,11 @@ class SubscriptionPaywallController(
         billingManager = SubscriptionBillingManager(
             activity = activity,
             onPurchaseVerified = { productId, token ->
-                settingsViewModel.verifyAndroidPurchase(productId, token) {
+                settingsViewModel.verifyAndroidPurchase(productId, token) { activated ->
                     activity.runOnUiThread {
-                        settingsViewModel.dismissPaywall()
+                        if (activated) {
+                            settingsViewModel.dismissPaywall()
+                        }
                         onEntitlementUpdated?.invoke()
                     }
                 }

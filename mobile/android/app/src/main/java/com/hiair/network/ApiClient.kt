@@ -310,7 +310,7 @@ class ApiClient(private val baseUrl: String) {
             put("product_id", productId)
             put("purchase_token", purchaseToken)
         }.toString()
-        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
     fun restoreAndroidSubscriptions(
@@ -333,7 +333,7 @@ class ApiClient(private val baseUrl: String) {
             put("ios_signed_transactions", org.json.JSONArray())
             put("android_purchases", androidPurchases)
         }.toString()
-        return request("POST", endpoint, json, authHeaders(userId, accessToken))
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
     private fun request(
