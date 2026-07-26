@@ -43,9 +43,9 @@ def supabase_email_session(payload: LoginRequest, request: Request) -> AuthRespo
     normalized_email = str(payload.email).strip().lower()
     _ = request.client.host if request.client else "unknown"
     _rate_limit_email(normalized_email)
-    is_valid, reason = validate_password_policy(payload.password)
-    if not is_valid:
-        raise HTTPException(status_code=422, detail=reason)
+    # Login must not re-apply signup complexity rules — existing accounts may predate policy.
+    if len(payload.password or "") < 8:
+        raise HTTPException(status_code=400, detail="Invalid email or password.")
     try:
         session = password_grant_session(
             email=normalized_email,

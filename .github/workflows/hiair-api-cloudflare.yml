@@ -183,4 +183,4 @@ jobs:
       - name: Smoke check production API
         if: env.DEPLOY == '1'
         run: |
-          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai
+          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${GITHUB_SHA}"

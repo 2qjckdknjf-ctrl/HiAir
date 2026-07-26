@@ -380,8 +380,17 @@ class SettingsViewModel(
         return if (hourPart.contains(":")) hourPart else raw.take(5)
     }
 
+    private fun meetsSignupPasswordPolicy(password: String): Boolean {
+        if (password.length < 12) return false
+        if (!password.any { it.isUpperCase() }) return false
+        if (!password.any { it.isLowerCase() }) return false
+        if (!password.any { it.isDigit() }) return false
+        if (!password.any { !it.isLetterOrDigit() }) return false
+        return true
+    }
+
     fun signup(onComplete: (() -> Unit)? = null) {
-        if (state.email.isBlank() || state.password.length < 12) {
+        if (state.email.isBlank() || !meetsSignupPasswordPolicy(state.password)) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             onComplete?.invoke()
             return

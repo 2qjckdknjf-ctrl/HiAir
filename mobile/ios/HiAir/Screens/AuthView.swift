@@ -36,6 +36,16 @@ final class AuthViewModel: ObservableObject {
             showError(session.l("auth.password_short"), session: session)
             return
         }
+        if mode == "signup" {
+            let hasUpper = password.rangeOfCharacter(from: .uppercaseLetters) != nil
+            let hasLower = password.rangeOfCharacter(from: .lowercaseLetters) != nil
+            let hasDigit = password.rangeOfCharacter(from: .decimalDigits) != nil
+            let hasSymbol = password.unicodeScalars.contains { !CharacterSet.alphanumerics.contains($0) }
+            guard hasUpper, hasLower, hasDigit, hasSymbol else {
+                showError(session.l("auth.password_short"), session: session)
+                return
+            }
+        }
 
         loading = true
         statusIsError = false
