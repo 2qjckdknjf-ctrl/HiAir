@@ -230,6 +230,20 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
 
 def _assert_store_purchase_owner(cur, *, user_id: str, purchase: VerifiedStorePurchase) -> None:
     """Reject cross-account receipt replay (same store id → different HiAir user)."""
+    lock_material = "|".join(
+        part
+        for part in (
+            purchase.provider,
+            purchase.original_transaction_id or "",
+            purchase.purchase_token or "",
+            purchase.transaction_id or "",
+        )
+        if part
+    )
+    if lock_material:
+        # Serialize concurrent verify of the same store artifact (TOCTOU guard without schema migration).
+        cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (lock_material,))
+
     clauses: list[str] = []
     params: list[str] = []
     if purchase.original_transaction_id:
@@ -344,27 +358,53 @@ def apply_provider_webhook_event(event: ProviderWebhookEvent) -> SubscriptionSta
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            user_id = None
-            # Never trust caller-supplied user_id from webhook JSON — resolve via store ids only.
-            cur.execute(
-                """
-                SELECT user_id
-                FROM user_subscriptions
-                WHERE provider_subscription_id = %s
-                   OR original_transaction_id = %s
-                   OR purchase_token = %s
-                LIMIT 1
-                """,
-                (
-                    event.provider_subscription_id,
-                    event.original_transaction_id or "",
-                    event.purchase_token or "",
-                ),
+            store_bound = event.platform in ("ios", "android") and bool(
+                event.original_transaction_id or event.purchase_token
             )
-            mapped = cur.fetchone()
-            if mapped is None:
-                raise ValueError("Cannot resolve user_id for provider subscription")
-            user_id = str(mapped["user_id"])
+            user_id: str | None = None
+            if store_bound:
+                # Never trust caller-supplied user_id for Apple/Google store events.
+                cur.execute(
+                    """
+                    SELECT user_id
+                    FROM user_subscriptions
+                    WHERE provider_subscription_id = %s
+                       OR original_transaction_id = %s
+                       OR purchase_token = %s
+                    LIMIT 1
+                    """,
+                    (
+                        event.provider_subscription_id,
+                        event.original_transaction_id or "",
+                        event.purchase_token or "",
+                    ),
+                )
+                mapped = cur.fetchone()
+                if mapped is None:
+                    raise ValueError("Cannot resolve user_id for provider subscription")
+                user_id = str(mapped["user_id"])
+            else:
+                user_id = event.user_id
+                if not user_id:
+                    cur.execute(
+                        """
+                        SELECT user_id
+                        FROM user_subscriptions
+                        WHERE provider_subscription_id = %s
+                           OR original_transaction_id = %s
+                           OR purchase_token = %s
+                        LIMIT 1
+                        """,
+                        (
+                            event.provider_subscription_id,
+                            event.original_transaction_id or "",
+                            event.purchase_token or "",
+                        ),
+                    )
+                    mapped = cur.fetchone()
+                    if mapped is None:
+                        raise ValueError("Cannot resolve user_id for provider subscription")
+                    user_id = str(mapped["user_id"])
 
             cur.execute(
                 """

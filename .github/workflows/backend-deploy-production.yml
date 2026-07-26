@@ -254,5 +254,6 @@ jobs:
         run: bash -lc "${HIAIR_DEPLOY_COMMAND}"
 
       - name: Post-deploy API smoke
+        if: steps.cloudflare.outputs.enabled == '1'
         run: |
           python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${GITHUB_SHA}"

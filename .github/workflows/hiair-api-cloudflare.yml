@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: hiair-api-cloudflare
+  group: backend-production-deploy
   cancel-in-progress: false
 
 jobs:

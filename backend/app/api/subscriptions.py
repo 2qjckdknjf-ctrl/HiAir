@@ -236,8 +236,11 @@ async def _handle_provider_webhook(
         raise HTTPException(status_code=503, detail="Webhook secret is not configured")
 
     raw_body = await request.body()
-    if provider in ("apple", "google"):
-        if not subscription_provider.verify_webhook_signature(
+    if provider == "google":
+        if not subscription_provider.verify_google_webhook_token(x_webhook_signature, secret):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    elif provider == "apple":
+        if not subscription_provider.verify_apple_webhook_signature(
             raw_body=raw_body,
             signature=x_webhook_signature,
             secret=secret,
