@@ -131,7 +131,12 @@ def signup_with_password(email: str, password: str) -> dict[str, str]:
     if not access_token or not refresh_token or not email_confirmed:
         logger.info("supabase_signup_confirmation_required")
         raise SupabaseEmailConfirmationRequired("Unable to complete signup.")
-    return _session_from_token_payload(payload, fallback_email=email)
+    try:
+        return _session_from_token_payload(payload, fallback_email=email)
+    except SupabaseAdminAuthError:
+        # Keep client-facing signup failures uniform (no internal incompleteness leak).
+        logger.info("supabase_signup_incomplete_session")
+        raise SupabaseAdminAuthError("Unable to complete signup.") from None
 
 
 # Backward-compatible name used by older imports/tests — login only, no admin create.

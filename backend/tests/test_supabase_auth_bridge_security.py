@@ -361,6 +361,42 @@ def test_login_unconfirmed_does_not_reveal_confirmation_state(monkeypatch) -> No
     assert "confirm" not in detail
 
 
+def test_signup_incomplete_confirmed_payload_uses_uniform_message(monkeypatch) -> None:
+    """Confirmed signup with incomplete tokens must not leak internal incompleteness text."""
+    _patch_settings(
+        monkeypatch,
+        hiair_auth_email_bridge_enabled=True,
+        hiair_auth_provider="supabase",
+        supabase_url="https://example.supabase.co",
+        supabase_anon_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.anon",
+    )
+
+    def handler(url, params=None, headers=None, json=None):  # noqa: A002
+        return _FakeResponse(
+            200,
+            {
+                "access_token": "only-access",
+                # missing refresh_token
+                "user": {
+                    "id": "77777777-7777-7777-7777-777777777777",
+                    "email": "partial@example.com",
+                    "email_confirmed_at": "2026-01-01T00:00:00Z",
+                },
+            },
+        )
+
+    monkeypatch.setattr(httpx, "Client", lambda timeout=20.0: _FakeClient(handler))
+    client = TestClient(app)
+    response = client.post(
+        "/api/auth/supabase/signup",
+        json={"email": "partial@example.com", "password": "ValidPass123!"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unable to complete signup."
+    assert "incomplete" not in response.json()["detail"].lower()
+    assert "access_token" not in response.json()
+
+
 def test_service_role_not_required_for_bridge(monkeypatch) -> None:
     _patch_settings(
         monkeypatch,

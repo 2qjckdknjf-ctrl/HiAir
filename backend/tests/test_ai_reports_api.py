@@ -93,3 +93,37 @@ def test_evening_report_premium_gated(monkeypatch) -> None:
         headers={"Authorization": "Bearer t"},
     )
     assert response.status_code == 402
+
+
+def test_ai_report_returns_503_when_environment_unavailable(monkeypatch) -> None:
+    profile_id = str(uuid4())
+    _auth(monkeypatch)
+    monkeypatch.setattr("app.api.ai_reports.profile_access.profile_exists", lambda _: True)
+    monkeypatch.setattr("app.api.ai_reports.profile_access.profile_belongs_to_user", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "app.services.ai_report_service.air_repository.get_profile_context",
+        lambda pid: SimpleNamespace(
+            profile_id=pid,
+            user_id="user-1",
+            home_lat=41.39,
+            home_lon=2.17,
+            timezone="UTC",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.ai_report_service.settings_repository.get_user_settings",
+        lambda _uid: SimpleNamespace(preferred_language="en"),
+    )
+    monkeypatch.setattr(
+        "app.services.ai_report_service.air_environment_service.load_environment",
+        lambda *a, **k: (_ for _ in ()).throw(
+            RuntimeError("Environmental data unavailable and sample fallback is disabled")
+        ),
+    )
+    client = TestClient(app)
+    response = client.get(
+        f"/api/ai/reports/morning?profile_id={profile_id}",
+        headers={"Authorization": "Bearer t"},
+    )
+    assert response.status_code == 503
+    assert "unavailable" in response.json()["detail"].lower()
