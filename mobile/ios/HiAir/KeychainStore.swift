@@ -1,7 +1,17 @@
 import Foundation
 import Security
 
-struct KeychainStore {
+/// Production-shaped credential persistence used by `AppSession`.
+/// Real builds use `KeychainStore`; unit tests inject `InMemorySessionCredentialStore`
+/// so ownership/relaunch proofs stay deterministic under `CODE_SIGNING_ALLOWED=NO`
+/// (SecItem writes can silently fail without a signed identity).
+protocol SessionCredentialStoring {
+    func setString(_ value: String, forKey key: String)
+    func getString(forKey key: String) -> String?
+    func deleteValue(forKey key: String)
+}
+
+struct KeychainStore: SessionCredentialStoring {
     private let service: String
 
     init(service: String) {
@@ -57,5 +67,26 @@ struct KeychainStore {
             kSecAttrAccount as String: key,
         ]
         SecItemDelete(query as CFDictionary)
+    }
+}
+
+/// Deterministic credential backend for ownership / relaunch unit tests.
+final class InMemorySessionCredentialStore: SessionCredentialStoring {
+    private var values: [String: String] = [:]
+
+    func setString(_ value: String, forKey key: String) {
+        values[key] = value
+    }
+
+    func getString(forKey key: String) -> String? {
+        values[key]
+    }
+
+    func deleteValue(forKey key: String) {
+        values.removeValue(forKey: key)
+    }
+
+    func removeAll() {
+        values.removeAll()
     }
 }

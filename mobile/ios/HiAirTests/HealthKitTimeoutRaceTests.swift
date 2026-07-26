@@ -80,7 +80,7 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
         guard case .timedOut = outcome else {
             return XCTFail("Expected collect timeout")
         }
-        await hang.open()
+        hang.open()
     }
 
     func testAsyncOperationBeforeTimeout_returnsValue() async {
@@ -111,7 +111,7 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
             return XCTFail("Expected timeout")
         }
         await fulfillment(of: [started], timeout: 1.0)
-        await hang.open()
+        hang.open()
     }
 
     func testRetryAfterTimeout_newRaceSucceeds() async {
@@ -150,6 +150,6 @@ final class HealthKitTimeoutRaceTests: XCTestCase {
         let started = Date()
         _ = await parent.value
         XCTAssertLessThan(Date().timeIntervalSince(started), 1.0)
-        await hang.open()
+        hang.open()
     }
 }

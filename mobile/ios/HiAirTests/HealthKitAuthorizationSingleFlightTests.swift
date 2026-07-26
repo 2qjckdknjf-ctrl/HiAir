@@ -27,7 +27,7 @@ final class HealthKitAuthorizationSingleFlightTests: XCTestCase {
         let started = TestAsyncGate()
         async let a = flight.request {
             await counter.increment()
-            await started.open()
+            started.open()
             await hold.wait()
             return true
         }
@@ -36,7 +36,7 @@ final class HealthKitAuthorizationSingleFlightTests: XCTestCase {
             await counter.increment()
             return true
         }
-        await hold.open()
+        hold.open()
         let results = await (a, b)
         XCTAssertTrue(results.0)
         XCTAssertTrue(results.1)

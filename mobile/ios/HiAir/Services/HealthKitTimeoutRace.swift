@@ -70,35 +70,48 @@ final class TestAsyncGate: @unchecked Sendable {
     private var continuation: CheckedContinuation<Void, Never>?
 
     func wait() async {
-        lock.lock()
-        if opened {
-            lock.unlock()
-            return
-        }
-        lock.unlock()
+        if isOpen { return }
         await withTaskCancellationHandler {
             await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-                lock.lock()
-                if opened || Task.isCancelled {
-                    lock.unlock()
-                    cont.resume()
-                } else {
-                    continuation = cont
-                    lock.unlock()
-                }
+                storeOrResume(cont, cancelled: Task.isCancelled)
             }
         } onCancel: {
-            lock.lock()
-            let pending = continuation
-            continuation = nil
-            lock.unlock()
-            pending?.resume()
+            cancelPendingWait()
         }
     }
 
     func open() {
         lock.lock()
         opened = true
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume()
+    }
+
+    private var isOpen: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return opened
+    }
+
+    private func storeOrResume(
+        _ pending: CheckedContinuation<Void, Never>,
+        cancelled: Bool
+    ) {
+        lock.lock()
+        let shouldResume = opened || cancelled
+        if !shouldResume {
+            continuation = pending
+        }
+        lock.unlock()
+        if shouldResume {
+            pending.resume()
+        }
+    }
+
+    private func cancelPendingWait() {
+        lock.lock()
         let pending = continuation
         continuation = nil
         lock.unlock()

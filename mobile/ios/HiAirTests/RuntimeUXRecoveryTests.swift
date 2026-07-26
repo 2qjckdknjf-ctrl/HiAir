@@ -173,6 +173,7 @@ final class SessionLogoutIsolationTests: XCTestCase {
     @MainActor
     func testLogoutClearsCityHealthAndPremiumPresentation() async {
         let session = AppSession()
+        session.cancelLifecycleForTests()
         session.userId = "user-a"
         session.accessToken = "tok"
         session.displayPlaceName = "Barcelona"
@@ -204,6 +205,7 @@ final class SessionLogoutIsolationTests: XCTestCase {
     @MainActor
     func testPremiumRollbackClearsOptimisticUnlock() {
         let session = AppSession()
+        session.cancelLifecycleForTests()
         let optimistic = UserEntitlementResponse(
             userId: "u1",
             plan: "monthly",
@@ -225,6 +227,7 @@ final class SessionLogoutIsolationTests: XCTestCase {
     @MainActor
     func testPremiumConfirmClearsPending() {
         let session = AppSession()
+        session.cancelLifecycleForTests()
         let entitlement = UserEntitlementResponse(
             userId: "u1",
             plan: "monthly",
@@ -244,6 +247,7 @@ final class SessionLogoutIsolationTests: XCTestCase {
     @MainActor
     func testEntitlementNotificationIgnoresOtherAccount() {
         let session = AppSession()
+        session.cancelLifecycleForTests()
         session.userId = "user-b"
         session.isPremium = false
         let foreign = UserEntitlementResponse(
@@ -290,6 +294,7 @@ final class SessionLogoutIsolationTests: XCTestCase {
         )
 
         let session = AppSession()
+        session.cancelLifecycleForTests()
         session.userId = "user-b"
         session.isPremium = true
         session.premiumActivationPending = true
@@ -332,6 +337,7 @@ final class PremiumOptimisticUnlockTests: XCTestCase {
     @MainActor
     func testApplyEntitlementSetsPremiumImmediately() {
         let session = AppSession()
+        session.cancelLifecycleForTests()
         let entitlement = UserEntitlementResponse(
             userId: "u1",
             plan: "monthly",
@@ -377,32 +383,59 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
         func waitUntilReleasedOrCancelled() async {
             while true {
                 if Task.isCancelled { return }
-                lock.lock()
-                let done = release
-                lock.unlock()
-                if done { return }
+                if isReleased { return }
                 await Task.yield()
             }
         }
+
+        private var isReleased: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return release
+        }
     }
+
+    /// Ephemeral defaults suite — never mutates `HealthKitService.shared` /
+    /// `UserDefaults.standard` owned by the XCTest host AppSession.
+    private var isolatedSuiteName: String?
+    private var isolatedDefaults: UserDefaults?
 
     override func setUp() {
         HealthKitServiceTestLock.lock.lock()
     }
 
     override func tearDown() {
+        if let suite = isolatedSuiteName {
+            UserDefaults().removePersistentDomain(forName: suite)
+        }
+        isolatedSuiteName = nil
+        isolatedDefaults = nil
         HealthKitServiceTestLock.lock.unlock()
     }
 
     @MainActor
-    private func seedConnected(_ userId: String) async -> HealthKitService {
-        let service = HealthKitService.shared
+    override func setUp() async throws {
+        let suite = "hiair.tests.health.\(UUID().uuidString)"
+        isolatedSuiteName = suite
+        isolatedDefaults = UserDefaults(suiteName: suite)
+        XCTAssertNotNil(isolatedDefaults)
+    }
+
+    @MainActor
+    private func makeIsolatedService() -> HealthKitService {
+        let defaults = isolatedDefaults ?? UserDefaults.standard
+        let service = HealthKitService(defaults: defaults)
         service.prepareForUnitTests()
+        return service
+    }
+
+    @MainActor
+    private func seedConnected(_ userId: String) async -> HealthKitService {
+        let service = makeIsolatedService()
         for _ in 0..<200 where service.hasSyncInFlightForTests {
             await Task.yield()
         }
-        UserDefaults.standard.set(true, forKey: "hiair.health.authorizationCompleted.\(userId)")
-        UserDefaults.standard.set(true, forKey: "hiair.health.consentPersisted.\(userId)")
+        service.seedDurableConsentMarkersForTests(userId: userId)
         service.bindAccount(userId: userId)
         service.reportConnectionState(.connected)
         XCTAssertEqual(service.connectionState, .connected)
@@ -419,11 +452,11 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
     }
 
     @MainActor
-    private func awaitCollectEntered(_ probe: CollectProbe, maxAttempts: Int = 200) async -> Bool {
+    private func awaitCollectEntered(_ probe: CollectProbe, maxAttempts: Int = 400) async -> Bool {
         for _ in 0..<maxAttempts {
             if probe.hasEntered { return true }
-            // Brief sleep lets MainActor schedule the unstructured sync Task.
-            try? await Task.sleep(nanoseconds: 5_000_000)
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 2_000_000)
         }
         return probe.hasEntered
     }
@@ -526,6 +559,77 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
         await service.runHealthSyncForTests(userId: "user-a", accessToken: "token", profileId: nil)
         XCTAssertGreaterThan(service.testUploadGateReachedCount, 0)
         XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertFalse(service.hasSyncInFlightForTests)
+    }
+
+    @MainActor
+    func testDuplicateStartReplacesGenerationAndKeepsNewerHandle() async {
+        let service = await seedConnected("user-a")
+        service.testCollectHandler = { ([], nil) }
+        let firstHold = CollectProbe()
+        let secondHold = CollectProbe()
+        var phase = 0
+        service.testBeforeUploadHook = {
+            phase += 1
+            if phase == 1 {
+                firstHold.markEntered()
+                await firstHold.waitUntilReleasedOrCancelled()
+            } else {
+                secondHold.markEntered()
+                await secondHold.waitUntilReleasedOrCancelled()
+            }
+        }
+
+        let firstRun = Task { @MainActor in
+            await service.runHealthSyncForTests(userId: "user-a", accessToken: "token", profileId: nil)
+        }
+        let enteredFirst = await awaitCollectEntered(firstHold)
+        XCTAssertTrue(enteredFirst)
+        let firstGeneration = service.syncGenerationForTests
+        XCTAssertTrue(service.hasSyncInFlightForTests)
+
+        let secondRun = Task { @MainActor in
+            await service.runHealthSyncForTests(userId: "user-a", accessToken: "token", profileId: nil)
+        }
+        // Wait until replacement actually began (generation bump + second upload gate).
+        let enteredSecond = await awaitCollectEntered(secondHold)
+        XCTAssertTrue(enteredSecond)
+        let secondGeneration = service.syncGenerationForTests
+        XCTAssertGreaterThan(secondGeneration, firstGeneration)
+        XCTAssertTrue(service.hasSyncInFlightForTests)
+
+        // Superseded first task may finish now; must not wipe the replacement handle.
+        firstHold.allowFinish()
+        _ = await firstRun.value
+        XCTAssertTrue(service.hasSyncInFlightForTests)
+        XCTAssertEqual(service.syncGenerationForTests, secondGeneration)
+
+        secondHold.allowFinish()
+        _ = await secondRun.value
+        await awaitSyncIdle(service)
+        XCTAssertFalse(service.hasSyncInFlightForTests)
+        // Only the replacement generation completed uploads (health_sync + daily_summary).
+        XCTAssertEqual(service.testUploadAttemptCount, 2)
+    }
+
+    @MainActor
+    func testBeginSyncClearsCancelledStaleHandleBeforeReplacement() async {
+        let service = await seedConnected("user-a")
+        service.testCollectHandler = { ([], nil) }
+        let hold = CollectProbe()
+        service.testBeforeUploadHook = {
+            hold.markEntered()
+            await hold.waitUntilReleasedOrCancelled()
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        let entered = await awaitCollectEntered(hold)
+        XCTAssertTrue(entered)
+        XCTAssertTrue(service.hasSyncInFlightForTests)
+        service.cancelPendingSync()
+        XCTAssertFalse(service.hasSyncInFlightForTests)
+        hold.allowFinish()
+        await awaitSyncIdle(service)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
     }
 
     @MainActor
@@ -620,10 +724,29 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
         XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
         service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
         XCTAssertEqual(service.testUploadAttemptCount, 0)
-        UserDefaults.standard.set(true, forKey: "hiair.health.consentPersisted.user-a")
-        UserDefaults.standard.set(true, forKey: "hiair.health.authorizationCompleted.user-a")
+        service.seedDurableConsentMarkersForTests(userId: "user-a")
         service.bindAccount(userId: "user-a")
         XCTAssertEqual(service.connectionState, .connected)
     }
 }
 
+final class AppSessionLifecycleTests: XCTestCase {
+    @MainActor
+    func testCancelLifecycleRemovesObserversAndCancelsStartup() {
+        let session = AppSession()
+        XCTAssertEqual(session.testRegisteredObserverCountForTests, 4)
+        XCTAssertFalse(session.testStartupTaskIsCancelledForTests)
+        session.cancelLifecycleForTests()
+        XCTAssertEqual(session.testRegisteredObserverCountForTests, 0)
+        XCTAssertTrue(session.testStartupTaskIsCancelledForTests)
+    }
+
+    @MainActor
+    func testCancelLifecycleIsIdempotent() {
+        let session = AppSession()
+        session.cancelLifecycleForTests()
+        session.cancelLifecycleForTests()
+        XCTAssertEqual(session.testRegisteredObserverCountForTests, 0)
+        XCTAssertTrue(session.testStartupTaskIsCancelledForTests)
+    }
+}

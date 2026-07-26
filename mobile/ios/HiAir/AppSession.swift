@@ -1,5 +1,35 @@
 import Foundation
 
+/// Serialized (MainActor) ownership of the shared session Keychain + UserDefaults.
+/// Writers compare their claimed generation before any mutation so a stale AppSession
+/// cannot erase a newer account between a check and a write.
+@MainActor
+final class SessionDurableOwnership {
+    static let shared = SessionDurableOwnership()
+
+    private(set) var generation: UInt64 = 0
+    private(set) var ownerUserId: String = ""
+
+    @discardableResult
+    func claim(userId: String) -> UInt64 {
+        let trimmed = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        generation &+= 1
+        ownerUserId = trimmed
+        return generation
+    }
+
+    /// After an owning logout clears durable credentials, bump so stale writers cannot delete.
+    func releaseAfterOwnedClear(expectedGeneration: UInt64) {
+        guard expectedGeneration != 0, expectedGeneration == generation else { return }
+        generation &+= 1
+        ownerUserId = ""
+    }
+
+    func isCurrent(_ claimedGeneration: UInt64) -> Bool {
+        claimedGeneration != 0 && claimedGeneration == generation
+    }
+}
+
 @MainActor
 final class AppSession: ObservableObject {
     private enum Keys {
@@ -57,22 +87,88 @@ final class AppSession: ObservableObject {
     @Published var premiumActivationPending = false
     @Published var selectedTab = 0
     private let apiClient = APIClient.live()
-    private let keychain = KeychainStore(service: "com.hiair.app.session")
+    private let defaults: UserDefaults
+    private let credentials: any SessionCredentialStoring
+    private let durableOwnership: SessionDurableOwnership
+    /// Claimed generation for this instance; must match `durableOwnership.generation` to mutate store.
+    private var durableOwnershipGeneration: UInt64 = 0
+    private var isHydratingFromStore = false
     private let supabaseAuth = SupabaseAuthService.shared
+    private let remoteSessionRevoker: any AuthRemoteSessionRevoking
     private var authObserver: NSObjectProtocol?
     private var locationAuthObserver: NSObjectProtocol?
+    private var oauthFailedObserver: NSObjectProtocol?
+    private var entitlementObserver: NSObjectProtocol?
+    private var startupTask: Task<Void, Never>?
     private var inFlightPrepare: Task<SessionPrepareResult, Never>?
+    /// Best-effort remote revoke of a captured access token (not cancelled on logout).
+    private var signOutTask: Task<Void, Never>?
+    /// Token currently being revoked remotely — dedupes concurrent logout for the same bearer.
+    private var inFlightRemoteRevokeToken: String?
+    private var placeInvalidateTask: Task<Void, Never>?
     private var lastForegroundRefreshAt: Date?
     /// Invalidates in-flight reverse-geocode applies after logout / newer coords.
     private var placeResolveGeneration: UInt64 = 0
+    /// While true, skip APIClient mutation from `persist()` (logout memory clear).
+    private var suppressAPIClientAuthSync = false
 
-    init() {
-        let defaults = UserDefaults.standard
+    /// Test seam: count of still-registered NotificationCenter observers.
+    var testRegisteredObserverCountForTests: Int {
+        [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
+            .compactMap { $0 }
+            .count
+    }
+
+    /// Test seam: whether startup restore task is absent or cancelled.
+    var testStartupTaskIsCancelledForTests: Bool {
+        guard let startupTask else { return true }
+        return startupTask.isCancelled
+    }
+
+    /// Test seam: await in-flight remote revoke started by `logout()`.
+    func awaitRemoteRevokeForTests() async {
+        await signOutTask?.value
+    }
+
+    /// Test seam: mirrors `deinit` cleanup without destroying the instance
+    /// (so unit tests can assert observer/startup cancellation deterministically).
+    /// Does **not** cancel an in-flight remote revoke — that must complete with the
+    /// captured bearer even if the session object is torn down for observers.
+    func cancelLifecycleForTests() {
+        startupTask?.cancel()
+        startupTask = nil
+        inFlightPrepare?.cancel()
+        inFlightPrepare = nil
+        placeInvalidateTask?.cancel()
+        placeInvalidateTask = nil
+        let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
+        authObserver = nil
+        locationAuthObserver = nil
+        oauthFailedObserver = nil
+        entitlementObserver = nil
+        for observer in observers {
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+
+    init(
+        remoteSessionRevoker: (any AuthRemoteSessionRevoking)? = nil,
+        defaults: UserDefaults = .standard,
+        credentials: (any SessionCredentialStoring)? = nil,
+        durableOwnership: SessionDurableOwnership? = nil
+    ) {
+        self.remoteSessionRevoker = remoteSessionRevoker ?? SupabaseAuthService.shared
+        self.defaults = defaults
+        self.credentials = credentials ?? KeychainStore(service: "com.hiair.app.session")
+        self.durableOwnership = durableOwnership ?? .shared
+        isHydratingFromStore = true
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
-        userId = keychain.getString(forKey: Keys.userId) ?? defaults.string(forKey: Keys.userId) ?? ""
-        email = keychain.getString(forKey: Keys.email) ?? defaults.string(forKey: Keys.email) ?? ""
-        accessToken = keychain.getString(forKey: Keys.accessToken) ?? defaults.string(forKey: Keys.accessToken) ?? ""
-        refreshToken = keychain.getString(forKey: Keys.refreshToken) ?? defaults.string(forKey: Keys.refreshToken) ?? ""
+        userId = self.credentials.getString(forKey: Keys.userId) ?? defaults.string(forKey: Keys.userId) ?? ""
+        email = self.credentials.getString(forKey: Keys.email) ?? defaults.string(forKey: Keys.email) ?? ""
+        accessToken = self.credentials.getString(forKey: Keys.accessToken) ?? defaults.string(forKey: Keys.accessToken) ?? ""
+        refreshToken = self.credentials.getString(forKey: Keys.refreshToken) ?? defaults.string(forKey: Keys.refreshToken) ?? ""
         profileId = defaults.string(forKey: Keys.profileId) ?? ""
         persona = defaults.string(forKey: Keys.persona) ?? "adult"
         sensitivity = defaults.string(forKey: Keys.sensitivity) ?? "medium"
@@ -87,20 +183,19 @@ final class AppSession: ObservableObject {
         }
         // Do not restore a global city name — presentation is account-scoped via PlaceGeocodingService.
         displayPlaceName = nil
-        defaults.removeObject(forKey: Keys.displayPlaceName)
         if let birthRaw = defaults.string(forKey: Keys.dateOfBirth) {
             dateOfBirth = Self.birthDateFormatter.date(from: birthRaw)
         }
         checklistCompletedItems = Set(defaults.stringArray(forKey: Keys.checklistCompletedItems) ?? [])
         checklistHidden = defaults.object(forKey: Keys.checklistHidden) as? Bool ?? false
-        APIClient.setAuthInvalidatedHandler { [weak self] in
-            Task { @MainActor in
-                self?.expireSessionAfterAuthFailure()
-            }
-        }
-        if userId.isEmpty || accessToken.isEmpty || refreshToken.isEmpty {
-            APIClient.setAuthState(nil)
-        } else {
+        isHydratingFromStore = false
+
+        let hasFullAuth = !userId.isEmpty && !accessToken.isEmpty && !refreshToken.isEmpty
+        if hasFullAuth {
+            durableOwnershipGeneration = self.durableOwnership.claim(userId: userId)
+            // Drop legacy plaintext copies once credential store is the owner store.
+            defaults.removeObject(forKey: Keys.displayPlaceName)
+            writeDurableSessionFields()
             APIClient.setAuthState(
                 APIClient.AuthState(
                     userId: userId,
@@ -108,6 +203,15 @@ final class AppSession: ObservableObject {
                     refreshToken: refreshToken
                 )
             )
+        } else {
+            // Empty hydrate must not wipe a newer in-memory APIClient account B.
+            defaults.removeObject(forKey: Keys.displayPlaceName)
+        }
+
+        APIClient.setAuthInvalidatedHandler { [weak self] in
+            Task { @MainActor in
+                self?.expireSessionAfterAuthFailure()
+            }
         }
         authObserver = NotificationCenter.default.addObserver(
             forName: SupabaseAuthService.sessionDidChange,
@@ -125,7 +229,7 @@ final class AppSession: ObservableObject {
                 await self.refreshEntitlement()
             }
         }
-        NotificationCenter.default.addObserver(
+        oauthFailedObserver = NotificationCenter.default.addObserver(
             forName: SupabaseAuthService.sessionOAuthFailed,
             object: nil,
             queue: .main
@@ -136,7 +240,7 @@ final class AppSession: ObservableObject {
                 self.authNotice = message
             }
         }
-        NotificationCenter.default.addObserver(
+        entitlementObserver = NotificationCenter.default.addObserver(
             forName: .subscriptionEntitlementDidUpdate,
             object: nil,
             queue: .main
@@ -181,34 +285,91 @@ final class AppSession: ObservableObject {
                 _ = await self.ensureProfileIdIfNeeded()
             }
         }
-        Task { @MainActor [weak self] in
+        startupTask = Task { @MainActor [weak self] in
             StartupDiagnostics.track("startup_begin")
             await self?.restoreSupabaseSession()
-            if let self, !self.userId.isEmpty {
+            guard let self, !Task.isCancelled else { return }
+            if !self.userId.isEmpty {
                 HealthKitService.shared.bindAccount(userId: self.userId)
                 await PlaceGeocodingService.shared.bindAccount(userId: self.userId)
                 if let cached = await PlaceGeocodingService.shared.presentationPlaceName(for: self.userId) {
                     self.displayPlaceName = cached
                 }
             }
-            await self?.refreshEntitlement()
+            guard !Task.isCancelled else { return }
+            await self.refreshEntitlement()
         }
     }
 
     deinit {
-        if let authObserver {
-            NotificationCenter.default.removeObserver(authObserver)
+        // Match cancelLifecycleForTests for observers/startup — but do **not** cancel
+        // an in-flight remote revoke; it must finish with the captured bearer.
+        startupTask?.cancel()
+        startupTask = nil
+        inFlightPrepare?.cancel()
+        inFlightPrepare = nil
+        placeInvalidateTask?.cancel()
+        placeInvalidateTask = nil
+        let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
+        authObserver = nil
+        locationAuthObserver = nil
+        oauthFailedObserver = nil
+        entitlementObserver = nil
+        for observer in observers {
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
         }
-        if let locationAuthObserver {
-            NotificationCenter.default.removeObserver(locationAuthObserver)
-        }
+        // Do not clear APIClient.setAuthInvalidatedHandler here — a newer AppSession
+        // may already own it; the handler captures [weak self] and no-ops after release.
     }
 
     func logout() {
-        Task {
-            await supabaseAuth.signOut()
+        // 1) Immutable account-correlated snapshot BEFORE any local clear.
+        let snapshotUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let snapshotLocalToken = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let ownershipGen = durableOwnershipGeneration
+        let ownsDurable = durableOwnership.isCurrent(ownershipGen)
+        let global = APIClient.getAuthState()
+        let ownsGlobalAuth = !snapshotUserId.isEmpty && global?.userId == snapshotUserId
+        let capturedAccessToken: String = {
+            if ownsGlobalAuth,
+               let globalToken = global?.accessToken.trimmingCharacters(in: .whitespacesAndNewlines),
+               !globalToken.isEmpty {
+                return globalToken
+            }
+            // Stale / mismatched global (account B) — never revoke B's bearer.
+            return snapshotLocalToken
+        }()
+
+        // 2) Owning logout clears durable credentials under the claimed generation, then
+        //    bumps ownership so late/stale writers cannot delete a newer account.
+        //    Stale logout must not mutate shared Keychain/UserDefaults owned by B.
+        if ownsDurable {
+            clearDurableSessionStorage()
+            durableOwnership.releaseAfterOwnedClear(expectedGeneration: ownershipGen)
         }
-        clearAccountPresentationState()
+        durableOwnershipGeneration = 0
+
+        // 3) Immediate in-memory cleanup for THIS session. Do not wipe foreign global B.
+        placeResolveGeneration &+= 1
+        isResolvingPlaceName = false
+        isPremium = false
+        premiumActivationPending = false
+        if ownsGlobalAuth || HealthKitService.shared.boundUserId == snapshotUserId {
+            HealthKitService.shared.clearAccountSession()
+        }
+        placeInvalidateTask?.cancel()
+        if ownsGlobalAuth {
+            placeInvalidateTask = Task {
+                await PlaceGeocodingService.shared.invalidateSession()
+            }
+        }
+
+        // Suppress durable + APIClient side effects while clearing published fields.
+        // Ownership already released — persist() must not delete B's keychain/defaults.
+        suppressAPIClientAuthSync = true
+        isHydratingFromStore = true
         userId = ""
         email = ""
         accessToken = ""
@@ -220,7 +381,35 @@ final class AppSession: ObservableObject {
         longitude = 0.0
         locationSource = .unknown
         locationRevision = 0
-        APIClient.setAuthState(nil)
+        displayPlaceName = nil
+        isHydratingFromStore = false
+        suppressAPIClientAuthSync = false
+
+        if ownsGlobalAuth {
+            APIClient.setAuthState(nil)
+        }
+
+        // 4) No token ⇒ no network and no nil sessionDidChange rebroadcast.
+        guard !capturedAccessToken.isEmpty else { return }
+
+        // 5) Concurrent logout for the same bearer: keep the in-flight revoke (one request).
+        if inFlightRemoteRevokeToken == capturedAccessToken {
+            return
+        }
+
+        inFlightRemoteRevokeToken = capturedAccessToken
+        let token = capturedAccessToken
+        let revoker = remoteSessionRevoker
+        signOutTask = Task { [weak self] in
+            await revoker.revokeRemoteSession(accessToken: token)
+            await MainActor.run {
+                guard let self else { return }
+                if self.inFlightRemoteRevokeToken == token {
+                    self.inFlightRemoteRevokeToken = nil
+                }
+                // Never clear APIClient / durable store / Health from late revoke completion.
+            }
+        }
     }
 
     /// Clears city / Health / Premium presentation owned by the signed-in session.
@@ -232,7 +421,8 @@ final class AppSession: ObservableObject {
         isPremium = false
         premiumActivationPending = false
         HealthKitService.shared.clearAccountSession()
-        Task {
+        placeInvalidateTask?.cancel()
+        placeInvalidateTask = Task {
             await PlaceGeocodingService.shared.invalidateSession()
         }
     }
@@ -261,7 +451,9 @@ final class AppSession: ObservableObject {
     }
 
     /// Apply Supabase tokens in one shot so `persist()` does not clear API auth mid-update.
+    /// Claims durable-store ownership before writing so this account becomes the sole writer.
     func installAuthSession(_ auth: SupabaseAuthSession) {
+        durableOwnershipGeneration = durableOwnership.claim(userId: auth.userId)
         userId = auth.userId
         email = auth.email
         accessToken = auth.accessToken
@@ -424,14 +616,42 @@ final class AppSession: ObservableObject {
         guard !(userId.isEmpty && accessToken.isEmpty) else {
             return
         }
-        clearAccountPresentationState()
+        let ownershipGen = durableOwnershipGeneration
+        let ownsDurable = durableOwnership.isCurrent(ownershipGen)
+        let snapshotUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let global = APIClient.getAuthState()
+        let ownsGlobalAuth = !snapshotUserId.isEmpty && global?.userId == snapshotUserId
+
+        if ownsDurable {
+            clearDurableSessionStorage()
+            durableOwnership.releaseAfterOwnedClear(expectedGeneration: ownershipGen)
+        }
+        durableOwnershipGeneration = 0
+
+        if ownsGlobalAuth || HealthKitService.shared.boundUserId == snapshotUserId {
+            clearAccountPresentationState()
+        } else {
+            placeResolveGeneration &+= 1
+            displayPlaceName = nil
+            isResolvingPlaceName = false
+            isPremium = false
+            premiumActivationPending = false
+        }
+
+        suppressAPIClientAuthSync = true
+        isHydratingFromStore = true
         userId = ""
         accessToken = ""
         refreshToken = ""
         profileId = ""
         selectedTab = 0
         authNotice = l("auth.session_expired")
-        APIClient.setAuthState(nil)
+        isHydratingFromStore = false
+        suppressAPIClientAuthSync = false
+
+        if ownsGlobalAuth {
+            APIClient.setAuthState(nil)
+        }
     }
 
     var hasValidLocation: Bool {
@@ -590,8 +810,33 @@ final class AppSession: ObservableObject {
         }
     }
 
+    /// Ownership policy for shared durable session fields:
+    /// - Auth credentials (`userId`/`email`/`accessToken`/`refreshToken`): owner-only write/clear.
+    /// - Account-scoped (`profileId`/`persona`/`sensitivity`/location/`dateOfBirth`/checklist*):
+    ///   owner-only write; stale AppSession must not overwrite account B.
+    /// - Device UX prefs (`onboardingCompleted`/`preferredLanguage`): still owner-gated so a
+    ///   stale logout/didSet cannot clobber the signed-in account's durable prefs.
     private func persist() {
-        let defaults = UserDefaults.standard
+        guard !isHydratingFromStore else { return }
+
+        let hasFullAuth = !userId.isEmpty && !accessToken.isEmpty && !refreshToken.isEmpty
+        if durableOwnership.isCurrent(durableOwnershipGeneration) {
+            writeDurableSessionFields()
+        } else if hasFullAuth {
+            // Claim only when store is unowned or already records this same userId.
+            // Never steal durable ownership from a different account B.
+            let owner = durableOwnership.ownerUserId
+            if owner.isEmpty || owner == userId {
+                durableOwnershipGeneration = durableOwnership.claim(userId: userId)
+                writeDurableSessionFields()
+            }
+        }
+        // else: stale instance — in-memory only; do not mutate shared store.
+
+        syncAPIClientAuthFromPersist()
+    }
+
+    private func writeDurableSessionFields() {
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(profileId, forKey: Keys.profileId)
         defaults.set(persona, forKey: Keys.persona)
@@ -610,36 +855,66 @@ final class AppSession: ObservableObject {
         defaults.set(Array(checklistCompletedItems).sorted(), forKey: Keys.checklistCompletedItems)
         defaults.set(checklistHidden, forKey: Keys.checklistHidden)
         if userId.isEmpty {
-            keychain.deleteValue(forKey: Keys.userId)
+            credentials.deleteValue(forKey: Keys.userId)
         } else {
-            keychain.setString(userId, forKey: Keys.userId)
+            credentials.setString(userId, forKey: Keys.userId)
         }
         if email.isEmpty {
-            keychain.deleteValue(forKey: Keys.email)
+            credentials.deleteValue(forKey: Keys.email)
         } else {
-            keychain.setString(email, forKey: Keys.email)
+            credentials.setString(email, forKey: Keys.email)
         }
         if accessToken.isEmpty {
-            keychain.deleteValue(forKey: Keys.accessToken)
+            credentials.deleteValue(forKey: Keys.accessToken)
         } else {
-            keychain.setString(accessToken, forKey: Keys.accessToken)
+            credentials.setString(accessToken, forKey: Keys.accessToken)
         }
         if refreshToken.isEmpty {
-            keychain.deleteValue(forKey: Keys.refreshToken)
+            credentials.deleteValue(forKey: Keys.refreshToken)
         } else {
-            keychain.setString(refreshToken, forKey: Keys.refreshToken)
+            credentials.setString(refreshToken, forKey: Keys.refreshToken)
         }
+    }
+
+    /// Owning logout / auth-expiry durable clear. Caller must hold a current ownership generation.
+    private func clearDurableSessionStorage() {
+        credentials.deleteValue(forKey: Keys.userId)
+        credentials.deleteValue(forKey: Keys.email)
+        credentials.deleteValue(forKey: Keys.accessToken)
+        credentials.deleteValue(forKey: Keys.refreshToken)
+        defaults.removeObject(forKey: Keys.userId)
+        defaults.removeObject(forKey: Keys.email)
+        defaults.removeObject(forKey: Keys.accessToken)
+        defaults.removeObject(forKey: Keys.refreshToken)
+        defaults.removeObject(forKey: Keys.profileId)
+        defaults.removeObject(forKey: Keys.dateOfBirth)
+        defaults.removeObject(forKey: Keys.displayPlaceName)
+        defaults.set(0.0, forKey: Keys.latitude)
+        defaults.set(0.0, forKey: Keys.longitude)
+        defaults.set(LocationSource.unknown.rawValue, forKey: Keys.locationSource)
+        // persona / sensitivity / checklist / onboarding / language stay as last owner values
+        // until a new owner writes — stale logout must not reset them to A's blanks.
+    }
+
+    private func syncAPIClientAuthFromPersist() {
+        guard !suppressAPIClientAuthSync else { return }
         if userId.isEmpty || accessToken.isEmpty || refreshToken.isEmpty {
-            APIClient.setAuthState(nil)
-        } else {
-            APIClient.setAuthState(
-                APIClient.AuthState(
-                    userId: userId,
-                    accessToken: accessToken,
-                    refreshToken: refreshToken
-                )
-            )
+            // Ownership-sensitive clears happen in `logout()` / `expireSessionAfterAuthFailure()`.
+            return
         }
+        if let global = APIClient.getAuthState(),
+           !global.userId.isEmpty,
+           global.userId != userId {
+            // Stale AppSession must not overwrite a newer account's APIClient auth.
+            return
+        }
+        APIClient.setAuthState(
+            APIClient.AuthState(
+                userId: userId,
+                accessToken: accessToken,
+                refreshToken: refreshToken
+            )
+        )
     }
 
     private func restoreSupabaseSession() async {
