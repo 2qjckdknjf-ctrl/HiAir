@@ -61,6 +61,39 @@ def test_production_cached_unavailable_returns_503_not_sample(monkeypatch) -> No
     assert body.get("source") not in ("sample", "mock")
 
 
+def test_dashboard_returns_503_when_environment_unavailable(monkeypatch) -> None:
+    import app.api.deps as deps
+
+    monkeypatch.setattr(deps, "decode_access_token", lambda token: "user-1")
+    monkeypatch.setattr(deps.user_repository, "user_exists", lambda user_id: True)
+    monkeypatch.setattr(
+        air_environment_service,
+        "settings",
+        SimpleNamespace(
+            environment_cache_ttl_seconds=900,
+            environment_allow_sample_fallback=False,
+        ),
+    )
+    monkeypatch.setattr(
+        air_environment_service,
+        "fetch_live_snapshot",
+        lambda lat, lon: (_ for _ in ()).throw(RuntimeError("provider down")),
+    )
+    monkeypatch.setattr(
+        air_environment_service.air_repository,
+        "get_latest_environment_snapshot",
+        lambda lat, lon, max_age_seconds: None,
+    )
+    client = TestClient(app)
+    response = client.get(
+        "/api/dashboard/overview",
+        params={"lat": 41.39, "lon": 2.17},
+        headers={"Authorization": "Bearer token"},
+    )
+    assert response.status_code == 503
+    assert "unavailable" in response.json()["detail"].lower()
+    assert response.json().get("environment", {}).get("source") not in ("sample", "mock")
+
 def test_development_allows_sample_when_fallback_enabled(monkeypatch) -> None:
     monkeypatch.setattr(
         environment_api,

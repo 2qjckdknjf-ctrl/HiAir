@@ -57,7 +57,10 @@ def dashboard_overview(
             "total_logs": 0,
         }
 
-    snapshot = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
+    try:
+        snapshot = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     environment = EnvironmentSnapshot(
         temperature_c=snapshot.temperature_c,
         humidity_percent=snapshot.humidity_percent,

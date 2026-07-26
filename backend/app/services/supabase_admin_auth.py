@@ -42,31 +42,25 @@ def _anon_headers() -> dict[str, str]:
     }
 
 
-def _extract_error_detail(response: httpx.Response) -> str:
-    try:
-        payload = response.json()
-    except ValueError:
-        return response.text.strip() or f"Supabase auth failed ({response.status_code})"
-    for key in ("msg", "error_description", "message", "error"):
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return f"Supabase auth failed ({response.status_code})"
-
-
 def _safe_auth_failure_message(response: httpx.Response) -> str:
     """Map Supabase errors to messages that avoid account-enumeration leaks."""
-    detail = _extract_error_detail(response).lower()
     if response.status_code == 429:
         return "Too many attempts. Please wait and try again."
-    if "confirm" in detail or "email not confirmed" in detail:
-        return "Email confirmation is required before signing in."
     if response.status_code in (400, 401, 403, 422):
+        # Never surface confirmation / existence details — same message for all.
         return "Invalid email or password."
     if response.status_code >= 500:
         return "Authentication service temporarily unavailable."
     return "Unable to complete authentication."
 
+
+def _safe_signup_failure_message(response: httpx.Response) -> str:
+    """Uniform signup failure message (no account-existence / confirmation leak)."""
+    if response.status_code == 429:
+        return "Too many attempts. Please wait and try again."
+    if response.status_code >= 500:
+        return "Authentication service temporarily unavailable."
+    return "Unable to complete signup."
 
 def _session_from_token_payload(payload: dict, fallback_email: str) -> dict[str, str]:
     user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
@@ -122,11 +116,13 @@ def signup_with_password(email: str, password: str) -> dict[str, str]:
         if response.status_code not in (200, 201):
             logger.info("supabase_signup_failed status=%s", response.status_code)
             # Avoid revealing whether the email already exists.
-            raise SupabaseAdminAuthError(_safe_auth_failure_message(response))
+            raise SupabaseAdminAuthError(_safe_signup_failure_message(response))
         payload = response.json()
 
     # Signup may return tokens for an unconfirmed user when the project policy
     # still requires email confirmation — never issue a session in that case.
+    # Use the same client-facing message/status as other signup failures so
+    # callers cannot enumerate registration or confirmation state.
     access_token = str(payload.get("access_token") or "").strip()
     refresh_token = str(payload.get("refresh_token") or "").strip()
     user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
@@ -134,9 +130,7 @@ def signup_with_password(email: str, password: str) -> dict[str, str]:
     email_confirmed = isinstance(confirmed_at, str) and bool(confirmed_at.strip())
     if not access_token or not refresh_token or not email_confirmed:
         logger.info("supabase_signup_confirmation_required")
-        raise SupabaseEmailConfirmationRequired(
-            "Check your email to confirm your account before signing in."
-        )
+        raise SupabaseEmailConfirmationRequired("Unable to complete signup.")
     return _session_from_token_payload(payload, fallback_email=email)
 
 

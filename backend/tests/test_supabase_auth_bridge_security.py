@@ -199,7 +199,9 @@ def test_existing_email_cannot_be_hijacked_via_signup(monkeypatch) -> None:
     )
     assert response.status_code == 400
     # Safe generic message — no account existence leak / no password overwrite.
-    assert "Invalid email or password" in response.json()["detail"]
+    assert "Unable to complete signup" in response.json()["detail"]
+    assert "already" not in response.json()["detail"].lower()
+    assert "registered" not in response.json()["detail"].lower()
 
 
 def test_unconfirmed_email_not_auto_confirmed_via_bridge(monkeypatch) -> None:
@@ -233,8 +235,14 @@ def test_unconfirmed_email_not_auto_confirmed_via_bridge(monkeypatch) -> None:
         "/api/auth/supabase/signup",
         json={"email": "pending@example.com", "password": "ValidPass123!"},
     )
-    assert response.status_code == 403
-    assert "confirm" in response.json()["detail"].lower()
+    assert response.status_code == 400
+    assert "Unable to complete signup" in response.json()["detail"]
+    body = response.json()
+    assert "access_token" not in body
+    assert "refresh_token" not in body
+    assert "already" not in response.json()["detail"].lower()
+    assert "exists" not in response.json()["detail"].lower()
+    assert "confirm" not in response.json()["detail"].lower()
 
 
 def test_signup_tokens_without_email_confirmation_require_confirmation(monkeypatch) -> None:
@@ -272,9 +280,9 @@ def test_signup_tokens_without_email_confirmation_require_confirmation(monkeypat
         "/api/auth/supabase/signup",
         json={"email": "unconfirmed@example.com", "password": "ValidPass123!"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 400
     detail = response.json()["detail"].lower()
-    assert "confirm" in detail
+    assert "unable to complete signup" in detail
     # No account-enumeration / no session leak.
     body = response.json()
     assert "access_token" not in body
@@ -282,6 +290,75 @@ def test_signup_tokens_without_email_confirmation_require_confirmation(monkeypat
     assert "already" not in detail
     assert "exists" not in detail
     assert "leaked" not in detail
+    assert "confirm" not in detail
+
+
+def test_signup_confirmation_and_existing_email_share_uniform_response(monkeypatch) -> None:
+    """Security: confirmation-required and existing-email must not enumerate."""
+    _patch_settings(
+        monkeypatch,
+        hiair_auth_email_bridge_enabled=True,
+        hiair_auth_provider="supabase",
+        supabase_url="https://example.supabase.co",
+        supabase_anon_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.anon",
+    )
+
+    def confirmation_handler(url, params=None, headers=None, json=None):  # noqa: A002
+        return _FakeResponse(
+            200,
+            {
+                "access_token": "a",
+                "refresh_token": "r",
+                "user": {
+                    "id": "66666666-6666-6666-6666-666666666666",
+                    "email": "new@example.com",
+                    "email_confirmed_at": None,
+                },
+            },
+        )
+
+    def existing_handler(url, params=None, headers=None, json=None):  # noqa: A002
+        return _FakeResponse(422, {"msg": "User already registered"})
+
+    client = TestClient(app)
+    monkeypatch.setattr(httpx, "Client", lambda timeout=20.0: _FakeClient(confirmation_handler))
+    confirmation = client.post(
+        "/api/auth/supabase/signup",
+        json={"email": "new@example.com", "password": "ValidPass123!"},
+    )
+    monkeypatch.setattr(httpx, "Client", lambda timeout=20.0: _FakeClient(existing_handler))
+    existing = client.post(
+        "/api/auth/supabase/signup",
+        json={"email": "taken@example.com", "password": "ValidPass123!"},
+    )
+    assert confirmation.status_code == existing.status_code == 400
+    assert confirmation.json()["detail"] == existing.json()["detail"]
+    assert "access_token" not in confirmation.json()
+    assert "access_token" not in existing.json()
+
+
+def test_login_unconfirmed_does_not_reveal_confirmation_state(monkeypatch) -> None:
+    _patch_settings(
+        monkeypatch,
+        hiair_auth_email_bridge_enabled=True,
+        hiair_auth_provider="supabase",
+        supabase_url="https://example.supabase.co",
+        supabase_anon_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.anon",
+    )
+
+    def handler(url, params=None, headers=None, json=None):  # noqa: A002
+        return _FakeResponse(400, {"error_description": "Email not confirmed"})
+
+    monkeypatch.setattr(httpx, "Client", lambda timeout=20.0: _FakeClient(handler))
+    client = TestClient(app)
+    response = client.post(
+        "/api/auth/supabase/session",
+        json={"email": "pending@example.com", "password": "ValidPass123!"},
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"].lower()
+    assert detail == "invalid email or password."
+    assert "confirm" not in detail
 
 
 def test_service_role_not_required_for_bridge(monkeypatch) -> None:

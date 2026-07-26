@@ -36,6 +36,8 @@ jobs:
       APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
       GOOGLE_PLAY_VERIFIER_MODE: ${{ secrets.GOOGLE_PLAY_VERIFIER_MODE }}
       GOOGLE_PLAY_PACKAGE_NAME: ${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      ENVIRONMENT_ALLOW_SAMPLE_FALLBACK: "false"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
       OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
@@ -146,6 +148,8 @@ jobs:
               "APPLE_STORE_ENVIRONMENT",
               "APPLE_APP_APPLE_ID",
               "GOOGLE_PLAY_PACKAGE_NAME",
+              "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+              "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
               "DEPLOY_GIT_SHA",
               "WEATHER_API_PROVIDER",
               "WEATHER_API_KEY",
@@ -157,6 +161,7 @@ jobs:
               "APPLE_BUNDLE_ID": "com.hiair.app",
               "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
               "HIAIR_AUTH_EMAIL_BRIDGE_ENABLED": "true",
+              "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false",
           }
           out = Path("/tmp/hiair-api-secrets.env")
           lines = []
@@ -173,12 +178,20 @@ jobs:
           apple_mode = env_map.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
           apple_store_env = env_map.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()
           apple_app_id = env_map.get("APPLE_APP_APPLE_ID", "").strip()
+          google_mode = env_map.get("GOOGLE_PLAY_VERIFIER_MODE", "").strip().lower()
+          google_sa = env_map.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
           if apple_mode != "live":
               raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
           if apple_store_env not in ("production", "prod"):
               raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
           if not apple_app_id.isdigit():
               raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
+          if google_mode != "live":
+              raise SystemExit("ERROR: production deploy requires GOOGLE_PLAY_VERIFIER_MODE=live")
+          if not google_sa:
+              raise SystemExit("ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+          env_map["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
+          lines = [f"{key}={env_map[key]}" for key in sorted(env_map)]
           out.write_text("\n".join(lines) + "\n", encoding="utf-8")
           print(f"Wrote {len(lines)} secrets to {out} (values not logged)")
           print("Synced keys: " + ", ".join(sorted(env_map)))

@@ -73,10 +73,13 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     profile = _resolve_profile_for_user(profile_id, user_id)
     user_settings = settings_repository.get_user_settings(user_id)
     language = user_settings.preferred_language
-    environment = air_environment_service.load_environment(
-        profile,
-        force_refresh=force_live,
-    )
+    try:
+        environment = air_environment_service.load_environment(
+            profile,
+            force_refresh=force_live,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
     risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
@@ -129,6 +132,10 @@ def get_day_plan(
         profile = _resolve_profile_for_user(profileId, user_id)
         environment = air_environment_service.load_environment(profile)
         return air_risk_engine.build_day_plan(profile, environment)
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
@@ -154,6 +161,10 @@ def get_recommendations(
             risk=risk,
             generatedAt=environment.timestamp,
         )
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 

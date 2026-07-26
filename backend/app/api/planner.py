@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import get_current_user_id
 import app.services.entitlement_service as entitlement_service
 
@@ -56,7 +56,10 @@ def daily_planner(
         home_lat=lat,
         home_lon=lon,
     )
-    base_env = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
+    try:
+        base_env = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
 
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     hourly: list[HourlyRiskItem] = []

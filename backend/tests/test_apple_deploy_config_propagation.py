@@ -69,6 +69,23 @@ def test_cloudflare_worker_forwards_google_and_sample_env_keys() -> None:
     assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK" in text
 
 
+@pytest.mark.parametrize(
+    "rel",
+    [
+        ".github/workflows/backend-deploy-production.yml",
+        ".github/workflows/hiair-api-cloudflare.yml",
+    ],
+)
+def test_github_deploy_workflows_sync_google_sa_and_forbid_sample(rel: str) -> None:
+    text = _read(rel)
+    assert "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" in text
+    assert "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK" in text
+    assert "GOOGLE_PLAY_VERIFIER_MODE=live" in text
+    assert 'ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"' in text or (
+        'ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false"' in text
+    )
+
+
 def test_check_env_security_rejects_production_sample_fallback() -> None:
     module = _load_check_env_security()
     results = module._run_checks(

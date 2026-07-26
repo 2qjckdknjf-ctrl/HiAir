@@ -75,10 +75,14 @@ def supabase_email_signup(payload: SignupRequest, request: Request) -> AuthRespo
             email=normalized_email,
             password=payload.password,
         )
-    except SupabaseEmailConfirmationRequired as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except SupabaseAdminAuthError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (SupabaseEmailConfirmationRequired, SupabaseAdminAuthError) as exc:
+        # Same status/message for confirmation-required and other signup failures
+        # so responses cannot enumerate account existence or confirmation state.
+        # No session is issued in either case.
+        status = 429 if "Too many attempts" in str(exc) else 400
+        if "temporarily unavailable" in str(exc).lower():
+            status = 503
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
     return AuthResponse(
         user_id=session["user_id"],
         access_token=session["access_token"],
