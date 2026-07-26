@@ -54,8 +54,21 @@ class Settings:
     aqi_api_provider: str = os.getenv("AQI_API_PROVIDER", "openmeteo")
     aqi_api_key: str = os.getenv("AQI_API_KEY", "")
     environment_cache_ttl_seconds: int = int(os.getenv("ENVIRONMENT_CACHE_TTL_SECONDS", "900"))
+    # Protected envs default fail-closed (no synthetic sample air data).
+    # Dev/test keep sample fallback unless explicitly disabled.
     environment_allow_sample_fallback: bool = (
-        os.getenv("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK", "true").strip().lower() == "true"
+        os.getenv(
+            "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
+            (
+                "false"
+                if os.getenv("APP_ENV", "development").strip().lower()
+                in {"production", "prod", "staging"}
+                else "true"
+            ),
+        )
+        .strip()
+        .lower()
+        == "true"
     )
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")

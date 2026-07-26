@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -116,20 +117,30 @@ def print_owner_actions(
         }
         for item in unresolved
     )
+    qa_execution_blocked = any(
+        item.name == "REAL_DEVICE_QA_EXECUTION" and item.status == "BLOCKED"
+        for item in unresolved
+    )
 
     print("\nOwner actions to reach strict green:")
-    print("- Fill runtime/local env values (do not commit secrets):")
     if missing_env_names:
+        print("- Fill runtime/local env values (do not commit secrets):")
         for key in REQUIRED_EXTERNAL_ENV_KEYS:
             if key in missing_env_names:
                 current = env_lookup(key, file_values)
                 suffix = "  # currently empty/placeholder" if is_placeholder(current) else ""
                 print(f"  - {key}=<value>{suffix}")
+        print(f"- Update values in runtime env or local file: {env_file}")
     else:
-        print("  - No missing env keys detected.")
+        print("- Runtime/local env: no missing keys detected.")
 
-    print(f"- Update values in runtime env or local file: {env_file}")
     print("- Keep secrets out of git (.env.local, APNS key, FCM JSON, review passwords).")
+
+    if qa_execution_blocked:
+        print("- Complete current real-device certification:")
+        print("  - Connect physical iOS and Android devices and install the named signed candidates.")
+        print("  - Execute every row in docs/release/qa/REAL_DEVICE_QA_REPORT.md.")
+        print("  - Set Status: PASS only when every current row is PASS with safe evidence.")
 
     if needs_legal_finalization:
         print("- Legal owner must finalize statuses and publish public URLs:")
@@ -161,6 +172,10 @@ def write_owner_plan_markdown(
             "LEGAL_PRIVACY_POLICY_STATUS_FINALIZATION",
             "LEGAL_TERMS_STATUS_FINALIZATION",
         }
+        for item in unresolved
+    )
+    qa_execution_blocked = any(
+        item.name == "REAL_DEVICE_QA_EXECUTION" and item.status == "BLOCKED"
         for item in unresolved
     )
 
@@ -226,6 +241,23 @@ def write_owner_plan_markdown(
     lines.extend(
         [
             "",
+            "## Real-device certification",
+        ]
+    )
+    if qa_execution_blocked:
+        lines.extend(
+            [
+                "- Connect physical iOS and Android devices and install the named signed candidates.",
+                "- Execute every current matrix row in `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.",
+                "- Set `Status: PASS` only after every current row is `PASS` with safe evidence.",
+            ]
+        )
+    else:
+        lines.append("- Current real-device certification is complete.")
+
+    lines.extend(
+        [
+            "",
             "## Verification commands",
             "- `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local`",
             "- `python3 scripts/release/check_external_readiness.py --strict --env-file backend/.env.local`",
@@ -260,25 +292,60 @@ def check_contains_all(path: Path, name: str, required_tokens: list[str]) -> Che
 def check_qa_execution(report: Path) -> CheckResult:
     if not report.exists():
         return CheckResult(name="REAL_DEVICE_QA_EXECUTION", status="MISSING", detail=f"Missing file: {report}")
+
     content = report.read_text(encoding="utf-8")
-    pass_rows = content.count("| PASS |")
-    blocked_rows = content.count("| BLOCKED |")
-    if pass_rows > 0 and blocked_rows == 0:
-        return CheckResult(
-            name="REAL_DEVICE_QA_EXECUTION",
-            status="DONE",
-            detail=f"Real device QA executed ({pass_rows} PASS rows)",
-        )
-    if "Status: BLOCKED" in content or blocked_rows > 0:
+    heading = re.search(
+        r"(?im)^##[ \t]+Current release certification(?:[ \t].*)?$",
+        content,
+    )
+    if heading is None:
         return CheckResult(
             name="REAL_DEVICE_QA_EXECUTION",
             status="BLOCKED",
-            detail=f"Real device QA not executed ({blocked_rows} BLOCKED rows, {pass_rows} PASS)",
+            detail="Missing explicit 'Current release certification' section",
         )
+
+    section_start = heading.start()
+    next_heading = re.search(r"(?m)^##[ \t]+", content[heading.end() :])
+    section_end = (
+        heading.end() + next_heading.start()
+        if next_heading is not None
+        else len(content)
+    )
+    current_section = content[section_start:section_end]
+    status_match = re.search(
+        r"(?im)^Status:[ \t]*\*{0,2}(PASS|BLOCKED|NOT RUN)\*{0,2}[ \t]*$",
+        current_section,
+    )
+    if status_match is None:
+        return CheckResult(
+            name="REAL_DEVICE_QA_EXECUTION",
+            status="BLOCKED",
+            detail="Current release certification has no explicit Status: PASS/BLOCKED/NOT RUN",
+        )
+
+    status = status_match.group(1).upper()
+    result_rows = re.findall(
+        r"(?im)\|[ \t]*\*{0,2}(PASS|BLOCKED|NOT RUN|FAIL)\*{0,2}[ \t]*\|",
+        current_section,
+    )
+    pass_rows = sum(result.upper() == "PASS" for result in result_rows)
+    unresolved_rows = sum(result.upper() in {"BLOCKED", "NOT RUN", "FAIL"} for result in result_rows)
+
+    if status == "PASS" and pass_rows > 0 and unresolved_rows == 0:
+        return CheckResult(
+            name="REAL_DEVICE_QA_EXECUTION",
+            status="DONE",
+            detail=f"Current real-device certification passed ({pass_rows} PASS rows)",
+        )
+
     return CheckResult(
         name="REAL_DEVICE_QA_EXECUTION",
         status="BLOCKED",
-        detail="Real device QA report has no PASS rows",
+        detail=(
+            "Current real-device certification is not complete "
+            f"(Status: {status}; {pass_rows} PASS, {unresolved_rows} unresolved rows)"
+        ),
     )
 
 

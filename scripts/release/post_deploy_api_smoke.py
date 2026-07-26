@@ -74,16 +74,38 @@ def main() -> int:
             return 1
         print(f"deploy_git_sha: OK {got_sha[:12]}…")
 
+    # Production must never serve synthetic sample/mock air data via public API.
     status, sample = _get(
         f"{base}/api/environment/snapshot?lat=41.28&lon=1.98&source=sample"
     )
-    if status != 200:
-        print(f"environment-sample: FAIL status={status} body={sample}")
+    if status == 200 and isinstance(sample, dict) and sample.get("source") in ("sample", "mock"):
+        print(f"environment-sample: FAIL production served synthetic data payload={sample!r}")
         return 1
-    if not isinstance(sample, dict) or sample.get("source") != "sample":
-        print(f"environment-sample: FAIL unexpected payload={sample!r}")
+    if status not in (400, 403, 404, 422, 503):
+        print(f"environment-sample: FAIL expected rejection, got status={status} body={sample}")
         return 1
-    print("environment-sample: OK")
+    print(f"environment-sample: OK rejected status={status}")
+
+    status, env_snap = _get(
+        f"{base}/api/environment/snapshot?lat=41.28&lon=1.98&source=cached"
+    )
+    if status == 200:
+        if not isinstance(env_snap, dict):
+            print(f"environment-cached: FAIL unexpected payload={env_snap!r}")
+            return 1
+        src = str(env_snap.get("source") or "").strip().lower()
+        if src in ("sample", "mock"):
+            print(f"environment-cached: FAIL synthetic source={src}")
+            return 1
+        if src not in ("live", "cached"):
+            print(f"environment-cached: FAIL unexpected source={src}")
+            return 1
+        print(f"environment-cached: OK source={src}")
+    elif status == 503:
+        print("environment-cached: OK unavailable (live/cache miss, sample disabled)")
+    else:
+        print(f"environment-cached: FAIL status={status} body={env_snap}")
+        return 1
 
     status, export_unauth = _get(f"{base}/api/privacy/export")
     if status == 402:
@@ -95,6 +117,9 @@ def main() -> int:
     print("privacy-export: OK (401 without auth, no premium gate)")
 
     if not admin_token:
+        if args.require_live_ai:
+            print("ai-summary: FAIL NOTIFICATION_ADMIN_TOKEN required with --require-live-ai")
+            return 1
         print("ai-summary: SKIP (NOTIFICATION_ADMIN_TOKEN not set)")
         print("post_deploy_api_smoke: PASS")
         return 0
