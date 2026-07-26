@@ -128,7 +128,28 @@ def test_sync_script_contains_production_contract_keys() -> None:
     assert "curl" not in text
 
 
-def test_check_env_security_accepts_production_google_disabled() -> None:
+def test_check_env_security_rejects_production_subscription_stub() -> None:
+    module = _load_check_env_security()
+    results = module._run_checks(
+        {
+            "APP_ENV": "production",
+            "JWT_SECRET": "x" * 32,
+            "DATABASE_URL": "postgresql://hiair:hiair@localhost:5432/hiair",
+            "APPLE_STORE_VERIFIER_MODE": "live",
+            "APPLE_STORE_ENVIRONMENT": "production",
+            "APPLE_APP_APPLE_ID": "6773610034",
+            "HIAIR_ALLOW_INSECURE_LOCAL_DEV": "false",
+            "SUBSCRIPTION_PROVIDER": "stub",
+            "SUBSCRIPTION_WEBHOOK_SECRET": "webhook-secret-16+",
+            "GOOGLE_PLAY_VERIFIER_MODE": "disabled",
+            "NOTIFICATION_ADMIN_TOKEN": "notification-admin-token-16",
+            "NOTIFICATIONS_PROVIDER_MODE": "stub",
+            "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false",
+        }
+    )
+    errors = [item.message for item in results if item.level == "ERROR"]
+    assert any("SUBSCRIPTION_PROVIDER=stub" in msg for msg in errors)
+
     module = _load_check_env_security()
     results = module._run_checks(
         {

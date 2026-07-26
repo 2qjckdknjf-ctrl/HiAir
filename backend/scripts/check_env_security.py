@@ -108,6 +108,13 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
                 "SUBSCRIPTION_PROVIDER must be one of: stub, stripe, apple, google.",
             )
         )
+    elif protected_env and subscription_provider == "stub":
+        checks.append(
+            CheckResult(
+                "ERROR",
+                "SUBSCRIPTION_PROVIDER=stub is forbidden in production/staging.",
+            )
+        )
     else:
         checks.append(CheckResult("OK", f"SUBSCRIPTION_PROVIDER={subscription_provider}."))
 
