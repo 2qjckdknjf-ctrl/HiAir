@@ -1,5 +1,71 @@
 # Real Device QA Report
 
+## Current release certification (Phase 1 — 2026-07-26)
+
+Status: BLOCKED
+
+- Owner: pending physical-device execution
+- App version: pending next signed candidate
+- Build number: pending next signed candidate
+- Open issues:
+  - Physical iPhone is detected by Xcode as offline.
+  - No physical Android device is connected; only an emulator is available.
+  - The integrity delta is local and is not in a signed TestFlight / Play candidate.
+
+Do not replace `Status: BLOCKED` with `Status: PASS` until every current matrix row
+is PASS on the named physical build and evidence is recorded without health values,
+coordinates, receipts, tokens, passwords, or Apple/Google account identifiers.
+
+### iOS device matrix
+
+| Critical flow | Result | Evidence |
+|---|---|---|
+| install/open app | BLOCKED | Physical iPhone offline |
+| onboarding | BLOCKED | Physical iPhone offline |
+| login | BLOCKED | Physical iPhone offline |
+| logout | BLOCKED | Physical iPhone offline |
+| session restore | BLOCKED | Physical iPhone offline |
+| dashboard load | BLOCKED | Physical iPhone offline |
+| planner load | BLOCKED | Physical iPhone offline |
+| symptom log create | BLOCKED | Physical iPhone offline |
+| insights load | BLOCKED | Physical iPhone offline |
+| morning briefing settings | BLOCKED | Physical iPhone offline |
+| notification permission | BLOCKED | Physical iPhone offline |
+| push token registration | BLOCKED | Physical iPhone offline |
+| privacy export | BLOCKED | Physical iPhone offline |
+| account delete | BLOCKED | Physical iPhone offline |
+| offline/poor network | BLOCKED | Physical iPhone offline |
+| RU localization | BLOCKED | Physical iPhone offline |
+| EN localization | BLOCKED | Physical iPhone offline |
+| HealthKit permission + real records | BLOCKED | Physical iPhone offline |
+| revoke during sync + account isolation | BLOCKED | Physical iPhone offline |
+| StoreKit sandbox purchase + restore | BLOCKED | No signed candidate on physical device |
+
+### Android device matrix
+
+| Critical flow | Result | Evidence |
+|---|---|---|
+| install/open app | BLOCKED | No physical Android device connected |
+| onboarding | BLOCKED | No physical Android device connected |
+| login | BLOCKED | No physical Android device connected |
+| logout | BLOCKED | No physical Android device connected |
+| session restore | BLOCKED | No physical Android device connected |
+| dashboard load | BLOCKED | No physical Android device connected |
+| planner load | BLOCKED | No physical Android device connected |
+| symptom log create | BLOCKED | No physical Android device connected |
+| insights load | BLOCKED | No physical Android device connected |
+| morning briefing settings | BLOCKED | No physical Android device connected |
+| notification permission | BLOCKED | No physical Android device connected |
+| push token registration | BLOCKED | No physical Android device connected |
+| privacy export | BLOCKED | No physical Android device connected |
+| account delete | BLOCKED | No physical Android device connected |
+| offline/poor network | BLOCKED | No physical Android device connected |
+| RU localization | BLOCKED | No physical Android device connected |
+| EN localization | BLOCKED | No physical Android device connected |
+| Health Connect permission + real records | BLOCKED | Emulator is not physical certification |
+| revoke during sync + account isolation | BLOCKED | Emulator is not physical certification |
+| Play Billing license purchase + restore | BLOCKED | No physical Play test device |
+
 ## P0 Runtime UX Recovery (2026-07-25)
 
 **CODE FIXED — WAITING FOR PHYSICAL RETEST**

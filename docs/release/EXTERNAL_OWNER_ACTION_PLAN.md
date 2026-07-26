@@ -3,20 +3,24 @@
 - Source env file: `/Users/alex/Projects/HIAir/backend/.env.local`
 
 ## Current strict status
-- `MISSING=1`
+- `MISSING=0`
 - `BLOCKED=1`
 
 ## Unresolved items
 | Name | Status | Detail |
 |---|---|---|
-| `REAL_DEVICE_QA_REPORT_REQUIRED_CONTENT` | `MISSING` | Missing required content markers: iOS device matrix, Android device matrix, App version, Build number, Open issues, install/open app, session restore, dashboard load, planner load, symptom log create, insights load, morning briefing settings, notification permission, push token registration, account delete, offline/poor network, RU localization, EN localization |
-| `REAL_DEVICE_QA_EXECUTION` | `BLOCKED` | Real device QA not executed (2 BLOCKED rows, 0 PASS) |
+| `REAL_DEVICE_QA_EXECUTION` | `BLOCKED` | Current real-device certification is not complete (Status: BLOCKED; 0 PASS, 40 unresolved rows) |
 
 ## Required runtime env values
 - No missing env values detected.
 
 ## Mandatory legal finalization
 - Legal status markers are already finalized.
+
+## Real-device certification
+- Connect physical iOS and Android devices and install the named signed candidates.
+- Execute every current matrix row in `docs/release/qa/REAL_DEVICE_QA_REPORT.md`.
+- Set `Status: PASS` only after every current row is `PASS` with safe evidence.
 
 ## Verification commands
 - `python3 scripts/release/check_external_readiness.py --env-file backend/.env.local`

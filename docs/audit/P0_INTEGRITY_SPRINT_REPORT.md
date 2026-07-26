@@ -1,6 +1,6 @@
 # P0 Integrity Sprint Report
 
-**Date:** 2026-07-25
+**Date:** 2026-07-26
 **Branch:** `fix/p0-integrity-sprint` (from `origin/main` @ `3355fca`)
 **Scope:** Phase 0 only — security, privacy, test stability. No growth features.
 **Constraints honored:** no push, merge, production deploy, TestFlight, or store publish. PR #35 not used. User untracked files left untouched.
@@ -12,12 +12,15 @@
 | Area | Status |
 |------|--------|
 | P0 Apple live JWS verification | **FIXED** (automated) |
-| P0 Supabase auth bridge | **FIXED** (automated) |
-| P0 Android health consent/revoke races | **FIXED** (automated) |
+| P0 Supabase auth bridge | **FIXED** (automated) — includes tokens+unconfirmed → confirmation-required |
+| P0 Android health consent/revoke races | **FIXED** (automated) — includes cold-start tombstone retry bind |
 | P1 iOS unit-test suite timing/stability | **FIXED** (automated) |
-| Phase 1 real-device certification | **NOT STARTED** — do not claim HealthKit / Health Connect / StoreKit / Play Billing physical success |
+| Phase 0.5 Google Play live verifier fail-closed | **FIXED** (automated) — see §7 |
+| Phase 0.6 iOS health sync coordinator race | **FIXED** (automated) — see §7b |
+| Phase 0.7 production environmental truth | **FIXED** (automated) — sample/mock forbidden in prod; smoke honesty |
+| Phase 1 real-device certification | **BLOCKED** — preflight complete; physical iPhone offline and no physical Android device connected |
 
-**Overall Phase 0 (post-review):** Review corrections applied. Code/tests on this branch close the Phase 0 integrity scope for automation. Production deploy of these fixes has **not** been performed. Physical/store readiness is **not** claimed.
+**Overall Phase 0 (post-review + Bugbot + production truth):** Code/tests on this branch close the Phase 0 integrity scope for automation, including PR #36 Bugbot High/Medium blockers. Production deploy of these fixes has **not** been performed. Physical/store readiness is **not** claimed.
 
 ---
 
@@ -199,12 +202,14 @@
 
 | Suite | Result | Notes |
 |-------|--------|-------|
-| Backend pytest (full) | **235 passed** | coverage **72.98%** (≥70% gate) |
-| Backend Apple + auth + deploy config subset | **37 passed** | live verifier + auth bridge + deploy propagation |
-| Android `test` + `assembleDebug`/`Release` + `lintDebug` | **SUCCESS** | **15** HealthConsentRaceTest (incl. logout tombstone); debug+release unit |
-| iOS `HiAirTests` post-tombstone run 1 | **70/70, 0 failures** | wall **~10.0s** |
-| iOS `HiAirTests` post-tombstone run 2 | **70/70, 0 failures** | wall **~10.9s** |
-| Static deploy allowlist checks | **PASS** | via `test_apple_deploy_config_propagation.py` |
+| Backend pytest (full) | **297 passed** | coverage **74.63%** (≥70% gate) |
+| Backend Apple + auth + deploy + Google + smoke subset | **PASS** | live verifiers + auth bridge + sample forbid + post-deploy honesty |
+| Android `test` + `assembleDebug`/`Release` + `lintDebug` | **SUCCESS** | **16** HealthConsentRaceTest (incl. cold-start bind); debug+release unit **108**/0 fail |
+| iOS `HiAirTests` fresh DerivedData (`CODE_SIGNING_ALLOWED=NO`, iPhone 17) | **89/89, 0 failures** | wall **~1.8s** test body; includes logout transport suite |
+| `hiair_final_gate.sh` (non-strict) | **PASS** | automation green |
+| `check_external_readiness.py --strict` | **BLOCKED** | `MISSING=0`, `BLOCKED=1` (0 PASS / 40 unresolved physical rows) |
+| Sign-off checker | **BLOCKED** | 0/4 owner DONE markers |
+| Static deploy allowlist checks | **PASS** | Apple + Google SA + `ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=false` |
 
 ### iOS suite timing (before → after)
 
@@ -236,15 +241,136 @@
 
 ## 6. Residual P1 / P2 risks
 
-1. **Operator secrets:** Production GH/Cloudflare secrets must actually supply live Apple env + numeric App Apple ID before next deploy (checks will fail closed otherwise).
-2. **Google Play verifier:** Still separate from this P0 Apple focus.
-3. **iOS production sync** still uses unstructured `Task` in `startBackgroundHealthSync` — device race certification still required.
+1. **Operator secrets:** Production GH/Cloudflare secrets must supply live Apple env + numeric App Apple ID **and** `GOOGLE_PLAY_VERIFIER_MODE=live` + `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` before next deploy (checks fail closed otherwise).
+2. **Google Play live verifier (automated):** Fail-closed parsing + production stub rejection landed in Phase 0.5 (see below). Real Play Billing sandbox purchase → live verify on `api.hiair.io` still requires Phase 1 / operator Play Console access.
+3. **iOS health sync coordinator (automated):** Phase 0.6 closed the nested unstructured clear-Task race; production path is MainActor-bound + generation-gated `finishSyncInFlight`. Physical revoke-during-sync still needed in Phase 1.
 4. **Auth UX** copy QA on device for confirmation vs invalid credentials.
-5. **Coverage:** Backend ~73%; real SignedDataVerifier crypto still needs sandbox fixtures in Phase 1.
-6. **Uncommitted branch:** `fix/p0-integrity-sprint` working tree; **not pushed**. Commit/PR only when owner requests.
+5. **Coverage:** Backend ~74%; real SignedDataVerifier crypto still needs sandbox fixtures in Phase 1.
+6. **Uncommitted Phase 0.5/0.6 delta:** Closed into PR #36 commits (2026-07-26). Remaining residual is physical/store only.
 
 ---
 
-## 7. Phase 1 recommendation
+## 7d. Bugbot review blockers + production truth (2026-07-26)
 
-Phase 0 review items are **closed in code/tests**. Proceed to Phase 1 Real-device certification **after** commit/review and production Apple secret provisioning. Do **not** claim STORE SANDBOX READY or physical Health Connect/HealthKit/StoreKit success from this sprint.
+**PR #36 Bugbot High — signup tokens without confirmation:**
+- Defect: guard only fired when tokens were empty, so Supabase responses with access/refresh + unconfirmed user issued a session.
+- Fix: require non-empty `email_confirmed_at`/`confirmed_at`; otherwise `SupabaseEmailConfirmationRequired` (403, no session, no enumeration).
+- Test: `test_signup_tokens_without_email_confirmation_require_confirmation`.
+
+**PR #36 Bugbot Medium — Android cold start:**
+- Defect: `restoreSession()` did not call `onAuthenticatedUserChanged`, so durable tombstones were not retried until a later `persistSession()`.
+- Fix: bind restored user/generation/token immediately after restore (and after OAuth consume).
+- Test: `coldStart_restoreSessionBinding_retriesPendingWithRestoredTokenNotOtherAccount`.
+
+**Production environmental truth:**
+- Protected `APP_ENV` defaults `ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=false`.
+- Public `/api/environment/snapshot` rejects `source=sample|mock` in production/staging; unavailable live/cache → 503 (no synthetic data).
+- Deploy forces `ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=false` and syncs `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` into Cloudflare allowlists/container env.
+- `post_deploy_api_smoke.py`: rejects served sample; `--require-live-ai` without admin token → FAIL (SKIP only without the flag).
+
+**Not claimed:** production deploy, STORE SANDBOX READY, physical QA PASS.
+
+## 7. Phase 0.5 — Google Play live verifier fail-closed (2026-07-25)
+
+**Why:** Phase 1 real-device certification is blocked without physical devices / TestFlight / deploy. Highest-priority remaining *code-bounded* integrity item from Phase 0 residual risk #2 was Google Play live verification parity with Apple.
+
+**Defects closed (automated):**
+- Live path could accept the first `lineItems` entry when product ID mismatched.
+- Missing `expiryTime` synthesized 30/365-day plan expiry.
+- Missing `latestOrderId` synthesized a purchase-token hash as transaction ID.
+- Unknown / unspecified `subscriptionState` mapped to `"unknown"` instead of reject.
+- Incomplete service-account JSON accepted; production allowlists still permitted `GOOGLE_PLAY_VERIFIER_MODE=stub`.
+
+**Fix:**
+- `verified_purchase_from_google_subscription()` — exact product match, required `expiryTime` / `latestOrderId` / `subscriptionState`, optional packageName match, empty token reject.
+- Network/oauth failures → `RuntimeError("Google Play verifier unavailable")` (no stub fallback); missing SA config stays explicit.
+- `check_env_security` + Cloudflare deploy script reject Google stub / missing SA in production/staging (parity with Apple).
+
+**Tests:** `backend/tests/test_google_play_live_verifier_security.py` + deploy/env gate updates in `test_apple_deploy_config_propagation.py`.
+
+**Corrective audit (same day — local closure):**
+- Ambiguous duplicate `lineItems` with the **same** exact `productId` → **reject** (no first-wins).
+- `autoRenew` mapping fail-closed: `prepaidPlan` ⇒ `False`; `autoRenewingPlan` requires an explicit boolean `autoRenewEnabled` (missing / non-boolean / both plan types / neither plan → reject; no default `True`).
+- Focused Google suite + full backend pytest via `.tools/py/python` → PASS; coverage **74.51%** (≥70%).
+
+**Not claimed:** STORE SANDBOX READY, physical Play Billing success, or production deploy of this branch.
+
+---
+
+## 7b. Phase 0.6 — iOS health sync coordinator race (2026-07-25)
+
+**Why:** Residual risk #3 after Phase 0/0.5 — production `startBackgroundHealthSync` used an unstructured Task whose `defer` cleared `syncInFlight` via a **nested** unstructured `Task { @MainActor }`, which could race a replacement sync and wipe the newer handle.
+
+**Fix:**
+- Production coordinator is explicitly `Task { @MainActor ... }` (same pattern as authorization single-flight).
+- `finishSyncInFlight(generation:)` clears synchronously on MainActor only when the generation is still current — no nested clear Task.
+- `beginHealthSyncGeneration` cancels prior work and **immediately nils** `syncInFlight` so a cancelled/completed stale handle cannot look in-flight before replacement assignment.
+- `runHealthSyncForTests` schedules the same MainActor coordinator Task (via detached hop so XCTest caller cancellation is not inherited) and awaits completion through a checked continuation.
+- `AppSession` stores/cancels startup + prepare + signOut + place-invalidate Tasks and removes **all** NotificationCenter observers on `deinit` / `cancelLifecycleForTests`.
+- `SupabaseAuthService.signOut` does **not** re-broadcast `sessionDidChange(nil)` when already signed out (avoids host AppSession logout storms during unit tests without changing logout→`clearAccountSession` semantics).
+- **Logout remote revoke (security regression fix):** `AppSession.logout()` captures an **account-correlated** immutable snapshot before local clear: global `APIClient` bearer is used only when `global.userId == session.userId`; otherwise the session’s own local token is revoked. Stale session A never revokes/clears account B (`APIClient` / Health binding owned by B). Local clear is immediate for the logging-out session. Remote path is `AuthRemoteSessionRevoking.revokeRemoteSession(accessToken:)` → production `SupabaseAuthService` POST `/auth/v1/logout` with captured Bearer (no `sessionDidChange(nil)` recursion). Concurrent same-bearer logout is deduped.
+- **Durable store ownership:** `SessionDurableOwnership` generation gate — only the current owner may mutate shared credential store + account-scoped `UserDefaults`. Owning logout clears durable credentials under the claimed generation then bumps ownership. `installAuthSession` deliberately claims a new generation so account B becomes sole writer and stale A loses mutation rights.
+- **Credential store seam (corrective pass 4):** `SessionCredentialStoring` protocol — production default `KeychainStore` (unchanged SecItem path); unit tests inject `InMemorySessionCredentialStore` so ownership/relaunch proofs are deterministic under `CODE_SIGNING_ALLOWED=NO` (real Keychain SecItem writes can silently fail without a signed identity). Production path is not weakened.
+
+**False CLOSED (corrective pass 3 — rejected):** Prior claim that durable ownership was CLOSED was **invalid**. Independent reproduction with brand-new DerivedData + `CODE_SIGNING_ALLOWED=NO` failed: `AppSessionLogoutRemoteRevokeTests` **8** tests / **24** assertion failures; `peekAuth()` nil immediately after `installAuthSession` because harness used real `KeychainStore` whose writes are non-deterministic when unsigned. Transport suite still **6/6**. XCResult cited by reviewer: `/tmp/hiair-codex-logout-verify3/Logs/Test/Test-HiAir-2026.07.25_19-16-01-+0200.xcresult`.
+
+**Test isolation (corrective audit — production fence rejected):**
+- Removed any `unitTestIsolationActive` / AppSession bypass that skipped `HealthKitService.shared.clearAccountSession()`.
+- Logout / account switch **always** clears shared HealthKit presentation (production invariant).
+- `HealthSyncCoordinatorRaceTests` construct an isolated `HealthKitService(defaults: ephemeral suite)`.
+- Logout durable proofs use ephemeral `UserDefaults` suite + **in-memory** `SessionCredentialStoring` + `SessionDurableOwnership` (no residual simulator Keychain / signed-build dependence).
+- Proven by:
+  - `SupabaseAuthLogoutTransportTests` — exact outbound Bearer contract (unchanged).
+  - `AppSessionLogoutRemoteRevokeTests` (**9**): stale A vs durable B + relaunch; owning logout → fresh unauthenticated; `testInstallAuthSessionTransfersDurableOwnershipAndStaleALosesMutationRights`.
+
+**Validation (corrective pass 4 — 2026-07-25 — independent reproduction):**
+- Exact command (brand-new DerivedData, `CODE_SIGNING_ALLOWED=NO`, destination `1B982CA7-4365-4034-9998-60C5D9B51ADE`) ×2:
+  - `/tmp/hiair-codex-logout-verify5` → **15/15** PASS (logout **9** + transport **6**), exit 0
+  - `/tmp/hiair-codex-logout-verify6` → **15/15** PASS, exit 0
+- Full `HiAirTests` ×2 with `CODE_SIGNING_ALLOWED=NO` + fresh DerivedData:
+  - `/tmp/hiair-codex-full-verify1` → **89/89** PASS
+  - `/tmp/hiair-codex-full-verify2` → **89/89** PASS
+- `git diff --check` on touched files → clean.
+- No commit/push/deploy.
+
+**Not claimed:** Device race certification or STORE SANDBOX READY.
+
+---
+
+## 7c. Phase 1 preflight + release-gate honesty (2026-07-26)
+
+**Preflight result:** Local automation remains green, but physical certification cannot start in
+this session: Xcode sees the physical iPhone as **offline** and Android exposes only an emulator.
+No HealthKit / Health Connect / StoreKit / Play Billing physical PASS is claimed.
+
+**Release-gate finding:** `check_qa_execution()` counted historical `| PASS |` rows from backend /
+production preflight tables anywhere in `REAL_DEVICE_QA_REPORT.md`. That falsely reported
+`REAL_DEVICE_QA_EXECUTION=DONE` while the current physical matrices were `NOT RUN`.
+
+**Fix:**
+- The checker now reads only an explicit `## Current release certification` section.
+- `Status: PASS` is accepted only when that section has at least one PASS row and zero
+  `BLOCKED` / `NOT RUN` / `FAIL` rows.
+- The current iOS + Android matrix is explicit and stays `Status: BLOCKED` until physical evidence
+  exists; historical PASS rows cannot close it.
+- Owner-action output now points to physical-device execution instead of incorrectly asking for
+  env updates when no env keys are missing.
+
+**Validation:**
+- `scripts/release/hiair_final_gate.sh` (non-strict) → **PASS**: backend, Debug/Release iOS
+  simulator builds, Android unit/debug/release/lint, config and secret-baseline checks.
+- Full backend after gate hardening → **287/287 PASS**, coverage **74.51%**.
+- Release checker regression tests → **4/4 PASS**.
+- `check_external_readiness.py --strict` → expected **exit 1**:
+  `MISSING=0`, `BLOCKED=1`, current device matrix **0 PASS / 40 unresolved**.
+- Fresh unsigned iOS DerivedData after Swift concurrency-warning cleanup →
+  **89/89 PASS**, no compiler warnings, at
+  `/tmp/hiair-codex-phase1-gate-20260726-3.xcresult`.
+- `git diff --check` → clean.
+- No commit/push/deploy.
+
+---
+
+## 8. Phase 1 recommendation
+
+Phase 0 review items remain **closed**. Phase 0.5 Google Play automated fail-closed and Phase 0.6 iOS sync coordinator hardening (including logout transport Bearer + durable stale-account ownership with deterministic credential-store seam) are **closed locally in code/tests** only after the pass-4 independent `CODE_SIGNING_ALLOWED=NO` reproduction above. Proceed to Phase 1 Real-device certification **after** commit/review and production Apple **+** Google secret provisioning. Do **not** claim STORE SANDBOX READY or physical Health Connect/HealthKit/StoreKit/Play Billing success from this sprint.
