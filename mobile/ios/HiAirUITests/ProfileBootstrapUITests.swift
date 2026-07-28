@@ -27,6 +27,10 @@ final class ProfileBootstrapUITests: XCTestCase {
         attachA11yDump(app, name: "02-dashboard-after-create")
         XCTAssertFalse(cta.exists, "Create profile CTA should disappear after successful bootstrap")
         XCTAssertFalse(app.descendants(matching: .any)["profile_ensure.error"].exists)
+        // Profile empty-state title must be gone (bootstrap postcondition).
+        XCTAssertFalse(app.staticTexts["Профиль не настроен"].exists)
+        // Mocked current-risk should prevent the dashboard API-error empty state.
+        XCTAssertFalse(app.staticTexts["Не удалось загрузить данные."].waitForExistence(timeout: 3))
     }
 
     func testCreateProfileNeedsLocationShowsError() throws {

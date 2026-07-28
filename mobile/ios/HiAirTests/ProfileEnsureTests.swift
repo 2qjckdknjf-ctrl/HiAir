@@ -155,6 +155,23 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.unavailable"))
     }
 
+    func testPremiumRequired402() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(200, object: []),
+            createProfile: .json(402, object: ["detail": "Profile limit reached"])
+        )
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        let outcome = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(outcome, .failure(.premiumRequired))
+        XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.premium_required"))
+        XCTAssertTrue(session.profileId.isEmpty)
+    }
+
     func testOfflineMapsToOfflineFailure() async {
         UITestMockAPIProtocol.reset(
             listProfiles: .json(200, object: [])

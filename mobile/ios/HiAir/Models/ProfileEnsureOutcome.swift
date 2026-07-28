@@ -44,6 +44,7 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
     case forbidden
     case unavailable
     case offline
+    case premiumRequired
     case server
     case unknown
 
@@ -57,6 +58,8 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
             return "profile.ensure.unavailable"
         case .offline:
             return "profile.ensure.offline"
+        case .premiumRequired:
+            return "profile.ensure.premium_required"
         case .server, .unknown:
             return "profile.ensure.failed"
         }
@@ -68,6 +71,7 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         case .forbidden: return "forbidden"
         case .unavailable: return "unavailable"
         case .offline: return "offline"
+        case .premiumRequired: return "premium_required"
         case .server: return "server"
         case .unknown: return "unknown"
         }
@@ -77,9 +81,14 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         switch self {
         case .unauthorized:
             return true
-        case .forbidden, .unavailable, .offline, .server, .unknown:
+        case .forbidden, .unavailable, .offline, .premiumRequired, .server, .unknown:
             return false
         }
+    }
+
+    var suggestsPaywall: Bool {
+        if case .premiumRequired = self { return true }
+        return false
     }
 }
 
@@ -105,6 +114,8 @@ enum ProfileEnsureMapper {
             switch status {
             case 401:
                 return .needsAuthentication
+            case 402:
+                return .failure(.premiumRequired)
             case 403:
                 return .failure(.forbidden)
             case 503:

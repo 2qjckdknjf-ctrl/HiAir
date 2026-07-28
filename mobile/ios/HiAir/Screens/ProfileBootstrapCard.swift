@@ -62,6 +62,14 @@ struct ProfileBootstrapCard: View {
                     }
                 }
             }
+
+            if case .failure(let reason) = session.lastProfileEnsureOutcome, reason.suggestsPaywall {
+                Button(session.l("settings.upgrade_premium")) {
+                    session.showPaywall = true
+                }
+                .buttonStyle(HiAirSecondaryButtonStyle())
+                .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
+            }
         }
         .v2Card()
     }

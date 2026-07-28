@@ -48,6 +48,46 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         routes = [
             "GET /api/profiles": listProfiles,
             "POST /api/profiles": createProfile,
+            "GET /api/air/current-risk": .json(
+                200,
+                object: [
+                    "profileId": "profile-uitest-1",
+                    "assessedAt": "2026-07-28T12:00:00Z",
+                    "environmental": [
+                        "lat": 41.28,
+                        "lon": 1.976,
+                        "temperature": 24.0,
+                        "feels_like": 24.0,
+                        "humidity": 50.0,
+                        "aqi": 42,
+                        "pm25": 8.0,
+                        "pm10": 12.0,
+                        "ozone": 30.0,
+                        "uv": 3.0,
+                        "wind_speed": 2.0,
+                        "source": "sample",
+                        "timestamp": "2026-07-28T12:00:00Z",
+                        "timezone": "Europe/Madrid",
+                    ],
+                    "risk": [
+                        "overallRisk": "low",
+                        "heatRisk": "low",
+                        "airRisk": "low",
+                        "outdoorRisk": "low",
+                        "indoorVentilationRisk": "low",
+                        "safeWindows": [],
+                        "recommendationFlags": [],
+                        "reasonCodes": [],
+                    ],
+                    "recommendation": [
+                        "headline": "UITest calm air",
+                        "summary": "Mock current-risk payload for Simulator UI tests.",
+                        "actions": ["Stay hydrated"],
+                    ],
+                    "explanation": "Mock explanation",
+                    "explanationSource": "sample",
+                ]
+            ),
         ]
     }
 
