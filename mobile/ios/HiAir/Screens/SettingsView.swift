@@ -799,6 +799,7 @@ struct SettingsView: View {
                         session.showPaywall = true
                     }
                     .buttonStyle(HiAirGradientButtonStyle())
+                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
                     #if DEBUG
                     DisclosureGroup(session.l("settings.subscription_dev")) {
                         Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
@@ -1025,6 +1026,7 @@ struct SettingsView: View {
                         viewModel.privacyExportSummary = ""
                     }
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.logout)
                 }
                 .v2Card()
 

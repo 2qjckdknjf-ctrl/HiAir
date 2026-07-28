@@ -69,6 +69,7 @@ struct PaywallView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(session.l("common.close")) { dismiss() }
                         .disabled(purchaseBusy)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
                 }
             }
             .onAppear {

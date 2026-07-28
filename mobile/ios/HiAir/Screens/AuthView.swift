@@ -264,6 +264,7 @@ struct AuthView: View {
                                     .padding(.vertical, 10)
                                     .hiAirInputSurface()
                                     .foregroundStyle(HiAirV2Theme.primaryText)
+                                    .accessibilityIdentifier(HiAirAccessibilityID.Auth.emailField)
 
                                 SecureField(session.l("auth.password"), text: $viewModel.password)
                                     .textContentType(.password)
@@ -271,6 +272,7 @@ struct AuthView: View {
                                     .padding(.vertical, 10)
                                     .hiAirInputSurface()
                                     .foregroundStyle(HiAirV2Theme.primaryText)
+                                    .accessibilityIdentifier(HiAirAccessibilityID.Auth.passwordField)
                             }
                         }
 
@@ -281,6 +283,7 @@ struct AuthView: View {
                         }
                         .buttonStyle(HiAirGradientButtonStyle())
                         .disabled(viewModel.loading)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Auth.signUpButton)
 
                         Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
                             Task { @MainActor in
@@ -289,6 +292,7 @@ struct AuthView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(viewModel.loading)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Auth.logInButton)
 
                         Button(session.l("auth.sign_in_apple")) {
                             Task { @MainActor in
