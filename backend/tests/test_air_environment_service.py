@@ -61,6 +61,73 @@ def test_resolve_falls_back_to_cache_when_live_fails(monkeypatch) -> None:
     assert result.aqi == 60
 
 
+def test_resolve_rejects_persisted_sample_when_fallback_disabled(monkeypatch) -> None:
+    """Regression: sample/mock DB rows must not be re-labeled as cached in production."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        air_environment_service,
+        "settings",
+        SimpleNamespace(
+            environment_cache_ttl_seconds=900,
+            environment_allow_sample_fallback=False,
+        ),
+    )
+    monkeypatch.setattr(
+        air_environment_service,
+        "fetch_live_snapshot",
+        lambda lat, lon: (_ for _ in ()).throw(RuntimeError("provider down")),
+    )
+    sample_row = EnvironmentSnapshot(
+        temperature_c=21.0,
+        humidity_percent=50.0,
+        aqi=33,
+        pm25=8.0,
+        ozone=20.0,
+        source="sample",
+    )
+    monkeypatch.setattr(
+        air_repository,
+        "get_latest_environment_snapshot",
+        lambda lat, lon, max_age_seconds: sample_row,
+    )
+    with pytest.raises(RuntimeError, match="sample fallback is disabled"):
+        air_environment_service.resolve_environment_snapshot(41.39, 2.17)
+
+
+def test_resolve_keeps_honest_sample_label_when_fallback_allowed(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        air_environment_service,
+        "settings",
+        SimpleNamespace(
+            environment_cache_ttl_seconds=900,
+            environment_allow_sample_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        air_environment_service,
+        "fetch_live_snapshot",
+        lambda lat, lon: (_ for _ in ()).throw(RuntimeError("provider down")),
+    )
+    sample_row = EnvironmentSnapshot(
+        temperature_c=21.0,
+        humidity_percent=50.0,
+        aqi=33,
+        pm25=8.0,
+        ozone=20.0,
+        source="sample",
+    )
+    monkeypatch.setattr(
+        air_repository,
+        "get_latest_environment_snapshot",
+        lambda lat, lon, max_age_seconds: sample_row,
+    )
+    result = air_environment_service.resolve_environment_snapshot(41.39, 2.17)
+    assert result.source == "sample"
+    assert result.aqi == 33
+
 def test_resolve_falls_back_to_sample_when_live_and_cache_unavailable(monkeypatch) -> None:
     monkeypatch.setattr(
         air_environment_service,

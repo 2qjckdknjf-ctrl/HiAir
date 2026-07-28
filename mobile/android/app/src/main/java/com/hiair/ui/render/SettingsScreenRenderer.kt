@@ -469,22 +469,20 @@ internal object SettingsScreenRenderer {
             })
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
                 setOnClickListener {
-                    Thread {
-                        rootShell.settingsViewModel.disconnectWearables()
-                        activity.runOnUiThread {
-                            statusText.text = rootShell.settingsViewModel.state.statusText
-                        }
-                    }.start()
+                    (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = false) { remoteOk ->
+                        rootShell.settingsViewModel.applyWearableRevokeResult(remoteOk, deleteData = false)
+                        statusText.text = rootShell.settingsViewModel.state.statusText
+                        ctx.rerender()
+                    }
                 }
             })
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
                 setOnClickListener {
-                    Thread {
-                        rootShell.settingsViewModel.deleteWearableData()
-                        activity.runOnUiThread {
-                            statusText.text = rootShell.settingsViewModel.state.statusText
-                        }
-                    }.start()
+                    (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = true) { remoteOk ->
+                        rootShell.settingsViewModel.applyWearableRevokeResult(remoteOk, deleteData = true)
+                        statusText.text = rootShell.settingsViewModel.state.statusText
+                        ctx.rerender()
+                    }
                 }
             })
         }

@@ -23,7 +23,15 @@ export APP_ENV="${APP_ENV:-${ENVIRONMENT}}"
 echo "[deploy] environment=${ENVIRONMENT} app_env=${APP_ENV}"
 "${PYTHON_BIN}" backend/scripts/check_env_security.py --strict
 "${PYTHON_BIN}" backend/scripts/init_db.py
-"${PYTHON_BIN}" backend/scripts/smoke_db_flow.py
+
+# Never run stub/mock DB smoke against protected DATABASE_URL — that would persist
+# synthetic sample/premium rows into production/staging. Post-deploy live smoke is authoritative.
+if [[ "${ENVIRONMENT}" == "production" || "${ENVIRONMENT}" == "staging" || "${APP_ENV}" == "production" || "${APP_ENV}" == "staging" ]]; then
+  echo "[deploy] skipping stub DB smoke against protected environment; rely on post-deploy live smoke"
+else
+  echo "[deploy] DB smoke (non-protected)"
+  "${PYTHON_BIN}" backend/scripts/smoke_db_flow.py
+fi
 
 echo "[deploy] AI connection observability"
 "${PYTHON_BIN}" backend/scripts/check_ai_connection.py --skip-if-unconfigured

@@ -42,6 +42,11 @@ def test_create_app_hides_docs_in_protected_env(monkeypatch) -> None:
             jwt_secret="test-secret",
             allow_legacy_user_header_auth=False,
             allow_insecure_local_dev=False,
+            hiair_auth_provider="legacy",
+            apple_store_verifier_mode="live",
+            google_play_verifier_mode="disabled",
+            subscription_provider="apple",
+            supabase_url="",
         ),
     )
     app_instance = main_module.create_app()

@@ -78,7 +78,7 @@ final class HealthKitService: ObservableObject {
     private let store = HKHealthStore()
     private let apiClient = APIClient.live()
     private let consentVersion = "health-intelligence-v1"
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private let tiersKey = "hiair.health.enabledTiers"
     private let anchorKeyPrefix = "hiair.health.anchor."
     private var authorizationInFlight: Task<Bool, Never>?
@@ -91,6 +91,8 @@ final class HealthKitService: ObservableObject {
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
     /// Overridable for unit tests (default 45s collect).
     var healthCollectTimeoutNanoseconds: UInt64 = 45_000_000_000
+    /// Injectable sleeper for timeout races (tests use ImmediateNanosleeper).
+    var timeoutSleeper: any Nanosleeping = SystemNanosleeper()
     /// Test seam: replace HealthKit collect (deterministic race tests).
     var testCollectHandler: (() async -> ([HealthMetricSnapshot], HealthSleepSnapshot?))?
     /// Test seam: run before each network upload (e.g. slow remote).
@@ -98,7 +100,9 @@ final class HealthKitService: ObservableObject {
     /// Test seam: replace remote revoke/delete network calls.
     var testRemoteRevokeHandler: (() async throws -> Void)?
     var testRemoteDeleteHandler: (() async throws -> Void)?
-    /// Counts upload attempts that passed the consent/generation gate.
+    /// Counts times the upload gate was reached (before hook / network).
+    private(set) var testUploadGateReachedCount: Int = 0
+    /// Counts upload attempts that passed the consent/generation gate after the hook.
     private(set) var testUploadAttemptCount: Int = 0
     var syncGenerationForTests: UInt64 { syncGeneration }
     var hasSyncInFlightForTests: Bool { syncInFlight != nil }
@@ -167,7 +171,11 @@ final class HealthKitService: ObservableObject {
         defaults.set(false, forKey: consentPersistedKey(for: userId))
     }
 
-    init() {
+    /// Production uses `.standard`. Unit tests may inject an ephemeral suite so
+    /// coordinator races do not share mutable presentation state with the host
+    /// app's `HealthKitService.shared` (logout always clears shared).
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         if let saved = defaults.array(forKey: tiersKey) as? [Int], !saved.isEmpty {
             enabledTiers = Set(saved)
         }
@@ -350,7 +358,8 @@ final class HealthKitService: ObservableObject {
         ProductAnalytics.track("health_authorization_started")
         let types = activeReadTypes
         let outcome = await HealthKitTimeoutRace.raceCallback(
-            timeoutNanoseconds: authorizationTimeoutNanoseconds
+            timeoutNanoseconds: authorizationTimeoutNanoseconds,
+            sleeper: timeoutSleeper
         ) { (finish: @escaping @Sendable (NSError?) -> Void) in
             self.store.requestAuthorization(toShare: [], read: types) { _, error in
                 finish(error as NSError?)
@@ -637,6 +646,14 @@ final class HealthKitService: ObservableObject {
         syncInFlight = nil
     }
 
+    /// Clear `syncInFlight` only when this generation is still current.
+    /// Synchronous on MainActor — never schedules a nested unstructured Task
+    /// that could race a replacement sync and wipe the newer handle.
+    private func finishSyncInFlight(generation: UInt64) {
+        guard syncGeneration == generation else { return }
+        syncInFlight = nil
+    }
+
     /// Shared upload/sync gate: cancel + generation + account + durable consent.
     func ensureSyncStillAuthorized(
         userId: String,
@@ -669,56 +686,105 @@ final class HealthKitService: ObservableObject {
         }
     }
 
-    /// Canonical public entry — all Views must use this (not unstructured sync Tasks).
+    /// Canonical public entry — all Views must use this (not ad-hoc sync Tasks).
+    /// Spawns a single MainActor coordinator Task; cancel/replace is generation-gated.
     func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
+        guard let generation = beginHealthSyncGeneration(userId: userId) else { return }
+        let expectedUserId = userId
+        let token = accessToken
+        let profile = profileId
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.finishSyncInFlight(generation: generation) }
+            await self.runHealthSyncPipeline(
+                userId: expectedUserId,
+                accessToken: token,
+                profileId: profile,
+                generation: generation
+            )
+        }
+        syncInFlight = task
+    }
+
+    /// Deterministic, awaitable sync for unit tests.
+    /// Runs the same MainActor coordinator Task as production so
+    /// `cancelPendingSync` / replace set `Task.isCancelled` on the pipeline.
+    /// Scheduled via a detached hop so the XCTest caller task cannot
+    /// pre-cancel the coordinator through structured-concurrency inheritance.
+    func runHealthSyncForTests(userId: String, accessToken: String, profileId: String?) async {
+        guard let generation = beginHealthSyncGeneration(userId: userId) else { return }
+        let token = accessToken
+        let profile = profileId
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            Task.detached { @MainActor [weak self] in
+                guard let self else {
+                    continuation.resume()
+                    return
+                }
+                let task = Task { @MainActor [weak self] in
+                    defer { continuation.resume() }
+                    guard let self else { return }
+                    defer { self.finishSyncInFlight(generation: generation) }
+                    await self.runHealthSyncPipeline(
+                        userId: userId,
+                        accessToken: token,
+                        profileId: profile,
+                        generation: generation
+                    )
+                }
+                self.syncInFlight = task
+            }
+        }
+    }
+
+    private func beginHealthSyncGeneration(userId: String) -> UInt64? {
         guard hasDurableConsent(for: userId) else {
             ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing", "stage": "start"])
-            return
+            return nil
         }
         switch connectionState {
         case .revoking, .remoteRevokePending, .revokeFailed:
             ProductAnalytics.track("health_sync_blocked", properties: ["reason": "state_blocks_sync", "stage": "start"])
-            return
+            return nil
         default:
             break
         }
-        // Single-flight: replace any prior operation with a fresh generation-bound task.
+        // Single-flight: cancel prior task and drop the handle immediately so a
+        // cancelled/completed stale Task cannot look "in flight" before the
+        // replacement is assigned.
         syncInFlight?.cancel()
+        syncInFlight = nil
         syncGeneration &+= 1
-        let generation = syncGeneration
-        let expectedUserId = userId
-        syncInFlight = Task { [weak self] in
-            guard let self else { return }
-            defer {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    if self.syncGeneration == generation {
-                        self.syncInFlight = nil
-                    }
-                }
-            }
-            guard self.ensureSyncStillAuthorized(
-                userId: expectedUserId,
-                generation: generation,
-                stage: "coordinator_start"
-            ) else { return }
-            await self.performHealthSync(
-                userId: expectedUserId,
-                accessToken: accessToken,
-                profileId: profileId,
-                generation: generation
-            )
-            guard self.ensureSyncStillAuthorized(
-                userId: expectedUserId,
-                generation: generation,
-                stage: "before_hourly"
-            ) else { return }
-            await self.syncWearableHourlySummary(
-                userId: expectedUserId,
-                accessToken: accessToken,
-                generation: generation
-            )
-        }
+        return syncGeneration
+    }
+
+    private func runHealthSyncPipeline(
+        userId: String,
+        accessToken: String,
+        profileId: String?,
+        generation: UInt64
+    ) async {
+        guard ensureSyncStillAuthorized(
+            userId: userId,
+            generation: generation,
+            stage: "coordinator_start"
+        ) else { return }
+        await performHealthSync(
+            userId: userId,
+            accessToken: accessToken,
+            profileId: profileId,
+            generation: generation
+        )
+        guard ensureSyncStillAuthorized(
+            userId: userId,
+            generation: generation,
+            stage: "before_hourly"
+        ) else { return }
+        await syncWearableHourlySummary(
+            userId: userId,
+            accessToken: accessToken,
+            generation: generation
+        )
     }
 
     /// Legacy name — always routes through the cancellable coordinator.
@@ -743,7 +809,8 @@ final class HealthKitService: ObservableObject {
                 (snapshots, sleep) = await testCollectHandler()
             } else {
                 let collectOutcome = await HealthKitTimeoutRace.raceAsync(
-                    timeoutNanoseconds: healthCollectTimeoutNanoseconds
+                    timeoutNanoseconds: healthCollectTimeoutNanoseconds,
+                    sleeper: self.timeoutSleeper
                 ) {
                     await self.collectTodaySnapshots()
                 }
@@ -889,6 +956,7 @@ final class HealthKitService: ObservableObject {
         guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: stage) else {
             return false
         }
+        testUploadGateReachedCount += 1
         if let testBeforeUploadHook {
             await testBeforeUploadHook()
             guard ensureSyncStillAuthorized(userId: userId, generation: generation, stage: "\(stage)_after_hook") else {
@@ -995,7 +1063,32 @@ final class HealthKitService: ObservableObject {
         testBeforeUploadHook = nil
         testRemoteRevokeHandler = nil
         testRemoteDeleteHandler = nil
+        testUploadGateReachedCount = 0
         testUploadAttemptCount = 0
+        authorizationTimeoutNanoseconds = 60_000_000_000
+        healthCollectTimeoutNanoseconds = 45_000_000_000
+        timeoutSleeper = SystemNanosleeper()
+    }
+
+    /// Test-only: write durable consent markers into this instance's defaults suite.
+    func seedDurableConsentMarkersForTests(
+        userId: String,
+        authorized: Bool = true,
+        consented: Bool = true
+    ) {
+        defaults.set(authorized, forKey: authorizationCompletedKey(for: userId))
+        defaults.set(consented, forKey: consentPersistedKey(for: userId))
+    }
+
+    /// Call from unit-test setUp to keep an instance deterministic and fast.
+    /// Does not alter production logout/cleanup semantics on `shared`.
+    func prepareForUnitTests() {
+        cancelPendingSync()
+        clearAccountSession()
+        resetTestHooks()
+        authorizationTimeoutNanoseconds = 1_000_000
+        healthCollectTimeoutNanoseconds = 1_000_000
+        timeoutSleeper = ImmediateNanosleeper()
     }
 
     // MARK: - Legacy helpers kept for dashboard

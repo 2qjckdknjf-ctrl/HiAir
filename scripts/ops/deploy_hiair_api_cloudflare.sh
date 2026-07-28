@@ -40,6 +40,7 @@ echo "[api] syncing wrangler secrets from ${ENV_FILE}"
 TMP_SECRETS="$(mktemp)"
 python3 <<PY >"${TMP_SECRETS}"
 import os
+import sys
 from pathlib import Path
 
 allowed = {
@@ -70,16 +71,20 @@ allowed = {
     "NOTIFICATIONS_PROVIDER_MODE",
     "SUBSCRIPTION_PROVIDER",
     "SUBSCRIPTION_WEBHOOK_SECRET",
-    "APPLE_STORE_VERIFIER_MODE",
-    "GOOGLE_PLAY_VERIFIER_MODE",
-    "APPLE_BUNDLE_ID",
-    "GOOGLE_PLAY_PACKAGE_NAME",
-    "DEPLOY_GIT_SHA",
-    "WEATHER_API_PROVIDER",
-    "WEATHER_API_KEY",
-    "AQI_API_PROVIDER",
-    "AQI_API_KEY",
-}
+  "APPLE_STORE_VERIFIER_MODE",
+  "GOOGLE_PLAY_VERIFIER_MODE",
+  "APPLE_BUNDLE_ID",
+  "APPLE_STORE_ENVIRONMENT",
+  "APPLE_APP_APPLE_ID",
+  "GOOGLE_PLAY_PACKAGE_NAME",
+  "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+  "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
+  "DEPLOY_GIT_SHA",
+  "WEATHER_API_PROVIDER",
+  "WEATHER_API_KEY",
+  "AQI_API_PROVIDER",
+  "AQI_API_KEY",
+};
 values = {}
 for raw in Path("${ENV_FILE}").read_text(encoding="utf-8").splitlines():
     line = raw.strip()
@@ -90,10 +95,53 @@ for raw in Path("${ENV_FILE}").read_text(encoding="utf-8").splitlines():
     if key in allowed and value.strip():
         values[key] = value.strip()
 values.setdefault("APP_ENV", "production")
-values.setdefault("APPLE_STORE_VERIFIER_MODE", "stub")
-values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
 values.setdefault("APPLE_BUNDLE_ID", "com.hiair.app")
 values.setdefault("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
+# Never silently default production Apple verification to stub.
+app_env = values.get("APP_ENV", "production").strip().lower()
+if app_env in ("production", "prod", "staging"):
+    apple_mode = values.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
+    apple_store_env = values.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()
+    apple_app_id = values.get("APPLE_APP_APPLE_ID", "").strip()
+    google_mode = values.get("GOOGLE_PLAY_VERIFIER_MODE", "").strip().lower()
+    google_sa = values.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
+    auth_provider = values.get("HIAIR_AUTH_PROVIDER", "").strip().lower()
+    subscription_provider = values.get("SUBSCRIPTION_PROVIDER", "").strip().lower()
+    if apple_mode != "live":
+        raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
+    if apple_store_env not in ("production", "prod"):
+        raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
+    if not apple_app_id.isdigit():
+        raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
+    if google_mode not in ("live", "disabled"):
+        raise SystemExit(
+            "ERROR: production deploy requires GOOGLE_PLAY_VERIFIER_MODE=live or disabled"
+        )
+    if google_mode == "live" and not google_sa:
+        raise SystemExit(
+            "ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON "
+            "when GOOGLE_PLAY_VERIFIER_MODE=live"
+        )
+    if google_mode == "disabled":
+        print(
+            "WARNING: GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable "
+            "(not STORE SANDBOX READY)",
+            file=sys.stderr,
+        )
+    if auth_provider and auth_provider != "supabase":
+        raise SystemExit("ERROR: production deploy requires HIAIR_AUTH_PROVIDER=supabase")
+    if not auth_provider:
+        values["HIAIR_AUTH_PROVIDER"] = "supabase"
+    if not subscription_provider or subscription_provider == "stub":
+        raise SystemExit("ERROR: production deploy requires SUBSCRIPTION_PROVIDER != stub")
+    # Fail-closed: never serve synthetic sample/mock environment data in protected deploys.
+    values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
+else:
+    values.setdefault("APPLE_STORE_VERIFIER_MODE", "stub")
+    values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", "stub")
+    values.setdefault("APPLE_STORE_ENVIRONMENT", "sandbox")
+values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", values.get("GOOGLE_PLAY_VERIFIER_MODE", "stub"))
+values.setdefault("HIAIR_AUTH_PROVIDER", values.get("HIAIR_AUTH_PROVIDER", "supabase"))
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
 deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
 if deploy_sha:
@@ -107,8 +155,13 @@ if len(values) < 12:
         f"ERROR: Cloudflare secrets under-populated ({len(values)} keys); "
         "refusing partial secret sync that would leave production on stale container env"
     )
+# Keys only on stderr — never print secret values to logs.
+print("Syncing Cloudflare secret keys:", file=sys.stderr)
 for key in sorted(values):
-    print(f"{key}={values[key]}")
+    print(f"  - {key}", file=sys.stderr)
+print(f"Wrote {len(values)} secrets (values redacted from logs)", file=sys.stderr)
+for key, value in sorted(values.items()):
+    print(f"{key}={value}")
 PY
 
 (

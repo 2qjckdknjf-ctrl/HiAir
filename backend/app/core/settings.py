@@ -46,14 +46,29 @@ class Settings:
     apple_store_verifier_mode: str = os.getenv("APPLE_STORE_VERIFIER_MODE", "stub")
     google_play_verifier_mode: str = os.getenv("GOOGLE_PLAY_VERIFIER_MODE", "stub")
     apple_bundle_id: str = os.getenv("APPLE_BUNDLE_ID", "com.hiair.app")
+    apple_store_environment: str = os.getenv("APPLE_STORE_ENVIRONMENT", "sandbox")
+    apple_app_apple_id: str = os.getenv("APPLE_APP_APPLE_ID", "").strip()
     google_play_package_name: str = os.getenv("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair")
     weather_api_provider: str = os.getenv("WEATHER_API_PROVIDER", "openmeteo")
     weather_api_key: str = os.getenv("WEATHER_API_KEY", "")
     aqi_api_provider: str = os.getenv("AQI_API_PROVIDER", "openmeteo")
     aqi_api_key: str = os.getenv("AQI_API_KEY", "")
     environment_cache_ttl_seconds: int = int(os.getenv("ENVIRONMENT_CACHE_TTL_SECONDS", "900"))
+    # Protected envs default fail-closed (no synthetic sample air data).
+    # Dev/test keep sample fallback unless explicitly disabled.
     environment_allow_sample_fallback: bool = (
-        os.getenv("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK", "true").strip().lower() == "true"
+        os.getenv(
+            "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
+            (
+                "false"
+                if os.getenv("APP_ENV", "development").strip().lower()
+                in {"production", "prod", "staging"}
+                else "true"
+            ),
+        )
+        .strip()
+        .lower()
+        == "true"
     )
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -123,3 +138,13 @@ def validate_runtime_settings(current: Settings) -> None:
             current, "supabase_url", ""
         ):
             raise RuntimeError("SUPABASE_URL must be configured when HIAIR_AUTH_PROVIDER=supabase.")
+        apple_mode = getattr(current, "apple_store_verifier_mode", "stub").strip().lower()
+        google_mode = getattr(current, "google_play_verifier_mode", "stub").strip().lower()
+        if apple_mode == "stub":
+            raise RuntimeError("APPLE_STORE_VERIFIER_MODE=stub is forbidden in protected environments.")
+        if google_mode == "stub":
+            raise RuntimeError("GOOGLE_PLAY_VERIFIER_MODE=stub is forbidden in protected environments.")
+        if google_mode not in ("live", "disabled"):
+            raise RuntimeError("GOOGLE_PLAY_VERIFIER_MODE must be live or disabled in protected environments.")
+        if getattr(current, "subscription_provider", "stub").strip().lower() == "stub":
+            raise RuntimeError("SUBSCRIPTION_PROVIDER=stub is forbidden in protected environments.")

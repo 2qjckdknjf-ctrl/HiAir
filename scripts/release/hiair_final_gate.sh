@@ -34,7 +34,22 @@ run_step() {
 
 resolve_repo_python() {
   local candidate
+  # Prefer an interpreter that can actually import backend test deps.
+  # `.venv312` may exist but be incomplete on arm64 developer machines;
+  # `.tools/py` is the documented arm64 pytest runtime.
   for candidate in \
+    "${ROOT_DIR}/.tools/py/python/bin/python" \
+    "${ROOT_DIR}/.venv312/bin/python" \
+    "${ROOT_DIR}/backend/.venv/bin/python" \
+    "${ROOT_DIR}/.venv/bin/python"; do
+    if [[ -x "${candidate}" ]] \
+      && "${candidate}" -c 'import appstoreserverlibrary, fastapi, pytest' >/dev/null 2>&1; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+  for candidate in \
+    "${ROOT_DIR}/.tools/py/python/bin/python" \
     "${ROOT_DIR}/.venv312/bin/python" \
     "${ROOT_DIR}/backend/.venv/bin/python" \
     "${ROOT_DIR}/.venv/bin/python"; do
@@ -129,7 +144,7 @@ check_external_readiness() {
 
 GATE_PYTHON="$(resolve_repo_python || true)"
 if [[ -z "${GATE_PYTHON}" ]]; then
-  echo "ERROR: No working repo Python found (.venv312, backend/.venv, .venv)." >&2
+  echo "ERROR: No working repo Python found (.tools/py, .venv312, backend/.venv, .venv)." >&2
   exit 2
 fi
 

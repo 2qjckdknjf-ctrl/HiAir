@@ -29,25 +29,53 @@ struct SupabaseAuthFailure: LocalizedError {
 }
 
 @MainActor
-final class SupabaseAuthService {
+protocol AuthRemoteSessionRevoking: AnyObject {
+    /// Revoke a remote Supabase session with a previously captured access token.
+    /// Must not read/write `APIClient` auth state and must not post `sessionDidChange`.
+    func revokeRemoteSession(accessToken: String) async
+}
+
+@MainActor
+final class SupabaseAuthService: AuthRemoteSessionRevoking {
     static let shared = SupabaseAuthService()
     static let sessionDidChange = Notification.Name("hiair.supabase.session.did.change")
     static let sessionOAuthFailed = Notification.Name("hiair.supabase.session.oauth.failed")
 
-    private let urlSession: URLSession = .shared
+    private let urlSession: URLSession
     private let supabaseURL: URL?
     private let anonKey: String
     private let redirectURI: String
     private var pendingOAuthCodeVerifier: String?
     private let appleSignIn = AppleSignInCoordinator()
 
-    private init() {
+    /// Production singleton — reads Supabase config from the app bundle / process env.
+    private convenience init() {
         let info = Bundle.main.infoDictionary ?? [:]
         let env = ProcessInfo.processInfo.environment
         let rawURL = env["SUPABASE_URL"] ?? (info["SUPABASE_URL"] as? String) ?? ""
-        anonKey = env["SUPABASE_ANON_KEY"] ?? (info["SUPABASE_ANON_KEY"] as? String) ?? ""
-        redirectURI = env["HIAIR_AUTH_REDIRECT_URI"] ?? (info["HIAIR_AUTH_REDIRECT_URI"] as? String) ?? "hiair://auth/callback"
-        supabaseURL = URL(string: rawURL)
+        let anon = env["SUPABASE_ANON_KEY"] ?? (info["SUPABASE_ANON_KEY"] as? String) ?? ""
+        let redirect = env["HIAIR_AUTH_REDIRECT_URI"]
+            ?? (info["HIAIR_AUTH_REDIRECT_URI"] as? String)
+            ?? "hiair://auth/callback"
+        self.init(
+            urlSession: .shared,
+            supabaseURL: URL(string: rawURL),
+            anonKey: anon,
+            redirectURI: redirect
+        )
+    }
+
+    /// DI seam for deterministic `URLSession` / `URLProtocol` tests. Production uses `shared`.
+    init(
+        urlSession: URLSession,
+        supabaseURL: URL?,
+        anonKey: String,
+        redirectURI: String = "hiair://auth/callback"
+    ) {
+        self.urlSession = urlSession
+        self.supabaseURL = supabaseURL
+        self.anonKey = anonKey
+        self.redirectURI = redirectURI
     }
 
     func restoreSessionIfNeeded() async throws -> SupabaseAuthSession? {
@@ -126,23 +154,35 @@ final class SupabaseAuthService {
         return session
     }
 
-    func signOut() async {
-        guard let state = APIClient.getAuthState() else {
-            NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
-            return
-        }
+    /// Best-effort remote revoke using a captured bearer.
+    /// Does not touch `APIClient` auth state and does not post `sessionDidChange`
+    /// (caller owns local clear; late completion must not wipe a newer account).
+    func revokeRemoteSession(accessToken: String) async {
+        let token = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return }
         do {
             _ = try await request(
                 method: "POST",
                 path: "/auth/v1/logout",
                 query: nil,
                 body: [:],
-                bearerToken: state.accessToken
+                bearerToken: token
             )
         } catch {
-            // Best effort signout.
+            // Best effort — local session is already cleared by the caller.
         }
-        NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
+    }
+
+    /// Standalone sign-out: clear global API auth, then revoke with the captured bearer.
+    /// Does not re-broadcast `sessionDidChange(nil)` (avoids logout recursion).
+    /// Prefer `AppSession.logout()`, which clears presentation first then calls
+    /// `revokeRemoteSession(accessToken:)`.
+    func signOut() async {
+        let token = APIClient.getAuthState()?.accessToken
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        APIClient.setAuthState(nil)
+        guard !token.isEmpty else { return }
+        await revokeRemoteSession(accessToken: token)
     }
 
     func handleCallbackURL(_ url: URL) async -> Bool {

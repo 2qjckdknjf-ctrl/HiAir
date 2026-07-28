@@ -30,6 +30,15 @@ jobs:
       NOTIFICATION_ADMIN_TOKEN: ${{ secrets.NOTIFICATION_ADMIN_TOKEN }}
       SUBSCRIPTION_PROVIDER: ${{ secrets.SUBSCRIPTION_PROVIDER }}
       SUBSCRIPTION_WEBHOOK_SECRET: ${{ secrets.SUBSCRIPTION_WEBHOOK_SECRET }}
+      HIAIR_AUTH_PROVIDER: ${{ secrets.HIAIR_AUTH_PROVIDER }}
+      APPLE_STORE_VERIFIER_MODE: ${{ secrets.APPLE_STORE_VERIFIER_MODE }}
+      APPLE_STORE_ENVIRONMENT: ${{ secrets.APPLE_STORE_ENVIRONMENT }}
+      APPLE_APP_APPLE_ID: ${{ secrets.APPLE_APP_APPLE_ID }}
+      APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+      GOOGLE_PLAY_VERIFIER_MODE: ${{ secrets.GOOGLE_PLAY_VERIFIER_MODE }}
+      GOOGLE_PLAY_PACKAGE_NAME: ${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      ENVIRONMENT_ALLOW_SAMPLE_FALLBACK: "false"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
       OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
@@ -137,7 +146,11 @@ jobs:
               "APPLE_STORE_VERIFIER_MODE",
               "GOOGLE_PLAY_VERIFIER_MODE",
               "APPLE_BUNDLE_ID",
+              "APPLE_STORE_ENVIRONMENT",
+              "APPLE_APP_APPLE_ID",
               "GOOGLE_PLAY_PACKAGE_NAME",
+              "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+              "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
               "DEPLOY_GIT_SHA",
               "WEATHER_API_PROVIDER",
               "WEATHER_API_KEY",
@@ -146,11 +159,11 @@ jobs:
           }
           defaults = {
               "APP_ENV": "production",
-              "APPLE_STORE_VERIFIER_MODE": "stub",
-              "GOOGLE_PLAY_VERIFIER_MODE": "stub",
               "APPLE_BUNDLE_ID": "com.hiair.app",
               "GOOGLE_PLAY_PACKAGE_NAME": "com.hiair",
+              "HIAIR_AUTH_PROVIDER": "supabase",
               "HIAIR_AUTH_EMAIL_BRIDGE_ENABLED": "true",
+              "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false",
           }
           out = Path("/tmp/hiair-api-secrets.env")
           lines = []
@@ -163,8 +176,45 @@ jobs:
           deploy_sha = os.environ.get("GITHUB_SHA", "").strip()
           if deploy_sha:
               lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")
+          env_map = dict(line.split("=", 1) for line in lines)
+          apple_mode = env_map.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
+          apple_store_env = env_map.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()
+          apple_app_id = env_map.get("APPLE_APP_APPLE_ID", "").strip()
+          google_mode = env_map.get("GOOGLE_PLAY_VERIFIER_MODE", "").strip().lower()
+          google_sa = env_map.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
+          auth_provider = env_map.get("HIAIR_AUTH_PROVIDER", "").strip().lower()
+          subscription_provider = env_map.get("SUBSCRIPTION_PROVIDER", "").strip().lower()
+          if apple_mode != "live":
+              raise SystemExit("ERROR: production deploy requires APPLE_STORE_VERIFIER_MODE=live")
+          if apple_store_env not in ("production", "prod"):
+              raise SystemExit("ERROR: production deploy requires APPLE_STORE_ENVIRONMENT=production")
+          if not apple_app_id.isdigit():
+              raise SystemExit("ERROR: production deploy requires numeric APPLE_APP_APPLE_ID")
+          if google_mode not in ("live", "disabled"):
+              raise SystemExit(
+                  "ERROR: production deploy requires GOOGLE_PLAY_VERIFIER_MODE=live or disabled"
+              )
+          if google_mode == "live" and not google_sa:
+              raise SystemExit(
+                  "ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON "
+                  "when GOOGLE_PLAY_VERIFIER_MODE=live"
+              )
+          if google_mode == "disabled":
+              print(
+                  "WARNING: GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable "
+                  "(not STORE SANDBOX READY)"
+              )
+          if auth_provider and auth_provider != "supabase":
+              raise SystemExit("ERROR: production deploy requires HIAIR_AUTH_PROVIDER=supabase")
+          if not auth_provider:
+              env_map["HIAIR_AUTH_PROVIDER"] = "supabase"
+          if not subscription_provider or subscription_provider == "stub":
+              raise SystemExit("ERROR: production deploy requires SUBSCRIPTION_PROVIDER != stub")
+          env_map["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
+          lines = [f"{key}={env_map[key]}" for key in sorted(env_map)]
           out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-          print(f"Wrote {len(lines)} secrets to {out}")
+          print(f"Wrote {len(lines)} secrets to {out} (values not logged)")
+          print("Synced keys: " + ", ".join(sorted(env_map)))
           if len(lines) < 12:
               raise SystemExit(
                   f"ERROR: expected >=12 Cloudflare secrets, got {len(lines)} "
@@ -204,5 +254,6 @@ jobs:
         run: bash -lc "${HIAIR_DEPLOY_COMMAND}"
 
       - name: Post-deploy API smoke
+        if: steps.cloudflare.outputs.enabled == '1'
         run: |
           python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${GITHUB_SHA}"

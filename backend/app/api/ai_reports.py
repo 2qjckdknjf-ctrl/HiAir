@@ -29,5 +29,7 @@ def get_ai_report(
         )
     except HTTPException:
         raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc

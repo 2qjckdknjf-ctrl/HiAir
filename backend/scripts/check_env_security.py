@@ -108,31 +108,104 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
                 "SUBSCRIPTION_PROVIDER must be one of: stub, stripe, apple, google.",
             )
         )
+    elif protected_env and subscription_provider == "stub":
+        checks.append(
+            CheckResult(
+                "ERROR",
+                "SUBSCRIPTION_PROVIDER=stub is forbidden in production/staging.",
+            )
+        )
     else:
         checks.append(CheckResult("OK", f"SUBSCRIPTION_PROVIDER={subscription_provider}."))
 
     apple_mode = env.get("APPLE_STORE_VERIFIER_MODE", "stub").strip().lower()
+    apple_env = env.get("APPLE_STORE_ENVIRONMENT", "sandbox").strip().lower()
+    apple_app_id = env.get("APPLE_APP_APPLE_ID", "").strip()
     if apple_mode not in ("stub", "live"):
         checks.append(CheckResult("ERROR", "APPLE_STORE_VERIFIER_MODE must be stub or live."))
-    elif protected_env and apple_mode == "live":
+    elif protected_env and apple_mode == "stub":
+        checks.append(
+            CheckResult(
+                "ERROR",
+                "APPLE_STORE_VERIFIER_MODE=stub is forbidden in production/staging.",
+            )
+        )
+    elif apple_mode == "live":
+        if apple_env not in ("sandbox", "production", "prod", "xcode", "localtesting", "local_testing", "local"):
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    "APPLE_STORE_ENVIRONMENT must be sandbox, production, xcode, or localtesting.",
+                )
+            )
+        if protected_env and apple_env not in ("production", "prod"):
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    "APPLE_STORE_ENVIRONMENT must be production in protected environments.",
+                )
+            )
+        if apple_env in ("production", "prod"):
+            if not apple_app_id:
+                checks.append(
+                    CheckResult("ERROR", "APPLE_APP_APPLE_ID is required for production Apple verification.")
+                )
+            elif not apple_app_id.isdigit():
+                checks.append(CheckResult("ERROR", "APPLE_APP_APPLE_ID must be numeric."))
+        # API credentials are optional for JWS verify (root certs + SignedDataVerifier);
+        # issuer/key are used for App Store Server API history calls when configured.
         for key in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"):
-            if not env.get(key, "").strip():
-                checks.append(CheckResult("ERROR", f"{key} is required when APPLE_STORE_VERIFIER_MODE=live."))
-        if all(env.get(k, "").strip() for k in ("APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY")):
-            checks.append(CheckResult("OK", "Apple live verifier credentials present."))
+            if protected_env and not env.get(key, "").strip():
+                checks.append(
+                    CheckResult(
+                        "OK",
+                        f"{key} unset (optional; JWS verify does not require App Store Server API keys).",
+                    )
+                )
+        checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE=live env={apple_env}."))
     else:
         checks.append(CheckResult("OK", f"APPLE_STORE_VERIFIER_MODE={apple_mode}."))
 
     google_mode = env.get("GOOGLE_PLAY_VERIFIER_MODE", "stub").strip().lower()
-    if google_mode not in ("stub", "live"):
-        checks.append(CheckResult("ERROR", "GOOGLE_PLAY_VERIFIER_MODE must be stub or live."))
-    elif protected_env and google_mode == "live" and not env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip():
+    google_package = env.get("GOOGLE_PLAY_PACKAGE_NAME", "com.hiair").strip()
+    if google_mode not in ("stub", "live", "disabled"):
+        checks.append(CheckResult("ERROR", "GOOGLE_PLAY_VERIFIER_MODE must be stub, live, or disabled."))
+    elif protected_env and google_mode == "stub":
         checks.append(
             CheckResult(
                 "ERROR",
-                "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is required when GOOGLE_PLAY_VERIFIER_MODE=live.",
+                "GOOGLE_PLAY_VERIFIER_MODE=stub is forbidden in production/staging.",
             )
         )
+    elif google_mode == "disabled":
+        # Intentional iOS-first production posture — OK for --strict (not a WARN).
+        checks.append(
+            CheckResult(
+                "OK",
+                "GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable; "
+                "not STORE SANDBOX READY; no service account required.",
+            )
+        )
+    elif google_mode == "live":
+        if protected_env and not google_package:
+            checks.append(CheckResult("ERROR", "GOOGLE_PLAY_PACKAGE_NAME is required for live Google verification."))
+        if not env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip():
+            if protected_env:
+                checks.append(
+                    CheckResult(
+                        "ERROR",
+                        "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is required when GOOGLE_PLAY_VERIFIER_MODE=live.",
+                    )
+                )
+            else:
+                checks.append(
+                    CheckResult(
+                        "WARN",
+                        "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON missing for live mode (required before Android verify).",
+                    )
+                )
+        else:
+            checks.append(CheckResult("OK", f"GOOGLE_PLAY_VERIFIER_MODE=live package={google_package or 'unset'}."))
     else:
         checks.append(CheckResult("OK", f"GOOGLE_PLAY_VERIFIER_MODE={google_mode}."))
 
@@ -184,6 +257,33 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         )
     elif openai_key:
         checks.append(CheckResult("OK", "OPENAI_API_KEY is configured."))
+
+    sample_fallback_raw = env.get("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK", "").strip().lower()
+    if protected_env:
+        # Missing key defaults fail-closed in settings.py for protected APP_ENV.
+        if sample_fallback_raw in ("true", "1", "yes"):
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=true is forbidden in production/staging.",
+                )
+            )
+        else:
+            checks.append(
+                CheckResult(
+                    "OK",
+                    "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK disabled for protected environment.",
+                )
+            )
+    elif sample_fallback_raw in ("false", "0", "no"):
+        checks.append(CheckResult("OK", "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK=false."))
+    else:
+        checks.append(
+            CheckResult(
+                "OK",
+                "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK allowed for non-protected environment.",
+            )
+        )
 
     return checks
 

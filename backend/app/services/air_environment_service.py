@@ -73,14 +73,30 @@ def resolve_environment_snapshot(
         max_age_seconds=settings.environment_cache_ttl_seconds,
     )
     if cached is not None:
-        return EnvironmentSnapshot(
-            temperature_c=cached.temperature_c,
-            humidity_percent=cached.humidity_percent,
-            aqi=cached.aqi,
-            pm25=cached.pm25,
-            ozone=cached.ozone,
-            source=SOURCE_CACHED,
-        )
+        original_source = str(cached.source or "").strip().lower()
+        # Never re-label persisted sample/mock rows as "cached" — that would
+        # serve synthetic air data under a live/cache honesty label.
+        if original_source in (SOURCE_SAMPLE, "mock"):
+            if settings.environment_allow_sample_fallback:
+                return EnvironmentSnapshot(
+                    temperature_c=cached.temperature_c,
+                    humidity_percent=cached.humidity_percent,
+                    aqi=cached.aqi,
+                    pm25=cached.pm25,
+                    ozone=cached.ozone,
+                    source=SOURCE_SAMPLE,
+                )
+            # Protected / sample-disabled: treat synthetic cache as a miss.
+            cached = None
+        else:
+            return EnvironmentSnapshot(
+                temperature_c=cached.temperature_c,
+                humidity_percent=cached.humidity_percent,
+                aqi=cached.aqi,
+                pm25=cached.pm25,
+                ozone=cached.ozone,
+                source=SOURCE_CACHED,
+            )
 
     if not settings.environment_allow_sample_fallback:
         raise RuntimeError("Environmental data unavailable and sample fallback is disabled")
