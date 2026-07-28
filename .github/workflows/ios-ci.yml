@@ -73,6 +73,7 @@ jobs:
             -destination "${DEST}" \
             -parallel-testing-enabled NO \
             -maximum-concurrent-test-simulator-destinations 1 \
+            -only-testing:HiAirTests \
             test \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES

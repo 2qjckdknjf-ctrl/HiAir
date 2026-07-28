@@ -116,6 +116,28 @@ final class AppSession: ObservableObject {
     private var placeResolveGeneration: UInt64 = 0
     /// While true, skip APIClient mutation from `persist()` (logout memory clear).
     private var suppressAPIClientAuthSync = false
+    /// Bumped whenever an in-flight profile ensure must be abandoned (logout/auth switch).
+    private var profileEnsureGeneration: UInt64 = 0
+
+    private func cancelInFlightProfileEnsure(clearOutcome: Bool) {
+        profileEnsureGeneration &+= 1
+        inFlightEnsureProfile?.cancel()
+        inFlightEnsureProfile = nil
+        isEnsuringProfile = false
+        if clearOutcome {
+            lastProfileEnsureOutcome = nil
+        }
+    }
+
+    private func isCurrentProfileEnsureContext(
+        userId: String,
+        accessToken: String,
+        generation: UInt64
+    ) -> Bool {
+        guard !Task.isCancelled else { return false }
+        guard generation == profileEnsureGeneration else { return false }
+        return self.userId == userId && self.accessToken == accessToken
+    }
 
     /// Test seam: count of still-registered NotificationCenter observers.
     var testRegisteredObserverCountForTests: Int {
@@ -144,9 +166,7 @@ final class AppSession: ObservableObject {
         startupTask = nil
         inFlightPrepare?.cancel()
         inFlightPrepare = nil
-        inFlightEnsureProfile?.cancel()
-        inFlightEnsureProfile = nil
-        isEnsuringProfile = false
+        cancelInFlightProfileEnsure(clearOutcome: false)
         placeInvalidateTask?.cancel()
         placeInvalidateTask = nil
         let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
@@ -330,6 +350,9 @@ final class AppSession: ObservableObject {
         startupTask = nil
         inFlightPrepare?.cancel()
         inFlightPrepare = nil
+        // deinit is nonisolated — cancel the task handle directly (no MainActor helper).
+        inFlightEnsureProfile?.cancel()
+        inFlightEnsureProfile = nil
         placeInvalidateTask?.cancel()
         placeInvalidateTask = nil
         let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
@@ -347,6 +370,8 @@ final class AppSession: ObservableObject {
     }
 
     func logout() {
+        cancelInFlightProfileEnsure(clearOutcome: true)
+
         // 1) Immutable account-correlated snapshot BEFORE any local clear.
         let snapshotUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         let snapshotLocalToken = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -398,8 +423,6 @@ final class AppSession: ObservableObject {
         refreshToken = ""
         authNotice = ""
         profileId = ""
-        lastProfileEnsureOutcome = nil
-        isEnsuringProfile = false
         selectedTab = 0
         latitude = 0.0
         longitude = 0.0
@@ -477,12 +500,19 @@ final class AppSession: ObservableObject {
     /// Apply Supabase tokens in one shot so `persist()` does not clear API auth mid-update.
     /// Claims durable-store ownership before writing so this account becomes the sole writer.
     func installAuthSession(_ auth: SupabaseAuthSession) {
+        let previousUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nextUserId = auth.userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        cancelInFlightProfileEnsure(clearOutcome: true)
         durableOwnershipGeneration = durableOwnership.claim(userId: auth.userId)
         userId = auth.userId
         email = auth.email
         accessToken = auth.accessToken
         refreshToken = auth.refreshToken
         authNotice = ""
+        // Never keep another account's profileId across auth install.
+        if previousUserId != nextUserId {
+            profileId = ""
+        }
         HealthKitService.shared.bindAccount(userId: auth.userId)
         Task {
             await PlaceGeocodingService.shared.bindAccount(userId: auth.userId)
@@ -641,6 +671,7 @@ final class AppSession: ObservableObject {
         guard !(userId.isEmpty && accessToken.isEmpty) else {
             return
         }
+        cancelInFlightProfileEnsure(clearOutcome: true)
         let ownershipGen = durableOwnershipGeneration
         let ownsDurable = durableOwnership.isCurrent(ownershipGen)
         let snapshotUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -828,11 +859,28 @@ final class AppSession: ObservableObject {
             return outcome
         }
 
+        let requestedUserId = userId
+        let requestedAccessToken = accessToken
+        let ensureGeneration = profileEnsureGeneration
         isEnsuringProfile = true
-        defer { isEnsuringProfile = false }
+        defer {
+            if ensureGeneration == profileEnsureGeneration {
+                isEnsuringProfile = false
+            }
+        }
 
         do {
-            let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
+            let profiles = try await apiClient.listProfiles(
+                userId: requestedUserId,
+                accessToken: requestedAccessToken
+            )
+            guard isCurrentProfileEnsureContext(
+                userId: requestedUserId,
+                accessToken: requestedAccessToken,
+                generation: ensureGeneration
+            ) else {
+                return .needsAuthentication
+            }
             if let existing = profiles.first {
                 profileId = existing.id
                 hydrateProfileLocation(from: existing)
@@ -847,7 +895,7 @@ final class AppSession: ObservableObject {
                 return outcome
             }
             let created = try await apiClient.createProfile(
-                userId: userId,
+                userId: requestedUserId,
                 payload: ProfileCreatePayload(
                     personaType: persona,
                     sensitivityLevel: sensitivity,
@@ -855,14 +903,31 @@ final class AppSession: ObservableObject {
                     homeLon: longitude,
                     dateOfBirth: dateOfBirth.map { Self.birthDateFormatter.string(from: $0) }
                 ),
-                accessToken: accessToken
+                accessToken: requestedAccessToken
             )
+            guard isCurrentProfileEnsureContext(
+                userId: requestedUserId,
+                accessToken: requestedAccessToken,
+                generation: ensureGeneration
+            ) else {
+                return .needsAuthentication
+            }
             profileId = created.id
             NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
             lastProfileEnsureOutcome = .ready
             ProductAnalytics.track("profile_ensure_succeeded", properties: ["source": "create"])
             return .ready
+        } catch is CancellationError {
+            // Do not sticky-write UI error for abandoned/cancelled ensure work.
+            return .needsAuthentication
         } catch {
+            guard isCurrentProfileEnsureContext(
+                userId: requestedUserId,
+                accessToken: requestedAccessToken,
+                generation: ensureGeneration
+            ) else {
+                return .needsAuthentication
+            }
             let outcome = ProfileEnsureMapper.outcome(for: error)
             lastProfileEnsureOutcome = outcome
             if case .needsAuthentication = outcome {

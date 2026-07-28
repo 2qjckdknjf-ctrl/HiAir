@@ -8,6 +8,8 @@ final class ProfileEnsureTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        APIClient.setAuthState(nil)
+        APIClient.setAuthInvalidatedHandler(nil)
         harness = ProfileEnsureTestHarness()
         UITestMockAPIProtocol.isEnabled = true
         UITestMockAPIProtocol.reset()
@@ -18,6 +20,7 @@ final class ProfileEnsureTests: XCTestCase {
         harness = nil
         UITestMockAPIProtocol.isEnabled = false
         UITestMockAPIProtocol.reset()
+        APIClient.setAuthState(nil)
         APIClient.setAuthInvalidatedHandler(nil)
         try await super.tearDown()
     }
@@ -116,6 +119,8 @@ final class ProfileEnsureTests: XCTestCase {
         let outcome = await session.ensureProfileIdIfNeeded()
         XCTAssertEqual(outcome, .needsAuthentication)
         XCTAssertTrue(session.accessToken.isEmpty)
+        XCTAssertNil(session.lastProfileEnsureOutcome)
+        XCTAssertNil(session.profileEnsureUserMessage)
         XCTAssertFalse(session.isEnsuringProfile)
     }
 
@@ -199,6 +204,90 @@ final class ProfileEnsureTests: XCTestCase {
         let second = await session.ensureProfileIdIfNeeded()
         XCTAssertEqual(second, .ready)
         XCTAssertEqual(UITestMockAPIProtocol.recordedRequests.count, before)
+    }
+
+    func testInstallAuthSessionClearsForeignProfileAndStaleError() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(503, object: ["detail": "busy"])
+        )
+        let session = harness.makeSession()
+        session.userId = "user-a"
+        session.accessToken = "token-a"
+        session.refreshToken = "refresh-a"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        let failed = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(failed, .failure(.unavailable))
+        XCTAssertNotNil(session.profileEnsureUserMessage)
+        session.profileId = "profile-a"
+
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-b",
+                email: "b@example.com",
+                accessToken: "token-b",
+                refreshToken: "refresh-b"
+            )
+        )
+
+        XCTAssertEqual(session.userId, "user-b")
+        XCTAssertEqual(session.profileId, "")
+        XCTAssertNil(session.lastProfileEnsureOutcome)
+        XCTAssertNil(session.profileEnsureUserMessage)
+        XCTAssertFalse(session.isEnsuringProfile)
+    }
+
+    func testSameUserAuthInstallKeepsProfileId() async {
+        let session = harness.makeSession()
+        session.userId = "user-a"
+        session.accessToken = "token-old"
+        session.refreshToken = "refresh-old"
+        session.profileId = "profile-a"
+
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-a",
+                email: "a@example.com",
+                accessToken: "token-new",
+                refreshToken: "refresh-new"
+            )
+        )
+
+        XCTAssertEqual(session.profileId, "profile-a")
+        XCTAssertNil(session.lastProfileEnsureOutcome)
+    }
+
+    func testLogoutAbandonsInFlightEnsureWithoutWritingProfile() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        UITestMockAPIProtocol.responseDelayNanoseconds = 250_000_000
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.refreshToken = ""
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+
+        async let ensureOutcome = session.ensureProfileIdIfNeeded()
+        var sawLoading = false
+        for _ in 0..<200 {
+            if session.isEnsuringProfile {
+                sawLoading = true
+                break
+            }
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+        XCTAssertTrue(sawLoading, "expected ensure to enter loading before logout")
+
+        session.logout()
+        let outcome = await ensureOutcome
+
+        XCTAssertTrue(session.profileId.isEmpty)
+        XCTAssertNil(session.lastProfileEnsureOutcome)
+        XCTAssertFalse(session.isEnsuringProfile)
+        XCTAssertFalse(outcome.isReady)
     }
 }
 

@@ -61,3 +61,14 @@ Code-derived inventory: `.evidence/simulator-ui-integrity/matrix/SCREEN_ACTION_I
 - `.evidence/simulator-ui-integrity/logs/`
 - `.evidence/simulator-ui-integrity/matrix/SCREEN_ACTION_INVENTORY.md`
 - XCTest screenshot attachments in xcresult bundles under DerivedData `Logs/Test/`
+
+## Pre-merge audit follow-up
+
+Independent review found High/Medium auth-race issues on `inFlightEnsureProfile` and stale ensure UI state. Fixed on branch after `35e3569`:
+
+- Cancel/generation-guard profile ensure on logout, `expireSessionAfterAuthFailure`, and `installAuthSession`
+- Clear foreign `profileId` on account switch; keep same-user profile id
+- Harden mock URLProtocol registration behind `UITestBootstrap.isMockAPIEnabled`
+- CI `ios-ci.yml` scopes automated tests to `HiAirTests` (UI suite remains local/required for integrity sprint)
+- Regression unit tests for logout abandon, installAuth switch, sticky-error clear
+

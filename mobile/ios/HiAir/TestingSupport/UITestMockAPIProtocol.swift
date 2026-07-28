@@ -21,6 +21,8 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var isEnabled = false
     nonisolated(unsafe) private static var routes: [String: RouteResponse] = [:]
     nonisolated(unsafe) private static var requestLog: [URLRequest] = []
+    /// Optional artificial latency for race tests (nanoseconds).
+    nonisolated(unsafe) static var responseDelayNanoseconds: UInt64 = 0
     private static let lock = NSLock()
 
     static func reset(
@@ -42,6 +44,7 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         requestLog.removeAll()
+        responseDelayNanoseconds = 0
         routes = [
             "GET /api/profiles": listProfiles,
             "POST /api/profiles": createProfile,
@@ -83,18 +86,31 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         let path = request.url?.path ?? ""
         let key = "\(method) \(path)"
         let response = Self.routes[key] ?? RouteResponse.json(404, object: ["detail": "unmocked \(key)"])
+        let delay = Self.responseDelayNanoseconds
         Self.lock.unlock()
 
         let url = request.url ?? URL(string: "https://uitest.invalid")!
-        let http = HTTPURLResponse(
-            url: url,
-            statusCode: response.statusCode,
-            httpVersion: "HTTP/1.1",
-            headerFields: response.headers
-        )!
-        client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: response.body)
-        client?.urlProtocolDidFinishLoading(self)
+        let finish: () -> Void = { [weak self] in
+            guard let self else { return }
+            let http = HTTPURLResponse(
+                url: url,
+                statusCode: response.statusCode,
+                httpVersion: "HTTP/1.1",
+                headerFields: response.headers
+            )!
+            self.client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
+            self.client?.urlProtocol(self, didLoad: response.body)
+            self.client?.urlProtocolDidFinishLoading(self)
+        }
+
+        if delay == 0 {
+            finish()
+            return
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: delay)
+            finish()
+        }
     }
 
     override func stopLoading() {}

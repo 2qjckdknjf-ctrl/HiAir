@@ -485,7 +485,7 @@ final class APIClient {
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
         configuration.waitsForConnectivity = true
-        if UITestMockAPIProtocol.isEnabled {
+        if UITestBootstrap.isMockAPIEnabled {
             configuration.protocolClasses = [UITestMockAPIProtocol.self] + (configuration.protocolClasses ?? [])
             configuration.waitsForConnectivity = false
         }
