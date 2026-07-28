@@ -2,8 +2,15 @@ import SwiftUI
 
 @main
 struct HiAirApp: App {
-    @StateObject private var session = AppSession()
+    @StateObject private var session: AppSession
     private let subscriptionService = SubscriptionService.shared
+
+    init() {
+        UITestBootstrap.prepareBeforeAppLaunch()
+        let session = AppSession()
+        UITestBootstrap.apply(to: session)
+        _session = StateObject(wrappedValue: session)
+    }
 
     var body: some Scene {
         WindowGroup {

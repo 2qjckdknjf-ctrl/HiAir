@@ -204,7 +204,7 @@ struct DashboardView: View {
     }
 
     private func reloadDashboard() async {
-        if session.profileId.isEmpty {
+        if session.profileId.isEmpty, !UITestBootstrap.disableAutoProfileBootstrap {
             _ = await session.ensureProfileIdIfNeeded()
         }
         // Never block dashboard/geo refresh on HealthKit sync.
@@ -322,9 +322,15 @@ struct DashboardView: View {
             if hadProfile {
                 await reloadDashboard()
             }
-            let prepared = await session.prepareSessionForDataFetch(locationService: locationService)
-            if !hadProfile || prepared.locationAttempted || prepared.profileReady != hadProfile {
-                await reloadDashboard()
+            if UITestBootstrap.disableAutoProfileBootstrap {
+                if !hadProfile {
+                    await reloadDashboard()
+                }
+            } else {
+                let prepared = await session.prepareSessionForDataFetch(locationService: locationService)
+                if !hadProfile || prepared.locationAttempted || prepared.profileReady != hadProfile {
+                    await reloadDashboard()
+                }
             }
             session.markChecklistItem("risk", done: true)
             StartupDiagnostics.track(
@@ -537,24 +543,10 @@ struct DashboardView: View {
         }
 
         if session.profileId.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(session.l("dashboard.empty.no_profile.title"))
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-                Text(session.l("dashboard.empty.no_profile.body"))
-                    .font(HiAirTypography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                Button(session.l("dashboard.empty.no_profile.cta")) {
-                    Task {
-                        let created = await session.ensureProfileIdIfNeeded()
-                        if created {
-                            session.markChecklistItem("profile", done: true)
-                        }
-                    }
-                }
-                .buttonStyle(HiAirGradientButtonStyle())
-            }
-            .v2Card()
+            ProfileBootstrapCard(
+                locationService: locationService,
+                onReady: { await reloadDashboard() }
+            )
         }
     }
 

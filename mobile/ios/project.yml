@@ -73,14 +73,34 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app.tests
         SWIFT_VERSION: 5.0
+  HiAirUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - HiAirUITests
+    dependencies:
+      - target: HiAir
+        embed: false
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app.uitests
+        SWIFT_VERSION: 5.0
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 43A4KW5BKB
+        TEST_TARGET_NAME: HiAir
 schemes:
   HiAir:
     build:
       targets:
         HiAir: all
+        HiAirTests: [test]
+        HiAirUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - HiAirTests
+        - HiAirUITests

@@ -68,6 +68,11 @@ struct OnboardingView: View {
                     }
                     .buttonStyle(HiAirGradientButtonStyle())
                     .disabled(step == 5 && (healthService.connectionState == .consentSaving))
+                    .accessibilityIdentifier(
+                        step == 0
+                            ? HiAirAccessibilityID.Onboarding.startButton
+                            : HiAirAccessibilityID.Onboarding.finishButton
+                    )
                 }
             }
             .hiAirContentWidth(for: width)

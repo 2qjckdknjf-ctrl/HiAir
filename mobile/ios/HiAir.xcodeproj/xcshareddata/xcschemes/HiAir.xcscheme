@@ -21,6 +21,34 @@
                ReferencedContainer = "container:HiAir.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D1796A2DC5E6652352CAA189"
+               BuildableName = "HiAirTests.xctest"
+               BlueprintName = "HiAirTests"
+               ReferencedContainer = "container:HiAir.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DC27A6DBE3150BD7E7293320"
+               BuildableName = "HiAirUITests.xctest"
+               BlueprintName = "HiAirUITests"
+               ReferencedContainer = "container:HiAir.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -46,6 +74,16 @@
                BlueprintIdentifier = "D1796A2DC5E6652352CAA189"
                BuildableName = "HiAirTests.xctest"
                BlueprintName = "HiAirTests"
+               ReferencedContainer = "container:HiAir.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DC27A6DBE3150BD7E7293320"
+               BuildableName = "HiAirUITests.xctest"
+               BlueprintName = "HiAirUITests"
                ReferencedContainer = "container:HiAir.xcodeproj">
             </BuildableReference>
          </TestableReference>
