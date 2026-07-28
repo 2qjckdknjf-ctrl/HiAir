@@ -217,21 +217,13 @@ struct InsightsView: View {
                         .accessibilityAddTraits(.isHeader)
 
                     if session.profileId.isEmpty {
-                        HiAirEmptyStateView(
-                            title: session.l("planner.empty.no_profile.title"),
-                            message: session.l("planner.empty.no_profile.body"),
-                            actionTitle: session.l("planner.empty.no_profile.cta"),
-                            action: {
-                                Task {
-                                    let created = await session.ensureProfileIdIfNeeded()
-                                    if created {
-                                        session.markChecklistItem("profile", done: true)
-                                        await refreshInsights()
-                                    }
-                                }
-                            }
+                        ProfileBootstrapCard(
+                            titleKey: "planner.empty.no_profile.title",
+                            bodyKey: "planner.empty.no_profile.body",
+                            ctaKey: "planner.empty.no_profile.cta",
+                            ctaAccessibilityID: HiAirAccessibilityID.Insights.createProfileCTA,
+                            onReady: { await refreshInsights() }
                         )
-                        .v2Card()
                     } else if viewModel.loading {
                         HiAirLoadingView(message: session.l("insights.loading"))
                             .v2Card()
@@ -280,6 +272,9 @@ struct InsightsView: View {
         }
         .hiAirPageBackground()
         .task {
+            if UITestBootstrap.disableAutoProfileBootstrap {
+                return
+            }
             if session.profileId.isEmpty {
                 _ = await session.ensureProfileIdIfNeeded()
             }

@@ -86,7 +86,11 @@ final class AppSession: ObservableObject {
     /// True after StoreKit verified until backend confirms or terminal rollback.
     @Published var premiumActivationPending = false
     @Published var selectedTab = 0
-    private let apiClient = APIClient.live()
+    /// True while list/create profile network work is in flight (single-flight).
+    @Published private(set) var isEnsuringProfile = false
+    /// Last non-transient outcome from `ensureProfileIdIfNeeded` for UI messaging.
+    @Published private(set) var lastProfileEnsureOutcome: ProfileEnsureOutcome?
+    private let apiClient: APIClient
     private let defaults: UserDefaults
     private let credentials: any SessionCredentialStoring
     private let durableOwnership: SessionDurableOwnership
@@ -101,6 +105,7 @@ final class AppSession: ObservableObject {
     private var entitlementObserver: NSObjectProtocol?
     private var startupTask: Task<Void, Never>?
     private var inFlightPrepare: Task<SessionPrepareResult, Never>?
+    private var inFlightEnsureProfile: Task<ProfileEnsureOutcome, Never>?
     /// Best-effort remote revoke of a captured access token (not cancelled on logout).
     private var signOutTask: Task<Void, Never>?
     /// Token currently being revoked remotely — dedupes concurrent logout for the same bearer.
@@ -139,6 +144,9 @@ final class AppSession: ObservableObject {
         startupTask = nil
         inFlightPrepare?.cancel()
         inFlightPrepare = nil
+        inFlightEnsureProfile?.cancel()
+        inFlightEnsureProfile = nil
+        isEnsuringProfile = false
         placeInvalidateTask?.cancel()
         placeInvalidateTask = nil
         let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
@@ -153,16 +161,24 @@ final class AppSession: ObservableObject {
         }
     }
 
+    /// Localized message for the last profile-ensure failure/blocker, if any.
+    var profileEnsureUserMessage: String? {
+        guard let key = lastProfileEnsureOutcome?.messageKey else { return nil }
+        return l(key)
+    }
+
     init(
         remoteSessionRevoker: (any AuthRemoteSessionRevoking)? = nil,
         defaults: UserDefaults = .standard,
         credentials: (any SessionCredentialStoring)? = nil,
-        durableOwnership: SessionDurableOwnership? = nil
+        durableOwnership: SessionDurableOwnership? = nil,
+        apiClient: APIClient? = nil
     ) {
         self.remoteSessionRevoker = remoteSessionRevoker ?? SupabaseAuthService.shared
         self.defaults = defaults
         self.credentials = credentials ?? KeychainStore(service: "com.hiair.app.session")
         self.durableOwnership = durableOwnership ?? .shared
+        self.apiClient = apiClient ?? APIClient.live()
         isHydratingFromStore = true
         onboardingCompleted = defaults.object(forKey: Keys.onboardingCompleted) as? Bool ?? false
         userId = self.credentials.getString(forKey: Keys.userId) ?? defaults.string(forKey: Keys.userId) ?? ""
@@ -280,12 +296,18 @@ final class AppSession: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                if UITestBootstrap.disableAutoProfileBootstrap {
+                    return
+                }
                 StartupDiagnostics.track("location_bootstrap_started", errorCode: "auth_granted")
                 _ = await self.bootstrapLocationFromDevice()
                 _ = await self.ensureProfileIdIfNeeded()
             }
         }
         startupTask = Task { @MainActor [weak self] in
+            if UITestBootstrap.isUITesting {
+                return
+            }
             StartupDiagnostics.track("startup_begin")
             await self?.restoreSupabaseSession()
             guard let self, !Task.isCancelled else { return }
@@ -376,6 +398,8 @@ final class AppSession: ObservableObject {
         refreshToken = ""
         authNotice = ""
         profileId = ""
+        lastProfileEnsureOutcome = nil
+        isEnsuringProfile = false
         selectedTab = 0
         latitude = 0.0
         longitude = 0.0
@@ -570,7 +594,8 @@ final class AppSession: ObservableObject {
                 Task { await self.resolvePlaceNameIfNeeded() }
             }
             StartupDiagnostics.track("profile_load_started", profilePresent: !self.profileId.isEmpty)
-            let profileOk = await self.ensureProfileIdIfNeeded()
+            let profileOutcome = await self.ensureProfileIdIfNeeded()
+            let profileOk = profileOutcome.isReady
             StartupDiagnostics.track(
                 "profile_load_succeeded",
                 success: profileOk,
@@ -729,7 +754,7 @@ final class AppSession: ObservableObject {
             return false
         }
         if profileId.isEmpty {
-            return await ensureProfileIdIfNeeded()
+            return await ensureProfileIdIfNeeded().isReady
         }
         do {
             _ = try await apiClient.updateProfile(
@@ -774,22 +799,52 @@ final class AppSession: ObservableObject {
         }
     }
 
-    func ensureProfileIdIfNeeded() async -> Bool {
+    @discardableResult
+    func ensureProfileIdIfNeeded() async -> ProfileEnsureOutcome {
+        if let inFlightEnsureProfile {
+            return await inFlightEnsureProfile.value
+        }
+        let task = Task { @MainActor [weak self] () -> ProfileEnsureOutcome in
+            guard let self else { return .needsAuthentication }
+            return await self.performEnsureProfileIdIfNeeded()
+        }
+        inFlightEnsureProfile = task
+        let outcome = await task.value
+        if inFlightEnsureProfile == task {
+            inFlightEnsureProfile = nil
+        }
+        return outcome
+    }
+
+    private func performEnsureProfileIdIfNeeded() async -> ProfileEnsureOutcome {
         if !profileId.isEmpty {
-            return true
+            lastProfileEnsureOutcome = .ready
+            return .ready
         }
         guard !userId.isEmpty, !accessToken.isEmpty else {
-            return false
+            let outcome = ProfileEnsureOutcome.needsAuthentication
+            lastProfileEnsureOutcome = outcome
+            ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
+            return outcome
         }
+
+        isEnsuringProfile = true
+        defer { isEnsuringProfile = false }
+
         do {
             let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
             if let existing = profiles.first {
                 profileId = existing.id
                 hydrateProfileLocation(from: existing)
-                return true
+                lastProfileEnsureOutcome = .ready
+                ProductAnalytics.track("profile_ensure_succeeded", properties: ["source": "list"])
+                return .ready
             }
             guard hasValidLocation else {
-                return false
+                let outcome = ProfileEnsureOutcome.needsLocation
+                lastProfileEnsureOutcome = outcome
+                ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
+                return outcome
             }
             let created = try await apiClient.createProfile(
                 userId: userId,
@@ -804,9 +859,19 @@ final class AppSession: ObservableObject {
             )
             profileId = created.id
             NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
-            return true
+            lastProfileEnsureOutcome = .ready
+            ProductAnalytics.track("profile_ensure_succeeded", properties: ["source": "create"])
+            return .ready
         } catch {
-            return false
+            let outcome = ProfileEnsureMapper.outcome(for: error)
+            lastProfileEnsureOutcome = outcome
+            if case .needsAuthentication = outcome {
+                expireSessionAfterAuthFailure()
+            } else if case .failure(let reason) = outcome, reason.suggestsReauthentication {
+                expireSessionAfterAuthFailure()
+            }
+            ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
+            return outcome
         }
     }
 
@@ -1267,6 +1332,12 @@ enum HiAirL10n {
             "dashboard.empty.no_profile.title": "Профиль не настроен",
             "dashboard.empty.no_profile.body": "Без профиля невозможно персонально рассчитать риск и безопасные окна.",
             "dashboard.empty.no_profile.cta": "Создать профиль автоматически",
+            "profile.ensure.creating": "Создаём профиль…",
+            "profile.ensure.needs_location": "Нужна геолокация, чтобы создать профиль. Разрешите доступ или обновите местоположение.",
+            "profile.ensure.failed": "Не удалось создать профиль. Проверьте соединение и повторите.",
+            "profile.ensure.unavailable": "Сервис временно недоступен. Повторите через минуту.",
+            "profile.ensure.offline": "Нет сети. Проверьте интернет и повторите.",
+            "profile.ensure.forbidden": "Нет доступа к профилю. Войдите снова или обратитесь в поддержку.",
             "dashboard.empty.api_unavailable": "Данные временно недоступны. Проверьте интернет и попробуйте снова.",
             "dashboard.empty.location_missing": "Доступ к геолокации выключен. Включите его в Настройках или повторите запрос.",
             "location.denied.title": "Геолокация выключена",
@@ -1960,6 +2031,12 @@ enum HiAirL10n {
             "dashboard.empty.no_profile.title": "Profile is not set",
             "dashboard.empty.no_profile.body": "Without profile HiAir cannot calculate personalized risk and safe windows.",
             "dashboard.empty.no_profile.cta": "Create profile automatically",
+            "profile.ensure.creating": "Creating profile…",
+            "profile.ensure.needs_location": "Location is required to create a profile. Allow access or refresh your place.",
+            "profile.ensure.failed": "Could not create a profile. Check your connection and try again.",
+            "profile.ensure.unavailable": "Service is temporarily unavailable. Try again in a minute.",
+            "profile.ensure.offline": "You are offline. Check your internet connection and retry.",
+            "profile.ensure.forbidden": "Profile access was denied. Sign in again or contact support.",
             "dashboard.empty.api_unavailable": "Data is temporarily unavailable. Check your connection and retry.",
             "dashboard.empty.location_missing": "Location access is off. Enable it in Settings or try again.",
             "location.denied.title": "Location access is off",

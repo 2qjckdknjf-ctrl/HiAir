@@ -93,32 +93,22 @@ struct DailyPlannerView: View {
                 }
 
                 if session.profileId.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.l("planner.empty.no_profile.title"))
-                            .font(AuroraTokens.Typography.titleMD)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                        Text(session.l("planner.empty.no_profile.body"))
-                            .font(AuroraTokens.Typography.bodyMD)
-                            .foregroundStyle(HiAirV2Theme.secondaryText)
-                        Button(session.l("planner.empty.no_profile.cta")) {
-                            Task {
-                                let created = await session.ensureProfileIdIfNeeded()
-                                if created {
-                                    session.markChecklistItem("profile", done: true)
-                                    await viewModel.refresh(
-                                        profileId: session.profileId,
-                                        userId: session.userId,
-                                        accessToken: session.accessToken,
-                                        language: session.preferredLanguage,
-                                        onPremiumRequired: { session.showPaywall = true }
-                                    )
-                                }
-                            }
+                    ProfileBootstrapCard(
+                        titleKey: "planner.empty.no_profile.title",
+                        bodyKey: "planner.empty.no_profile.body",
+                        ctaKey: "planner.empty.no_profile.cta",
+                        ctaAccessibilityID: HiAirAccessibilityID.Planner.createProfileCTA,
+                        usePrimaryStyle: false,
+                        onReady: {
+                            await viewModel.refresh(
+                                profileId: session.profileId,
+                                userId: session.userId,
+                                accessToken: session.accessToken,
+                                language: session.preferredLanguage,
+                                onPremiumRequired: { session.showPaywall = true }
+                            )
                         }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
-                        .tint(HiAirV2Theme.accentStart)
-                    }
-                    .v2Card()
+                    )
                 }
 
                 if !viewModel.hourlyItems.isEmpty {
@@ -214,6 +204,12 @@ struct DailyPlannerView: View {
         }
         .hiAirPageBackground()
         .task {
+            if UITestBootstrap.disableAutoProfileBootstrap {
+                if session.profileId.isEmpty {
+                    viewModel.statusText = session.l("planner.profile_required")
+                }
+                return
+            }
             if !session.hasValidLocation {
                 _ = await session.bootstrapLocationFromDevice()
             }
