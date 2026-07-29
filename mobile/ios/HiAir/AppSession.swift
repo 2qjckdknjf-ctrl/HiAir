@@ -188,6 +188,7 @@ final class AppSession: ObservableObject {
         cancelInFlightProfileEnsure(clearOutcome: false)
         placeInvalidateTask?.cancel()
         placeInvalidateTask = nil
+        lastForegroundRefreshAt = nil
         let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
         authObserver = nil
         locationAuthObserver = nil
@@ -693,7 +694,22 @@ final class AppSession: ObservableObject {
         StartupDiagnostics.track("dashboard_refresh_started", errorCode: "foreground")
         _ = await prepareSessionForDataFetch(locationService: locationService)
         await refreshEntitlement()
-        NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+        // Prepare already owned profile ensure in this foreground cycle — Dashboard must
+        // reload data only (typed context → skipProfileEnsure).
+        postProfileLocationDidUpdate(source: .foregroundRefresh)
+    }
+
+    /// Posts `.profileLocationDidUpdate` with typed ensure-ownership context.
+    private func postProfileLocationDidUpdate(source: ProfileLocationUpdateContext.Source) {
+        NotificationCenter.default.post(
+            name: .profileLocationDidUpdate,
+            object: ProfileLocationUpdateContext(source: source)
+        )
+    }
+
+    /// Test seam: allow a later foreground refresh cycle without waiting wall-clock debounce.
+    func resetForegroundRefreshDebounceForTests() {
+        lastForegroundRefreshAt = nil
     }
 
     func expireSessionAfterAuthFailure() {
@@ -803,7 +819,7 @@ final class AppSession: ObservableObject {
         if let name, !name.isEmpty {
             displayPlaceName = name
             RuntimePerformanceProbe.end("place_resolve", success: true)
-            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+            postProfileLocationDidUpdate(source: .placeNameResolved)
         } else {
             RuntimePerformanceProbe.end("place_resolve", success: false, errorCode: "geocode_empty")
         }
@@ -829,7 +845,7 @@ final class AppSession: ObservableObject {
                 ),
                 accessToken: accessToken
             )
-            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+            postProfileLocationDidUpdate(source: .profileLocationSynced)
             return true
         } catch {
             return false
@@ -995,7 +1011,7 @@ final class AppSession: ObservableObject {
                     return .needsAuthentication
                 }
                 profileId = created.id
-                NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+                postProfileLocationDidUpdate(source: .profileCreated)
                 lastProfileEnsureOutcome = .ready
                 lastProfileEnsureCompletedAt = Date()
                 ProductAnalytics.track(

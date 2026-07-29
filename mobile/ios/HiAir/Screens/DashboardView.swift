@@ -342,6 +342,7 @@ struct DashboardView: View {
             )
         }
         .onChange(of: session.locationRevision) { _ in
+            // Independent coordinate change — ensure still required when profile is empty.
             Task { await reloadDashboard() }
         }
         .onChange(of: session.displayPlaceName) { _ in
@@ -350,8 +351,10 @@ struct DashboardView: View {
         .onChange(of: healthService.connectionState) { newState in
             viewModel.wearableConnectionState = newState
         }
-        .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { _ in
-            Task { await reloadDashboard() }
+        .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { notification in
+            // Typed origin: foreground prepare already owned ensure; reload data only.
+            let skipEnsure = ProfileLocationUpdateContext.skipProfileEnsure(from: notification)
+            Task { await reloadDashboard(skipProfileEnsure: skipEnsure) }
         }
         .sheet(item: $activeInfoKey) { item in
             InfoTextSheet(text: session.l(item.id), closeTitle: session.l("common.close"))

@@ -79,6 +79,37 @@ extension Notification.Name {
     )
 }
 
+/// Typed origin for `.profileLocationDidUpdate`.
+///
+/// Profile ensure ownership:
+/// - `foregroundRefresh`: `prepareSessionForDataFetch` already owned ensure in this cycle —
+///   Dashboard must reload data only (`skipProfileEnsure`).
+/// - Other sources: ensure was already handled by the publisher call chain, or profile is
+///   already set. Independent coordinate changes use `locationRevision` (not this notification)
+///   when a fresh ensure is required.
+struct ProfileLocationUpdateContext: Equatable, Sendable {
+    enum Source: String, Equatable, Sendable {
+        case foregroundRefresh
+        case placeNameResolved
+        case profileLocationSynced
+        case profileCreated
+    }
+
+    let source: Source
+
+    var skipProfileEnsureOnDashboardReload: Bool {
+        switch source {
+        case .foregroundRefresh, .placeNameResolved, .profileLocationSynced, .profileCreated:
+            return true
+        }
+    }
+
+    static func skipProfileEnsure(from notification: Notification) -> Bool {
+        (notification.object as? ProfileLocationUpdateContext)?.skipProfileEnsureOnDashboardReload
+            ?? false
+    }
+}
+
 @MainActor
 protocol LocationProviding: AnyObject {
     var authorizationStatus: CLAuthorizationStatus { get }
