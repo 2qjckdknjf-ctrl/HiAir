@@ -311,13 +311,29 @@ final class SettingsViewModel: ObservableObject {
         do {
             let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
             let consentActive = today.consent?.isActive == true
-            if consentActive {
-                HealthKitService.shared.reconcileServerConsent(userId: userId, isActive: true)
+            let hkBefore = HealthKitService.shared.connectionState
+            // Never rehydrate Connected while local revoke is pending/failed (fail-closed).
+            let revokeInFlight: Bool
+            switch hkBefore {
+            case .revoking, .remoteRevokePending, .revokeFailed:
+                revokeInFlight = true
+            default:
+                revokeInFlight = false
+            }
+            if !revokeInFlight {
+                HealthKitService.shared.reconcileServerConsent(userId: userId, isActive: consentActive)
             }
             let hkAfter = HealthKitService.shared.connectionState
-            let effective: WearableConnectionState =
-                (hkAfter == .connected || consentActive) ? .connected : hkAfter
-            wearableStatus = wearableStatusLabel(for: effective, consentActive: consentActive || hkAfter == .connected)
+            let effective: WearableConnectionState
+            if revokeInFlight {
+                effective = hkAfter
+            } else {
+                effective = (hkAfter == .connected || consentActive) ? .connected : hkAfter
+            }
+            wearableStatus = wearableStatusLabel(
+                for: effective,
+                consentActive: !revokeInFlight && (consentActive || hkAfter == .connected)
+            )
         } catch {
             wearableStatus = wearableStatusLabel(
                 for: hkState,
