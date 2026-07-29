@@ -514,6 +514,20 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertEqual(HiAirL10n.t("auth.sign_in", lang: "en"), "Sign in")
         XCTAssertFalse(HiAirL10n.t("profile.ensure.offline", lang: "ru").isEmpty)
         XCTAssertFalse(HiAirL10n.t("profile.ensure.offline", lang: "en").isEmpty)
+        XCTAssertTrue(HiAirL10n.t("profile.ensure.unavailable", lang: "ru").contains("временно"))
+        XCTAssertTrue(HiAirL10n.t("profile.ensure.unavailable", lang: "en").lowercased().contains("unavailable"))
+    }
+
+    func testLocationRecoveryOnlyForNeedsLocationCategory() {
+        XCTAssertTrue(ProfileEnsureOutcome.needsLocation.suggestsLocationRecovery)
+        XCTAssertEqual(ProfileEnsureOutcome.needsLocation.category, .location)
+        XCTAssertFalse(ProfileEnsureOutcome.failure(.unavailable).suggestsLocationRecovery)
+        XCTAssertEqual(ProfileEnsureOutcome.failure(.unavailable).category, .server)
+        XCTAssertTrue(ProfileEnsureOutcome.failure(.unavailable).suggestsNetworkRetry)
+        XCTAssertFalse(ProfileEnsureOutcome.failure(.offline).suggestsLocationRecovery)
+        XCTAssertTrue(ProfileEnsureOutcome.failure(.offline).suggestsNetworkRetry)
+        XCTAssertFalse(ProfileEnsureOutcome.failure(.cancelled).suggestsLocationRecovery)
+        XCTAssertFalse(ProfileEnsureOutcome.needsAuthentication.suggestsLocationRecovery)
     }
 
     func testNormalizedPersonaAndSensitivity() {
