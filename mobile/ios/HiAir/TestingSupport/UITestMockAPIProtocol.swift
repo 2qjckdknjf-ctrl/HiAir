@@ -31,6 +31,9 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var requestLog: [URLRequest] = []
     /// Optional artificial latency for race tests (nanoseconds).
     nonisolated(unsafe) static var responseDelayNanoseconds: UInt64 = 0
+    /// When set, the next matching request fails with this URLError (then cleared if oneShot).
+    nonisolated(unsafe) static var failNextWithURLError: URLError.Code?
+    nonisolated(unsafe) static var failURLErrorPathSubstring: String?
     private static let lock = NSLock()
 
     static func reset(
@@ -53,6 +56,8 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         defer { lock.unlock() }
         requestLog.removeAll()
         responseDelayNanoseconds = 0
+        failNextWithURLError = nil
+        failURLErrorPathSubstring = nil
         routes = [
             "GET /api/profiles": listProfiles,
             "POST /api/profiles": createProfile,
@@ -133,9 +138,21 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         let method = (request.httpMethod ?? "GET").uppercased()
         let path = request.url?.path ?? ""
         let key = "\(method) \(path)"
+        let failCode = Self.failNextWithURLError
+        let failPath = Self.failURLErrorPathSubstring
+        let shouldFail = failCode != nil && (failPath == nil || path.contains(failPath!))
+        if shouldFail {
+            Self.failNextWithURLError = nil
+            Self.failURLErrorPathSubstring = nil
+        }
         let response = Self.routes[key] ?? RouteResponse.json(404, object: ["detail": "unmocked \(key)"])
         let delay = Self.responseDelayNanoseconds
         Self.lock.unlock()
+
+        if shouldFail, let failCode {
+            client?.urlProtocol(self, didFailWithError: URLError(failCode))
+            return
+        }
 
         let url = request.url ?? URL(string: "https://uitest.invalid")!
         let finish: () -> Void = { [weak self] in

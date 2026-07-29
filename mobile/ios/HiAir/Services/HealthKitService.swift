@@ -148,6 +148,12 @@ final class HealthKitService: ObservableObject {
                 ProductAnalytics.track("health_consent_rehydrated", properties: ["source": "server"])
             }
             markConsentPersisted(for: userId)
+        } else if hasDurableConsent(for: userId) {
+            clearConsentPersisted(for: userId)
+            if boundUserId == userId {
+                connectionState = hasSystemAuthorization(for: userId) ? .systemAuthorized : .notConnected
+            }
+            ProductAnalytics.track("health_consent_cleared", properties: ["source": "server_inactive"])
         }
     }
 

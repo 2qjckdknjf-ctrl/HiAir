@@ -1,5 +1,25 @@
 import Foundation
 
+/// Stage inside `performEnsureProfileIdIfNeeded` for telemetry + UI recovery.
+enum ProfileEnsurePhase: String, Equatable, Sendable {
+    case idle
+    case list
+    case locationGate
+    case create
+}
+
+/// Stable high-level category for recovery UX (not raw errors).
+enum ProfileEnsureCategory: String, Equatable, Sendable {
+    case none
+    case location
+    case auth
+    case network
+    case server
+    case decode
+    case cancelled
+    case unknown
+}
+
 /// Typed result for profile bootstrap. Callers must surface non-ready outcomes in UI.
 enum ProfileEnsureOutcome: Equatable, Sendable {
     case ready
@@ -25,6 +45,32 @@ enum ProfileEnsureOutcome: Equatable, Sendable {
         }
     }
 
+    var category: ProfileEnsureCategory {
+        switch self {
+        case .ready:
+            return .none
+        case .needsAuthentication:
+            return .auth
+        case .needsLocation:
+            return .location
+        case .failure(let reason):
+            return reason.category
+        }
+    }
+
+    var diagnosticCode: String {
+        switch self {
+        case .ready:
+            return "PE_READY"
+        case .needsAuthentication:
+            return "PE_AUTH"
+        case .needsLocation:
+            return "PE_LOC"
+        case .failure(let reason):
+            return reason.diagnosticCode
+        }
+    }
+
     var messageKey: String? {
         switch self {
         case .ready:
@@ -38,14 +84,17 @@ enum ProfileEnsureOutcome: Equatable, Sendable {
         }
     }
 
-    /// When true, ProfileBootstrapCard should offer location recovery actions.
+    /// Location recovery only for true location blockers — never for API/auth/network.
     var suggestsLocationRecovery: Bool {
+        if case .needsLocation = self { return true }
+        return false
+    }
+
+    var suggestsNetworkRetry: Bool {
         switch self {
-        case .needsLocation:
-            return true
         case .failure(let reason):
-            return reason.suggestsLocationRecovery
-        case .ready, .needsAuthentication:
+            return reason.suggestsNetworkRetry
+        case .ready, .needsAuthentication, .needsLocation:
             return false
         }
     }
@@ -101,6 +150,38 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         }
     }
 
+    var category: ProfileEnsureCategory {
+        switch self {
+        case .unauthorized, .forbidden:
+            return .auth
+        case .offline, .transport:
+            return .network
+        case .unavailable, .server, .premiumRequired:
+            return .server
+        case .decode:
+            return .decode
+        case .cancelled:
+            return .cancelled
+        case .unknown:
+            return .unknown
+        }
+    }
+
+    var diagnosticCode: String {
+        switch self {
+        case .unauthorized: return "PE_HTTP_401"
+        case .forbidden: return "PE_HTTP_403"
+        case .premiumRequired: return "PE_HTTP_402"
+        case .unavailable: return "PE_HTTP_503"
+        case .server: return "PE_HTTP_5XX"
+        case .offline: return "PE_NET_OFFLINE"
+        case .transport: return "PE_NET_TRANSPORT"
+        case .decode: return "PE_DECODE"
+        case .cancelled: return "PE_CANCELLED"
+        case .unknown: return "PE_UNKNOWN"
+        }
+    }
+
     var suggestsReauthentication: Bool {
         switch self {
         case .unauthorized:
@@ -115,11 +196,11 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         return false
     }
 
-    var suggestsLocationRecovery: Bool {
+    var suggestsNetworkRetry: Bool {
         switch self {
-        case .offline, .transport, .server, .decode, .unknown, .cancelled:
+        case .offline, .transport, .unavailable, .server, .decode, .unknown:
             return true
-        case .unauthorized, .forbidden, .unavailable, .premiumRequired:
+        case .unauthorized, .forbidden, .premiumRequired, .cancelled:
             return false
         }
     }
@@ -171,8 +252,18 @@ enum ProfileEnsureMapper {
     }
 
     /// Sanitized analytics props for device Console (no tokens / PII).
-    static func analyticsProperties(for error: Error, outcome: ProfileEnsureOutcome) -> [String: String] {
-        var props: [String: String] = ["reason": outcome.analyticsReason]
+    static func analyticsProperties(
+        for error: Error?,
+        outcome: ProfileEnsureOutcome,
+        phase: ProfileEnsurePhase
+    ) -> [String: String] {
+        var props: [String: String] = [
+            "reason": outcome.analyticsReason,
+            "phase": phase.rawValue,
+            "category": outcome.category.rawValue,
+            "diagnostic_code": outcome.diagnosticCode,
+        ]
+        guard let error else { return props }
         if let apiError = error as? APIError {
             switch apiError {
             case .server(let status), .serverWithDetail(let status, _):

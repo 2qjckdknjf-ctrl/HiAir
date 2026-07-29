@@ -90,6 +90,10 @@ final class AppSession: ObservableObject {
     @Published private(set) var isEnsuringProfile = false
     /// Last non-transient outcome from `ensureProfileIdIfNeeded` for UI messaging.
     @Published private(set) var lastProfileEnsureOutcome: ProfileEnsureOutcome?
+    /// Last ensure phase for telemetry / diagnostics (safe, non-PII).
+    @Published private(set) var lastProfileEnsurePhase: ProfileEnsurePhase = .idle
+    /// Generation stamp used to skip redundant ensure right after prepareSession.
+    private(set) var lastProfileEnsureCompletedAt: Date?
     private let apiClient: APIClient
     private let defaults: UserDefaults
     private let credentials: any SessionCredentialStoring
@@ -331,6 +335,7 @@ final class AppSession: ObservableObject {
             StartupDiagnostics.track("startup_begin")
             await self?.restoreSupabaseSession()
             guard let self, !Task.isCancelled else { return }
+            self.syncAPIClientAuthFromPersist()
             if !self.userId.isEmpty {
                 HealthKitService.shared.bindAccount(userId: self.userId)
                 await PlaceGeocodingService.shared.bindAccount(userId: self.userId)
@@ -855,13 +860,24 @@ final class AppSession: ObservableObject {
 
     private func performEnsureProfileIdIfNeeded() async -> ProfileEnsureOutcome {
         if !profileId.isEmpty {
+            lastProfileEnsurePhase = .idle
             lastProfileEnsureOutcome = .ready
+            lastProfileEnsureCompletedAt = Date()
             return .ready
         }
         guard !userId.isEmpty, !accessToken.isEmpty else {
             let outcome = ProfileEnsureOutcome.needsAuthentication
+            lastProfileEnsurePhase = .list
             lastProfileEnsureOutcome = outcome
-            ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
+            lastProfileEnsureCompletedAt = Date()
+            ProductAnalytics.track(
+                "profile_ensure_failed",
+                properties: ProfileEnsureMapper.analyticsProperties(
+                    for: nil,
+                    outcome: outcome,
+                    phase: .list
+                )
+            )
             return outcome
         }
 
@@ -875,6 +891,8 @@ final class AppSession: ObservableObject {
             }
         }
 
+        var phase: ProfileEnsurePhase = .list
+        lastProfileEnsurePhase = phase
         do {
             let profiles = try await apiClient.listProfiles(
                 userId: requestedUserId,
@@ -891,9 +909,15 @@ final class AppSession: ObservableObject {
                 profileId = existing.id
                 hydrateProfileLocation(from: existing)
                 lastProfileEnsureOutcome = .ready
-                ProductAnalytics.track("profile_ensure_succeeded", properties: ["source": "list"])
+                lastProfileEnsureCompletedAt = Date()
+                ProductAnalytics.track(
+                    "profile_ensure_succeeded",
+                    properties: ["source": "list", "phase": phase.rawValue, "diagnostic_code": "PE_READY"]
+                )
                 return .ready
             }
+            phase = .locationGate
+            lastProfileEnsurePhase = phase
             if !hasValidLocation {
                 // One device bootstrap before declaring needsLocation — CTA should not
                 // require a separate location tap when permission is already granted.
@@ -909,37 +933,83 @@ final class AppSession: ObservableObject {
             guard hasValidLocation else {
                 let outcome = ProfileEnsureOutcome.needsLocation
                 lastProfileEnsureOutcome = outcome
-                ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
+                lastProfileEnsureCompletedAt = Date()
+                ProductAnalytics.track(
+                    "profile_ensure_failed",
+                    properties: ProfileEnsureMapper.analyticsProperties(
+                        for: nil,
+                        outcome: outcome,
+                        phase: phase
+                    )
+                )
                 return outcome
             }
+            phase = .create
+            lastProfileEnsurePhase = phase
             // Normalize persona/sensitivity to API enums before create.
             let personaValue = Self.normalizedPersona(persona)
             let sensitivityValue = Self.normalizedSensitivity(sensitivity)
-            let created = try await apiClient.createProfile(
-                userId: requestedUserId,
-                payload: ProfileCreatePayload(
-                    personaType: personaValue,
-                    sensitivityLevel: sensitivityValue,
-                    homeLat: latitude,
-                    homeLon: longitude,
-                    dateOfBirth: dateOfBirth.map { Self.birthDateFormatter.string(from: $0) }
+            do {
+                let created = try await apiClient.createProfile(
+                    userId: requestedUserId,
+                    payload: ProfileCreatePayload(
+                        personaType: personaValue,
+                        sensitivityLevel: sensitivityValue,
+                        homeLat: latitude,
+                        homeLon: longitude,
+                        dateOfBirth: dateOfBirth.map { Self.birthDateFormatter.string(from: $0) }
+                    ),
+                    accessToken: requestedAccessToken
+                )
+                guard isCurrentProfileEnsureContext(
+                    userId: requestedUserId,
+                    accessToken: requestedAccessToken,
+                    generation: ensureGeneration
+                ) else {
+                    return .needsAuthentication
+                }
+                profileId = created.id
+                NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+                lastProfileEnsureOutcome = .ready
+                lastProfileEnsureCompletedAt = Date()
+                ProductAnalytics.track(
+                    "profile_ensure_succeeded",
+                    properties: ["source": "create", "phase": phase.rawValue, "diagnostic_code": "PE_READY"]
+                )
+                return .ready
+            } catch {
+                // Create may have succeeded server-side while list lagged, or returned conflict.
+                // One recovery list prevents false failure after create success + delayed consistency.
+                if isCurrentProfileEnsureContext(
+                    userId: requestedUserId,
+                    accessToken: requestedAccessToken,
+                    generation: ensureGeneration
                 ),
-                accessToken: requestedAccessToken
-            )
-            guard isCurrentProfileEnsureContext(
-                userId: requestedUserId,
-                accessToken: requestedAccessToken,
-                generation: ensureGeneration
-            ) else {
-                return .needsAuthentication
+                   let recovered = try? await apiClient.listProfiles(
+                    userId: requestedUserId,
+                    accessToken: requestedAccessToken
+                   ),
+                   let existing = recovered.first {
+                    profileId = existing.id
+                    hydrateProfileLocation(from: existing)
+                    lastProfileEnsureOutcome = .ready
+                    lastProfileEnsureCompletedAt = Date()
+                    ProductAnalytics.track(
+                        "profile_ensure_succeeded",
+                        properties: [
+                            "source": "create_recover_list",
+                            "phase": phase.rawValue,
+                            "diagnostic_code": "PE_READY",
+                        ]
+                    )
+                    return .ready
+                }
+                throw error
             }
-            profileId = created.id
-            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
-            lastProfileEnsureOutcome = .ready
-            ProductAnalytics.track("profile_ensure_succeeded", properties: ["source": "create"])
-            return .ready
         } catch is CancellationError {
             // Do not sticky-write UI error for abandoned/cancelled ensure work.
+            lastProfileEnsurePhase = phase
+            lastProfileEnsureCompletedAt = Date()
             return .needsAuthentication
         } catch {
             guard isCurrentProfileEnsureContext(
@@ -951,6 +1021,8 @@ final class AppSession: ObservableObject {
             }
             let outcome = ProfileEnsureMapper.outcome(for: error)
             lastProfileEnsureOutcome = outcome
+            lastProfileEnsurePhase = phase
+            lastProfileEnsureCompletedAt = Date()
             if case .needsAuthentication = outcome {
                 expireSessionAfterAuthFailure()
             } else if case .failure(let reason) = outcome, reason.suggestsReauthentication {
@@ -958,7 +1030,11 @@ final class AppSession: ObservableObject {
             }
             ProductAnalytics.track(
                 "profile_ensure_failed",
-                properties: ProfileEnsureMapper.analyticsProperties(for: error, outcome: outcome)
+                properties: ProfileEnsureMapper.analyticsProperties(
+                    for: error,
+                    outcome: outcome,
+                    phase: phase
+                )
             )
             return outcome
         }
@@ -1447,6 +1523,8 @@ enum HiAirL10n {
             "profile.ensure.offline": "Нет сети. Проверьте интернет и повторите.",
             "profile.ensure.forbidden": "Нет доступа к профилю. Войдите снова или обратитесь в поддержку.",
             "profile.ensure.premium_required": "Достигнут лимит профилей. Оформите Premium, чтобы добавить ещё.",
+            "profile.ensure.retry": "Повторить",
+            "auth.sign_in": "Войти",
             "dashboard.empty.api_unavailable": "Данные временно недоступны. Проверьте интернет и попробуйте снова.",
             "dashboard.empty.location_missing": "Доступ к геолокации выключен. Включите его в Настройках или повторите запрос.",
             "location.denied.title": "Геолокация выключена",
@@ -2150,6 +2228,8 @@ enum HiAirL10n {
             "profile.ensure.offline": "You are offline. Check your internet connection and retry.",
             "profile.ensure.forbidden": "Profile access was denied. Sign in again or contact support.",
             "profile.ensure.premium_required": "Profile limit reached. Upgrade to Premium to add another profile.",
+            "profile.ensure.retry": "Retry",
+            "auth.sign_in": "Sign in",
             "dashboard.empty.api_unavailable": "Data is temporarily unavailable. Check your connection and retry.",
             "dashboard.empty.location_missing": "Location access is off. Enable it in Settings or try again.",
             "location.denied.title": "Location access is off",

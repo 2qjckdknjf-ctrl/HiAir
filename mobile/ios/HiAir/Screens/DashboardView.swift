@@ -203,8 +203,11 @@ struct DashboardView: View {
         return session.l("dashboard.location_unknown")
     }
 
-    private func reloadDashboard() async {
-        if session.profileId.isEmpty, !UITestBootstrap.disableAutoProfileBootstrap {
+    private func reloadDashboard(skipProfileEnsure: Bool = false) async {
+        // Cold launch: `prepareSessionForDataFetch` already ran ensure — do not fire a second request.
+        if !skipProfileEnsure,
+           session.profileId.isEmpty,
+           !UITestBootstrap.disableAutoProfileBootstrap {
             _ = await session.ensureProfileIdIfNeeded()
         }
         // Never block dashboard/geo refresh on HealthKit sync.
@@ -327,10 +330,9 @@ struct DashboardView: View {
                     await reloadDashboard()
                 }
             } else {
-                let prepared = await session.prepareSessionForDataFetch(locationService: locationService)
-                if !hadProfile || prepared.locationAttempted || prepared.profileReady != hadProfile {
-                    await reloadDashboard()
-                }
+                _ = await session.prepareSessionForDataFetch(locationService: locationService)
+                // Always refresh dashboard data once; skip ensure — prepare already single-flighted it.
+                await reloadDashboard(skipProfileEnsure: true)
             }
             session.markChecklistItem("risk", done: true)
             StartupDiagnostics.track(

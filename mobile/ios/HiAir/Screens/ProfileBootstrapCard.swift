@@ -16,7 +16,7 @@ struct ProfileBootstrapCard: View {
             Text(session.l(titleKey))
                 .font(HiAirTypography.titleMD)
                 .foregroundStyle(HiAirV2Theme.primaryText)
-            Text(session.l(bodyKey))
+            Text(session.l(resolvedBodyKey))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
 
@@ -74,17 +74,36 @@ struct ProfileBootstrapCard: View {
         .v2Card()
     }
 
+    /// Location CTA only for proven location blockers — never for API/auth/network failures.
     private var shouldShowLocationRecovery: Bool {
         guard !session.isEnsuringProfile else { return false }
-        if session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true {
-            return true
+        return session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true
+    }
+
+    private var resolvedBodyKey: String {
+        if let outcome = session.lastProfileEnsureOutcome, outcome.messageKey != nil {
+            return bodyKey
         }
-        return !session.hasValidLocation && session.profileId.isEmpty
+        return bodyKey
+    }
+
+    private var resolvedCtaKey: String {
+        guard let outcome = session.lastProfileEnsureOutcome else { return ctaKey }
+        switch outcome.category {
+        case .network, .server, .decode, .unknown:
+            return "profile.ensure.retry"
+        case .auth:
+            return "auth.sign_in"
+        case .location:
+            return "location.retry"
+        case .cancelled, .none:
+            return ctaKey
+        }
     }
 
     @ViewBuilder
     private var createButton: some View {
-        let title = session.isEnsuringProfile ? session.l("profile.ensure.creating") : session.l(ctaKey)
+        let title = session.isEnsuringProfile ? session.l("profile.ensure.creating") : session.l(resolvedCtaKey)
         if usePrimaryStyle {
             Button(title) {
                 Task { await createProfileTapped() }
@@ -104,7 +123,9 @@ struct ProfileBootstrapCard: View {
 
     @MainActor
     private func createProfileTapped() async {
-        if !session.hasValidLocation {
+        // Only bootstrap location when recovery is location-scoped (or still unknown / empty).
+        if session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true
+            || (session.lastProfileEnsureOutcome == nil && !session.hasValidLocation) {
             _ = await session.bootstrapLocationFromDevice(locationService: locationService)
         }
         let outcome = await session.ensureProfileIdIfNeeded()
