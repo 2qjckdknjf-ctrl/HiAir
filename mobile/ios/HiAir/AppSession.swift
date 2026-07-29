@@ -140,7 +140,22 @@ final class AppSession: ObservableObject {
     ) -> Bool {
         guard !Task.isCancelled else { return false }
         guard generation == profileEnsureGeneration else { return false }
-        return self.userId == userId && self.accessToken == accessToken
+        // Same-user token rotation (401 refresh) must not abandon ensure.
+        // Account switch bumps generation via cancelInFlightProfileEnsure.
+        guard self.userId == userId else { return false }
+        _ = accessToken // retained for call-site clarity / future audit
+        return true
+    }
+
+    /// Prefer the live session bearer when still the same user (post-refresh).
+    private func ensureAccessToken(
+        requestedUserId: String,
+        fallback: String
+    ) -> String {
+        if self.userId == requestedUserId, !accessToken.isEmpty {
+            return accessToken
+        }
+        return fallback
     }
 
     /// Test seam: count of still-registered NotificationCenter observers.
@@ -507,7 +522,10 @@ final class AppSession: ObservableObject {
     func installAuthSession(_ auth: SupabaseAuthSession) {
         let previousUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         let nextUserId = auth.userId.trimmingCharacters(in: .whitespacesAndNewlines)
-        cancelInFlightProfileEnsure(clearOutcome: true)
+        // Same-user token rotation must not cancel in-flight profile ensure.
+        if previousUserId != nextUserId {
+            cancelInFlightProfileEnsure(clearOutcome: true)
+        }
         durableOwnershipGeneration = durableOwnership.claim(userId: auth.userId)
         userId = auth.userId
         email = auth.email
@@ -882,7 +900,7 @@ final class AppSession: ObservableObject {
         }
 
         let requestedUserId = userId
-        let requestedAccessToken = accessToken
+        var requestedAccessToken = accessToken
         let ensureGeneration = profileEnsureGeneration
         isEnsuringProfile = true
         defer {
@@ -894,6 +912,10 @@ final class AppSession: ObservableObject {
         var phase: ProfileEnsurePhase = .list
         lastProfileEnsurePhase = phase
         do {
+            requestedAccessToken = ensureAccessToken(
+                requestedUserId: requestedUserId,
+                fallback: requestedAccessToken
+            )
             let profiles = try await apiClient.listProfiles(
                 userId: requestedUserId,
                 accessToken: requestedAccessToken
@@ -950,6 +972,10 @@ final class AppSession: ObservableObject {
             let personaValue = Self.normalizedPersona(persona)
             let sensitivityValue = Self.normalizedSensitivity(sensitivity)
             do {
+                requestedAccessToken = ensureAccessToken(
+                    requestedUserId: requestedUserId,
+                    fallback: requestedAccessToken
+                )
                 let created = try await apiClient.createProfile(
                     userId: requestedUserId,
                     payload: ProfileCreatePayload(
@@ -980,6 +1006,10 @@ final class AppSession: ObservableObject {
             } catch {
                 // Create may have succeeded server-side while list lagged, or returned conflict.
                 // One recovery list prevents false failure after create success + delayed consistency.
+                requestedAccessToken = ensureAccessToken(
+                    requestedUserId: requestedUserId,
+                    fallback: requestedAccessToken
+                )
                 if isCurrentProfileEnsureContext(
                     userId: requestedUserId,
                     accessToken: requestedAccessToken,

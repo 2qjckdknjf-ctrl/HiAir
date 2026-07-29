@@ -575,6 +575,45 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertFalse(session.isEnsuringProfile)
     }
 
+    func testSameUserTokenRotationDoesNotCancelInFlightEnsure() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        UITestMockAPIProtocol.responseDelayNanoseconds = 200_000_000
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token-old"
+        session.refreshToken = "refresh-old"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+
+        async let ensureOutcome = session.ensureProfileIdIfNeeded()
+        var sawLoading = false
+        for _ in 0..<200 {
+            if session.isEnsuringProfile {
+                sawLoading = true
+                break
+            }
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+        XCTAssertTrue(sawLoading)
+
+        // Same-user refresh mid-ensure must not abandon bootstrap.
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-1",
+                email: "a@example.com",
+                accessToken: "token-new",
+                refreshToken: "refresh-new"
+            )
+        )
+        let outcome = await ensureOutcome
+        XCTAssertEqual(outcome, .ready)
+        XCTAssertEqual(session.profileId, "profile-uitest-1")
+        XCTAssertEqual(session.accessToken, "token-new")
+        XCTAssertFalse(session.isEnsuringProfile)
+    }
+
     func testSameUserAuthInstallKeepsProfileId() async {
         let session = harness.makeSession()
         session.userId = "user-a"
