@@ -93,7 +93,11 @@ struct ProfileBootstrapCard: View {
         case .network, .server, .decode, .unknown:
             return "profile.ensure.retry"
         case .auth:
-            return "auth.sign_in"
+            // Only expired session needs Sign in; 403 stays Retry (already authenticated).
+            if case .needsAuthentication = outcome {
+                return "auth.sign_in"
+            }
+            return "profile.ensure.retry"
         case .location:
             return "location.retry"
         case .cancelled, .none:
@@ -123,6 +127,10 @@ struct ProfileBootstrapCard: View {
 
     @MainActor
     private func createProfileTapped() async {
+        if case .needsAuthentication = session.lastProfileEnsureOutcome {
+            // Session already expired — Auth UI owns recovery; do not loop ensure.
+            return
+        }
         // Only bootstrap location when recovery is location-scoped (or still unknown / empty).
         if session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true
             || (session.lastProfileEnsureOutcome == nil && !session.hasValidLocation) {

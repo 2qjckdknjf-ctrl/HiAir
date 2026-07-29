@@ -138,7 +138,12 @@ struct WearableConsentView: View {
         }
         RuntimePerformanceProbe.end("health_connect_ui", success: false, errorCode: "denied")
         showHealthPathHint = true
-        if healthService.connectionState != .permissionDenied {
+        // Preserve timeout / sync-failed states — do not mislabel them as permission denied.
+        switch healthService.connectionState {
+        case .permissionDenied, .syncFailed, .partial, .dataUnavailable, .revokeFailed,
+             .remoteRevokePending, .revoking, .consentFailed:
+            break
+        default:
             healthService.reportConnectionState(.permissionDenied)
         }
     }

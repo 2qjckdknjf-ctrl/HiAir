@@ -375,10 +375,16 @@ final class SettingsViewModel: ObservableObject {
 
     func deleteWearableData() async {
         guard !userId.isEmpty else { return }
-        _ = try? await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
+        // HealthKitService owns remote delete + local fail-closed clear.
         await HealthKitService.shared.deleteHealthData(userId: userId, accessToken: accessToken)
         await refreshWearableStatus()
-        statusText = l("settings.wearables.delete")
+        switch HealthKitService.shared.connectionState {
+        case .revokeFailed, .remoteRevokePending, .revoking:
+            // Do not claim full remote deletion on partial failure.
+            statusText = l("wearable.consent.revoke_failed")
+        default:
+            statusText = l("settings.wearables.delete_done")
+        }
     }
 
     func loadPlans() async {
