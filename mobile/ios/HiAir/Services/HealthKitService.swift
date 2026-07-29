@@ -622,11 +622,14 @@ final class HealthKitService: ObservableObject {
                 NSLocalizedDescriptionKey: "missing_user",
             ])
         }
-        connectionState = .consentSaving
+        let expectedUserId = userId
+        if boundUserId.isEmpty || boundUserId == expectedUserId {
+            connectionState = .consentSaving
+        }
         let tiers = enabledTiers
         do {
             _ = try await apiClient.saveWearableConsent(
-                userId: userId,
+                userId: expectedUserId,
                 accessToken: accessToken,
                 payload: WearableConsentPayload(
                     platform: "ios",
@@ -647,19 +650,22 @@ final class HealthKitService: ObservableObject {
                     consentVersion: consentVersion
                 )
             )
-            // Always bind + persist for the user that just succeeded on the server.
-            // A stale boundUserId must not drop local durable consent after HTTP 2xx.
-            if !boundUserId.isEmpty, boundUserId != userId {
+            // Persist durable consent for the account that succeeded on the server.
+            // Never steal live bind/connectionState if the session already switched away.
+            if boundUserId.isEmpty || boundUserId == expectedUserId {
+                markConsentPersisted(for: expectedUserId)
+            } else {
+                defaults.set(true, forKey: consentPersistedKey(for: expectedUserId))
+                defaults.set(true, forKey: authorizationCompletedKey(for: expectedUserId))
                 ProductAnalytics.track(
-                    "health_consent_rebound",
-                    properties: ["reason": "account_mismatch_after_save"]
+                    "health_consent_persisted_stale_bind",
+                    properties: ["reason": "account_switched_after_save"]
                 )
             }
-            markConsentPersisted(for: userId)
         } catch {
-            if boundUserId.isEmpty || boundUserId == userId {
+            if boundUserId.isEmpty || boundUserId == expectedUserId {
                 connectionState = .consentFailed
-                clearConsentPersisted(for: userId)
+                clearConsentPersisted(for: expectedUserId)
             }
             throw error
         }
