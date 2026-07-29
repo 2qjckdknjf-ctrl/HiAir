@@ -116,6 +116,13 @@ struct WearableConsentView: View {
             do {
                 try await healthService.saveConsent(userId: userId, accessToken: accessToken)
             } catch {
+                ProductAnalytics.track(
+                    "health_connect_failed",
+                    properties: [
+                        "stage": "consent_save",
+                        "error_type": String(describing: type(of: error)),
+                    ]
+                )
                 showHealthPathHint = true
                 return
             }

@@ -569,19 +569,18 @@ final class APIClient {
         accessToken: String? = nil,
         userId: String? = nil
     ) {
-        if let state = Self.getAuthState(), !state.accessToken.isEmpty {
-            if let userId, !userId.isEmpty, userId != state.userId {
-                // fall through to explicit token for mismatched session.
-            } else {
-                request.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
-                return
-            }
-        }
+        // Prefer the caller-provided session token. Global auth can lag behind AppSession
+        // after login/refresh and must not silently override a fresher bearer.
         if let accessToken, !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             return
         }
-        _ = userId
+        if let state = Self.getAuthState(), !state.accessToken.isEmpty {
+            if let userId, !userId.isEmpty, userId != state.userId {
+                return
+            }
+            request.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
+        }
     }
 
     private func sendRequest(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
@@ -677,9 +676,16 @@ final class APIClient {
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
-        return try JSONDecoder().decode([UserProfile].self, from: data)
+        do {
+            return try JSONDecoder().decode([UserProfile].self, from: data)
+        } catch {
+            throw APIError.invalidResponse
+        }
     }
 
     func createProfile(
@@ -695,9 +701,16 @@ final class APIClient {
         request.httpBody = try JSONEncoder().encode(payload)
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
-        return try JSONDecoder().decode(UserProfile.self, from: data)
+        do {
+            return try JSONDecoder().decode(UserProfile.self, from: data)
+        } catch {
+            throw APIError.invalidResponse
+        }
     }
 
     func updateProfile(
@@ -1263,9 +1276,16 @@ final class APIClient {
         request.httpBody = try JSONEncoder().encode(payload)
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
-        return try JSONDecoder().decode(WearableConsentResponse.self, from: data)
+        if let decoded = try? JSONDecoder().decode(WearableConsentResponse.self, from: data) {
+            return decoded
+        }
+        // 2xx with schema drift must not fail-closed after server accepted consent.
+        return WearableConsentResponse.acceptedStub(userId: userId, platform: payload.platform, source: payload.source)
     }
 
     func revokeWearableConsent(userId: String, accessToken: String? = nil) async throws -> WearableConsentResponse {

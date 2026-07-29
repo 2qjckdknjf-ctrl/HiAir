@@ -1,16 +1,31 @@
 # Real Device QA Report
 
+## TestFlight 149 physical checkpoint (2026-07-29) — STOPPED FOR FIXES
+
+Status: **FAILED_P1_CONNECTION — HARDENING IN PROGRESS**
+
+- Device: iPhone 17 Pro, iOS 26.5.2
+- Installed: HiAir **0.1.0 (149)** (upgrade 145→149 PASS)
+- Client SHA: `3b9dde7011ee3d698b041f7ba38778248bfc32a1`
+- Production backend SHA (unchanged): `6c3f52258c89334753ebc287a2b7d7de612a06d1`
+- Evidence: `.evidence/testflight-149-ios-qa/`
+- Observed on device: profile auto-create stuck with `profile_ensure_failed reason=unknown`; location/HealthKit connect paths also broken for tester
+- Physical matrix **not** completed on 149 — do **not** continue QA on 149
+- Fix branch: `fix/ios-connection-hardening` — audit `docs/audit/IOS_CONNECTION_HARDENING_AUDIT.md`
+- Resume physical QA only on TestFlight build **>149** after merge + Archive
+
+Historical TF **145** evidence remains under `.evidence/testflight-145-ios-qa/` (silent CTA defect; fixed in PR #37 / build 149 UI, connection root causes addressed in hardening branch).
+
 ## Current release certification (Phase 1 — 2026-07-26)
 
 Status: BLOCKED
 
-- Owner: pending physical-device execution
+- Owner: pending physical-device execution on next signed candidate **>149**
 - App version: pending next signed candidate
-- Build number: pending next signed candidate
+- Build number: pending next signed candidate (**must be >149**)
 - Open issues:
-  - Physical iPhone is detected by Xcode as offline.
+  - TF 149 connection failures (profile/location/Health) — code fix in progress; retest on new build
   - No physical Android device is connected; only an emulator is available.
-  - The integrity delta is local and is not in a signed TestFlight / Play candidate.
 
 Do not replace `Status: BLOCKED` with `Status: PASS` until every current matrix row
 is PASS on the named physical build and evidence is recorded without health values,

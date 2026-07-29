@@ -42,7 +42,7 @@ struct ProfileBootstrapCard: View {
 
             createButton
 
-            if session.lastProfileEnsureOutcome == .needsLocation {
+            if shouldShowLocationRecovery {
                 HStack(spacing: 10) {
                     Button(session.l("location.retry")) {
                         Task {
@@ -74,6 +74,14 @@ struct ProfileBootstrapCard: View {
         .v2Card()
     }
 
+    private var shouldShowLocationRecovery: Bool {
+        guard !session.isEnsuringProfile else { return false }
+        if session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true {
+            return true
+        }
+        return !session.hasValidLocation && session.profileId.isEmpty
+    }
+
     @ViewBuilder
     private var createButton: some View {
         let title = session.isEnsuringProfile ? session.l("profile.ensure.creating") : session.l(ctaKey)
@@ -96,6 +104,9 @@ struct ProfileBootstrapCard: View {
 
     @MainActor
     private func createProfileTapped() async {
+        if !session.hasValidLocation {
+            _ = await session.bootstrapLocationFromDevice(locationService: locationService)
+        }
         let outcome = await session.ensureProfileIdIfNeeded()
         if outcome.isReady {
             session.markChecklistItem("profile", done: true)

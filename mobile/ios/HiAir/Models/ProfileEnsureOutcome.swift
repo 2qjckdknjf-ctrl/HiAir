@@ -37,6 +37,18 @@ enum ProfileEnsureOutcome: Equatable, Sendable {
             return reason.messageKey
         }
     }
+
+    /// When true, ProfileBootstrapCard should offer location recovery actions.
+    var suggestsLocationRecovery: Bool {
+        switch self {
+        case .needsLocation:
+            return true
+        case .failure(let reason):
+            return reason.suggestsLocationRecovery
+        case .ready, .needsAuthentication:
+            return false
+        }
+    }
 }
 
 enum ProfileEnsureFailureReason: Equatable, Sendable {
@@ -46,6 +58,9 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
     case offline
     case premiumRequired
     case server
+    case decode
+    case transport
+    case cancelled
     case unknown
 
     var messageKey: String {
@@ -60,6 +75,12 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
             return "profile.ensure.offline"
         case .premiumRequired:
             return "profile.ensure.premium_required"
+        case .decode:
+            return "profile.ensure.decode"
+        case .transport:
+            return "profile.ensure.transport"
+        case .cancelled:
+            return "profile.ensure.cancelled"
         case .server, .unknown:
             return "profile.ensure.failed"
         }
@@ -73,6 +94,9 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         case .offline: return "offline"
         case .premiumRequired: return "premium_required"
         case .server: return "server"
+        case .decode: return "decode"
+        case .transport: return "transport"
+        case .cancelled: return "cancelled"
         case .unknown: return "unknown"
         }
     }
@@ -81,7 +105,7 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         switch self {
         case .unauthorized:
             return true
-        case .forbidden, .unavailable, .offline, .premiumRequired, .server, .unknown:
+        case .forbidden, .unavailable, .offline, .premiumRequired, .server, .decode, .transport, .cancelled, .unknown:
             return false
         }
     }
@@ -90,6 +114,15 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
         if case .premiumRequired = self { return true }
         return false
     }
+
+    var suggestsLocationRecovery: Bool {
+        switch self {
+        case .offline, .transport, .server, .decode, .unknown, .cancelled:
+            return true
+        case .unauthorized, .forbidden, .unavailable, .premiumRequired:
+            return false
+        }
+    }
 }
 
 enum ProfileEnsureMapper {
@@ -97,12 +130,21 @@ enum ProfileEnsureMapper {
         if let apiError = error as? APIError {
             return outcome(for: apiError)
         }
+        if error is DecodingError {
+            return .failure(.decode)
+        }
         if let urlError = error as? URLError {
             switch urlError.code {
-            case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed:
+            case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost,
+                 .cannotConnectToHost, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff:
                 return .failure(.offline)
+            case .cancelled:
+                return .failure(.cancelled)
+            case .secureConnectionFailed, .serverCertificateUntrusted, .clientCertificateRejected,
+                 .badServerResponse, .cannotParseResponse:
+                return .failure(.transport)
             default:
-                return .failure(.unknown)
+                return .failure(.transport)
             }
         }
         return .failure(.unknown)
@@ -124,7 +166,31 @@ enum ProfileEnsureMapper {
                 return .failure(.server)
             }
         case .invalidURL, .invalidResponse:
-            return .failure(.unknown)
+            return .failure(.transport)
         }
+    }
+
+    /// Sanitized analytics props for device Console (no tokens / PII).
+    static func analyticsProperties(for error: Error, outcome: ProfileEnsureOutcome) -> [String: String] {
+        var props: [String: String] = ["reason": outcome.analyticsReason]
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .server(let status), .serverWithDetail(let status, _):
+                props["http_status"] = String(status)
+                props["error_type"] = "api"
+            case .invalidURL:
+                props["error_type"] = "invalid_url"
+            case .invalidResponse:
+                props["error_type"] = "invalid_response"
+            }
+        } else if error is DecodingError {
+            props["error_type"] = "decode"
+        } else if let urlError = error as? URLError {
+            props["error_type"] = "url"
+            props["url_code"] = String(urlError.code.rawValue)
+        } else {
+            props["error_type"] = String(describing: type(of: error))
+        }
+        return props
     }
 }

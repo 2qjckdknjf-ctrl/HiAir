@@ -183,6 +183,55 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertEqual(mapped.messageKey, "profile.ensure.offline")
     }
 
+    func testDecodeAndTransportMapping() {
+        struct Dummy: Decodable { let value: Int }
+        do {
+            _ = try JSONDecoder().decode(Dummy.self, from: Data("{}".utf8))
+            XCTFail("expected decode error")
+        } catch {
+            let mapped = ProfileEnsureMapper.outcome(for: error)
+            XCTAssertEqual(mapped, .failure(.decode))
+            XCTAssertEqual(mapped.messageKey, "profile.ensure.decode")
+            XCTAssertTrue(mapped.suggestsLocationRecovery)
+            let props = ProfileEnsureMapper.analyticsProperties(for: error, outcome: mapped)
+            XCTAssertEqual(props["error_type"], "decode")
+        }
+
+        let cancelled = ProfileEnsureMapper.outcome(for: URLError(.cancelled))
+        XCTAssertEqual(cancelled, .failure(.cancelled))
+        XCTAssertEqual(cancelled.messageKey, "profile.ensure.cancelled")
+
+        let tls = ProfileEnsureMapper.outcome(for: URLError(.secureConnectionFailed))
+        XCTAssertEqual(tls, .failure(.transport))
+        XCTAssertEqual(tls.messageKey, "profile.ensure.transport")
+
+        let invalid = ProfileEnsureMapper.outcome(for: APIError.invalidResponse)
+        XCTAssertEqual(invalid, .failure(.transport))
+    }
+
+    func testNormalizedPersonaAndSensitivity() {
+        XCTAssertEqual(AppSession.normalizedPersona("ASTHMA"), "asthma")
+        XCTAssertEqual(AppSession.normalizedPersona("general"), "adult")
+        XCTAssertEqual(AppSession.normalizedSensitivity("HIGH"), "high")
+        XCTAssertEqual(AppSession.normalizedSensitivity("weird"), "medium")
+    }
+
+    func testInvalidProfileJSONMapsToTransportViaInvalidResponse() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .raw(200, body: Data("<html>nope</html>".utf8), contentType: "text/html")
+        )
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        let outcome = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(outcome, .failure(.transport))
+        XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.transport"))
+        XCTAssertTrue(session.profileId.isEmpty)
+    }
+
     func testSingleFlightDedupesConcurrentCalls() async {
         UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
         let session = harness.makeSession()
@@ -250,6 +299,10 @@ final class ProfileEnsureTests: XCTestCase {
 
         XCTAssertEqual(session.userId, "user-b")
         XCTAssertEqual(session.profileId, "")
+        XCTAssertEqual(session.latitude, 0)
+        XCTAssertEqual(session.longitude, 0)
+        XCTAssertEqual(session.locationSource, .unknown)
+        XCTAssertNil(session.displayPlaceName)
         XCTAssertNil(session.lastProfileEnsureOutcome)
         XCTAssertNil(session.profileEnsureUserMessage)
         XCTAssertFalse(session.isEnsuringProfile)

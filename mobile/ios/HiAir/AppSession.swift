@@ -226,8 +226,8 @@ final class AppSession: ObservableObject {
         checklistHidden = defaults.object(forKey: Keys.checklistHidden) as? Bool ?? false
         isHydratingFromStore = false
 
-        let hasFullAuth = !userId.isEmpty && !accessToken.isEmpty && !refreshToken.isEmpty
-        if hasFullAuth {
+        let hasUsableAuth = !userId.isEmpty && !accessToken.isEmpty
+        if hasUsableAuth {
             durableOwnershipGeneration = self.durableOwnership.claim(userId: userId)
             // Drop legacy plaintext copies once credential store is the owner store.
             defaults.removeObject(forKey: Keys.displayPlaceName)
@@ -509,9 +509,15 @@ final class AppSession: ObservableObject {
         accessToken = auth.accessToken
         refreshToken = auth.refreshToken
         authNotice = ""
-        // Never keep another account's profileId across auth install.
+        // Never keep another account's profileId / location across auth install.
         if previousUserId != nextUserId {
             profileId = ""
+            latitude = 0
+            longitude = 0
+            locationSource = .unknown
+            displayPlaceName = nil
+            locationRevision += 1
+            lastProfileEnsureOutcome = nil
         }
         HealthKitService.shared.bindAccount(userId: auth.userId)
         Task {
@@ -888,17 +894,32 @@ final class AppSession: ObservableObject {
                 ProductAnalytics.track("profile_ensure_succeeded", properties: ["source": "list"])
                 return .ready
             }
+            if !hasValidLocation {
+                // One device bootstrap before declaring needsLocation — CTA should not
+                // require a separate location tap when permission is already granted.
+                _ = await bootstrapLocationFromDevice()
+            }
+            guard isCurrentProfileEnsureContext(
+                userId: requestedUserId,
+                accessToken: requestedAccessToken,
+                generation: ensureGeneration
+            ) else {
+                return .needsAuthentication
+            }
             guard hasValidLocation else {
                 let outcome = ProfileEnsureOutcome.needsLocation
                 lastProfileEnsureOutcome = outcome
                 ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
                 return outcome
             }
+            // Normalize persona/sensitivity to API enums before create.
+            let personaValue = Self.normalizedPersona(persona)
+            let sensitivityValue = Self.normalizedSensitivity(sensitivity)
             let created = try await apiClient.createProfile(
                 userId: requestedUserId,
                 payload: ProfileCreatePayload(
-                    personaType: persona,
-                    sensitivityLevel: sensitivity,
+                    personaType: personaValue,
+                    sensitivityLevel: sensitivityValue,
                     homeLat: latitude,
                     homeLon: longitude,
                     dateOfBirth: dateOfBirth.map { Self.birthDateFormatter.string(from: $0) }
@@ -935,9 +956,24 @@ final class AppSession: ObservableObject {
             } else if case .failure(let reason) = outcome, reason.suggestsReauthentication {
                 expireSessionAfterAuthFailure()
             }
-            ProductAnalytics.track("profile_ensure_failed", properties: ["reason": outcome.analyticsReason])
+            ProductAnalytics.track(
+                "profile_ensure_failed",
+                properties: ProfileEnsureMapper.analyticsProperties(for: error, outcome: outcome)
+            )
             return outcome
         }
+    }
+
+    static func normalizedPersona(_ raw: String) -> String {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let allowed = Set(["adult", "child", "elderly", "asthma", "allergy", "runner", "worker"])
+        return allowed.contains(value) ? value : "adult"
+    }
+
+    static func normalizedSensitivity(_ raw: String) -> String {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let allowed = Set(["low", "medium", "high"])
+        return allowed.contains(value) ? value : "medium"
     }
 
     /// Ownership policy for shared durable session fields:
@@ -1028,8 +1064,9 @@ final class AppSession: ObservableObject {
 
     private func syncAPIClientAuthFromPersist() {
         guard !suppressAPIClientAuthSync else { return }
-        if userId.isEmpty || accessToken.isEmpty || refreshToken.isEmpty {
-            // Ownership-sensitive clears happen in `logout()` / `expireSessionAfterAuthFailure()`.
+        // Access token + userId are enough for authenticated API calls.
+        // Refresh may be empty briefly after some auth paths; do not skip sync.
+        if userId.isEmpty || accessToken.isEmpty {
             return
         }
         if let global = APIClient.getAuthState(),
@@ -1038,11 +1075,14 @@ final class AppSession: ObservableObject {
             // Stale AppSession must not overwrite a newer account's APIClient auth.
             return
         }
+        let refresh = refreshToken.isEmpty
+            ? (APIClient.getAuthState()?.refreshToken ?? "")
+            : refreshToken
         APIClient.setAuthState(
             APIClient.AuthState(
                 userId: userId,
                 accessToken: accessToken,
-                refreshToken: refreshToken
+                refreshToken: refresh
             )
         )
     }
@@ -1400,6 +1440,9 @@ enum HiAirL10n {
             "profile.ensure.creating": "Создаём профиль…",
             "profile.ensure.needs_location": "Нужна геолокация, чтобы создать профиль. Разрешите доступ или обновите местоположение.",
             "profile.ensure.failed": "Не удалось создать профиль. Проверьте соединение и повторите.",
+            "profile.ensure.decode": "Ответ сервера не распознан. Обновите приложение или повторите позже.",
+            "profile.ensure.transport": "Не удалось связаться с сервером. Проверьте сеть и повторите.",
+            "profile.ensure.cancelled": "Создание профиля прервано. Нажмите ещё раз.",
             "profile.ensure.unavailable": "Сервис временно недоступен. Повторите через минуту.",
             "profile.ensure.offline": "Нет сети. Проверьте интернет и повторите.",
             "profile.ensure.forbidden": "Нет доступа к профилю. Войдите снова или обратитесь в поддержку.",
@@ -2100,6 +2143,9 @@ enum HiAirL10n {
             "profile.ensure.creating": "Creating profile…",
             "profile.ensure.needs_location": "Location is required to create a profile. Allow access or refresh your place.",
             "profile.ensure.failed": "Could not create a profile. Check your connection and try again.",
+            "profile.ensure.decode": "The server response could not be read. Update the app or try again later.",
+            "profile.ensure.transport": "Could not reach the server. Check your network and retry.",
+            "profile.ensure.cancelled": "Profile creation was interrupted. Tap again.",
             "profile.ensure.unavailable": "Service is temporarily unavailable. Try again in a minute.",
             "profile.ensure.offline": "You are offline. Check your internet connection and retry.",
             "profile.ensure.forbidden": "Profile access was denied. Sign in again or contact support.",

@@ -139,6 +139,18 @@ final class HealthKitService: ObservableObject {
         }
     }
 
+    /// Reconcile local durable consent from server truth (e.g. `/wearables/today`).
+    func reconcileServerConsent(userId: String, isActive: Bool) {
+        guard !userId.isEmpty else { return }
+        guard boundUserId.isEmpty || boundUserId == userId else { return }
+        if isActive {
+            if !hasDurableConsent(for: userId) {
+                ProductAnalytics.track("health_consent_rehydrated", properties: ["source": "server"])
+            }
+            markConsentPersisted(for: userId)
+        }
+    }
+
     /// Logout / account switch: cancel work and clear presentation; keep HK system permission.
     func clearAccountSession() {
         cancelPendingSync()
@@ -629,7 +641,14 @@ final class HealthKitService: ObservableObject {
                     consentVersion: consentVersion
                 )
             )
-            guard boundUserId.isEmpty || boundUserId == userId else { return }
+            // Always bind + persist for the user that just succeeded on the server.
+            // A stale boundUserId must not drop local durable consent after HTTP 2xx.
+            if !boundUserId.isEmpty, boundUserId != userId {
+                ProductAnalytics.track(
+                    "health_consent_rebound",
+                    properties: ["reason": "account_mismatch_after_save"]
+                )
+            }
             markConsentPersisted(for: userId)
         } catch {
             if boundUserId.isEmpty || boundUserId == userId {

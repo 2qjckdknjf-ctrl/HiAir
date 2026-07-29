@@ -311,9 +311,13 @@ final class SettingsViewModel: ObservableObject {
         do {
             let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
             let consentActive = today.consent?.isActive == true
+            if consentActive {
+                HealthKitService.shared.reconcileServerConsent(userId: userId, isActive: true)
+            }
+            let hkAfter = HealthKitService.shared.connectionState
             let effective: WearableConnectionState =
-                (hkState == .connected || consentActive) ? .connected : hkState
-            wearableStatus = wearableStatusLabel(for: effective, consentActive: consentActive || hkState == .connected)
+                (hkAfter == .connected || consentActive) ? .connected : hkAfter
+            wearableStatus = wearableStatusLabel(for: effective, consentActive: consentActive || hkAfter == .connected)
         } catch {
             wearableStatus = wearableStatusLabel(
                 for: hkState,

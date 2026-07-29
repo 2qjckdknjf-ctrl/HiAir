@@ -16,6 +16,14 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
                 headers: ["Content-Type": "application/json"]
             )
         }
+
+        static func raw(_ statusCode: Int, body: Data, contentType: String) -> RouteResponse {
+            RouteResponse(
+                statusCode: statusCode,
+                body: body,
+                headers: ["Content-Type": contentType]
+            )
+        }
     }
 
     nonisolated(unsafe) static var isEnabled = false
