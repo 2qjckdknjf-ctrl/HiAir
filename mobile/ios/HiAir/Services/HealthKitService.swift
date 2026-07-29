@@ -139,6 +139,24 @@ final class HealthKitService: ObservableObject {
         }
     }
 
+    /// Reconcile local durable consent from server truth (e.g. `/wearables/today`).
+    func reconcileServerConsent(userId: String, isActive: Bool) {
+        guard !userId.isEmpty else { return }
+        guard boundUserId.isEmpty || boundUserId == userId else { return }
+        if isActive {
+            if !hasDurableConsent(for: userId) {
+                ProductAnalytics.track("health_consent_rehydrated", properties: ["source": "server"])
+            }
+            markConsentPersisted(for: userId)
+        } else if hasDurableConsent(for: userId) {
+            clearConsentPersisted(for: userId)
+            if boundUserId == userId {
+                connectionState = hasSystemAuthorization(for: userId) ? .systemAuthorized : .notConnected
+            }
+            ProductAnalytics.track("health_consent_cleared", properties: ["source": "server_inactive"])
+        }
+    }
+
     /// Logout / account switch: cancel work and clear presentation; keep HK system permission.
     func clearAccountSession() {
         cancelPendingSync()
@@ -604,11 +622,14 @@ final class HealthKitService: ObservableObject {
                 NSLocalizedDescriptionKey: "missing_user",
             ])
         }
-        connectionState = .consentSaving
+        let expectedUserId = userId
+        if boundUserId.isEmpty || boundUserId == expectedUserId {
+            connectionState = .consentSaving
+        }
         let tiers = enabledTiers
         do {
             _ = try await apiClient.saveWearableConsent(
-                userId: userId,
+                userId: expectedUserId,
                 accessToken: accessToken,
                 payload: WearableConsentPayload(
                     platform: "ios",
@@ -629,12 +650,22 @@ final class HealthKitService: ObservableObject {
                     consentVersion: consentVersion
                 )
             )
-            guard boundUserId.isEmpty || boundUserId == userId else { return }
-            markConsentPersisted(for: userId)
+            // Persist durable consent for the account that succeeded on the server.
+            // Never steal live bind/connectionState if the session already switched away.
+            if boundUserId.isEmpty || boundUserId == expectedUserId {
+                markConsentPersisted(for: expectedUserId)
+            } else {
+                defaults.set(true, forKey: consentPersistedKey(for: expectedUserId))
+                defaults.set(true, forKey: authorizationCompletedKey(for: expectedUserId))
+                ProductAnalytics.track(
+                    "health_consent_persisted_stale_bind",
+                    properties: ["reason": "account_switched_after_save"]
+                )
+            }
         } catch {
-            if boundUserId.isEmpty || boundUserId == userId {
+            if boundUserId.isEmpty || boundUserId == expectedUserId {
                 connectionState = .consentFailed
-                clearConsentPersisted(for: userId)
+                clearConsentPersisted(for: expectedUserId)
             }
             throw error
         }

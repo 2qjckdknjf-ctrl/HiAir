@@ -155,8 +155,30 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
             serviceState = .restricted
             throw LocationServiceError.restricted
         case .notDetermined:
+            // Request permission and wait for the user/system decision instead of
+            // immediately failing as "denied" (which poisoned profile bootstrap UX).
             requestWhenInUseAuthorization()
-            throw LocationServiceError.denied
+            let deadline = Date().addingTimeInterval(min(locationTimeoutSeconds, 25))
+            while Date() < deadline {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                refreshAuthorizationStatus()
+                if authorizationStatus == .authorizedAlways || authorizationStatus == .authorizedWhenInUse {
+                    break
+                }
+                if authorizationStatus == .denied {
+                    serviceState = .denied
+                    throw LocationServiceError.denied
+                }
+                if authorizationStatus == .restricted {
+                    serviceState = .restricted
+                    throw LocationServiceError.restricted
+                }
+            }
+            refreshAuthorizationStatus()
+            guard authorizationStatus == .authorizedAlways || authorizationStatus == .authorizedWhenInUse else {
+                serviceState = .denied
+                throw LocationServiceError.denied
+            }
         @unknown default:
             serviceState = .error
             throw LocationServiceError.underlying("unknown authorization")

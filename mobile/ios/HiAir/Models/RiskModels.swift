@@ -681,6 +681,20 @@ struct WearableConsentResponse: Codable {
     let heartRateEnabled: Bool
     let restingHeartRateEnabled: Bool
     let isActive: Bool
+
+    /// Used when HTTP 2xx succeeds but response schema drifts — local consent must still persist.
+    static func acceptedStub(userId: String, platform: String, source: String) -> WearableConsentResponse {
+        WearableConsentResponse(
+            id: "local-accepted",
+            userId: userId,
+            platform: platform,
+            source: source,
+            stepsEnabled: true,
+            heartRateEnabled: true,
+            restingHeartRateEnabled: true,
+            isActive: true
+        )
+    }
 }
 
 struct WearableDailySummaryResponse: Codable {
