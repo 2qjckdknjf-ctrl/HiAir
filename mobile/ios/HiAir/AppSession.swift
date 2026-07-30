@@ -701,9 +701,10 @@ final class AppSession: ObservableObject {
 
     /// Posts `.profileLocationDidUpdate` with typed ensure-ownership context.
     private func postProfileLocationDidUpdate(source: ProfileLocationUpdateContext.Source) {
+        let attributedUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         NotificationCenter.default.post(
             name: .profileLocationDidUpdate,
-            object: ProfileLocationUpdateContext(source: source)
+            object: ProfileLocationUpdateContext(source: source, userId: attributedUserId)
         )
     }
 

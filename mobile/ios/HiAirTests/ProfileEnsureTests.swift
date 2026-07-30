@@ -538,7 +538,10 @@ final class ProfileEnsureTests: XCTestCase {
         session: AppSession,
         notification: Notification
     ) async -> ProfileEnsureOutcome? {
-        let skip = ProfileLocationUpdateContext.skipProfileEnsure(from: notification)
+        let skip = ProfileLocationUpdateContext.skipProfileEnsure(
+            from: notification,
+            currentUserId: session.userId
+        )
         guard !skip, session.profileId.isEmpty else { return nil }
         return await session.ensureProfileIdIfNeeded()
     }
@@ -568,9 +571,13 @@ final class ProfileEnsureTests: XCTestCase {
             if let source = context?.source {
                 sources.append(source)
             }
+            XCTAssertEqual(context?.userId, "user-1")
             XCTAssertTrue(
-                ProfileLocationUpdateContext.skipProfileEnsure(from: notification),
-                "post-prepare location notifications must skip ensure"
+                ProfileLocationUpdateContext.skipProfileEnsure(
+                    from: notification,
+                    currentUserId: "user-1"
+                ),
+                "post-prepare location notifications must skip ensure for the owning user"
             )
             Task { @MainActor in
                 let outcome = await self.simulateDashboardProfileLocationReload(
@@ -664,6 +671,75 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertEqual(
             UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "POST"),
             0
+        )
+    }
+
+    func testStaleForegroundRefreshNotificationDoesNotSkipEnsureAfterAccountSwitch() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(
+                200,
+                object: [[
+                    "id": "listed-b",
+                    "user_id": "user-b",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        let session = harness.makeSession()
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-a",
+                email: "a@example.com",
+                accessToken: "token-a",
+                refreshToken: "refresh-a"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        session.profileId = ""
+
+        // Stale post attributed to user-a, delivered after switch to user-b.
+        let staleNotification = Notification(
+            name: .profileLocationDidUpdate,
+            object: ProfileLocationUpdateContext(source: .foregroundRefresh, userId: "user-a")
+        )
+
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-b",
+                email: "b@example.com",
+                accessToken: "token-b",
+                refreshToken: "refresh-b"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        XCTAssertTrue(session.profileId.isEmpty)
+
+        XCTAssertFalse(
+            ProfileLocationUpdateContext.skipProfileEnsure(
+                from: staleNotification,
+                currentUserId: session.userId
+            ),
+            "foreign/stale attribution must not suppress ensure for the live session"
+        )
+
+        let outcome = await simulateDashboardProfileLocationReload(
+            session: session,
+            notification: staleNotification
+        )
+        XCTAssertEqual(outcome, .ready)
+        XCTAssertEqual(session.profileId, "listed-b")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
         )
     }
 
@@ -797,7 +873,9 @@ final class ProfileEnsureTests: XCTestCase {
             listProfiles: .json(503, object: ["detail": "busy"])
         )
         let note = Notification(name: .profileLocationDidUpdate, object: nil)
-        XCTAssertFalse(ProfileLocationUpdateContext.skipProfileEnsure(from: note))
+        XCTAssertFalse(
+            ProfileLocationUpdateContext.skipProfileEnsure(from: note, currentUserId: session.userId)
+        )
         let outcome = await simulateDashboardProfileLocationReload(session: session, notification: note)
         XCTAssertEqual(outcome, .failure(.unavailable))
         XCTAssertEqual(

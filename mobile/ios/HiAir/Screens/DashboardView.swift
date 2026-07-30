@@ -352,9 +352,15 @@ struct DashboardView: View {
             viewModel.wearableConnectionState = newState
         }
         .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { notification in
-            // Typed origin: foreground prepare already owned ensure; reload data only.
-            let skipEnsure = ProfileLocationUpdateContext.skipProfileEnsure(from: notification)
-            Task { await reloadDashboard(skipProfileEnsure: skipEnsure) }
+            // Re-evaluate skip inside the Task so a stale post after account switch cannot
+            // suppress ensure for the newly signed-in user.
+            Task {
+                let skipEnsure = ProfileLocationUpdateContext.skipProfileEnsure(
+                    from: notification,
+                    currentUserId: session.userId
+                )
+                await reloadDashboard(skipProfileEnsure: skipEnsure)
+            }
         }
         .sheet(item: $activeInfoKey) { item in
             InfoTextSheet(text: session.l(item.id), closeTitle: session.l("common.close"))
