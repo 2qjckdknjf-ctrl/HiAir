@@ -743,6 +743,104 @@ final class ProfileEnsureTests: XCTestCase {
         )
     }
 
+    func testAbandonedForegroundPrepareDoesNotSkipEnsureForReplacementAccount() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        UITestMockAPIProtocol.responseDelayNanoseconds = 200_000_000
+        let session = harness.makeSession()
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-a",
+                email: "a@example.com",
+                accessToken: "token-a",
+                refreshToken: "refresh-a"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        session.profileId = ""
+
+        var postedContexts: [ProfileLocationUpdateContext] = []
+        let observer = NotificationCenter.default.addObserver(
+            forName: .profileLocationDidUpdate,
+            object: nil,
+            queue: nil
+        ) { notification in
+            if let context = notification.object as? ProfileLocationUpdateContext {
+                postedContexts.append(context)
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        async let abandonedRefresh: Void = session.refreshOnForeground(
+            locationService: ImmediateCoordsLocationStub()
+        )
+        // Let user-a prepare/ensure start under delay.
+        for _ in 0..<100 {
+            if session.isEnsuringProfile { break }
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-b",
+                email: "b@example.com",
+                accessToken: "token-b",
+                refreshToken: "refresh-b"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        session.profileId = ""
+        session.resetForegroundRefreshDebounceForTests()
+
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(
+                200,
+                object: [[
+                    "id": "listed-b",
+                    "user_id": "user-b",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        UITestMockAPIProtocol.responseDelayNanoseconds = 0
+
+        await abandonedRefresh
+        // Abandoned user-a foreground must not post a skip-eligible notification for user-b.
+        XCTAssertFalse(
+            postedContexts.contains {
+                $0.source == .foregroundRefresh && $0.userId == "user-b"
+            }
+        )
+        XCTAssertFalse(
+            postedContexts.contains {
+                $0.source == .foregroundRefresh && $0.userId == "user-a"
+            },
+            "cancelled/abandoned owner must not emit foreground skip notification"
+        )
+
+        let prepared = await session.prepareSessionForDataFetch(
+            locationService: ImmediateCoordsLocationStub()
+        )
+        XCTAssertTrue(prepared.profileReady)
+        XCTAssertEqual(session.profileId, "listed-b")
+        // Replacement account must own a real ensure (not coalesce onto abandoned prepare).
+        XCTAssertGreaterThanOrEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+    }
+
     func testIndependentCoordinateChangeStillEnsuresOnce() async {
         // Callers audit: independent location updates go through locationRevision /
         // applyDeviceLocation → syncProfileLocationIfNeeded → ensure when profile empty.
