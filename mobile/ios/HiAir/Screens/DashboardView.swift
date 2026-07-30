@@ -342,6 +342,7 @@ struct DashboardView: View {
             )
         }
         .onChange(of: session.locationRevision) { _ in
+            // Independent coordinate change — ensure still required when profile is empty.
             Task { await reloadDashboard() }
         }
         .onChange(of: session.displayPlaceName) { _ in
@@ -350,8 +351,16 @@ struct DashboardView: View {
         .onChange(of: healthService.connectionState) { newState in
             viewModel.wearableConnectionState = newState
         }
-        .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { _ in
-            Task { await reloadDashboard() }
+        .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { notification in
+            // Re-evaluate skip inside the Task so a stale post after account switch cannot
+            // suppress ensure for the newly signed-in user.
+            Task {
+                let skipEnsure = ProfileLocationUpdateContext.skipProfileEnsure(
+                    from: notification,
+                    currentUserId: session.userId
+                )
+                await reloadDashboard(skipProfileEnsure: skipEnsure)
+            }
         }
         .sheet(item: $activeInfoKey) { item in
             InfoTextSheet(text: session.l(item.id), closeTitle: session.l("common.close"))

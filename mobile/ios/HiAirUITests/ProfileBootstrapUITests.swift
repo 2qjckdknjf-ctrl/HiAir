@@ -37,7 +37,6 @@ final class ProfileBootstrapUITests: XCTestCase {
         let app = UITestLaunch.launch(seedLocation: false, extraEnvironment: [
             "UITEST_SEED_LOCATION": "0",
         ])
-        // Explicitly clear coords by not seeding; also force zeros via env absence.
         attachScreenshot(app, name: "03-needs-location-before")
 
         let cta = waitForIdentifier(app, "dashboard.create_profile", timeout: 10)
@@ -48,6 +47,34 @@ final class ProfileBootstrapUITests: XCTestCase {
         attachA11yDump(app, name: "03-needs-location-after")
         XCTAssertTrue(error.exists)
         XCTAssertTrue(cta.exists, "CTA remains for retry when location missing")
+
+        // Location-only recovery: stable a11y id, hittable, correct RU semantics.
+        let locationCTA = waitForIdentifier(app, "profile_ensure.location_action", timeout: 3)
+        XCTAssertTrue(locationCTA.exists, "needsLocation must show location recovery action")
+        XCTAssertTrue(locationCTA.isHittable, "location recovery must be actionable")
+        XCTAssertTrue(
+            locationCTA.label.contains("Повторить") || locationCTA.label.lowercased().contains("retry"),
+            "location recovery label must be location.retry localization"
+        )
+        let errorText = error.label.lowercased()
+        XCTAssertTrue(
+            errorText.contains("геолокац") || errorText.contains("location"),
+            "error must be needs_location copy, not generic network"
+        )
+        XCTAssertFalse(
+            errorText.contains("соединен") || errorText.contains("connection"),
+            "needsLocation must not surface generic connection failure copy"
+        )
+
+        // Tap must invoke recovery path (bootstrap + ensure), not hang or vanish controls.
+        locationCTA.tap()
+        _ = app.descendants(matching: .any)["profile_ensure.loading"].waitForExistence(timeout: 2)
+        let errorAfter = app.descendants(matching: .any)["profile_ensure.error"]
+        let ctaAfter = app.descendants(matching: .any)["dashboard.create_profile"]
+        XCTAssertTrue(
+            errorAfter.exists || ctaAfter.exists || locationCTA.exists,
+            "after location recovery tap, recoverable UI must remain"
+        )
     }
 
     func testCreateProfileShowsUnavailableOn503() throws {
@@ -60,6 +87,56 @@ final class ProfileBootstrapUITests: XCTestCase {
         attachScreenshot(app, name: "05-profile-503")
         XCTAssertTrue(error.exists)
         XCTAssertTrue(cta.exists)
+
+        // Server failure keeps retry primary CTA and must NOT offer location recovery.
+        let locationCTA = app.descendants(matching: .any)["profile_ensure.location_action"]
+        XCTAssertFalse(
+            locationCTA.waitForExistence(timeout: 1),
+            "503/unavailable must not offer location recovery CTA"
+        )
+        let errorText = error.label.lowercased()
+        XCTAssertTrue(
+            errorText.contains("временно недоступен") || errorText.contains("temporarily unavailable"),
+            "503 must show unavailable/retry messaging"
+        )
+        XCTAssertTrue(
+            cta.label.contains("Повторить") || cta.label.lowercased().contains("retry"),
+            "503 primary CTA must be profile.ensure.retry, not create-only copy"
+        )
+        XCTAssertFalse(
+            errorText.contains("геолокац") || errorText.contains("location is required"),
+            "503 must not be misclassified as needsLocation"
+        )
+    }
+
+    func testNeedsLocationRecoveryCTAInEnglish() throws {
+        let app = UITestLaunch.launch(
+            language: "en",
+            seedLocation: false,
+            extraEnvironment: ["UITEST_SEED_LOCATION": "0"]
+        )
+        let cta = waitForIdentifier(app, "dashboard.create_profile", timeout: 10)
+        cta.tap()
+        let error = waitForIdentifier(app, "profile_ensure.error", timeout: 8)
+        XCTAssertTrue(error.label.lowercased().contains("location"))
+        let locationCTA = waitForIdentifier(app, "profile_ensure.location_action", timeout: 3)
+        XCTAssertTrue(locationCTA.isHittable)
+        XCTAssertTrue(locationCTA.label.lowercased().contains("retry"))
+    }
+
+    func testUnavailable503HasNoLocationCTAInEnglish() throws {
+        let app = UITestLaunch.launch(
+            language: "en",
+            extraEnvironment: ["UITEST_PROFILES_STATUS": "503"]
+        )
+        let cta = waitForIdentifier(app, "dashboard.create_profile")
+        cta.tap()
+        let error = waitForIdentifier(app, "profile_ensure.error", timeout: 8)
+        XCTAssertTrue(error.label.lowercased().contains("unavailable"))
+        XCTAssertTrue(cta.label.lowercased().contains("retry"))
+        XCTAssertFalse(
+            app.descendants(matching: .any)["profile_ensure.location_action"].waitForExistence(timeout: 1)
+        )
     }
 
     func testCreateProfileUnauthorizedReturnsToAuth() throws {

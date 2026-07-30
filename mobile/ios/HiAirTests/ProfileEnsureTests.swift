@@ -514,6 +514,472 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertEqual(HiAirL10n.t("auth.sign_in", lang: "en"), "Sign in")
         XCTAssertFalse(HiAirL10n.t("profile.ensure.offline", lang: "ru").isEmpty)
         XCTAssertFalse(HiAirL10n.t("profile.ensure.offline", lang: "en").isEmpty)
+        XCTAssertTrue(HiAirL10n.t("profile.ensure.unavailable", lang: "ru").contains("временно"))
+        XCTAssertTrue(HiAirL10n.t("profile.ensure.unavailable", lang: "en").lowercased().contains("unavailable"))
+    }
+
+    func testLocationRecoveryOnlyForNeedsLocationCategory() {
+        XCTAssertTrue(ProfileEnsureOutcome.needsLocation.suggestsLocationRecovery)
+        XCTAssertEqual(ProfileEnsureOutcome.needsLocation.category, .location)
+        XCTAssertFalse(ProfileEnsureOutcome.failure(.unavailable).suggestsLocationRecovery)
+        XCTAssertEqual(ProfileEnsureOutcome.failure(.unavailable).category, .server)
+        XCTAssertTrue(ProfileEnsureOutcome.failure(.unavailable).suggestsNetworkRetry)
+        XCTAssertFalse(ProfileEnsureOutcome.failure(.offline).suggestsLocationRecovery)
+        XCTAssertTrue(ProfileEnsureOutcome.failure(.offline).suggestsNetworkRetry)
+        XCTAssertFalse(ProfileEnsureOutcome.failure(.cancelled).suggestsLocationRecovery)
+        XCTAssertFalse(ProfileEnsureOutcome.needsAuthentication.suggestsLocationRecovery)
+    }
+
+    // MARK: - Foreground cycle: ensure-once (TF 159 P1)
+
+    /// Mirrors Dashboard `.onReceive(.profileLocationDidUpdate)` ensure decision.
+    @discardableResult
+    private func simulateDashboardProfileLocationReload(
+        session: AppSession,
+        notification: Notification
+    ) async -> ProfileEnsureOutcome? {
+        let skip = ProfileLocationUpdateContext.skipProfileEnsure(
+            from: notification,
+            currentUserId: session.userId
+        )
+        guard !skip, session.profileId.isEmpty else { return nil }
+        return await session.ensureProfileIdIfNeeded()
+    }
+
+    func testForegroundEnsureFailureDoesNotDoubleEnsureViaLocationNotification() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(500, object: ["detail": "boom"])
+        )
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.refreshToken = "refresh"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        // Avoid async place-resolve noise during prepare; P1 is ensure ownership.
+        session.displayPlaceName = "Castelldefels"
+
+        var sources: [ProfileLocationUpdateContext.Source] = []
+        var secondEnsureFired = false
+        let observer = NotificationCenter.default.addObserver(
+            forName: .profileLocationDidUpdate,
+            object: nil,
+            queue: nil
+        ) { notification in
+            let context = notification.object as? ProfileLocationUpdateContext
+            if let source = context?.source {
+                sources.append(source)
+            }
+            XCTAssertEqual(context?.userId, "user-1")
+            XCTAssertTrue(
+                ProfileLocationUpdateContext.skipProfileEnsure(
+                    from: notification,
+                    currentUserId: "user-1"
+                ),
+                "post-prepare location notifications must skip ensure for the owning user"
+            )
+            Task { @MainActor in
+                let outcome = await self.simulateDashboardProfileLocationReload(
+                    session: session,
+                    notification: notification
+                )
+                if outcome != nil {
+                    secondEnsureFired = true
+                }
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        await session.refreshOnForeground(locationService: ImmediateCoordsLocationStub())
+        // Allow notification handler tasks to settle.
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertTrue(sources.contains(.foregroundRefresh))
+        XCTAssertFalse(secondEnsureFired, "Dashboard must not start a second ensure after foreground prepare")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1,
+            "exactly one list ensure in the foreground cycle"
+        )
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .failure(.server))
+        XCTAssertEqual(session.lastProfileEnsurePhase, .list)
+        XCTAssertEqual(session.lastProfileEnsureOutcome?.diagnosticCode, "PE_HTTP_5XX")
+        XCTAssertNotEqual(session.lastProfileEnsureOutcome?.diagnosticCode, "PE_NET_TRANSPORT")
+        XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.failed"))
+    }
+
+    func testForegroundEnsureSuccessNotificationReloadsWithoutSecondEnsure() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(
+                200,
+                object: [[
+                    "id": "listed-1",
+                    "user_id": "user-1",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.refreshToken = "refresh"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+
+        var sawForegroundRefresh = false
+        var notificationEnsureAttempts = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: .profileLocationDidUpdate,
+            object: nil,
+            queue: nil
+        ) { notification in
+            if (notification.object as? ProfileLocationUpdateContext)?.source == .foregroundRefresh {
+                sawForegroundRefresh = true
+            }
+            Task { @MainActor in
+                if await self.simulateDashboardProfileLocationReload(
+                    session: session,
+                    notification: notification
+                ) != nil {
+                    notificationEnsureAttempts += 1
+                }
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        await session.refreshOnForeground(locationService: ImmediateCoordsLocationStub())
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertTrue(sawForegroundRefresh, "downstream dashboard reload signal must still fire")
+        XCTAssertEqual(notificationEnsureAttempts, 0)
+        XCTAssertEqual(session.profileId, "listed-1")
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .ready)
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "POST"),
+            0
+        )
+    }
+
+    func testStaleForegroundRefreshNotificationDoesNotSkipEnsureAfterAccountSwitch() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(
+                200,
+                object: [[
+                    "id": "listed-b",
+                    "user_id": "user-b",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        let session = harness.makeSession()
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-a",
+                email: "a@example.com",
+                accessToken: "token-a",
+                refreshToken: "refresh-a"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        session.profileId = ""
+
+        // Stale post attributed to user-a, delivered after switch to user-b.
+        let staleNotification = Notification(
+            name: .profileLocationDidUpdate,
+            object: ProfileLocationUpdateContext(source: .foregroundRefresh, userId: "user-a")
+        )
+
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-b",
+                email: "b@example.com",
+                accessToken: "token-b",
+                refreshToken: "refresh-b"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        XCTAssertTrue(session.profileId.isEmpty)
+
+        XCTAssertFalse(
+            ProfileLocationUpdateContext.skipProfileEnsure(
+                from: staleNotification,
+                currentUserId: session.userId
+            ),
+            "foreign/stale attribution must not suppress ensure for the live session"
+        )
+
+        let outcome = await simulateDashboardProfileLocationReload(
+            session: session,
+            notification: staleNotification
+        )
+        XCTAssertEqual(outcome, .ready)
+        XCTAssertEqual(session.profileId, "listed-b")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+    }
+
+    func testAbandonedForegroundPrepareDoesNotSkipEnsureForReplacementAccount() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        UITestMockAPIProtocol.responseDelayNanoseconds = 200_000_000
+        let session = harness.makeSession()
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-a",
+                email: "a@example.com",
+                accessToken: "token-a",
+                refreshToken: "refresh-a"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        session.profileId = ""
+
+        var postedContexts: [ProfileLocationUpdateContext] = []
+        let observer = NotificationCenter.default.addObserver(
+            forName: .profileLocationDidUpdate,
+            object: nil,
+            queue: nil
+        ) { notification in
+            if let context = notification.object as? ProfileLocationUpdateContext {
+                postedContexts.append(context)
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        async let abandonedRefresh: Void = session.refreshOnForeground(
+            locationService: ImmediateCoordsLocationStub()
+        )
+        // Let user-a prepare/ensure start under delay.
+        for _ in 0..<100 {
+            if session.isEnsuringProfile { break }
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-b",
+                email: "b@example.com",
+                accessToken: "token-b",
+                refreshToken: "refresh-b"
+            )
+        )
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+        session.profileId = ""
+        session.resetForegroundRefreshDebounceForTests()
+
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(
+                200,
+                object: [[
+                    "id": "listed-b",
+                    "user_id": "user-b",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        UITestMockAPIProtocol.responseDelayNanoseconds = 0
+
+        await abandonedRefresh
+        // Abandoned user-a foreground must not post a skip-eligible notification for user-b.
+        XCTAssertFalse(
+            postedContexts.contains {
+                $0.source == .foregroundRefresh && $0.userId == "user-b"
+            }
+        )
+        XCTAssertFalse(
+            postedContexts.contains {
+                $0.source == .foregroundRefresh && $0.userId == "user-a"
+            },
+            "cancelled/abandoned owner must not emit foreground skip notification"
+        )
+
+        let prepared = await session.prepareSessionForDataFetch(
+            locationService: ImmediateCoordsLocationStub()
+        )
+        XCTAssertTrue(prepared.profileReady)
+        XCTAssertEqual(session.profileId, "listed-b")
+        // Replacement account must own a real ensure (not coalesce onto abandoned prepare).
+        XCTAssertGreaterThanOrEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+    }
+
+    func testIndependentCoordinateChangeStillEnsuresOnce() async {
+        // Callers audit: independent location updates go through locationRevision /
+        // applyDeviceLocation → syncProfileLocationIfNeeded → ensure when profile empty.
+        // `.profileLocationDidUpdate` is not the owner of that ensure.
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.refreshToken = "refresh"
+        session.profileId = ""
+        session.latitude = 0
+        session.longitude = 0
+
+        var notificationEnsureAttempts = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: .profileLocationDidUpdate,
+            object: nil,
+            queue: nil
+        ) { notification in
+            Task { @MainActor in
+                if await self.simulateDashboardProfileLocationReload(
+                    session: session,
+                    notification: notification
+                ) != nil {
+                    notificationEnsureAttempts += 1
+                }
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        let applied = await session.applyDeviceLocation(lat: 41.28, lon: 1.976)
+        XCTAssertTrue(applied)
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 80_000_000)
+
+        XCTAssertFalse(session.profileId.isEmpty)
+        XCTAssertEqual(notificationEnsureAttempts, 0, "notification path must not add a second ensure")
+        // One ensure from syncProfileLocationIfNeeded (list→create).
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "POST"),
+            1
+        )
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+    }
+
+    func testNewForegroundCycleCanEnsureAgainWithoutWallClockWait() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(500, object: ["detail": "boom"])
+        )
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.refreshToken = "refresh"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+
+        await session.refreshOnForeground(locationService: ImmediateCoordsLocationStub())
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .failure(.server))
+
+        // Ownership reset for a new cycle — not a wall-clock debounce workaround for double-ensure.
+        session.resetForegroundRefreshDebounceForTests()
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(
+                200,
+                object: [[
+                    "id": "listed-cycle-2",
+                    "user_id": "user-1",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        await session.refreshOnForeground(locationService: ImmediateCoordsLocationStub())
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            2,
+            "a later real refresh-cycle may run a new ensure"
+        )
+        XCTAssertEqual(session.profileId, "listed-cycle-2")
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .ready)
+    }
+
+    func testConcurrentPrepareInSameCycleSingleFlightsEnsure() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        UITestMockAPIProtocol.responseDelayNanoseconds = 80_000_000
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        let location = ImmediateCoordsLocationStub()
+        async let first = session.prepareSessionForDataFetch(locationService: location)
+        async let second = session.prepareSessionForDataFetch(locationService: location)
+        let a = await first
+        let b = await second
+        XCTAssertTrue(a.profileReady)
+        XCTAssertTrue(b.profileReady)
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "POST"),
+            1
+        )
+    }
+
+    func testLegacyNilNotificationObjectDoesNotSkipEnsure() async {
+        // Untyped posts (object nil) keep prior behavior — ensure still runs when profile empty.
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(503, object: ["detail": "busy"])
+        )
+        let note = Notification(name: .profileLocationDidUpdate, object: nil)
+        XCTAssertFalse(
+            ProfileLocationUpdateContext.skipProfileEnsure(from: note, currentUserId: session.userId)
+        )
+        let outcome = await simulateDashboardProfileLocationReload(session: session, notification: note)
+        XCTAssertEqual(outcome, .failure(.unavailable))
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
     }
 
     func testNormalizedPersonaAndSensitivity() {

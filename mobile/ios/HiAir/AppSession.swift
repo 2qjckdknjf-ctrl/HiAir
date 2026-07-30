@@ -133,6 +133,12 @@ final class AppSession: ObservableObject {
         }
     }
 
+    /// Abandon single-flight session prepare so a replacement account cannot coalesce onto it.
+    private func cancelInFlightSessionPrepare() {
+        inFlightPrepare?.cancel()
+        inFlightPrepare = nil
+    }
+
     private func isCurrentProfileEnsureContext(
         userId: String,
         accessToken: String,
@@ -188,6 +194,7 @@ final class AppSession: ObservableObject {
         cancelInFlightProfileEnsure(clearOutcome: false)
         placeInvalidateTask?.cancel()
         placeInvalidateTask = nil
+        lastForegroundRefreshAt = nil
         let observers = [authObserver, locationAuthObserver, oauthFailedObserver, entitlementObserver]
         authObserver = nil
         locationAuthObserver = nil
@@ -390,6 +397,7 @@ final class AppSession: ObservableObject {
     }
 
     func logout() {
+        cancelInFlightSessionPrepare()
         cancelInFlightProfileEnsure(clearOutcome: true)
 
         // 1) Immutable account-correlated snapshot BEFORE any local clear.
@@ -522,8 +530,9 @@ final class AppSession: ObservableObject {
     func installAuthSession(_ auth: SupabaseAuthSession) {
         let previousUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         let nextUserId = auth.userId.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Same-user token rotation must not cancel in-flight profile ensure.
+        // Same-user token rotation must not cancel in-flight profile ensure / prepare.
         if previousUserId != nextUserId {
+            cancelInFlightSessionPrepare()
             cancelInFlightProfileEnsure(clearOutcome: true)
         }
         durableOwnershipGeneration = durableOwnership.claim(userId: auth.userId)
@@ -632,10 +641,23 @@ final class AppSession: ObservableObject {
         if let inFlightPrepare {
             return await inFlightPrepare.value
         }
+        let ownerUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         let task = Task { @MainActor [weak self] () -> SessionPrepareResult in
             guard let self else {
                 return SessionPrepareResult(profileReady: false, locationReady: false, locationAttempted: false)
             }
+            let abandoned = SessionPrepareResult(
+                profileReady: false,
+                locationReady: false,
+                locationAttempted: false
+            )
+            let stillOwnedByCaller: () -> Bool = {
+                !Task.isCancelled
+                    && !ownerUserId.isEmpty
+                    && self.userId.trimmingCharacters(in: .whitespacesAndNewlines) == ownerUserId
+            }
+            guard stillOwnedByCaller() else { return abandoned }
+
             let started = Date()
             StartupDiagnostics.track("session_restore_started", profilePresent: !self.profileId.isEmpty)
             var locationAttempted = false
@@ -643,6 +665,7 @@ final class AppSession: ObservableObject {
                 locationAttempted = true
                 StartupDiagnostics.track("location_bootstrap_started")
                 let ok = await self.bootstrapLocationFromDevice(locationService: locationService)
+                guard stillOwnedByCaller() else { return abandoned }
                 StartupDiagnostics.track(
                     "location_bootstrap_succeeded",
                     success: ok,
@@ -652,8 +675,10 @@ final class AppSession: ObservableObject {
                 // Instant chip from cache happens in init; resolve if missing.
                 Task { await self.resolvePlaceNameIfNeeded() }
             }
+            guard stillOwnedByCaller() else { return abandoned }
             StartupDiagnostics.track("profile_load_started", profilePresent: !self.profileId.isEmpty)
             let profileOutcome = await self.ensureProfileIdIfNeeded()
+            guard stillOwnedByCaller() else { return abandoned }
             let profileOk = profileOutcome.isReady
             StartupDiagnostics.track(
                 "profile_load_succeeded",
@@ -689,17 +714,42 @@ final class AppSession: ObservableObject {
         if let lastForegroundRefreshAt, now.timeIntervalSince(lastForegroundRefreshAt) < 8 {
             return
         }
+        let ownerUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ownerUserId.isEmpty else { return }
         lastForegroundRefreshAt = now
         StartupDiagnostics.track("dashboard_refresh_started", errorCode: "foreground")
         _ = await prepareSessionForDataFetch(locationService: locationService)
+        // Auth may have switched while prepare was in flight — never attribute to the new account.
+        guard userId.trimmingCharacters(in: .whitespacesAndNewlines) == ownerUserId else { return }
         await refreshEntitlement()
-        NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+        guard userId.trimmingCharacters(in: .whitespacesAndNewlines) == ownerUserId else { return }
+        // Prepare already owned profile ensure in this foreground cycle — Dashboard must
+        // reload data only (typed context → skipProfileEnsure).
+        postProfileLocationDidUpdate(source: .foregroundRefresh, attributedUserId: ownerUserId)
+    }
+
+    /// Posts `.profileLocationDidUpdate` with typed ensure-ownership context.
+    private func postProfileLocationDidUpdate(
+        source: ProfileLocationUpdateContext.Source,
+        attributedUserId: String? = nil
+    ) {
+        let uid = (attributedUserId ?? userId).trimmingCharacters(in: .whitespacesAndNewlines)
+        NotificationCenter.default.post(
+            name: .profileLocationDidUpdate,
+            object: ProfileLocationUpdateContext(source: source, userId: uid)
+        )
+    }
+
+    /// Test seam: allow a later foreground refresh cycle without waiting wall-clock debounce.
+    func resetForegroundRefreshDebounceForTests() {
+        lastForegroundRefreshAt = nil
     }
 
     func expireSessionAfterAuthFailure() {
         guard !(userId.isEmpty && accessToken.isEmpty) else {
             return
         }
+        cancelInFlightSessionPrepare()
         cancelInFlightProfileEnsure(clearOutcome: true)
         let ownershipGen = durableOwnershipGeneration
         let ownsDurable = durableOwnership.isCurrent(ownershipGen)
@@ -803,7 +853,7 @@ final class AppSession: ObservableObject {
         if let name, !name.isEmpty {
             displayPlaceName = name
             RuntimePerformanceProbe.end("place_resolve", success: true)
-            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+            postProfileLocationDidUpdate(source: .placeNameResolved)
         } else {
             RuntimePerformanceProbe.end("place_resolve", success: false, errorCode: "geocode_empty")
         }
@@ -829,7 +879,7 @@ final class AppSession: ObservableObject {
                 ),
                 accessToken: accessToken
             )
-            NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+            postProfileLocationDidUpdate(source: .profileLocationSynced)
             return true
         } catch {
             return false
@@ -995,7 +1045,7 @@ final class AppSession: ObservableObject {
                     return .needsAuthentication
                 }
                 profileId = created.id
-                NotificationCenter.default.post(name: .profileLocationDidUpdate, object: nil)
+                postProfileLocationDidUpdate(source: .profileCreated)
                 lastProfileEnsureOutcome = .ready
                 lastProfileEnsureCompletedAt = Date()
                 ProductAnalytics.track(
