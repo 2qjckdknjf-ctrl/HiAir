@@ -358,4 +358,58 @@ final class WearableConsentUIStateTests: XCTestCase {
         XCTAssertFalse(label.contains("подключено"))
         XCTAssertTrue(label.contains("доступ разрешён"))
     }
+
+    func testWearablesLocalizationKeysPresentInRUENES() {
+        let keys = [
+            "settings.wearables.connected",
+            "settings.wearables.device_authorized",
+            "settings.wearables.consent_inactive",
+            "settings.wearables.disconnect",
+            "settings.wearables.delete",
+            "settings.wearables.delete_done",
+            "settings.wearables.connect",
+        ]
+        let expected: [String: [String: String]] = [
+            "ru": [
+                "settings.wearables.connected": "подключено",
+                "settings.wearables.device_authorized": "доступ разрешён",
+                "settings.wearables.consent_inactive": "согласие неактивно",
+                "settings.wearables.disconnect": "Отключить",
+                "settings.wearables.delete": "Удалить health-данные",
+                "settings.wearables.delete_done": "Локальные health-данные удалены",
+                "settings.wearables.connect": "Подключить Apple Health",
+            ],
+            "en": [
+                "settings.wearables.connected": "connected",
+                "settings.wearables.device_authorized": "access allowed",
+                "settings.wearables.consent_inactive": "consent inactive",
+                "settings.wearables.disconnect": "Disconnect",
+                "settings.wearables.delete": "Delete health data",
+                "settings.wearables.delete_done": "Local health data deleted",
+                "settings.wearables.connect": "Connect Apple Health",
+            ],
+            "es": [
+                "settings.wearables.connected": "conectado",
+                "settings.wearables.device_authorized": "acceso permitido",
+                "settings.wearables.consent_inactive": "consentimiento inactivo",
+                "settings.wearables.disconnect": "Desconectar",
+                "settings.wearables.delete": "Eliminar datos de salud",
+                "settings.wearables.delete_done": "Datos de salud locales eliminados",
+                "settings.wearables.connect": "Conectar Apple Salud",
+            ],
+        ]
+        for lang in ["ru", "en", "es"] {
+            for key in keys {
+                let value = HiAirL10n.t(key, lang: lang)
+                XCTAssertEqual(value, expected[lang]?[key], "\(lang) \(key)")
+                XCTAssertNotEqual(value, key, "\(lang) \(key) must not fall back to raw key")
+                XCTAssertFalse(value.contains("%@") || value.contains("%d"))
+            }
+        }
+        // Disconnect must not claim deletion in any locale.
+        for lang in ["ru", "en", "es"] {
+            let disconnect = HiAirL10n.t("settings.wearables.disconnect", lang: lang).lowercased()
+            XCTAssertFalse(disconnect.contains("delete") || disconnect.contains("eliminar") || disconnect.contains("удалить"))
+        }
+    }
 }

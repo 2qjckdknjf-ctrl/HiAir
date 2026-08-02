@@ -2857,6 +2857,7 @@ enum HiAirL10n {
             "settings.wearables.denied": "acceso denegado",
             "settings.wearables.disconnect": "Desconectar",
             "settings.wearables.delete": "Eliminar datos de salud",
+            "settings.wearables.delete_done": "Datos de salud locales eliminados",
             "settings.wearables.delete_confirm": "¿Eliminar todos los resúmenes de salud?",
             "common.loading": "Cargando…",
             "common.retry": "Reintentar",

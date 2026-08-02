@@ -4,8 +4,12 @@ import XCTest
 /// Mirrors HealthKitService authorization single-flight semantics for deterministic tests.
 actor AuthorizationSingleFlight {
     private var inFlight: Task<Bool, Never>?
+    /// Number of `request` callers currently inside the actor method (owner + joiners).
+    private(set) var activeRequestCount = 0
 
     func request(_ operation: @escaping @Sendable () async -> Bool) async -> Bool {
+        activeRequestCount += 1
+        defer { activeRequestCount -= 1 }
         if let inFlight {
             return await inFlight.value
         }
@@ -36,6 +40,17 @@ final class HealthKitAuthorizationSingleFlightTests: XCTestCase {
             await counter.increment()
             return true
         }
+        // Avoid releasing the first op before the second caller has entered `request`
+        // (otherwise inFlight is cleared and a second operation starts — CI flake).
+        var joined = false
+        for _ in 0..<200 {
+            if await flight.activeRequestCount >= 2 {
+                joined = true
+                break
+            }
+            await Task.yield()
+        }
+        XCTAssertTrue(joined, "Second concurrent request must enter before first op is released")
         hold.open()
         let results = await (a, b)
         XCTAssertTrue(results.0)
