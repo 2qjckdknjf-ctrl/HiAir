@@ -692,10 +692,12 @@ struct DashboardView: View {
             Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
                 Task {
                     if session.profileId.isEmpty {
+                        // Explicit user recompute — do not reuse a prior terminal ensure failure.
+                        session.beginExplicitProfileEnsureCycle()
                         _ = await session.ensureProfileIdIfNeeded()
                     }
                     session.markChecklistItem("risk", done: true)
-                    await reloadDashboard()
+                    await reloadDashboard(skipProfileEnsure: true)
                 }
             }
             .buttonStyle(HiAirSecondaryButtonStyle())

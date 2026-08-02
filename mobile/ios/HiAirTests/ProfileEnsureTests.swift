@@ -1126,6 +1126,57 @@ final class ProfileEnsureTests: XCTestCase {
         )
     }
 
+    /// Planner refresh / Insights refresh / Dashboard recompute must call
+    /// `beginExplicitProfileEnsureCycle()` before ensure when `profileId` is empty —
+    /// otherwise a prior terminal failure is memoized and user taps cannot recover.
+    func testUserTriggeredRefreshAfterFailureCreatesSecondLegitimateAttempt() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+
+        _ = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
+
+        // Without an explicit cycle, sibling refresh would stay memoized.
+        _ = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1,
+            "memoized terminal must not start a second network list"
+        )
+
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(
+                200,
+                object: [[
+                    "id": "user-refresh-ok",
+                    "user_id": "user-1",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        // Same contract as Planner/Insights/Dashboard user-triggered refresh buttons.
+        session.beginExplicitProfileEnsureCycle()
+        let retry = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(retry, .ready)
+        XCTAssertEqual(session.profileId, "user-refresh-ok")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            2
+        )
+    }
+
     func testNewLocationRevisionAfterTerminalCreatesNewAttempt() async {
         UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
         let session = harness.makeSession()
