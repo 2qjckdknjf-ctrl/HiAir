@@ -4,6 +4,8 @@ import os
 /// Events are written to unified logging for TestFlight / device Console capture.
 enum ProductAnalytics {
     private static let log = Logger(subsystem: "com.hiair.app", category: "product")
+    /// Test seam: captures sanitized events without PII (unit tests only).
+    nonisolated(unsafe) static var testEventSink: ((String, [String: String]) -> Void)?
 
     static func track(_ name: String, properties: [String: String] = [:]) {
         let sanitized = properties.filter { key, value in
@@ -12,6 +14,7 @@ enum ProductAnalytics {
                 && !key.lowercased().contains("user")
                 && !value.contains("@")
         }
+        testEventSink?(name, sanitized)
         if sanitized.isEmpty {
             log.info("\(name, privacy: .public)")
         } else {

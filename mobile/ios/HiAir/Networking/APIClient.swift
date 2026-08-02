@@ -10,6 +10,41 @@ enum APIError: Error {
     case serverWithDetail(statusCode: Int, detail: String)
 }
 
+/// Safe origin for `APIError.invalidURL` diagnostics (no tokens / query / full URL).
+enum APIInvalidURLSource: String, Sendable {
+    case supabaseBaseMissing = "supabase_base_missing"
+    case supabaseComponentsFailed = "supabase_components_failed"
+    case apiComponentsFailed = "api_components_failed"
+    case unknown = "unknown"
+}
+
+enum APIInvalidURLDiagnostics {
+    /// Last invalidURL origin for the current process (test seam + Console props).
+    nonisolated(unsafe) static var lastSource: APIInvalidURLSource = .unknown
+    nonisolated(unsafe) static var lastHasScheme: Bool = false
+    nonisolated(unsafe) static var lastHasHost: Bool = false
+    nonisolated(unsafe) static var lastConfigSource: String = "none"
+
+    nonisolated static func record(
+        source: APIInvalidURLSource,
+        hasScheme: Bool = false,
+        hasHost: Bool = false,
+        configSource: String = "none"
+    ) {
+        lastSource = source
+        lastHasScheme = hasScheme
+        lastHasHost = hasHost
+        lastConfigSource = configSource
+    }
+
+    nonisolated static func resetForTests() {
+        lastSource = .unknown
+        lastHasScheme = false
+        lastHasHost = false
+        lastConfigSource = "none"
+    }
+}
+
 struct SupabaseAuthSession: Sendable {
     let userId: String
     let email: String
@@ -50,19 +85,97 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
 
     /// Production singleton — reads Supabase config from the app bundle / process env.
     private convenience init() {
-        let info = Bundle.main.infoDictionary ?? [:]
-        let env = ProcessInfo.processInfo.environment
-        let rawURL = env["SUPABASE_URL"] ?? (info["SUPABASE_URL"] as? String) ?? ""
-        let anon = env["SUPABASE_ANON_KEY"] ?? (info["SUPABASE_ANON_KEY"] as? String) ?? ""
-        let redirect = env["HIAIR_AUTH_REDIRECT_URI"]
-            ?? (info["HIAIR_AUTH_REDIRECT_URI"] as? String)
-            ?? "hiair://auth/callback"
+        let resolved = Self.resolveSupabaseConfiguration()
         self.init(
             urlSession: .shared,
-            supabaseURL: URL(string: rawURL),
-            anonKey: anon,
-            redirectURI: redirect
+            supabaseURL: resolved.isValid ? resolved.url : nil,
+            anonKey: resolved.isValid ? resolved.anonKey : "",
+            redirectURI: resolved.redirectURI
         )
+    }
+
+    /// Atomically resolve Supabase URL + anon key from one source.
+    /// Empty/whitespace env values are unset (must not shadow plist).
+    /// A non-empty malformed env URL fails closed — never falls back to plist.
+    static func resolveSupabaseConfiguration(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        infoDictionary: [String: Any]? = Bundle.main.infoDictionary
+    ) -> (url: URL?, anonKey: String, redirectURI: String, configSource: String, isValid: Bool) {
+        let info = infoDictionary ?? [:]
+        let envURLRaw = environment["SUPABASE_URL"]
+        let envURL = nonEmptyTrimmed(envURLRaw)
+        let plistURL = nonEmptyTrimmed(info["SUPABASE_URL"] as? String)
+        let envKey = nonEmptyTrimmed(environment["SUPABASE_ANON_KEY"])
+        let plistKey = nonEmptyTrimmed(info["SUPABASE_ANON_KEY"] as? String)
+        let envRedirect = nonEmptyTrimmed(environment["HIAIR_AUTH_REDIRECT_URI"])
+        let plistRedirect = nonEmptyTrimmed(info["HIAIR_AUTH_REDIRECT_URI"] as? String)
+        let defaultRedirect = "hiair://auth/callback"
+
+        let configSource: String
+        let rawURL: String
+        let anon: String
+        let redirect: String
+        if envURLRaw != nil, nonEmptyTrimmed(envURLRaw) == nil {
+            // Present-but-empty / whitespace env → treat as unset, use plist pair.
+            if let plistURL {
+                rawURL = plistURL
+                anon = plistKey ?? ""
+                redirect = plistRedirect ?? defaultRedirect
+                configSource = "plist"
+            } else {
+                rawURL = ""
+                anon = ""
+                redirect = defaultRedirect
+                configSource = "none"
+            }
+        } else if let envURL {
+            // Non-empty env URL selects the env source atomically (no plist key mix-in).
+            rawURL = envURL
+            anon = envKey ?? ""
+            redirect = envRedirect ?? defaultRedirect
+            configSource = "env"
+        } else if let plistURL {
+            rawURL = plistURL
+            anon = plistKey ?? ""
+            redirect = plistRedirect ?? defaultRedirect
+            configSource = "plist"
+        } else {
+            rawURL = ""
+            anon = ""
+            redirect = defaultRedirect
+            configSource = "none"
+        }
+
+        let parsed = Self.parseHTTPSURL(rawURL)
+        let isValid = parsed != nil && !anon.isEmpty
+        if !isValid {
+            APIInvalidURLDiagnostics.record(
+                source: .supabaseBaseMissing,
+                hasScheme: URL(string: rawURL)?.scheme != nil,
+                hasHost: URL(string: rawURL)?.host != nil,
+                configSource: configSource
+            )
+        }
+        return (parsed, anon, redirect, configSource, isValid)
+    }
+
+    /// Accept only http(s) absolute URLs with a host. Malformed non-empty input → nil (fail closed).
+    private static func parseHTTPSURL(_ raw: String) -> URL? {
+        guard let url = URL(string: raw),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              let host = url.host,
+              !host.isEmpty
+        else {
+            return nil
+        }
+        return url
+    }
+
+    private static func nonEmptyTrimmed(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     /// DI seam for deterministic `URLSession` / `URLProtocol` tests. Production uses `shared`.
@@ -266,6 +379,10 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
 
     private func openOAuth(provider: String) async throws {
         guard let base = supabaseURL else {
+            APIInvalidURLDiagnostics.record(
+                source: .supabaseBaseMissing,
+                configSource: "runtime"
+            )
             throw APIError.invalidURL
         }
         guard !anonKey.isEmpty else {
@@ -337,11 +454,26 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         bearerToken: String? = nil
     ) async throws -> Data {
         guard let base = supabaseURL else {
+            APIInvalidURLDiagnostics.record(
+                source: .supabaseBaseMissing,
+                configSource: "runtime"
+            )
             throw APIError.invalidURL
         }
-        var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)
+        // Prefer relative path segments — leading "/" can break `appending(path:)` + URLComponents.
+        let normalizedPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        var components = URLComponents(
+            url: base.appending(path: normalizedPath),
+            resolvingAgainstBaseURL: false
+        )
         components?.queryItems = query
         guard let url = components?.url else {
+            APIInvalidURLDiagnostics.record(
+                source: .supabaseComponentsFailed,
+                hasScheme: base.scheme != nil,
+                hasHost: base.host != nil,
+                configSource: "runtime"
+            )
             throw APIError.invalidURL
         }
         var request = URLRequest(url: url)
@@ -474,6 +606,8 @@ final class APIClient {
 
     private let baseURL: URL
     private let session: URLSession
+    /// Test seam: when set, `listProfiles` throws before networking (TF164 `invalid_url` reproduction).
+    var testForceListProfilesError: Error?
 
     init(baseURL: URL, session: URLSession = .shared) {
         self.baseURL = baseURL
@@ -670,6 +804,9 @@ final class APIClient {
     }
 
     func listProfiles(userId: String, accessToken: String? = nil) async throws -> [UserProfile] {
+        if let testForceListProfilesError {
+            throw testForceListProfilesError
+        }
         let url = baseURL.appending(path: "/api/profiles")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"

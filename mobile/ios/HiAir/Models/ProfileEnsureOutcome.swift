@@ -271,6 +271,10 @@ enum ProfileEnsureMapper {
                 props["error_type"] = "api"
             case .invalidURL:
                 props["error_type"] = "invalid_url"
+                props["url_source"] = APIInvalidURLDiagnostics.lastSource.rawValue
+                props["url_has_scheme"] = APIInvalidURLDiagnostics.lastHasScheme ? "1" : "0"
+                props["url_has_host"] = APIInvalidURLDiagnostics.lastHasHost ? "1" : "0"
+                props["url_config_source"] = APIInvalidURLDiagnostics.lastConfigSource
             case .invalidResponse:
                 props["error_type"] = "invalid_response"
             }

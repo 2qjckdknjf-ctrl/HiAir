@@ -284,7 +284,12 @@ struct DashboardView: View {
                             title: session.l("dashboard.error"),
                             message: session.l("dashboard.empty.api_unavailable"),
                             retryTitle: session.l("common.retry"),
-                            onRetry: { Task { await reloadDashboard() } }
+                            onRetry: {
+                                Task {
+                                    session.beginExplicitProfileEnsureCycle()
+                                    await reloadDashboard()
+                                }
+                            }
                         )
                         .v2Card()
                     } else if showLiveRiskContent {
@@ -305,7 +310,10 @@ struct DashboardView: View {
                 .hiAirScreenPadding(for: width)
                 .padding(.bottom, HiAirSpacing.xl)
             }
-            .refreshable { await reloadDashboard() }
+            .refreshable {
+                session.beginExplicitProfileEnsureCycle()
+                await reloadDashboard()
+            }
         }
         .hiAirPageBackground()
         .overlay {
@@ -684,10 +692,12 @@ struct DashboardView: View {
             Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
                 Task {
                     if session.profileId.isEmpty {
+                        // Explicit user recompute — do not reuse a prior terminal ensure failure.
+                        session.beginExplicitProfileEnsureCycle()
                         _ = await session.ensureProfileIdIfNeeded()
                     }
                     session.markChecklistItem("risk", done: true)
-                    await reloadDashboard()
+                    await reloadDashboard(skipProfileEnsure: true)
                 }
             }
             .buttonStyle(HiAirSecondaryButtonStyle())

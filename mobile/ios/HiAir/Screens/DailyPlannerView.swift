@@ -173,6 +173,8 @@ struct DailyPlannerView: View {
                 Button(viewModel.loading ? session.l("planner.loading") : session.l("planner.refresh")) {
                     Task {
                         if session.profileId.isEmpty {
+                            // Explicit user refresh — do not reuse a prior terminal ensure failure.
+                            session.beginExplicitProfileEnsureCycle()
                             _ = await session.ensureProfileIdIfNeeded()
                         }
                         guard !session.profileId.isEmpty else {

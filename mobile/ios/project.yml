@@ -9,7 +9,9 @@ targets:
     platform: iOS
     deploymentTarget: "16.0"
     sources:
-      - HiAir
+      - path: HiAir
+        excludes:
+          - Info.plist
     entitlements:
       path: HiAir/HiAir.entitlements
       properties:
@@ -17,11 +19,31 @@ targets:
           - Default
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+    # Custom keys must be in INFOPLIST_FILE. INFOPLIST_KEY_* for non-standard keys is not
+    # embedded into the product when only GENERATE_INFOPLIST_FILE is used (TF164 invalid_url).
+    info:
+      path: HiAir/Info.plist
+      properties:
+        # Keep versions tied to build settings — hardcoded 1.0/1 in INFOPLIST_FILE would
+        # regress ASC/TestFlight build numbers if merge order ever prefers the file.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        API_BASE_URL: $(API_BASE_URL)
+        SUPABASE_URL: $(SUPABASE_URL)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
+        HIAIR_AUTH_REDIRECT_URI: $(HIAIR_AUTH_REDIRECT_URI)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.hiair.app.auth
+            CFBundleURLSchemes:
+              - hiair
+        LSApplicationQueriesSchemes:
+          - x-apple-health
     settings:
       base:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 43A4KW5BKB
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: HiAir/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
         SWIFT_VERSION: 5.0
         CURRENT_PROJECT_VERSION: 150
@@ -32,10 +54,6 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone:
           - UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_CFBundleURLTypes:
-          - CFBundleURLName: com.hiair.app.auth
-            CFBundleURLSchemes:
-              - hiair
         # Export compliance: HTTPS/TLS only (exempt); skips ASC encryption questionnaire.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
@@ -44,22 +62,20 @@ targets:
           HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-
           HiAir connects to Apple Health to read wellness summaries for personal activity and recovery insights. HiAir does not write health data to Apple Health.
-        INFOPLIST_KEY_LSApplicationQueriesSchemes:
-          - x-apple-health
       configs:
         Debug:
           CODE_SIGNING_ALLOWED[sdk=iphoneos*]: NO
           CODE_SIGNING_REQUIRED[sdk=iphoneos*]: NO
-          INFOPLIST_KEY_API_BASE_URL: http://127.0.0.1:8000
           INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: YES
-          INFOPLIST_KEY_SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
-          INFOPLIST_KEY_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
-          INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
+          API_BASE_URL: http://127.0.0.1:8000
+          SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
+          HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
         Release:
-          INFOPLIST_KEY_API_BASE_URL: https://api.hiair.io
-          INFOPLIST_KEY_SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
-          INFOPLIST_KEY_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
-          INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
+          API_BASE_URL: https://api.hiair.io
+          SUPABASE_URL: https://qhxesaemlhzwbunpqjoo.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw
+          HIAIR_AUTH_REDIRECT_URI: hiair://auth/callback
   HiAirTests:
     type: bundle.unit-test
     platform: iOS

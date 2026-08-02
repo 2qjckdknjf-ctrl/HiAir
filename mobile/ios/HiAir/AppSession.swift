@@ -122,12 +122,73 @@ final class AppSession: ObservableObject {
     private var suppressAPIClientAuthSync = false
     /// Bumped whenever an in-flight profile ensure must be abandoned (logout/auth switch).
     private var profileEnsureGeneration: UInt64 = 0
+    /// One data-fetch / foreground cycle may perform at most one underlying profile ensure attempt.
+    private var profileEnsureCycleGeneration: UInt64 = 0
+    private var profileEnsureCycleUserId: String = ""
+    private var profileEnsureCycleTerminal: ProfileEnsureOutcome?
+    /// Underlying ensure attempts in the active cycle (test seam + diagnostics).
+    private(set) var profileEnsureCycleAttemptCount: Int = 0
+    /// Location revisions observed while a prepare/ensure cycle is open (bootstrap must not open a new cycle).
+    private var profileEnsureCycleLocationRevisions: Set<Int> = []
+    private var prepareSessionNestingDepth: Int = 0
+
+    /// Explicit Retry / new foreground activation — opens a fresh ensure cycle.
+    func beginExplicitProfileEnsureCycle() {
+        profileEnsureCycleGeneration &+= 1
+        profileEnsureCycleUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        profileEnsureCycleTerminal = nil
+        profileEnsureCycleAttemptCount = 0
+        profileEnsureCycleLocationRevisions = []
+        if locationRevision > 0 {
+            profileEnsureCycleLocationRevisions.insert(locationRevision)
+        }
+    }
+
+    private func openProfileEnsureCycleIfNeeded() {
+        let uid = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !uid.isEmpty else { return }
+        // Keep the active cycle for this user whether the ensure is in-flight or already terminal.
+        // Downstream callers (sibling Tab `.task`, locationRevision reload) must join / reuse —
+        // not open a fresh attempt after the first terminal result.
+        if profileEnsureCycleUserId == uid, profileEnsureCycleGeneration > 0 {
+            return
+        }
+        beginExplicitProfileEnsureCycle()
+    }
+
+    private func storeProfileEnsureCycleTerminal(_ outcome: ProfileEnsureOutcome) {
+        let uid = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !uid.isEmpty else { return }
+        if profileEnsureCycleGeneration == 0 || profileEnsureCycleUserId != uid {
+            openProfileEnsureCycleIfNeeded()
+        }
+        profileEnsureCycleTerminal = outcome
+        if locationRevision > 0 {
+            profileEnsureCycleLocationRevisions.insert(locationRevision)
+        }
+    }
+
+    private func memoizedProfileEnsureOutcomeForCurrentCycle() -> ProfileEnsureOutcome? {
+        let uid = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !uid.isEmpty,
+              profileEnsureCycleUserId == uid,
+              let terminal = profileEnsureCycleTerminal
+        else {
+            return nil
+        }
+        return terminal
+    }
 
     private func cancelInFlightProfileEnsure(clearOutcome: Bool) {
         profileEnsureGeneration &+= 1
         inFlightEnsureProfile?.cancel()
         inFlightEnsureProfile = nil
         isEnsuringProfile = false
+        profileEnsureCycleGeneration &+= 1
+        profileEnsureCycleUserId = ""
+        profileEnsureCycleTerminal = nil
+        profileEnsureCycleAttemptCount = 0
+        profileEnsureCycleLocationRevisions = []
         if clearOutcome {
             lastProfileEnsureOutcome = nil
         }
@@ -642,10 +703,13 @@ final class AppSession: ObservableObject {
             return await inFlightPrepare.value
         }
         let ownerUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        openProfileEnsureCycleIfNeeded()
         let task = Task { @MainActor [weak self] () -> SessionPrepareResult in
             guard let self else {
                 return SessionPrepareResult(profileReady: false, locationReady: false, locationAttempted: false)
             }
+            self.prepareSessionNestingDepth += 1
+            defer { self.prepareSessionNestingDepth = max(0, self.prepareSessionNestingDepth - 1) }
             let abandoned = SessionPrepareResult(
                 profileReady: false,
                 locationReady: false,
@@ -717,6 +781,11 @@ final class AppSession: ObservableObject {
         let ownerUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ownerUserId.isEmpty else { return }
         lastForegroundRefreshAt = now
+        // New foreground activation opens a new ensure cycle unless prepare is already in flight
+        // for this cold-start (join the existing cycle instead of wiping its memo).
+        if inFlightPrepare == nil {
+            beginExplicitProfileEnsureCycle()
+        }
         StartupDiagnostics.track("dashboard_refresh_started", errorCode: "foreground")
         _ = await prepareSessionForDataFetch(locationService: locationService)
         // Auth may have switched while prepare was in flight — never attribute to the new account.
@@ -816,6 +885,14 @@ final class AppSession: ObservableObject {
         longitude = lon
         locationSource = .device
         locationRevision += 1
+        // Bootstrap revisions belong to the open prepare/ensure cycle — do not start a new attempt.
+        if prepareSessionNestingDepth > 0 || inFlightEnsureProfile != nil || profileEnsureCycleTerminal == nil {
+            profileEnsureCycleLocationRevisions.insert(locationRevision)
+        } else if !profileEnsureCycleLocationRevisions.contains(locationRevision) {
+            // Post-terminal user/device move: legitimate new cycle.
+            beginExplicitProfileEnsureCycle()
+            profileEnsureCycleLocationRevisions.insert(locationRevision)
+        }
         // Geocode immediately — do not await profile PATCH / health / premium.
         Task { await self.resolvePlaceNameIfNeeded() }
         return await syncProfileLocationIfNeeded()
@@ -911,6 +988,11 @@ final class AppSession: ObservableObject {
 
     @discardableResult
     func ensureProfileIdIfNeeded() async -> ProfileEnsureOutcome {
+        openProfileEnsureCycleIfNeeded()
+        if let memoized = memoizedProfileEnsureOutcomeForCurrentCycle() {
+            lastProfileEnsureOutcome = memoized
+            return memoized
+        }
         if let inFlightEnsureProfile {
             return await inFlightEnsureProfile.value
         }
@@ -931,6 +1013,7 @@ final class AppSession: ObservableObject {
             lastProfileEnsurePhase = .idle
             lastProfileEnsureOutcome = .ready
             lastProfileEnsureCompletedAt = Date()
+            storeProfileEnsureCycleTerminal(.ready)
             return .ready
         }
         guard !userId.isEmpty, !accessToken.isEmpty else {
@@ -938,6 +1021,7 @@ final class AppSession: ObservableObject {
             lastProfileEnsurePhase = .list
             lastProfileEnsureOutcome = outcome
             lastProfileEnsureCompletedAt = Date()
+            storeProfileEnsureCycleTerminal(outcome)
             ProductAnalytics.track(
                 "profile_ensure_failed",
                 properties: ProfileEnsureMapper.analyticsProperties(
@@ -952,6 +1036,7 @@ final class AppSession: ObservableObject {
         let requestedUserId = userId
         var requestedAccessToken = accessToken
         let ensureGeneration = profileEnsureGeneration
+        profileEnsureCycleAttemptCount += 1
         isEnsuringProfile = true
         defer {
             if ensureGeneration == profileEnsureGeneration {
@@ -982,6 +1067,7 @@ final class AppSession: ObservableObject {
                 hydrateProfileLocation(from: existing)
                 lastProfileEnsureOutcome = .ready
                 lastProfileEnsureCompletedAt = Date()
+                storeProfileEnsureCycleTerminal(.ready)
                 ProductAnalytics.track(
                     "profile_ensure_succeeded",
                     properties: ["source": "list", "phase": phase.rawValue, "diagnostic_code": "PE_READY"]
@@ -1006,6 +1092,7 @@ final class AppSession: ObservableObject {
                 let outcome = ProfileEnsureOutcome.needsLocation
                 lastProfileEnsureOutcome = outcome
                 lastProfileEnsureCompletedAt = Date()
+                storeProfileEnsureCycleTerminal(outcome)
                 ProductAnalytics.track(
                     "profile_ensure_failed",
                     properties: ProfileEnsureMapper.analyticsProperties(
@@ -1048,6 +1135,7 @@ final class AppSession: ObservableObject {
                 postProfileLocationDidUpdate(source: .profileCreated)
                 lastProfileEnsureOutcome = .ready
                 lastProfileEnsureCompletedAt = Date()
+                storeProfileEnsureCycleTerminal(.ready)
                 ProductAnalytics.track(
                     "profile_ensure_succeeded",
                     properties: ["source": "create", "phase": phase.rawValue, "diagnostic_code": "PE_READY"]
@@ -1074,6 +1162,7 @@ final class AppSession: ObservableObject {
                     hydrateProfileLocation(from: existing)
                     lastProfileEnsureOutcome = .ready
                     lastProfileEnsureCompletedAt = Date()
+                    storeProfileEnsureCycleTerminal(.ready)
                     ProductAnalytics.track(
                         "profile_ensure_succeeded",
                         properties: [
@@ -1103,6 +1192,7 @@ final class AppSession: ObservableObject {
             lastProfileEnsureOutcome = outcome
             lastProfileEnsurePhase = phase
             lastProfileEnsureCompletedAt = Date()
+            storeProfileEnsureCycleTerminal(outcome)
             if case .needsAuthentication = outcome {
                 expireSessionAfterAuthFailure()
             } else if case .failure(let reason) = outcome, reason.suggestsReauthentication {
