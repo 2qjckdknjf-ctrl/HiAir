@@ -36,6 +36,7 @@
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
 		5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB46A64A9D06988894EB3978 /* HiAirMotion.swift */; };
 		611512163246F5F671FAAFE7 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C80D922CB3152908E2D2892 /* LocationService.swift */; };
+		620932E297A0EFA3FE5AA010 /* InfoPlistPackagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */; };
 		622F96C121C55BFEDC2ACA92 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */; };
 		630FD44D484D2D68453486A9 /* ProfileEnsureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAE1DA0A37DFC548AF3687D /* ProfileEnsureTests.swift */; };
 		714BB4A2D60C45C93C508CFD /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 473FF9ADA6A471A1B256FE84 /* PaywallView.swift */; };
@@ -153,6 +154,7 @@
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPlistPackagingTests.swift; sourceTree = "<group>"; };
 		CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirHumanDateTests.swift; sourceTree = "<group>"; };
 		CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileBootstrapUITests.swift; sourceTree = "<group>"; };
 		D45801250D377C4C9F87BCE9 /* UITestMockAPIProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestMockAPIProtocol.swift; sourceTree = "<group>"; };
@@ -294,6 +296,7 @@
 				AB03AB32DC5D272A4BCF0999 /* HealthKitAuthorizationSingleFlightTests.swift */,
 				8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */,
 				CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */,
+				CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */,
 				2DAE1DA0A37DFC548AF3687D /* ProfileEnsureTests.swift */,
 				5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */,
 				E51B8943BC3F02E49B7FB4D0 /* SubscriptionServiceTests.swift */,
@@ -493,6 +496,7 @@
 				C1113FCF17266A966F5C04D3 /* HealthKitAuthorizationSingleFlightTests.swift in Sources */,
 				47FDE2DE4AB462EA0052DD48 /* HealthKitTimeoutRaceTests.swift in Sources */,
 				0B19571439FFB543F25751C6 /* HiAirHumanDateTests.swift in Sources */,
+				620932E297A0EFA3FE5AA010 /* InfoPlistPackagingTests.swift in Sources */,
 				630FD44D484D2D68453486A9 /* ProfileEnsureTests.swift in Sources */,
 				116362F5B5F2F56299C94173 /* RuntimeUXRecoveryTests.swift in Sources */,
 				1E1AE86A24B33D667114E29C /* SubscriptionServiceTests.swift in Sources */,

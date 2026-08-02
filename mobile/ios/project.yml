@@ -24,6 +24,10 @@ targets:
     info:
       path: HiAir/Info.plist
       properties:
+        # Keep versions tied to build settings — hardcoded 1.0/1 in INFOPLIST_FILE would
+        # regress ASC/TestFlight build numbers if merge order ever prefers the file.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         API_BASE_URL: $(API_BASE_URL)
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
