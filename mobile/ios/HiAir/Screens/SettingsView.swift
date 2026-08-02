@@ -323,6 +323,27 @@ final class SettingsViewModel: ObservableObject {
             )
             return
         }
+
+        // UITest-only inactive seed: exercise production WearableStatusPresentation with
+        // durable=true + consentActive=false without network/upload/delete. Gated by -UITesting.
+        if UITestBootstrap.seedWearableDurableInactive {
+            let durable = service.hasDurableConsent(for: expectedUserId)
+            let systemAuth = service.hasSystemAuthorization(for: expectedUserId)
+            // Keep durable marker; demote stale `.connected` presentation to OS-authorized.
+            if service.connectionState == .connected || service.connectionState == .dataUnavailable
+                || service.connectionState == .syncFailed || service.connectionState == .partial
+            {
+                service.reportConnectionState(systemAuth ? .systemAuthorized : .notConnected)
+            }
+            wearableStatus = wearableStatusLabel(
+                for: service.connectionState,
+                consentActive: false,
+                hasDurableConsent: durable,
+                hasSystemAuthorization: systemAuth
+            )
+            return
+        }
+
         do {
             let today = try await apiClient.fetchWearableToday(
                 userId: expectedUserId,
