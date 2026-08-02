@@ -148,13 +148,33 @@ final class HealthKitService: ObservableObject {
                 ProductAnalytics.track("health_consent_rehydrated", properties: ["source": "server"])
             }
             markConsentPersisted(for: userId)
-        } else if hasDurableConsent(for: userId) {
-            clearConsentPersisted(for: userId)
-            if boundUserId == userId {
-                connectionState = hasSystemAuthorization(for: userId) ? .systemAuthorized : .notConnected
+        } else {
+            if hasDurableConsent(for: userId) {
+                clearConsentPersisted(for: userId)
+                ProductAnalytics.track("health_consent_cleared", properties: ["source": "server_inactive"])
             }
-            ProductAnalytics.track("health_consent_cleared", properties: ["source": "server_inactive"])
+            // Always demote account-connected presentation when server consent is inactive,
+            // including stale `.connected` without a durable marker (TF167 UI defect).
+            if boundUserId == userId {
+                demoteConnectedWithoutDurableConsent(for: userId)
+            }
         }
+    }
+
+    /// Demote stale `.connected` / sync terminal states when durable account consent is missing.
+    /// Preserves OS authorization as `.systemAuthorized`. Does not revoke system HK permission.
+    @discardableResult
+    func demoteConnectedWithoutDurableConsent(for userId: String) -> WearableConnectionState {
+        guard !userId.isEmpty else { return connectionState }
+        guard boundUserId.isEmpty || boundUserId == userId else { return connectionState }
+        guard !hasDurableConsent(for: userId) else { return connectionState }
+        switch connectionState {
+        case .connected, .dataUnavailable, .syncFailed, .partial:
+            connectionState = hasSystemAuthorization(for: userId) ? .systemAuthorized : .notConnected
+        default:
+            break
+        }
+        return connectionState
     }
 
     /// Logout / account switch: cancel work and clear presentation; keep HK system permission.
@@ -334,12 +354,19 @@ final class HealthKitService: ObservableObject {
                 ? connectionState
                 : .connected
         }
-        if !userId.isEmpty, hasSystemAuthorization(for: userId) {
-            connectionState = .systemAuthorized
-            return .systemAuthorized
+        // No durable consent: never keep/promote `.connected` (OS auth ≠ account sync).
+        if !userId.isEmpty {
+            _ = demoteConnectedWithoutDurableConsent(for: userId)
+            if hasSystemAuthorization(for: userId) {
+                connectionState = .systemAuthorized
+                return .systemAuthorized
+            }
         }
         if connectionState == .permissionRequested || connectionState == .permissionDenied {
             return connectionState
+        }
+        if connectionState == .systemAuthorized {
+            return .systemAuthorized
         }
         connectionState = .notConnected
         return .notConnected
@@ -910,6 +937,10 @@ final class HealthKitService: ObservableObject {
                     return
                 }
                 guard generation == syncGeneration, boundUserId.isEmpty || boundUserId == userId else { return }
+                guard hasDurableConsent(for: userId) else {
+                    _ = demoteConnectedWithoutDurableConsent(for: userId)
+                    return
+                }
                 connectionState = metrics.isEmpty && sleepPayload == nil ? .dataUnavailable : .connected
                 lastSyncError = nil
                 lastSyncAt = Date()
@@ -959,6 +990,10 @@ final class HealthKitService: ObservableObject {
                 )
             )
             guard generation == syncGeneration, boundUserId.isEmpty || boundUserId == userId else { return }
+            guard hasDurableConsent(for: userId) else {
+                _ = demoteConnectedWithoutDurableConsent(for: userId)
+                return
+            }
             connectionState = metrics.isEmpty && sleepPayload == nil ? .dataUnavailable : .connected
             lastSyncError = nil
             lastSyncAt = Date()

@@ -98,7 +98,11 @@ final class SettingsViewModel: ObservableObject {
     @Published var statusText = "-"
     @Published var loading = false
 
-    private let apiClient = APIClient.live()
+    private let apiClient: APIClient
+
+    init(apiClient: APIClient = .live()) {
+        self.apiClient = apiClient
+    }
     private var aiRefreshTask: Task<Void, Never>?
     private var aiSummaryRequestVersion: Int = 0
     private var aiTimeoutTask: Task<Void, Never>?
@@ -300,18 +304,34 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func refreshWearableStatus() async {
-        // Prefer live connectionState; do not clobber Connected while sync is still running.
-        let hkState = HealthKitService.shared.connectionState == .notConnected
-            ? HealthKitService.shared.refreshAuthorizationState()
-            : HealthKitService.shared.connectionState
-        guard !userId.isEmpty else {
-            wearableStatus = wearableStatusLabel(for: hkState, consentActive: false)
+        let service = HealthKitService.shared
+        let expectedUserId = userId
+        let expectedToken = accessToken
+        // Prefer live connectionState; demote stale Connected without durable consent first.
+        if service.connectionState == .notConnected {
+            _ = service.refreshAuthorizationState()
+        } else if !expectedUserId.isEmpty {
+            _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
+        }
+        let hkState = service.connectionState
+        guard !expectedUserId.isEmpty else {
+            wearableStatus = wearableStatusLabel(
+                for: hkState,
+                consentActive: false,
+                hasDurableConsent: false,
+                hasSystemAuthorization: false
+            )
             return
         }
         do {
-            let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            let today = try await apiClient.fetchWearableToday(
+                userId: expectedUserId,
+                accessToken: expectedToken
+            )
+            // Drop stale async refresh after logout / account switch.
+            guard userId == expectedUserId else { return }
             let consentActive = today.consent?.isActive == true
-            let hkBefore = HealthKitService.shared.connectionState
+            let hkBefore = service.connectionState
             // Never rehydrate Connected while local revoke is pending/failed (fail-closed).
             let revokeInFlight: Bool
             switch hkBefore {
@@ -321,49 +341,49 @@ final class SettingsViewModel: ObservableObject {
                 revokeInFlight = false
             }
             if !revokeInFlight {
-                HealthKitService.shared.reconcileServerConsent(userId: userId, isActive: consentActive)
-            }
-            let hkAfter = HealthKitService.shared.connectionState
-            let effective: WearableConnectionState
-            if revokeInFlight {
-                effective = hkAfter
+                service.reconcileServerConsent(userId: expectedUserId, isActive: consentActive)
             } else {
-                effective = (hkAfter == .connected || consentActive) ? .connected : hkAfter
+                _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
             }
+            let hkAfter = service.connectionState
+            let durable = service.hasDurableConsent(for: expectedUserId)
+            let systemAuth = service.hasSystemAuthorization(for: expectedUserId)
+            // Account "подключено" requires server-active + durable consent — never OS auth alone.
+            let accountConsentActive = !revokeInFlight && consentActive && durable
             wearableStatus = wearableStatusLabel(
-                for: effective,
-                consentActive: !revokeInFlight && (consentActive || hkAfter == .connected)
+                for: hkAfter,
+                consentActive: accountConsentActive,
+                hasDurableConsent: durable,
+                hasSystemAuthorization: systemAuth
             )
         } catch {
+            guard userId == expectedUserId else { return }
+            let durable = service.hasDurableConsent(for: expectedUserId)
+            _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
+            // Transport/server failure must not flip durable consent into "inactive".
+            // Keep local durable as active for presentation; demote only stale connected without durable.
             wearableStatus = wearableStatusLabel(
-                for: hkState,
-                consentActive: hkState == .connected
+                for: service.connectionState,
+                consentActive: durable,
+                hasDurableConsent: durable,
+                hasSystemAuthorization: service.hasSystemAuthorization(for: expectedUserId)
             )
         }
     }
 
-    private func wearableStatusLabel(for hkState: WearableConnectionState, consentActive: Bool) -> String {
-        let prefix = l("settings.wearables.status")
-        switch hkState {
-        case .connected where consentActive:
-            return "\(prefix): \(l("settings.wearables.connected"))"
-        case .consentSaving, .systemAuthorized:
-            return "\(prefix): \(l("wearable.consent.saving"))"
-        case .consentFailed:
-            return "\(prefix): \(l("wearable.consent.failed"))"
-        case .revoking, .remoteRevokePending:
-            return "\(prefix): \(l("wearable.consent.revoking"))"
-        case .revokeFailed:
-            return "\(prefix): \(l("wearable.consent.revoke_failed"))"
-        case .permissionDenied:
-            return "\(prefix): \(l("settings.wearables.denied"))"
-        case .unavailable:
-            return l("wearable.dashboard.unavailable")
-        case .connected, .notConnected, .permissionRequested, .dataUnavailable, .syncFailed, .partial:
-            return consentActive
-                ? "\(prefix): \(l("settings.wearables.connected"))"
-                : l("wearable.dashboard.not_connected")
-        }
+    func wearableStatusLabel(
+        for hkState: WearableConnectionState,
+        consentActive: Bool,
+        hasDurableConsent: Bool,
+        hasSystemAuthorization: Bool
+    ) -> String {
+        WearableStatusPresentation.statusLabel(
+            connectionState: hkState,
+            consentActive: consentActive,
+            hasDurableConsent: hasDurableConsent,
+            hasSystemAuthorization: hasSystemAuthorization,
+            localize: { l($0) }
+        )
     }
 
     func disconnectWearables() async {
@@ -981,9 +1001,11 @@ struct SettingsView: View {
                     Text(session.l("settings.wearables.title"))
                         .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
+                        .accessibilityIdentifier("settings.wearables.title")
                     Text(viewModel.wearableStatus)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
+                        .accessibilityIdentifier("settings.wearables.status")
                     if let errorText = session.lHealthKitError(HealthKitService.shared.lastAuthorizationError) {
                         Text(errorText)
                             .font(AuroraTokens.Typography.caption)
@@ -993,14 +1015,17 @@ struct SettingsView: View {
                         showWearableConsent = true
                     }
                     .buttonStyle(HiAirGradientButtonStyle())
+                    .accessibilityIdentifier("settings.wearables.connect")
                     Button(session.l("settings.wearables.disconnect")) {
                         Task { await viewModel.disconnectWearables() }
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
+                    .accessibilityIdentifier("settings.wearables.disconnect")
                     Button(session.l("settings.wearables.delete")) {
                         Task { await viewModel.deleteWearableData() }
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
+                    .accessibilityIdentifier("settings.wearables.delete")
                 }
                 .v2Card()
                 .onAppear {

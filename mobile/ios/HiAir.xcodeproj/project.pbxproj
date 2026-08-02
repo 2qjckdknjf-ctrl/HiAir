@@ -66,6 +66,8 @@
 		C1113FCF17266A966F5C04D3 /* HealthKitAuthorizationSingleFlightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB03AB32DC5D272A4BCF0999 /* HealthKitAuthorizationSingleFlightTests.swift */; };
 		C30809826565B303D0211894 /* HealthTodayMetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5F76C9D3AC184612BAAF7ED /* HealthTodayMetricsView.swift */; };
 		C30E487232AD1079B0F38B2B /* UITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9877705B2259F97CBA762758 /* UITestSupport.swift */; };
+		C5922BB62ADBFE998F67A0DD /* WearableConsentUIStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC81AD73B87F92F9743D86B /* WearableConsentUIStateTests.swift */; };
+		D7E1D5F55E8D6B828BBA6EA9 /* WearableConsentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */; };
 		DC0A682C62C0CFFCEF77D486 /* SupabaseAuthLogoutTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 244924BEC6FD44E41B87A87B /* SupabaseAuthLogoutTransportTests.swift */; };
 		E181DAAD698B8A895596F5C9 /* HiAirHumanDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B225391F981853BB27DC62E7 /* HiAirHumanDate.swift */; };
 		E28D30B53EBF55C4AD19399C /* HiAirShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */; };
@@ -74,6 +76,7 @@
 		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
+		F1FD4A15DAFF7E0E44495F4F /* WearableStatusPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */; };
 		F7796D20327E2DEB59780003 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */; };
 		F8E4E8CD814CCB27DA50948D /* HiAirColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606F94F2339205445B9E3E37 /* HiAirColors.swift */; };
 		F9902B01523BE5FF472F880D /* HiAirGradients.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */; };
@@ -125,6 +128,7 @@
 		5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeUXRecoveryTests.swift; sourceTree = "<group>"; };
 		5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		5D79B00DF93EE905C5824D90 /* HiAir.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HiAir.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentUITests.swift; sourceTree = "<group>"; };
 		606F94F2339205445B9E3E37 /* HiAirColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirColors.swift; sourceTree = "<group>"; };
 		6183833DB60B26DF8F99DF12 /* HiAirLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLaunchView.swift; sourceTree = "<group>"; };
 		633C39532BF5572FD090BFB8 /* HealthKitTimeoutRace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTimeoutRace.swift; sourceTree = "<group>"; };
@@ -136,6 +140,7 @@
 		85A830216F3D632CB7F632E5 /* SymptomTaxonomyDTOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomTaxonomyDTOTests.swift; sourceTree = "<group>"; };
 		8833EA8341D4356991598891 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTimeoutRaceTests.swift; sourceTree = "<group>"; };
+		913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableStatusPresentation.swift; sourceTree = "<group>"; };
 		93EEF3FD465B8193BE67529E /* HiAirTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9877705B2259F97CBA762758 /* UITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestSupport.swift; sourceTree = "<group>"; };
 		9BD707A08B6657EF85395B26 /* HiAirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirApp.swift; sourceTree = "<group>"; };
@@ -149,6 +154,7 @@
 		B225391F981853BB27DC62E7 /* HiAirHumanDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirHumanDate.swift; sourceTree = "<group>"; };
 		B47E3D3B1AAA614A9339E3BE /* ProfileEnsureOutcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEnsureOutcome.swift; sourceTree = "<group>"; };
 		BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductAnalytics.swift; sourceTree = "<group>"; };
+		BBC81AD73B87F92F9743D86B /* WearableConsentUIStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentUIStateTests.swift; sourceTree = "<group>"; };
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
 		BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
@@ -214,6 +220,7 @@
 			children = (
 				CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */,
 				9877705B2259F97CBA762758 /* UITestSupport.swift */,
+				5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */,
 			);
 			path = HiAirUITests;
 			sourceTree = "<group>";
@@ -252,6 +259,7 @@
 				81AEC3B255250F766121E890 /* StoreProductIDs.swift */,
 				009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */,
 				A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */,
+				913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -302,6 +310,7 @@
 				E51B8943BC3F02E49B7FB4D0 /* SubscriptionServiceTests.swift */,
 				244924BEC6FD44E41B87A87B /* SupabaseAuthLogoutTransportTests.swift */,
 				85A830216F3D632CB7F632E5 /* SymptomTaxonomyDTOTests.swift */,
+				BBC81AD73B87F92F9743D86B /* WearableConsentUIStateTests.swift */,
 			);
 			path = HiAirTests;
 			sourceTree = "<group>";
@@ -484,6 +493,7 @@
 			files = (
 				3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */,
 				C30E487232AD1079B0F38B2B /* UITestSupport.swift in Sources */,
+				D7E1D5F55E8D6B828BBA6EA9 /* WearableConsentUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -502,6 +512,7 @@
 				1E1AE86A24B33D667114E29C /* SubscriptionServiceTests.swift in Sources */,
 				DC0A682C62C0CFFCEF77D486 /* SupabaseAuthLogoutTransportTests.swift in Sources */,
 				8ED6F86166DE120D96F89B01 /* SymptomTaxonomyDTOTests.swift in Sources */,
+				C5922BB62ADBFE998F67A0DD /* WearableConsentUIStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -563,6 +574,7 @@
 				77B0C3A0D969BE57865D3A5A /* UITestBootstrap.swift in Sources */,
 				B47F8144576A3FC3C03AA30B /* UITestMockAPIProtocol.swift in Sources */,
 				BF994356A47D50BB6E84B94C /* WearableConsentView.swift in Sources */,
+				F1FD4A15DAFF7E0E44495F4F /* WearableStatusPresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
