@@ -3095,6 +3095,13 @@ enum HiAirL10n {
             "guide.high_risk_title": "Cosa fare con rischio alto",
             "guide.not_doctor_title": "Perché HiAir non sostituisce il medico",
             "guide.faq_title": "Domande frequenti",
+            "settings.wearables.device_authorized": "accesso consentito",
+            "settings.wearables.consent_inactive": "consenso inattivo",
+            "settings.wearables.connected": "connesso",
+            "settings.wearables.disconnect": "Disconnetti",
+            "settings.wearables.delete": "Elimina dati health",
+            "settings.wearables.delete_done": "Dati health locali eliminati",
+            "settings.wearables.connect": "Collega Apple Health",
         ],
         "fr": [
             "tab.dashboard": "Accueil",
@@ -3221,6 +3228,13 @@ enum HiAirL10n {
             "guide.high_risk_title": "Que faire en cas de risque eleve",
             "guide.not_doctor_title": "Pourquoi HiAir ne remplace pas un medecin",
             "guide.faq_title": "FAQ",
+            "settings.wearables.device_authorized": "accès autorisé",
+            "settings.wearables.consent_inactive": "consentement inactif",
+            "settings.wearables.connected": "connecté",
+            "settings.wearables.disconnect": "Déconnecter",
+            "settings.wearables.delete": "Supprimer les données health",
+            "settings.wearables.delete_done": "Données health locales supprimées",
+            "settings.wearables.connect": "Connecter Apple Health",
         ],
     ]
 }

@@ -360,9 +360,11 @@ final class SettingsViewModel: ObservableObject {
             guard userId == expectedUserId else { return }
             let durable = service.hasDurableConsent(for: expectedUserId)
             _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
+            // Transport/server failure must not flip durable consent into "inactive".
+            // Keep local durable as active for presentation; demote only stale connected without durable.
             wearableStatus = wearableStatusLabel(
                 for: service.connectionState,
-                consentActive: false,
+                consentActive: durable,
                 hasDurableConsent: durable,
                 hasSystemAuthorization: service.hasSystemAuthorization(for: expectedUserId)
             )

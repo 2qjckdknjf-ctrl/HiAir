@@ -397,8 +397,26 @@ final class WearableConsentUIStateTests: XCTestCase {
                 "settings.wearables.delete_done": "Datos de salud locales eliminados",
                 "settings.wearables.connect": "Conectar Apple Salud",
             ],
+            "it": [
+                "settings.wearables.connected": "connesso",
+                "settings.wearables.device_authorized": "accesso consentito",
+                "settings.wearables.consent_inactive": "consenso inattivo",
+                "settings.wearables.disconnect": "Disconnetti",
+                "settings.wearables.delete": "Elimina dati health",
+                "settings.wearables.delete_done": "Dati health locali eliminati",
+                "settings.wearables.connect": "Collega Apple Health",
+            ],
+            "fr": [
+                "settings.wearables.connected": "connecté",
+                "settings.wearables.device_authorized": "accès autorisé",
+                "settings.wearables.consent_inactive": "consentement inactif",
+                "settings.wearables.disconnect": "Déconnecter",
+                "settings.wearables.delete": "Supprimer les données health",
+                "settings.wearables.delete_done": "Données health locales supprimées",
+                "settings.wearables.connect": "Connecter Apple Health",
+            ],
         ]
-        for lang in ["ru", "en", "es"] {
+        for lang in ["ru", "en", "es", "it", "fr"] {
             for key in keys {
                 let value = HiAirL10n.t(key, lang: lang)
                 XCTAssertEqual(value, expected[lang]?[key], "\(lang) \(key)")
@@ -407,9 +425,35 @@ final class WearableConsentUIStateTests: XCTestCase {
             }
         }
         // Disconnect must not claim deletion in any locale.
-        for lang in ["ru", "en", "es"] {
+        for lang in ["ru", "en", "es", "it", "fr"] {
             let disconnect = HiAirL10n.t("settings.wearables.disconnect", lang: lang).lowercased()
-            XCTAssertFalse(disconnect.contains("delete") || disconnect.contains("eliminar") || disconnect.contains("удалить"))
+            XCTAssertFalse(
+                disconnect.contains("delete")
+                    || disconnect.contains("eliminar")
+                    || disconnect.contains("удалить")
+                    || disconnect.contains("elimina")
+                    || disconnect.contains("supprimer")
+            )
         }
+    }
+
+    func testOfflineRefreshPreservesDurableActivePresentation() {
+        // Durable consent remains active when /wearables/today is unknown (catch path).
+        let label = status(
+            state: .connected,
+            consentActive: true,
+            durable: true,
+            systemAuth: true
+        )
+        XCTAssertTrue(label.contains(localizeRU("settings.wearables.connected")))
+        XCTAssertFalse(label.contains(localizeRU("settings.wearables.consent_inactive")))
+
+        let inactiveWhenDurableButServerSaysOff = status(
+            state: .systemAuthorized,
+            consentActive: false,
+            durable: true,
+            systemAuth: true
+        )
+        XCTAssertTrue(inactiveWhenDurableButServerSaysOff.contains(localizeRU("settings.wearables.consent_inactive")))
     }
 }
