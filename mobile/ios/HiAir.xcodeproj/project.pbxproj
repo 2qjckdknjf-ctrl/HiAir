@@ -581,6 +581,7 @@
 		13DE2FD2F4BB9D8A13D8E437 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				API_BASE_URL = "https://api.hiair.io";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -588,26 +589,13 @@
 				CURRENT_PROJECT_VERSION = 150;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_API_BASE_URL = "https://api.hiair.io";
+				HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
+				INFOPLIST_FILE = HiAir/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
-				INFOPLIST_KEY_CFBundleURLTypes = (
-					{
-						CFBundleURLName = com.hiair.app.auth;
-						CFBundleURLSchemes = (
-							hiair,
-						);
-					},
-				);
-				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationQueriesSchemes = (
-					"x-apple-health",
-				);
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HiAir connects to Apple Health to read wellness summaries for personal activity and recovery insights. HiAir does not write health data to Apple Health.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your current area and personalize local guidance.";
-				INFOPLIST_KEY_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw";
-				INFOPLIST_KEY_SUPABASE_URL = "https://qhxesaemlhzwbunpqjoo.supabase.co";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -622,6 +610,8 @@
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiair.app;
 				SDKROOT = iphoneos;
+				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw";
+				SUPABASE_URL = "https://qhxesaemlhzwbunpqjoo.supabase.co";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -670,6 +660,7 @@
 		97AC12AFF3260904AD792FD2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				API_BASE_URL = "http://127.0.0.1:8000";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = NO;
 				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = NO;
@@ -679,27 +670,14 @@
 				CURRENT_PROJECT_VERSION = 150;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_API_BASE_URL = "http://127.0.0.1:8000";
+				HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
+				INFOPLIST_FILE = HiAir/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HiAir;
-				INFOPLIST_KEY_CFBundleURLTypes = (
-					{
-						CFBundleURLName = com.hiair.app.auth;
-						CFBundleURLSchemes = (
-							hiair,
-						);
-					},
-				);
-				INFOPLIST_KEY_HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationQueriesSchemes = (
-					"x-apple-health",
-				);
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HiAir connects to Apple Health to read wellness summaries for personal activity and recovery insights. HiAir does not write health data to Apple Health.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your current area and personalize local guidance.";
-				INFOPLIST_KEY_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw";
-				INFOPLIST_KEY_SUPABASE_URL = "https://qhxesaemlhzwbunpqjoo.supabase.co";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -714,6 +692,8 @@
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiair.app;
 				SDKROOT = iphoneos;
+				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoeGVzYWVtbGh6d2J1bnBxam9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Nzk5MzgsImV4cCI6MjA5NTM1NTkzOH0.B9TOtpcqQZS81Sx5vlRyN3nhxZTWQWzaqZ-F8RFbCZw";
+				SUPABASE_URL = "https://qhxesaemlhzwbunpqjoo.supabase.co";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
