@@ -284,7 +284,12 @@ struct DashboardView: View {
                             title: session.l("dashboard.error"),
                             message: session.l("dashboard.empty.api_unavailable"),
                             retryTitle: session.l("common.retry"),
-                            onRetry: { Task { await reloadDashboard() } }
+                            onRetry: {
+                                Task {
+                                    session.beginExplicitProfileEnsureCycle()
+                                    await reloadDashboard()
+                                }
+                            }
                         )
                         .v2Card()
                     } else if showLiveRiskContent {
@@ -305,7 +310,10 @@ struct DashboardView: View {
                 .hiAirScreenPadding(for: width)
                 .padding(.bottom, HiAirSpacing.xl)
             }
-            .refreshable { await reloadDashboard() }
+            .refreshable {
+                session.beginExplicitProfileEnsureCycle()
+                await reloadDashboard()
+            }
         }
         .hiAirPageBackground()
         .overlay {

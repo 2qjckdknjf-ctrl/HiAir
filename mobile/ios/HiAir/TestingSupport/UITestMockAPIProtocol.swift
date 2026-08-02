@@ -34,6 +34,11 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
     /// When set, the next matching request fails with this URLError (then cleared if oneShot).
     nonisolated(unsafe) static var failNextWithURLError: URLError.Code?
     nonisolated(unsafe) static var failURLErrorPathSubstring: String?
+    /// When set, matching request fails with this Error (e.g. `APIError.invalidURL`).
+    nonisolated(unsafe) static var failNextWithError: Error?
+    nonisolated(unsafe) static var failErrorPathSubstring: String?
+    /// When > 0, keep failing matching requests with `failNextWithError` that many times.
+    nonisolated(unsafe) static var failErrorRemainingCount: Int = 0
     private static let lock = NSLock()
 
     static func reset(
@@ -58,6 +63,9 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         responseDelayNanoseconds = 0
         failNextWithURLError = nil
         failURLErrorPathSubstring = nil
+        failNextWithError = nil
+        failErrorPathSubstring = nil
+        failErrorRemainingCount = 0
         routes = [
             "GET /api/profiles": listProfiles,
             "POST /api/profiles": createProfile,
@@ -140,17 +148,33 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
         let key = "\(method) \(path)"
         let failCode = Self.failNextWithURLError
         let failPath = Self.failURLErrorPathSubstring
-        let shouldFail = failCode != nil && (failPath == nil || path.contains(failPath!))
-        if shouldFail {
+        let shouldFailURL = failCode != nil && (failPath == nil || path.contains(failPath!))
+        if shouldFailURL {
             Self.failNextWithURLError = nil
             Self.failURLErrorPathSubstring = nil
+        }
+        let failError = Self.failNextWithError
+        let failErrorPath = Self.failErrorPathSubstring
+        let shouldFailError = failError != nil
+            && Self.failErrorRemainingCount > 0
+            && (failErrorPath == nil || path.contains(failErrorPath!))
+        if shouldFailError {
+            Self.failErrorRemainingCount -= 1
+            if Self.failErrorRemainingCount <= 0 {
+                Self.failNextWithError = nil
+                Self.failErrorPathSubstring = nil
+            }
         }
         let response = Self.routes[key] ?? RouteResponse.json(404, object: ["detail": "unmocked \(key)"])
         let delay = Self.responseDelayNanoseconds
         Self.lock.unlock()
 
-        if shouldFail, let failCode {
+        if shouldFailURL, let failCode {
             client?.urlProtocol(self, didFailWithError: URLError(failCode))
+            return
+        }
+        if shouldFailError, let failError {
+            client?.urlProtocol(self, didFailWithError: failError)
             return
         }
 

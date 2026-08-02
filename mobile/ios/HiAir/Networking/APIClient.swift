@@ -474,6 +474,8 @@ final class APIClient {
 
     private let baseURL: URL
     private let session: URLSession
+    /// Test seam: when set, `listProfiles` throws before networking (TF164 `invalid_url` reproduction).
+    var testForceListProfilesError: Error?
 
     init(baseURL: URL, session: URLSession = .shared) {
         self.baseURL = baseURL
@@ -670,6 +672,9 @@ final class APIClient {
     }
 
     func listProfiles(userId: String, accessToken: String? = nil) async throws -> [UserProfile] {
+        if let testForceListProfilesError {
+            throw testForceListProfilesError
+        }
         let url = baseURL.appending(path: "/api/profiles")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"

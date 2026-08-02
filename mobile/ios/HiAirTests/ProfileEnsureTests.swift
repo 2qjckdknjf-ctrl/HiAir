@@ -11,12 +11,15 @@ final class ProfileEnsureTests: XCTestCase {
         try await super.setUp()
         APIClient.setAuthState(nil)
         APIClient.setAuthInvalidatedHandler(nil)
+        ProductAnalytics.testEventSink = nil
         harness = ProfileEnsureTestHarness()
         UITestMockAPIProtocol.isEnabled = true
         UITestMockAPIProtocol.reset()
     }
 
     override func tearDown() async throws {
+        ProductAnalytics.testEventSink = nil
+        harness?.apiClient.testForceListProfilesError = nil
         harness?.tearDown()
         harness = nil
         UITestMockAPIProtocol.isEnabled = false
@@ -453,6 +456,8 @@ final class ProfileEnsureTests: XCTestCase {
                 ]]
             )
         )
+        // Explicit Retry opens a new cycle (automatic post-failure ensure is memoized).
+        session.beginExplicitProfileEnsureCycle()
         async let r1 = session.ensureProfileIdIfNeeded()
         async let r2 = session.ensureProfileIdIfNeeded()
         let a = await r1
@@ -497,6 +502,7 @@ final class ProfileEnsureTests: XCTestCase {
                 ]]
             )
         )
+        session.beginExplicitProfileEnsureCycle()
         let ok = await session.ensureProfileIdIfNeeded()
         XCTAssertEqual(ok, .ready)
         XCTAssertFalse(session.isEnsuringProfile)
@@ -935,6 +941,341 @@ final class ProfileEnsureTests: XCTestCase {
         )
         XCTAssertEqual(session.profileId, "listed-cycle-2")
         XCTAssertEqual(session.lastProfileEnsureOutcome, .ready)
+    }
+
+    // MARK: - TF164 triple-trigger (cold launch Tab graph)
+
+    /// Mirrors Dashboard prepare + sibling Tab `.task` ensures after first terminal
+    /// (physical TF164: 3× `profile_ensure_failed` / `invalid_url` / `list`).
+    private func simulateTF164ColdLaunchEnsureGraph(session: AppSession) async {
+        let location = ImmediateCoordsLocationStub()
+        // Controllable scheduler: yield between triggers (no wall-clock sleep).
+        await session.prepareSessionForDataFetch(locationService: location)
+        await Task.yield()
+        // DailyPlannerView `.task` when profile empty
+        if session.profileId.isEmpty {
+            _ = await session.ensureProfileIdIfNeeded()
+        }
+        await Task.yield()
+        // InsightsView `.task` when profile empty
+        if session.profileId.isEmpty {
+            _ = await session.ensureProfileIdIfNeeded()
+        }
+        await Task.yield()
+        // Dashboard locationRevision reload (automatic — must not open a new cycle)
+        if session.profileId.isEmpty {
+            _ = await session.ensureProfileIdIfNeeded()
+        }
+    }
+
+    func testTF164TripleTriggerInvalidURLSingleEnsurePerCycle() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(200, object: []))
+        harness.apiClient.testForceListProfilesError = APIError.invalidURL
+
+        var failedEvents: [[String: String]] = []
+        ProductAnalytics.testEventSink = { name, props in
+            if name == "profile_ensure_failed" {
+                failedEvents.append(props)
+            }
+        }
+
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.refreshToken = "refresh"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+
+        await simulateTF164ColdLaunchEnsureGraph(session: session)
+
+        XCTAssertEqual(
+            session.profileEnsureCycleAttemptCount,
+            1,
+            "one underlying ensure attempt for the cold-launch cycle"
+        )
+        XCTAssertEqual(failedEvents.count, 1, "one terminal profile_ensure_failed emission")
+        XCTAssertEqual(failedEvents.first?["diagnostic_code"], "PE_NET_TRANSPORT")
+        XCTAssertEqual(failedEvents.first?["error_type"], "invalid_url")
+        XCTAssertEqual(failedEvents.first?["phase"], "list")
+        XCTAssertEqual(failedEvents.first?["reason"], "transport")
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .failure(.transport))
+        XCTAssertEqual(session.lastProfileEnsurePhase, .list)
+        XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.transport"))
+        XCTAssertTrue(session.lastProfileEnsureOutcome?.suggestsNetworkRetry == true)
+        XCTAssertFalse(session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true)
+        XCTAssertNotEqual(session.lastProfileEnsureOutcome?.analyticsReason, "unknown")
+    }
+
+    func testTF164TripleTriggerSuccessSingleEnsurePerCycle() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(
+                200,
+                object: [[
+                    "id": "listed-tf164",
+                    "user_id": "user-1",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        var failedCount = 0
+        ProductAnalytics.testEventSink = { name, _ in
+            if name == "profile_ensure_failed" { failedCount += 1 }
+        }
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+
+        await simulateTF164ColdLaunchEnsureGraph(session: session)
+
+        XCTAssertEqual(session.profileId, "listed-tf164")
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
+        XCTAssertEqual(failedCount, 0)
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .ready)
+    }
+
+    func testTF164TripleTriggerHTTP500SingleEnsurePerCycle() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
+        var failedCount = 0
+        ProductAnalytics.testEventSink = { name, _ in
+            if name == "profile_ensure_failed" { failedCount += 1 }
+        }
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+
+        await simulateTF164ColdLaunchEnsureGraph(session: session)
+
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
+        XCTAssertEqual(failedCount, 1)
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .failure(.server))
+        XCTAssertEqual(session.lastProfileEnsureOutcome?.diagnosticCode, "PE_HTTP_5XX")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+    }
+
+    func testExplicitRetryAfterFailureCreatesSecondLegitimateAttempt() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+
+        await simulateTF164ColdLaunchEnsureGraph(session: session)
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(
+                200,
+                object: [[
+                    "id": "retry-ok",
+                    "user_id": "user-1",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        session.beginExplicitProfileEnsureCycle()
+        let retry = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(retry, .ready)
+        XCTAssertEqual(session.profileId, "retry-ok")
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1, "new cycle resets attempt counter")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            2
+        )
+    }
+
+    func testNewLocationRevisionAfterTerminalCreatesNewAttempt() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        session.displayPlaceName = "Castelldefels"
+
+        _ = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
+
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(200, object: [])
+        )
+        // Post-terminal device move — legitimate new cycle.
+        _ = await session.applyDeviceLocation(lat: 41.39, lon: 2.17)
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            2,
+            "new location revision after terminal may ensure again"
+        )
+    }
+
+    func testSameUserTokenRefreshDoesNotDuplicateEnsure() async {
+        UITestMockAPIProtocol.reset(
+            listProfiles: .json(
+                200,
+                object: [[
+                    "id": "tok-1",
+                    "user_id": "user-1",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        UITestMockAPIProtocol.responseDelayNanoseconds = 60_000_000
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token-old"
+        session.refreshToken = "refresh"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+
+        async let ensure: ProfileEnsureOutcome = session.ensureProfileIdIfNeeded()
+        await Task.yield()
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-1",
+                email: "a@example.com",
+                accessToken: "token-new",
+                refreshToken: "refresh-new"
+            )
+        )
+        let outcome = await ensure
+        XCTAssertEqual(outcome, .ready)
+        XCTAssertEqual(session.profileId, "tok-1")
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            1
+        )
+    }
+
+    func testAccountSwitchDoesNotReuseStaleCycleResult() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
+        let session = harness.makeSession()
+        session.userId = "user-a"
+        session.accessToken = "token-a"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        _ = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .failure(.server))
+
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(
+                200,
+                object: [[
+                    "id": "user-b-profile",
+                    "user_id": "user-b",
+                    "persona_type": "adult",
+                    "sensitivity_level": "medium",
+                    "home_lat": 41.28,
+                    "home_lon": 1.976,
+                    "date_of_birth": NSNull(),
+                    "age_years": NSNull(),
+                ]]
+            )
+        )
+        session.installAuthSession(
+            SupabaseAuthSession(
+                userId: "user-b",
+                email: "b@example.com",
+                accessToken: "token-b",
+                refreshToken: "refresh-b"
+            )
+        )
+        let outcome = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(outcome, .ready)
+        XCTAssertEqual(session.profileId, "user-b-profile")
+        XCTAssertNotEqual(session.lastProfileEnsureOutcome, .failure(.server))
+    }
+
+    func testDashboardSuccessTelemetryDoesNotClearEnsureFailureStickyUI() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "boom"]))
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        await simulateTF164ColdLaunchEnsureGraph(session: session)
+        let sticky = session.lastProfileEnsureOutcome
+        XCTAssertEqual(sticky, .failure(.server))
+        // Dashboard may still emit refresh_succeeded for air metrics — ensure sticky must remain.
+        StartupDiagnostics.track(
+            "dashboard_refresh_succeeded",
+            success: true,
+            profilePresent: false
+        )
+        XCTAssertEqual(session.lastProfileEnsureOutcome, sticky)
+        XCTAssertTrue(session.profileEnsureUserMessage != nil)
+    }
+
+    func testStaleContextUserMismatchReensures() async {
+        UITestMockAPIProtocol.reset(listProfiles: .json(500, object: ["detail": "a"]))
+        let session = harness.makeSession()
+        session.userId = "user-1"
+        session.accessToken = "token"
+        session.profileId = ""
+        session.latitude = 41.28
+        session.longitude = 1.976
+        _ = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
+
+        session.userId = "user-2"
+        session.accessToken = "token-2"
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/profiles",
+            response: .json(200, object: [])
+        )
+        _ = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(
+            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
+            2,
+            "user mismatch must open a new cycle and re-ensure"
+        )
     }
 
     func testConcurrentPrepareInSameCycleSingleFlightsEnsure() async {

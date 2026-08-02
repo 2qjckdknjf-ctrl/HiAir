@@ -136,6 +136,8 @@ struct ProfileBootstrapCard: View {
             || (session.lastProfileEnsureOutcome == nil && !session.hasValidLocation) {
             _ = await session.bootstrapLocationFromDevice(locationService: locationService)
         }
+        // Explicit Retry / CTA — new ensure cycle (must not reuse the prior terminal failure).
+        session.beginExplicitProfileEnsureCycle()
         let outcome = await session.ensureProfileIdIfNeeded()
         if outcome.isReady {
             session.markChecklistItem("profile", done: true)
