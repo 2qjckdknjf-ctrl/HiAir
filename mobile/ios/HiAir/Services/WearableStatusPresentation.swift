@@ -57,14 +57,18 @@ enum WearableStatusPresentation {
         case .unavailable:
             return localize("wearable.dashboard.unavailable")
         case .systemAuthorized:
+            // Durable-but-inactive account consent is more specific than OS-only auth.
+            if hasDurableConsent && !consentActive {
+                return "\(prefix): \(localize("settings.wearables.consent_inactive"))"
+            }
             return "\(prefix): \(localize("settings.wearables.device_authorized"))"
         case .connected, .notConnected, .permissionRequested, .dataUnavailable, .syncFailed, .partial:
             // Stale `.connected` without durable+active consent must not say "подключено".
-            if hasSystemAuthorization || connectionState == .systemAuthorized {
-                return "\(prefix): \(localize("settings.wearables.device_authorized"))"
-            }
             if hasDurableConsent && !consentActive {
                 return "\(prefix): \(localize("settings.wearables.consent_inactive"))"
+            }
+            if hasSystemAuthorization || connectionState == .systemAuthorized {
+                return "\(prefix): \(localize("settings.wearables.device_authorized"))"
             }
             return localize("wearable.dashboard.not_connected")
         }

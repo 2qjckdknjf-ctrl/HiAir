@@ -109,6 +109,81 @@ final class WearableConsentUIStateTests: XCTestCase {
         XCTAssertFalse(label.contains(localizeRU("settings.wearables.connected")))
     }
 
+    func testDurableInactiveConsentShowsConsentInactiveNotConnected() {
+        let labelRU = status(
+            state: .systemAuthorized,
+            consentActive: false,
+            durable: true,
+            systemAuth: true,
+            lang: "ru"
+        )
+        XCTAssertTrue(labelRU.contains(localizeRU("settings.wearables.consent_inactive")))
+        XCTAssertFalse(labelRU.contains(localizeRU("settings.wearables.connected")))
+        XCTAssertFalse(labelRU.contains(localizeRU("settings.wearables.device_authorized")))
+
+        let labelEN = status(
+            state: .connected, // stale enum still must not say connected
+            consentActive: false,
+            durable: true,
+            systemAuth: true,
+            lang: "en"
+        )
+        XCTAssertTrue(labelEN.contains(localizeEN("settings.wearables.consent_inactive")))
+        XCTAssertFalse(labelEN.contains(localizeEN("settings.wearables.connected")))
+    }
+
+    func testStaleAsyncRefreshDoesNotOverwriteAfterAccountSwitch() async {
+        UITestMockAPIProtocol.isEnabled = true
+        UITestMockAPIProtocol.reset()
+        UITestMockAPIProtocol.responseDelayNanoseconds = 250_000_000
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
+            path: "/api/v1/wearables/today",
+            response: .json(
+                200,
+                object: [
+                    "consent": [
+                        "id": "c1",
+                        "userId": "user-a",
+                        "platform": "ios",
+                        "source": "apple_health",
+                        "stepsEnabled": true,
+                        "heartRateEnabled": true,
+                        "restingHeartRateEnabled": true,
+                        "isActive": true,
+                    ],
+                    "dailySummary": NSNull(),
+                    "personalLoad": NSNull(),
+                ]
+            )
+        )
+        defer {
+            UITestMockAPIProtocol.responseDelayNanoseconds = 0
+            UITestMockAPIProtocol.isEnabled = false
+            UITestMockAPIProtocol.reset()
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UITestMockAPIProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = APIClient(baseURL: URL(string: "https://uitest.hiair.invalid")!, session: session)
+        let vm = SettingsViewModel(apiClient: client)
+        vm.preferredLanguage = "ru"
+        vm.userId = "user-a"
+        vm.accessToken = "tok-a"
+
+        service.seedDurableConsentMarkersForTests(userId: "user-a", authorized: true, consented: true)
+        service.bindAccount(userId: "user-a")
+
+        let refresh = Task { await vm.refreshWearableStatus() }
+        try? await Task.sleep(nanoseconds: 40_000_000)
+        vm.userId = "user-b"
+        vm.accessToken = "tok-b"
+        vm.wearableStatus = "Apple Health: switched"
+        await refresh.value
+        XCTAssertEqual(vm.wearableStatus, "Apple Health: switched")
+    }
+
     func testActiveConsentCurrentUserBindingIsConnected() {
         service.seedDurableConsentMarkersForTests(userId: "user-a", authorized: true, consented: true)
         service.bindAccount(userId: "user-a")

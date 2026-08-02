@@ -93,5 +93,20 @@ enum UITestBootstrap {
         if let profileId = env["UITEST_PROFILE_ID"], !profileId.isEmpty {
             session.profileId = profileId
         }
+
+        // TF167 harness: retain OS authorization markers without durable account consent,
+        // and optionally leave a stale `.connected` presentation for demotion on refresh.
+        if env["UITEST_SEED_WEARABLE_OS_AUTH_NO_CONSENT"] == "1", !session.userId.isEmpty {
+            let hk = HealthKitService.shared
+            hk.seedDurableConsentMarkersForTests(
+                userId: session.userId,
+                authorized: true,
+                consented: false
+            )
+            hk.bindAccount(userId: session.userId)
+            if env["UITEST_SEED_STALE_CONNECTED"] == "1" {
+                hk.reportConnectionState(.connected)
+            }
+        }
     }
 }

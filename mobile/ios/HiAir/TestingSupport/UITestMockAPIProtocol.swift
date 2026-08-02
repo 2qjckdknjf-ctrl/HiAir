@@ -109,6 +109,15 @@ final class UITestMockAPIProtocol: URLProtocol, @unchecked Sendable {
                     "explanationSource": "sample",
                 ]
             ),
+            // Default: no account consent — TF167 UI harness (OS auth ≠ connected).
+            "GET /api/v1/wearables/today": .json(
+                200,
+                object: [
+                    "consent": NSNull(),
+                    "dailySummary": NSNull(),
+                    "personalLoad": NSNull(),
+                ]
+            ),
         ]
     }
 

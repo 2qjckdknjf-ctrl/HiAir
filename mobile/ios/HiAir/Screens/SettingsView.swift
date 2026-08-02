@@ -98,7 +98,11 @@ final class SettingsViewModel: ObservableObject {
     @Published var statusText = "-"
     @Published var loading = false
 
-    private let apiClient = APIClient.live()
+    private let apiClient: APIClient
+
+    init(apiClient: APIClient = .live()) {
+        self.apiClient = apiClient
+    }
     private var aiRefreshTask: Task<Void, Never>?
     private var aiSummaryRequestVersion: Int = 0
     private var aiTimeoutTask: Task<Void, Never>?
@@ -301,14 +305,16 @@ final class SettingsViewModel: ObservableObject {
 
     func refreshWearableStatus() async {
         let service = HealthKitService.shared
+        let expectedUserId = userId
+        let expectedToken = accessToken
         // Prefer live connectionState; demote stale Connected without durable consent first.
         if service.connectionState == .notConnected {
             _ = service.refreshAuthorizationState()
-        } else if !userId.isEmpty {
-            _ = service.demoteConnectedWithoutDurableConsent(for: userId)
+        } else if !expectedUserId.isEmpty {
+            _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
         }
         let hkState = service.connectionState
-        guard !userId.isEmpty else {
+        guard !expectedUserId.isEmpty else {
             wearableStatus = wearableStatusLabel(
                 for: hkState,
                 consentActive: false,
@@ -318,7 +324,12 @@ final class SettingsViewModel: ObservableObject {
             return
         }
         do {
-            let today = try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            let today = try await apiClient.fetchWearableToday(
+                userId: expectedUserId,
+                accessToken: expectedToken
+            )
+            // Drop stale async refresh after logout / account switch.
+            guard userId == expectedUserId else { return }
             let consentActive = today.consent?.isActive == true
             let hkBefore = service.connectionState
             // Never rehydrate Connected while local revoke is pending/failed (fail-closed).
@@ -330,13 +341,13 @@ final class SettingsViewModel: ObservableObject {
                 revokeInFlight = false
             }
             if !revokeInFlight {
-                service.reconcileServerConsent(userId: userId, isActive: consentActive)
+                service.reconcileServerConsent(userId: expectedUserId, isActive: consentActive)
             } else {
-                _ = service.demoteConnectedWithoutDurableConsent(for: userId)
+                _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
             }
             let hkAfter = service.connectionState
-            let durable = service.hasDurableConsent(for: userId)
-            let systemAuth = service.hasSystemAuthorization(for: userId)
+            let durable = service.hasDurableConsent(for: expectedUserId)
+            let systemAuth = service.hasSystemAuthorization(for: expectedUserId)
             // Account "подключено" requires server-active + durable consent — never OS auth alone.
             let accountConsentActive = !revokeInFlight && consentActive && durable
             wearableStatus = wearableStatusLabel(
@@ -346,13 +357,14 @@ final class SettingsViewModel: ObservableObject {
                 hasSystemAuthorization: systemAuth
             )
         } catch {
-            let durable = service.hasDurableConsent(for: userId)
-            _ = service.demoteConnectedWithoutDurableConsent(for: userId)
+            guard userId == expectedUserId else { return }
+            let durable = service.hasDurableConsent(for: expectedUserId)
+            _ = service.demoteConnectedWithoutDurableConsent(for: expectedUserId)
             wearableStatus = wearableStatusLabel(
                 for: service.connectionState,
                 consentActive: false,
                 hasDurableConsent: durable,
-                hasSystemAuthorization: service.hasSystemAuthorization(for: userId)
+                hasSystemAuthorization: service.hasSystemAuthorization(for: expectedUserId)
             )
         }
     }
