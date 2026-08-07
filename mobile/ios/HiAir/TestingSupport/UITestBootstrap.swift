@@ -30,6 +30,13 @@ enum UITestBootstrap {
         isUITesting && ProcessInfo.processInfo.environment["UITEST_DISABLE_AUTO_PROFILE"] == "1"
     }
 
+    /// Test-only: account-bound durable consent exists with server-inactive semantics.
+    /// Requires `-UITesting`. Never active in production launches.
+    static var seedWearableDurableInactive: Bool {
+        isUITesting
+            && ProcessInfo.processInfo.environment["UITEST_SEED_WEARABLE_DURABLE_INACTIVE"] == "1"
+    }
+
     static func prepareBeforeAppLaunch() {
         guard isUITesting else { return }
         if isMockAPIEnabled {
@@ -40,6 +47,30 @@ enum UITestBootstrap {
                 UITestMockAPIProtocol.reset(
                     listProfiles: .json(status, object: ["detail": "uitest status \(status)"]),
                     createProfile: .json(status, object: ["detail": "uitest status \(status)"])
+                )
+            }
+            // Inactive-consent UI seed: durable marker + inactive server payload (no upload/delete).
+            if env["UITEST_SEED_WEARABLE_DURABLE_INACTIVE"] == "1" {
+                UITestMockAPIProtocol.setRoute(
+                    method: "GET",
+                    path: "/api/v1/wearables/today",
+                    response: .json(
+                        200,
+                        object: [
+                            "consent": [
+                                "id": "uitest-inactive-consent",
+                                "userId": env["UITEST_USER_ID"] ?? "uitest-user",
+                                "platform": "ios",
+                                "source": "apple_health",
+                                "stepsEnabled": true,
+                                "heartRateEnabled": true,
+                                "restingHeartRateEnabled": true,
+                                "isActive": false,
+                            ],
+                            "dailySummary": NSNull(),
+                            "personalLoad": NSNull(),
+                        ]
+                    )
                 )
             }
         }
@@ -107,6 +138,20 @@ enum UITestBootstrap {
             if env["UITEST_SEED_STALE_CONNECTED"] == "1" {
                 hk.reportConnectionState(.connected)
             }
+        }
+
+        // Durable inactive: account-bound consent marker retained, active=false semantics.
+        // Simulates prior OS authorization via UserDefaults markers — no real HealthKit store.
+        if seedWearableDurableInactive, !session.userId.isEmpty {
+            let hk = HealthKitService.shared
+            hk.seedDurableConsentMarkersForTests(
+                userId: session.userId,
+                authorized: true,
+                consented: true
+            )
+            hk.bindAccount(userId: session.userId)
+            // Stale connected enum must not survive as account-connected UI when inactive.
+            hk.reportConnectionState(.connected)
         }
     }
 }
