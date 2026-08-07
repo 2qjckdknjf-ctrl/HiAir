@@ -41,7 +41,11 @@ final class InfoPlistPackagingTests: XCTestCase {
         XCTAssertFalse(build.contains("$("), "unresolved build number: \(build)")
         XCTAssertFalse(marketing.isEmpty)
         XCTAssertFalse(build.isEmpty)
-        XCTAssertNotEqual(marketing, "1.0", "Release product must use MARKETING_VERSION (0.1.0), not plist default 1.0")
+        XCTAssertEqual(
+            marketing,
+            "1.0",
+            "Release product must expand MARKETING_VERSION (1.0) from build settings"
+        )
         XCTAssertNotEqual(build, "1", "Release product must use CURRENT_PROJECT_VERSION, not plist default 1")
 
         let supabaseURL = try XCTUnwrap(info?["SUPABASE_URL"] as? String)
