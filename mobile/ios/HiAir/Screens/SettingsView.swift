@@ -409,7 +409,8 @@ final class SettingsViewModel: ObservableObject {
 
     func disconnectWearables() async {
         guard !userId.isEmpty else { return }
-        _ = try? await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
+        // Local consent + sync cancel happen inside the service before any remote await.
+        // Do not call the API first — that would leave durable consent true during the wait.
         await HealthKitService.shared.revokeConsent(userId: userId, accessToken: accessToken)
         await refreshWearableStatus()
     }
