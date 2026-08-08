@@ -103,6 +103,22 @@ def test_live_rejects_wrong_environment(monkeypatch) -> None:
         verify_ios_purchase("hdr.payload.sig", product_id=IOS_MONTHLY)
 
 
+def test_live_production_accepts_sandbox_testflight_payload(monkeypatch) -> None:
+    """Production API must accept cryptographically verified TestFlight/Sandbox txs."""
+    monkeypatch.setenv("APPLE_STORE_VERIFIER_MODE", "live")
+    monkeypatch.setenv("APPLE_STORE_ENVIRONMENT", "production")
+    monkeypatch.setenv("APPLE_APP_APPLE_ID", "6773610034")
+    monkeypatch.setenv("APPLE_BUNDLE_ID", "com.hiair.app")
+
+    def _decode(signed_transaction: str, cfg):  # noqa: ANN001
+        return _active_payload(environment="Sandbox")
+
+    monkeypatch.setattr(store, "_apple_transaction_decoder", _decode)
+    purchase = verify_ios_purchase("hdr.payload.sig", product_id=IOS_MONTHLY)
+    assert purchase.status == "active"
+    assert purchase.product_id == IOS_MONTHLY
+
+
 def test_live_rejects_unknown_product(monkeypatch) -> None:
     monkeypatch.setenv("APPLE_STORE_VERIFIER_MODE", "live")
     monkeypatch.setenv("APPLE_STORE_ENVIRONMENT", "sandbox")
