@@ -542,54 +542,35 @@ final class SubscriptionService: ObservableObject {
 
     private func signedTransactionString(from verification: VerificationResult<Transaction>) throws -> String {
         switch verification {
-        case .verified(let transaction):
-            if let jws = appleSignedPayload(from: verification) {
-                return jws
+        case .verified:
+            // StoreKit 2 exposes the Apple-signed JWS on VerificationResult.
+            // Never fall back to a synthetic alg=none payload — production live
+            // verifiers reject it and Premium stays off after a successful purchase.
+            let jws = verification.jwsRepresentation.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !jws.isEmpty else {
+                SubscriptionDiagnostics.log("jws_representation_missing")
+                throw SubscriptionServiceError.verificationFailed
             }
-            return buildStubJws(for: transaction)
+            if jws.split(separator: ".").count != 3 {
+                SubscriptionDiagnostics.log("jws_representation_malformed")
+                throw SubscriptionServiceError.verificationFailed
+            }
+            return jws
         case .unverified(_, let error):
             throw error
         }
     }
 
-    private func appleSignedPayload(from verification: VerificationResult<Transaction>) -> String? {
-        let mirror = Mirror(reflecting: verification)
-        for child in mirror.children {
-            guard child.label == "jwsRepresentation", let jws = child.value as? String, !jws.isEmpty else {
-                continue
-            }
-            return jws
-        }
-        return nil
-    }
-
-    private func buildStubJws(for transaction: Transaction) -> String {
-        var payload: [String: Any] = [
-            "productId": transaction.productID,
-            "transactionId": String(transaction.id),
-            "originalTransactionId": String(transaction.originalID),
-            "status": "active",
-        ]
-        if let expiration = transaction.expirationDate {
-            payload["expiresDate"] = Int(expiration.timeIntervalSince1970 * 1000)
-        }
-        let header = base64URLEncode(Data("{\"alg\":\"none\"}".utf8))
-        let bodyData = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data()
-        let body = base64URLEncode(bodyData)
-        return "\(header).\(body).stub"
-    }
-
-    private func base64URLEncode(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-    }
-
     func userFacingMessage(for error: APIError, language: String? = nil) -> String {
         let lang = language ?? Self.uiLanguage
         switch error {
-        case .serverWithDetail, .server:
+        case .serverWithDetail(_, let detail):
+            let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+            return HiAirL10n.t("paywall.server_error", lang: lang)
+        case .server:
             return HiAirL10n.t("paywall.server_error", lang: lang)
         case .invalidURL, .invalidResponse:
             return HiAirL10n.t("paywall.network_error", lang: lang)
