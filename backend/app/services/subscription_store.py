@@ -184,10 +184,10 @@ def _resolve_apple_environment(name: str):
     )
 
 
-def _build_apple_signed_data_verifier(cfg: StoreVerifierConfig):
+def _build_apple_signed_data_verifier(cfg: StoreVerifierConfig, *, environment_name: str | None = None):
     from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
 
-    environment = _resolve_apple_environment(cfg.apple_environment)
+    environment = _resolve_apple_environment(environment_name or cfg.apple_environment)
     app_apple_id = cfg.apple_app_apple_id
     if environment.name == "PRODUCTION" and app_apple_id is None:
         raise RuntimeError("APPLE_APP_APPLE_ID is required when APPLE_STORE_ENVIRONMENT=production")
@@ -198,6 +198,33 @@ def _build_apple_signed_data_verifier(cfg: StoreVerifierConfig):
         cfg.apple_bundle_id,
         app_apple_id,
     )
+
+
+def _apple_environment_values(*names: str) -> set[str]:
+    """Normalize Environment enum values / legacy strings for comparison."""
+    values: set[str] = set()
+    for name in names:
+        env = _resolve_apple_environment(name)
+        raw = getattr(env, "value", str(env))
+        values.add(str(raw))
+        values.add(str(raw).lower())
+        values.add(env.name)
+        values.add(env.name.lower())
+    return values
+
+
+def _allowed_apple_transaction_environments(cfg: StoreVerifierConfig) -> set[str]:
+    """
+    Environments accepted after cryptographic verification.
+
+    Production API must accept App Store (Production) and TestFlight (Sandbox)
+    transactions. Sandbox-configured APIs stay sandbox-only.
+    """
+    primary = _resolve_apple_environment(cfg.apple_environment)
+    allowed = _apple_environment_values(cfg.apple_environment)
+    if primary.name == "PRODUCTION":
+        allowed |= _apple_environment_values("sandbox")
+    return {value.lower() for value in allowed}
 
 
 def _verified_payload_from_apple_object(decoded: object) -> dict:
@@ -235,6 +262,8 @@ def verify_and_decode_apple_signed_transaction(signed_transaction: str, cfg: Sto
     Cryptographically verify an App Store signed transaction (fail-closed).
 
     Never logs the signed transaction or receipt body.
+    When APPLE_STORE_ENVIRONMENT=production, also tries the Sandbox verifier so
+    TestFlight purchases can activate Premium against the production API.
     """
     if _apple_transaction_decoder is not None:
         return _verified_payload_from_apple_object(_apple_transaction_decoder(signed_transaction, cfg))
@@ -248,17 +277,30 @@ def verify_and_decode_apple_signed_transaction(signed_transaction: str, cfg: Sto
     except ImportError as exc:
         raise RuntimeError("Apple App Store Server Library is not installed") from exc
 
-    try:
-        verifier = _build_apple_signed_data_verifier(cfg)
-        decoded = verifier.verify_and_decode_signed_transaction(signed_transaction)
-    except VerificationException as exc:
-        logger.warning("apple_jws_verification_failed status=%s", getattr(exc, "status", "unknown"))
-        raise ValueError("Apple transaction verification failed") from exc
-    except Exception as exc:  # network / cert / config — fail closed
-        logger.warning("apple_jws_verifier_unavailable error_type=%s", type(exc).__name__)
-        raise RuntimeError("Apple transaction verifier unavailable") from exc
+    primary = _resolve_apple_environment(cfg.apple_environment)
+    attempt_envs = [cfg.apple_environment]
+    if primary.name == "PRODUCTION":
+        attempt_envs.append("sandbox")
 
-    return _verified_payload_from_apple_object(decoded)
+    last_verification_error: Exception | None = None
+    for env_name in attempt_envs:
+        try:
+            verifier = _build_apple_signed_data_verifier(cfg, environment_name=env_name)
+            decoded = verifier.verify_and_decode_signed_transaction(signed_transaction)
+            return _verified_payload_from_apple_object(decoded)
+        except VerificationException as exc:
+            last_verification_error = exc
+            logger.warning(
+                "apple_jws_verification_failed status=%s env=%s",
+                getattr(exc, "status", "unknown"),
+                env_name,
+            )
+            continue
+        except Exception as exc:  # network / cert / config — fail closed
+            logger.warning("apple_jws_verifier_unavailable error_type=%s", type(exc).__name__)
+            raise RuntimeError("Apple transaction verifier unavailable") from exc
+
+    raise ValueError("Apple transaction verification failed") from last_verification_error
 
 
 def _status_from_apple_payload(payload: dict, expires_at: datetime) -> SubscriptionStatus:
@@ -280,9 +322,8 @@ def _verify_ios_live(signed_transaction: str, product_id: str | None, cfg: Store
         raise ValueError("Apple transaction bundle ID mismatch")
 
     environment = str(_require_live_field(payload, "environment")).strip()
-    expected_env = _resolve_apple_environment(cfg.apple_environment)
-    expected_value = getattr(expected_env, "value", str(expected_env))
-    if environment != expected_value and environment.lower() != str(expected_value).lower():
+    allowed_envs = _allowed_apple_transaction_environments(cfg)
+    if environment.lower() not in allowed_envs:
         raise ValueError("Apple transaction environment mismatch")
 
     resolved_product = str(_require_live_field(payload, "productId", "product_id")).strip()
