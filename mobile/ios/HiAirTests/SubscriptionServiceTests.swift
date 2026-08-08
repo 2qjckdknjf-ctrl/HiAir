@@ -76,6 +76,19 @@ final class SubscriptionServiceTests: XCTestCase {
         XCTAssertEqual(StoreProductIDs.monthly, "com.hiair.premium.monthly")
         XCTAssertEqual(StoreProductIDs.yearly, "com.hiair.premium.yearly")
     }
+
+    @MainActor
+    func testUserFacingMessageSurfacesServerDetail() {
+        let service = SubscriptionService(testingFetcher: MockProductFetcher(result: .success([])))
+        let detail = "Apple transaction signature algorithm is missing or untrusted"
+        let message = service.userFacingMessage(
+            for: .serverWithDetail(statusCode: 400, detail: detail),
+            language: "en"
+        )
+        XCTAssertEqual(message, detail)
+        let generic = service.userFacingMessage(for: .server(statusCode: 503), language: "en")
+        XCTAssertTrue(generic.localizedCaseInsensitiveContains("unavailable"))
+    }
 }
 
 private final class MockProductFetcher: StoreProductFetching, @unchecked Sendable {
