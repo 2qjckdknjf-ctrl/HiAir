@@ -44,6 +44,32 @@ def _snapshot_to_environmental(
     )
 
 
+def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
+    """Return an honesty-labeled snapshot from a DB row, or None if unusable."""
+    original_source = str(cached.source or "").strip().lower()
+    # Never re-label persisted sample/mock rows as "cached" — that would
+    # serve synthetic air data under a live/cache honesty label.
+    if original_source in (SOURCE_SAMPLE, "mock"):
+        if settings.environment_allow_sample_fallback:
+            return EnvironmentSnapshot(
+                temperature_c=cached.temperature_c,
+                humidity_percent=cached.humidity_percent,
+                aqi=cached.aqi,
+                pm25=cached.pm25,
+                ozone=cached.ozone,
+                source=SOURCE_SAMPLE,
+            )
+        return None
+    return EnvironmentSnapshot(
+        temperature_c=cached.temperature_c,
+        humidity_percent=cached.humidity_percent,
+        aqi=cached.aqi,
+        pm25=cached.pm25,
+        ozone=cached.ozone,
+        source=SOURCE_CACHED,
+    )
+
+
 def resolve_environment_snapshot(
     lat: float,
     lon: float,
@@ -51,52 +77,55 @@ def resolve_environment_snapshot(
     prefer_live: bool = True,
     force_refresh: bool = False,
 ) -> EnvironmentSnapshot:
-    """Resolve environmental conditions: live providers → DB cache → sample fallback."""
-    if prefer_live or force_refresh:
-        try:
-            live = fetch_live_snapshot(lat, lon)
-            return EnvironmentSnapshot(
-                temperature_c=live.temperature_c,
-                humidity_percent=live.humidity_percent,
-                aqi=live.aqi,
-                pm25=live.pm25,
-                ozone=live.ozone,
-                source=SOURCE_LIVE,
-            )
-        except Exception:
-            if force_refresh:
-                pass
+    """Resolve environmental conditions: fresh cache → live → sample fallback.
 
-    cached = air_repository.get_latest_environment_snapshot(
-        lat=lat,
-        lon=lon,
-        max_age_seconds=settings.environment_cache_ttl_seconds,
-    )
-    if cached is not None:
-        original_source = str(cached.source or "").strip().lower()
-        # Never re-label persisted sample/mock rows as "cached" — that would
-        # serve synthetic air data under a live/cache honesty label.
-        if original_source in (SOURCE_SAMPLE, "mock"):
-            if settings.environment_allow_sample_fallback:
-                return EnvironmentSnapshot(
-                    temperature_c=cached.temperature_c,
-                    humidity_percent=cached.humidity_percent,
-                    aqi=cached.aqi,
-                    pm25=cached.pm25,
-                    ozone=cached.ozone,
-                    source=SOURCE_SAMPLE,
-                )
-            # Protected / sample-disabled: treat synthetic cache as a miss.
-            cached = None
-        else:
-            return EnvironmentSnapshot(
-                temperature_c=cached.temperature_c,
-                humidity_percent=cached.humidity_percent,
-                aqi=cached.aqi,
-                pm25=cached.pm25,
-                ozone=cached.ozone,
-                source=SOURCE_CACHED,
-            )
+    Within ``environment_cache_ttl_seconds``, serve DB cache immediately (label
+    ``cached``) so dashboard cold-start does not wait on Open-Meteo. Live
+    providers run on cache miss or ``force_refresh``. Sample remains last-resort
+    and honesty-gated.
+    """
+    del prefer_live  # retained for call-site compatibility; cache-first is default
+    deferred_sample: EnvironmentSnapshot | None = None
+
+    if not force_refresh:
+        cached_row = air_repository.get_latest_environment_snapshot(
+            lat=lat,
+            lon=lon,
+            max_age_seconds=settings.environment_cache_ttl_seconds,
+        )
+        if cached_row is not None:
+            honest = _honest_cached_snapshot(cached_row)
+            if honest is not None and honest.source == SOURCE_CACHED:
+                return honest
+            if honest is not None and honest.source == SOURCE_SAMPLE:
+                deferred_sample = honest
+
+    try:
+        live = fetch_live_snapshot(lat, lon)
+        return EnvironmentSnapshot(
+            temperature_c=live.temperature_c,
+            humidity_percent=live.humidity_percent,
+            aqi=live.aqi,
+            pm25=live.pm25,
+            ozone=live.ozone,
+            source=SOURCE_LIVE,
+        )
+    except Exception:
+        pass
+
+    if deferred_sample is not None:
+        return deferred_sample
+
+    if force_refresh:
+        late_cached = air_repository.get_latest_environment_snapshot(
+            lat=lat,
+            lon=lon,
+            max_age_seconds=settings.environment_cache_ttl_seconds,
+        )
+        if late_cached is not None:
+            honest = _honest_cached_snapshot(late_cached)
+            if honest is not None:
+                return honest
 
     if not settings.environment_allow_sample_fallback:
         raise RuntimeError("Environmental data unavailable and sample fallback is disabled")
@@ -110,7 +139,7 @@ def load_environment(
     force_live: bool = False,
     force_refresh: bool = False,
 ) -> EnvironmentalInput:
-    """Load environmental input for a profile using the live → cached → sample chain."""
+    """Load environmental input for a profile using the cache → live → sample chain."""
     snapshot = resolve_environment_snapshot(
         profile.home_lat,
         profile.home_lon,

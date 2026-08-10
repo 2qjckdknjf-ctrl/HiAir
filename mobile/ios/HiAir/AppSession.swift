@@ -895,7 +895,12 @@ final class AppSession: ObservableObject {
         }
         // Geocode immediately — do not await profile PATCH / health / premium.
         Task { await self.resolvePlaceNameIfNeeded() }
-        return await syncProfileLocationIfNeeded()
+        // New users still need ensure before data fetch; existing profiles sync in background.
+        if profileId.isEmpty {
+            return await syncProfileLocationIfNeeded()
+        }
+        Task { _ = await self.syncProfileLocationIfNeeded() }
+        return true
     }
 
     /// Reverse-geocode current coords into `displayPlaceName` (cached; non-blocking for other work).

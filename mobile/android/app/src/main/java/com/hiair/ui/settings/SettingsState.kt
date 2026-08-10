@@ -115,7 +115,14 @@ class SettingsViewModel(
             locationSource = LocationSource.DEVICE.raw,
             locationRevision = state.locationRevision + 1,
         )
-        return syncProfileLocationIfNeeded()
+        // New users still need ensure before data fetch; existing profiles sync in background.
+        if (state.profileId.isBlank()) {
+            return syncProfileLocationIfNeeded()
+        }
+        Thread {
+            syncProfileLocationIfNeeded()
+        }.start()
+        return true
     }
 
     fun hydrateProfileLocation(profileJson: JSONObject) {

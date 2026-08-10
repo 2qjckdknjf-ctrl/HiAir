@@ -276,23 +276,23 @@ struct AuthView: View {
                             }
                         }
 
-                        Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
-                            Task { @MainActor in
-                                await viewModel.signup(session: session)
-                            }
-                        }
-                        .buttonStyle(HiAirGradientButtonStyle())
-                        .disabled(viewModel.loading)
-                        .accessibilityIdentifier(HiAirAccessibilityID.Auth.signUpButton)
-
                         Button(viewModel.loading ? session.l("auth.logging_in") : session.l("auth.log_in")) {
                             Task { @MainActor in
                                 await viewModel.login(session: session)
                             }
                         }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .buttonStyle(HiAirGradientButtonStyle())
                         .disabled(viewModel.loading)
                         .accessibilityIdentifier(HiAirAccessibilityID.Auth.logInButton)
+
+                        Button(viewModel.loading ? session.l("auth.signing_up") : session.l("auth.sign_up")) {
+                            Task { @MainActor in
+                                await viewModel.signup(session: session)
+                            }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .disabled(viewModel.loading)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Auth.signUpButton)
 
                         Button(session.l("auth.sign_in_apple")) {
                             Task { @MainActor in

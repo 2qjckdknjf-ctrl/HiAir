@@ -60,6 +60,12 @@ internal object DashboardScreenRenderer {
                     profileId = profileId,
                     preferredLanguage = settings.preferredLanguage,
                     isRetry = isRetry,
+                    onRiskReady = {
+                        activity.runOnUiThread {
+                            ctx.persistSession()
+                            ctx.rerender()
+                        }
+                    },
                 )
                 activity.runOnUiThread {
                     ctx.persistSession()

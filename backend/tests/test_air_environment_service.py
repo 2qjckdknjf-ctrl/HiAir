@@ -27,7 +27,24 @@ def _cached_snapshot() -> EnvironmentSnapshot:
     )
 
 
-def test_resolve_prefers_live_snapshot(monkeypatch) -> None:
+def test_resolve_serves_fresh_cache_before_live(monkeypatch) -> None:
+    monkeypatch.setattr(
+        air_environment_service,
+        "fetch_live_snapshot",
+        lambda lat, lon: pytest.fail("live must not be called when fresh cache exists"),
+    )
+    monkeypatch.setattr(
+        air_repository,
+        "get_latest_environment_snapshot",
+        lambda lat, lon, max_age_seconds: _cached_snapshot(),
+    )
+
+    result = air_environment_service.resolve_environment_snapshot(41.39, 2.17)
+    assert result.source == "cached"
+    assert result.aqi == 60
+
+
+def test_resolve_uses_live_when_cache_misses(monkeypatch) -> None:
     monkeypatch.setattr(
         air_environment_service,
         "fetch_live_snapshot",
@@ -36,7 +53,7 @@ def test_resolve_prefers_live_snapshot(monkeypatch) -> None:
     monkeypatch.setattr(
         air_repository,
         "get_latest_environment_snapshot",
-        lambda lat, lon, max_age_seconds: pytest.fail("cache must not be queried when live succeeds"),
+        lambda lat, lon, max_age_seconds: None,
     )
 
     result = air_environment_service.resolve_environment_snapshot(41.39, 2.17)
@@ -44,7 +61,27 @@ def test_resolve_prefers_live_snapshot(monkeypatch) -> None:
     assert result.aqi == 55
 
 
+def test_resolve_force_refresh_prefers_live_over_cache(monkeypatch) -> None:
+    monkeypatch.setattr(
+        air_environment_service,
+        "fetch_live_snapshot",
+        lambda lat, lon: _live_snapshot(),
+    )
+    monkeypatch.setattr(
+        air_repository,
+        "get_latest_environment_snapshot",
+        lambda lat, lon, max_age_seconds: _cached_snapshot(),
+    )
+
+    result = air_environment_service.resolve_environment_snapshot(
+        41.39, 2.17, force_refresh=True
+    )
+    assert result.source == "live"
+    assert result.aqi == 55
+
+
 def test_resolve_falls_back_to_cache_when_live_fails(monkeypatch) -> None:
+    """When force_refresh skips cache-first, live failure may still use late cache."""
     monkeypatch.setattr(
         air_environment_service,
         "fetch_live_snapshot",
@@ -56,7 +93,9 @@ def test_resolve_falls_back_to_cache_when_live_fails(monkeypatch) -> None:
         lambda lat, lon, max_age_seconds: _cached_snapshot(),
     )
 
-    result = air_environment_service.resolve_environment_snapshot(41.39, 2.17)
+    result = air_environment_service.resolve_environment_snapshot(
+        41.39, 2.17, force_refresh=True
+    )
     assert result.source == "cached"
     assert result.aqi == 60
 

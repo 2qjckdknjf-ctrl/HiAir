@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import httpx
@@ -95,19 +96,26 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
     weather_provider = settings.weather_api_provider.lower()
     aqi_provider = settings.aqi_api_provider.lower()
 
-    if weather_provider == "openweathermap":
-        temperature_c, humidity_percent = _fetch_openweather(lat, lon)
-    elif weather_provider == "openmeteo":
-        temperature_c, humidity_percent = _fetch_openmeteo_weather(lat, lon)
-    else:
+    def _weather() -> tuple[float, float]:
+        if weather_provider == "openweathermap":
+            return _fetch_openweather(lat, lon)
+        if weather_provider == "openmeteo":
+            return _fetch_openmeteo_weather(lat, lon)
         raise ValueError(f"Unsupported weather provider: {settings.weather_api_provider}")
 
-    if aqi_provider == "waqi":
-        aqi, pm25, ozone = _fetch_waqi(lat, lon)
-    elif aqi_provider == "openmeteo":
-        aqi, pm25, ozone = _fetch_openmeteo_aqi(lat, lon)
-    else:
+    def _aqi() -> tuple[int, float, float]:
+        if aqi_provider == "waqi":
+            return _fetch_waqi(lat, lon)
+        if aqi_provider == "openmeteo":
+            return _fetch_openmeteo_aqi(lat, lon)
         raise ValueError(f"Unsupported AQI provider: {settings.aqi_api_provider}")
+
+    # Weather and AQI are independent HTTP calls — fetch in parallel.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        weather_future = pool.submit(_weather)
+        aqi_future = pool.submit(_aqi)
+        temperature_c, humidity_percent = weather_future.result()
+        aqi, pm25, ozone = aqi_future.result()
 
     return EnvironmentSnapshot(
         temperature_c=temperature_c,

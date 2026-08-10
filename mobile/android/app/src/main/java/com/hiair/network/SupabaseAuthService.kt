@@ -197,6 +197,10 @@ class SupabaseAuthService(
         connection.readTimeout = 10_000
         connection.setRequestProperty("apikey", AppConfig.supabaseAnonKey)
         connection.setRequestProperty("Content-Type", "application/json")
+        // GoTrue expects Authorization on anon auth calls unless a session bearer is supplied.
+        if (!extraHeaders.keys.any { it.equals("Authorization", ignoreCase = true) }) {
+            connection.setRequestProperty("Authorization", "Bearer ${AppConfig.supabaseAnonKey}")
+        }
         extraHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
         if (body != null) {
             connection.doOutput = true

@@ -46,6 +46,7 @@ final class DashboardViewModel: ObservableObject {
             return
         }
         do {
+            // Phase 1: risk only — paints hero as soon as current-risk returns.
             async let riskTask = apiClient.fetchCurrentRisk(
                 profileId: profileId,
                 userId: userId,
@@ -60,9 +61,6 @@ final class DashboardViewModel: ObservableObject {
                 accessToken: accessToken
             )
             let result = try await riskTask
-            wearableToday = try? await wearableTask
-            healthSummary = try? await summaryTask
-            morningReport = try? await morningTask
             // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
             let live = healthService.connectionState
             switch live {
@@ -92,6 +90,14 @@ final class DashboardViewModel: ObservableObject {
             } else {
                 nearestSafeWindow = HiAirL10n.t("dashboard.no_safe_window", lang: language)
             }
+            // End skeleton as soon as risk is ready; enrichments fill in below.
+            loading = false
+            hasLoadedOnce = true
+
+            // Phase 2: optional enrichments (must not delay first useful UI).
+            wearableToday = try? await wearableTask
+            healthSummary = try? await summaryTask
+            morningReport = try? await morningTask
         } catch {
             loadFailed = true
             riskLevel = "error"
@@ -328,18 +334,24 @@ struct DashboardView: View {
                 "dashboard_refresh_started",
                 profilePresent: !session.profileId.isEmpty
             )
-            // Never block first paint on location when profile already exists.
             let hadProfile = !session.profileId.isEmpty
-            if hadProfile {
-                await reloadDashboard()
-            }
+            let profileBefore = session.profileId
+            let locationRevisionBefore = session.locationRevision
             if UITestBootstrap.disableAutoProfileBootstrap {
-                if !hadProfile {
-                    await reloadDashboard()
+                await reloadDashboard()
+            } else if hadProfile {
+                // Returning user: paint from cached profile while prepare runs;
+                // re-fetch only when prepare changes profile or coordinates.
+                async let prepare = session.prepareSessionForDataFetch(locationService: locationService)
+                await reloadDashboard(skipProfileEnsure: true)
+                _ = await prepare
+                let profileChanged = session.profileId != profileBefore
+                let locationChanged = session.locationRevision != locationRevisionBefore
+                if profileChanged || locationChanged {
+                    await reloadDashboard(skipProfileEnsure: true)
                 }
             } else {
                 _ = await session.prepareSessionForDataFetch(locationService: locationService)
-                // Always refresh dashboard data once; skip ensure — prepare already single-flighted it.
                 await reloadDashboard(skipProfileEnsure: true)
             }
             session.markChecklistItem("risk", done: true)

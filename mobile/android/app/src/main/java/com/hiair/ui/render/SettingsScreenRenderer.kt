@@ -163,22 +163,7 @@ internal object SettingsScreenRenderer {
         }
         aiRetryButton.setOnClickListener { requestAiRefreshDebounced(delayMs = 0L) }
 
-        val signupButton = HiAirComponents.primaryButton(activity, ctx.l("settings.sign_up")).apply {
-            setOnClickListener {
-                statusText.text = ctx.l("common.loading")
-                rootShell.settingsViewModel.setEmail(emailInput.text.toString())
-                rootShell.settingsViewModel.setPassword(passwordInput.text.toString())
-                Thread {
-                    rootShell.settingsViewModel.signup()
-                    val state = rootShell.settingsViewModel.state
-                    activity.runOnUiThread {
-                        persistSession()
-                        statusText.text = state.statusText
-                    }
-                }.start()
-            }
-        }
-        val loginButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.log_in")).apply {
+        val loginButton = HiAirComponents.primaryButton(activity, ctx.l("settings.log_in")).apply {
             setOnClickListener {
                 statusText.text = ctx.l("common.loading")
                 rootShell.settingsViewModel.setEmail(emailInput.text.toString())
@@ -191,6 +176,21 @@ internal object SettingsScreenRenderer {
                             statusText.text = state.statusText
                             ctx.rerender()
                         }
+                    }
+                }.start()
+            }
+        }
+        val signupButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setEmail(emailInput.text.toString())
+                rootShell.settingsViewModel.setPassword(passwordInput.text.toString())
+                Thread {
+                    rootShell.settingsViewModel.signup()
+                    val state = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        persistSession()
+                        statusText.text = state.statusText
                     }
                 }.start()
             }
@@ -449,8 +449,8 @@ internal object SettingsScreenRenderer {
             } else {
                 addView(emailInput)
                 addView(passwordInput)
-                addView(signupButton)
                 addView(loginButton)
+                addView(signupButton)
                 addView(socialAuthRow)
             }
         }

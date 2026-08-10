@@ -85,14 +85,16 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
     snapshot_id = air_repository.save_environment_snapshot(environment)
     assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
-    health_context = _health_context_for_ai(user_id, profile.profile_id, language)
+    # Skip premium health-analytics prefetch on the dashboard critical path —
+    # LLM still receives risk + recommendation facts; Insights/morning report
+    # keep the richer health context.
     explanation, explanation_source = ai_explanation_service.generate_explanation(
         profile,
         risk,
         recommendation,
         language=language,
         risk_assessment_id=assessment_id,
-        health_context=health_context,
+        health_context=None,
     )
     air_repository.save_recommendation(
         risk_assessment_id=assessment_id,

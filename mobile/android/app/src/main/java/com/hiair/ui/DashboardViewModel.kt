@@ -80,6 +80,7 @@ class DashboardViewModel(
         profileId: String?,
         preferredLanguage: String,
         isRetry: Boolean = false,
+        onRiskReady: (() -> Unit)? = null,
     ) {
         if (isRetry) {
             ProductAnalytics.track("dashboard_retry")
@@ -97,11 +98,14 @@ class DashboardViewModel(
                 profileId = profileId,
             )
             val parsed = parseCurrentRisk(raw, preferredLanguage)
-            state = withWearable(parsed, userId, accessToken)
+            // Paint risk immediately; wearable/health enrich without blocking SUCCESS.
+            state = parsed
             ProductAnalytics.track(
                 "dashboard_loaded",
-                mapOf("source" to (state.dataSource ?: "unknown")),
+                mapOf("source" to (parsed.dataSource ?: "unknown")),
             )
+            onRiskReady?.invoke()
+            state = withWearable(parsed, userId, accessToken)
         } catch (error: Exception) {
             val offline = isOffline(error)
             state = DashboardState(

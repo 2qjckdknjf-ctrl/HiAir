@@ -480,8 +480,12 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        // GoTrue expects Authorization even for anon calls (password / id_token / pkce).
+        // Prefer an explicit session bearer when present; otherwise use the anon key.
         if let bearerToken, !bearerToken.isEmpty {
             request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        } else if !anonKey.isEmpty {
+            request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await urlSession.data(for: request)
@@ -1796,8 +1800,24 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
 
 extension AppleSignInCoordinator: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let keyWindow = scenes.flatMap(\.windows).first { $0.isKeyWindow }
-        return keyWindow ?? ASPresentationAnchor()
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+        let windows = scenes.flatMap(\.windows)
+        if let key = windows.first(where: \.isKeyWindow) {
+            return key
+        }
+        if let visible = windows.first(where: { !$0.isHidden && $0.alpha > 0 }) {
+            return visible
+        }
+        // Last resort: any connected window — empty ASPresentationAnchor() breaks SiwA (error 1000).
+        if let any = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap(\.windows)
+            .first
+        {
+            return any
+        }
+        return ASPresentationAnchor()
     }
 }
