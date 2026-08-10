@@ -1,0 +1,152 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Google Play track
+        required: true
+        default: internal
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      status:
+        description: Release status in Play Console
+        required: true
+        default: completed
+        type: choice
+        options:
+          - completed
+          - draft
+          - inProgress
+          - halted
+      version_name:
+        description: Android versionName (defaults to 1.0.0)
+        required: false
+        type: string
+        default: "1.0.0"
+      version_code:
+        description: Android versionCode (defaults to max(181, run_number))
+        required: false
+        type: string
+  push:
+    tags:
+      - "android/v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      version_code: ${{ steps.release_meta.outputs.version_code }}
+      version_name: ${{ steps.release_meta.outputs.version_name }}
+      track: ${{ steps.release_meta.outputs.track }}
+      status: ${{ steps.release_meta.outputs.status }}
+      publish_ready: ${{ steps.release_gate.outputs.publish_ready }}
+    defaults:
+      run:
+        working-directory: mobile/android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Validate release secrets
+        id: release_gate
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          missing=()
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD GOOGLE_PLAY_SERVICE_ACCOUNT_JSON; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "publish_ready=false" >> "$GITHUB_OUTPUT"
+            echo "Missing production secrets: ${missing[*]}"
+            echo "Build will continue unsigned; Play upload will be skipped."
+          else
+            echo "publish_ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode upload keystore
+        if: steps.release_gate.outputs.publish_ready == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload-keystore.jks" >> "$GITHUB_ENV"
+
+      - name: Resolve release metadata
+        id: release_meta
+        run: |
+          if [ -n "${{ github.event.inputs.version_name }}" ]; then
+            version_name="${{ github.event.inputs.version_name }}"
+          else
+            version_name="1.0.0"
+          fi
+          if [ -n "${{ github.event.inputs.version_code }}" ]; then
+            version_code="${{ github.event.inputs.version_code }}"
+          else
+            run_number="${{ github.run_number }}"
+            version_code="$run_number"
+            if [ "$run_number" -lt 181 ]; then
+              version_code=181
+            fi
+          fi
+          echo "version_code=${version_code}" >> "$GITHUB_OUTPUT"
+          echo "version_name=${version_name}" >> "$GITHUB_OUTPUT"
+          echo "track=${{ github.event.inputs.track || 'internal' }}" >> "$GITHUB_OUTPUT"
+          echo "status=${{ github.event.inputs.status || 'completed' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release AAB
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ steps.release_meta.outputs.version_code }}
+          ANDROID_VERSION_NAME: ${{ steps.release_meta.outputs.version_name }}
+        run: ./gradlew :app:bundleRelease --no-daemon
+
+      - name: Validate production API in AAB
+        working-directory: .
+        run: bash scripts/release/validate_store_release_builds.sh android
+
+      - name: Upload to Google Play
+        if: steps.release_gate.outputs.publish_ready == 'true'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.hiair
+          releaseFiles: mobile/android/app/build/outputs/bundle/release/app-release.aab
+          track: ${{ steps.release_meta.outputs.track }}
+          status: ${{ steps.release_meta.outputs.status }}
+          releaseName: HiAir ${{ steps.release_meta.outputs.version_name }} (${{ steps.release_meta.outputs.version_code }})
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hiair-android-${{ steps.release_meta.outputs.version_name }}
+          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30

@@ -23,13 +23,10 @@ check_android() {
   fi
 
   echo "==> Android artifact: $artifact"
-  if [[ "$artifact" == *.aab ]]; then
-    unzip -l "$artifact" | rg -q '\.dex' || fail "invalid Android AAB"
-    dex_paths=$(unzip -l "$artifact" | awk '/\.dex/{print $4}')
-  else
-    unzip -l "$artifact" | rg -q '\.dex' || fail "invalid Android artifact"
-    dex_paths=$(unzip -l "$artifact" | awk '/\.dex/{print $4}')
+  if ! unzip -l "$artifact" | awk '/\.dex/{found=1} END{exit found?0:1}'; then
+    fail "invalid Android artifact (no .dex)"
   fi
+  dex_paths=$(unzip -l "$artifact" | awk '/\.dex/{print $4}')
 
   local found_prod=0
   local dex
