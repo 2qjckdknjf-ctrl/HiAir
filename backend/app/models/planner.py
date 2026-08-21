@@ -18,3 +18,8 @@ class DailyPlannerResponse(BaseModel):
     base_lon: float
     hourly: list[HourlyRiskItem]
     safe_windows: list[SafeWindow]
+    timezone: str | None = None
+    dataQuality: str | None = None
+    freshness: str | None = None
+    sources: list[str] | None = None
+    forecastAvailable: bool = True

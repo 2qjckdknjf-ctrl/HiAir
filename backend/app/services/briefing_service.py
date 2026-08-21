@@ -16,6 +16,8 @@ import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
+from app.services.forecast.mapping import forecast_to_hourly_inputs
+from app.services.forecast.service import get_forecast
 
 
 def get_due_briefings(now_utc: datetime | None = None) -> list[dict[str, str]]:
@@ -44,8 +46,19 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
     user_settings = settings_repository.get_user_settings(user_id)
     environment = air_environment_service.load_environment(profile)
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
-    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
-    plan = air_risk_engine.build_day_plan(profile, environment)
+    hourly_points = []
+    try:
+        forecast = get_forecast(profile.home_lat, profile.home_lon)
+        hourly_points = forecast_to_hourly_inputs(forecast)
+    except Exception:
+        hourly_points = []
+    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load, hourly_points=hourly_points)
+    plan = air_risk_engine.build_day_plan(
+        profile,
+        environment,
+        hourly_points=hourly_points,
+        personal_load=personal_load,
+    )
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=user_settings.preferred_language)
     health_context: list[str] = []
     try:

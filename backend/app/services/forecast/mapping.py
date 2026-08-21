@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.models.air import EnvironmentalInput
-from app.models.forecast import EnvironmentalDataKind, EnvironmentalForecastPoint
+from app.models.forecast import EnvironmentalDataKind, EnvironmentalForecast, EnvironmentalForecastPoint
 from app.models.risk import EnvironmentSnapshot
 
 
@@ -61,3 +61,20 @@ def forecast_point_to_snapshot(point: EnvironmentalForecastPoint, source: str) -
         feels_like=point.apparent_temperature_c,
         timezone=point.timezone,
     )
+
+
+def apply_freshness_source(environment: EnvironmentalInput, freshness: str) -> EnvironmentalInput:
+    if freshness in ("cached", "stale"):
+        return environment.model_copy(update={"source": "cached"})
+    if freshness == "live":
+        return environment.model_copy(update={"source": "live"})
+    return environment
+
+
+def forecast_to_hourly_inputs(forecast: EnvironmentalForecast) -> list[EnvironmentalInput]:
+    points: list[EnvironmentalInput] = []
+    for item in forecast.hourly:
+        mapped = forecast_point_to_environmental(item)
+        if mapped is not None:
+            points.append(mapped)
+    return points

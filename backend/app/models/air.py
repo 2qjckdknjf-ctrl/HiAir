@@ -114,6 +114,10 @@ class CurrentRiskResponse(BaseModel):
     recommendation: RecommendationCard
     explanation: str
     explanationSource: str
+    dataQuality: str | None = None
+    freshness: str | None = None
+    sources: list[str] | None = None
+    generatedAt: str | None = None
 
 
 class HourlyRiskPoint(BaseModel):
@@ -127,6 +131,13 @@ class DayPlanResponse(BaseModel):
     hourlyRisk: list[HourlyRiskPoint]
     safeWindows: list[SafeWindow]
     ventilationWindows: list[SafeWindow]
+    generatedAt: str | None = None
+    dataQuality: str | None = None
+    freshness: str | None = None
+    sources: list[str] | None = None
+    forecastHours: int | None = None
+    forecastAvailable: bool = True
+    missingMetrics: list[str] = []
 
 
 class RecommendationResponse(BaseModel):

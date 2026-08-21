@@ -8,6 +8,7 @@ from app.models.air import (
     AlertDecision,
     AlertSeverity,
     AlertType,
+    EnvironmentalInput,
     ProfileType,
     RecommendationCard,
     RiskAssessmentResult,
@@ -341,20 +342,39 @@ def test_insights_personal_patterns(monkeypatch) -> None:
 
 def test_planner_and_validation(monkeypatch) -> None:
     _enable_auth(monkeypatch)
-    monkeypatch.setattr(
-        "app.api.planner.air_environment_service.resolve_environment_snapshot",
-        lambda lat, lon, **kwargs: EnvironmentSnapshot(
-            temperature_c=26.0,
-            humidity_percent=55.0,
-            aqi=60,
-            pm25=11.0,
-            ozone=62.0,
-            source="live",
-        ),
+    environment = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=26.0,
+        feels_like=27.0,
+        humidity=55.0,
+        aqi=60,
+        pm25=11.0,
+        pm10=18.0,
+        ozone=62.0,
+        uv=5.0,
+        wind_speed=2.0,
+        source="live",
+        timestamp="2026-07-15T10:00:00+02:00",
+        timezone="Europe/Madrid",
     )
     monkeypatch.setattr(
+        "app.api.planner.air_environment_service.load_environment",
+        lambda profile, **kwargs: environment,
+    )
+
+    class _FakeForecast:
+        timezone = "Europe/Madrid"
+        quality = type("Q", (), {"value": "complete"})()
+        freshness = type("F", (), {"value": "live"})()
+        sources = ["openmeteo_weather", "openmeteo_air"]
+        hourly = []
+
+    monkeypatch.setattr("app.api.planner.get_forecast", lambda lat, lon, hours=48: _FakeForecast())
+    monkeypatch.setattr("app.api.planner.forecast_to_hourly_inputs", lambda forecast: [environment])
+    monkeypatch.setattr(
         "app.api.planner.air_risk_engine.evaluate_risk",
-        lambda profile, environment, personal_load=None: RiskAssessmentResult(
+        lambda profile, env, personal_load=None, hourly_points=None: RiskAssessmentResult(
             overallRisk=RiskLevel.LOW,
             heatRisk=RiskLevel.LOW,
             airRisk=RiskLevel.LOW,

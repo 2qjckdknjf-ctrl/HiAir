@@ -14,6 +14,8 @@ import app.services.health_analytics_service as health_analytics_service
 import app.services.settings_repository as settings_repository
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
+from app.services.forecast.mapping import apply_freshness_source, forecast_point_to_environmental, forecast_to_hourly_inputs
+from app.services.forecast.service import get_forecast
 
 router = APIRouter(prefix="/air", tags=["air"])
 
@@ -69,6 +71,13 @@ def _health_context_for_ai(user_id: str, profile_id: str, language: str) -> list
     return health_context[:4]
 
 
+def _load_forecast_or_none(lat: float, lon: float, force_refresh: bool = False):
+    try:
+        return get_forecast(lat, lon, force_refresh=force_refresh)
+    except Exception:
+        return None
+
+
 def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> CurrentRiskResponse:
     profile = _resolve_profile_for_user(profile_id, user_id)
     user_settings = settings_repository.get_user_settings(user_id)
@@ -80,11 +89,31 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
+    forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon, force_refresh=force_live)
+    hourly_points = []
+    freshness = None
+    data_quality = None
+    sources = None
+    generated_at = None
+    if forecast is not None:
+        if forecast.current is not None:
+            mapped = forecast_point_to_environmental(forecast.current)
+            if mapped is not None:
+                environment = apply_freshness_source(mapped, forecast.freshness.value)
+        hourly_points = forecast_to_hourly_inputs(forecast)
+        freshness = forecast.freshness.value
+        data_quality = forecast.quality.value
+        sources = forecast.sources
+        generated_at = forecast.generated_at
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
-    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
+    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load, hourly_points=hourly_points)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
-    snapshot_id = air_repository.save_environment_snapshot(environment)
-    assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
+    snapshot_id = None
+    if environment.aqi is not None and environment.pm25 is not None and environment.ozone is not None:
+        snapshot_id = air_repository.save_environment_snapshot(environment)
+        assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
+    else:
+        assessment_id = None
     # Skip premium health-analytics prefetch on the dashboard critical path —
     # LLM still receives risk + recommendation facts; Insights/morning report
     # keep the richer health context.
@@ -96,11 +125,12 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
         risk_assessment_id=assessment_id,
         health_context=None,
     )
-    air_repository.save_recommendation(
-        risk_assessment_id=assessment_id,
-        recommendation=recommendation,
-        model_version=explanation_source,
-    )
+    if assessment_id is not None:
+        air_repository.save_recommendation(
+            risk_assessment_id=assessment_id,
+            recommendation=recommendation,
+            model_version=explanation_source,
+        )
 
     return CurrentRiskResponse(
         profileId=profile.profile_id,
@@ -110,6 +140,10 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
         recommendation=recommendation,
         explanation=explanation,
         explanationSource=explanation_source,
+        dataQuality=data_quality,
+        freshness=freshness,
+        sources=sources,
+        generatedAt=generated_at,
     )
 
 
@@ -133,7 +167,18 @@ def get_day_plan(
         entitlement_service.require_feature(user_id, "extended_forecast", "extended_forecast_enabled")
         profile = _resolve_profile_for_user(profileId, user_id)
         environment = air_environment_service.load_environment(profile)
-        return air_risk_engine.build_day_plan(profile, environment)
+        forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
+        return air_risk_engine.build_day_plan(
+            profile,
+            environment,
+            hourly_points=hourly_points,
+            generated_at=forecast.generated_at if forecast is not None else None,
+            freshness=forecast.freshness.value if forecast is not None else None,
+            data_quality=forecast.quality.value if forecast is not None else "unavailable",
+            sources=forecast.sources if forecast is not None else None,
+            missing_metrics=forecast.missing_metrics if forecast is not None else None,
+        )
     except HTTPException:
         raise
     except RuntimeError as exc:

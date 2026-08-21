@@ -66,8 +66,41 @@ def test_low_conditions_stay_low_for_default_profile() -> None:
     assert "avoid_outdoor_now" not in result.recommendationFlags
 
 
-def test_day_plan_contains_hourly_points_and_windows() -> None:
+def test_day_plan_uses_provided_hourly_points_not_synthetic() -> None:
     profile = build_profile(ProfileType.RUNNER)
-    plan = build_day_plan(profile, build_environment())
+    base = build_environment()
+    hourly = []
+    for offset in range(24):
+        hourly.append(
+            EnvironmentalInput(
+                lat=base.lat,
+                lon=base.lon,
+                temperature=22.0 if offset < 12 else 36.0,
+                feels_like=22.5 if offset < 12 else 39.0,
+                humidity=45.0,
+                aqi=30 if offset < 12 else 150,
+                pm25=8.0 if offset < 12 else 42.0,
+                pm10=12.0 if offset < 12 else 58.0,
+                ozone=40.0 if offset < 12 else 105.0,
+                uv=2.0 if offset < 12 else 8.4,
+                wind_speed=2.4,
+                source="forecast",
+                timestamp=f"2026-07-15T{offset:02d}:00:00+02:00",
+                timezone="Europe/Madrid",
+            )
+        )
+    plan = build_day_plan(profile, base, hourly_points=hourly)
     assert len(plan.hourlyRisk) == 24
-    assert isinstance(plan.safeWindows, list)
+    assert plan.forecastAvailable is True
+    assert plan.hourlyRisk[0].hour.endswith("+02:00")
+    assert plan.hourlyRisk[0].overallRisk == RiskLevel.LOW
+    assert plan.hourlyRisk[18].overallRisk in (RiskLevel.HIGH, RiskLevel.VERY_HIGH)
+    assert plan.safeWindows
+    assert all(window.start.endswith("+02:00") for window in plan.safeWindows)
+
+
+def test_day_plan_unavailable_without_hourly_points() -> None:
+    plan = build_day_plan(build_profile(ProfileType.ADULT_DEFAULT), build_environment(), hourly_points=[])
+    assert plan.hourlyRisk == []
+    assert plan.safeWindows == []
+    assert plan.forecastAvailable is False

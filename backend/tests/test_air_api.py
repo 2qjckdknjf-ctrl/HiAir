@@ -121,15 +121,17 @@ def test_air_day_plan_returns_payload(monkeypatch) -> None:
     _enable_auth(monkeypatch)
     monkeypatch.setattr(air_api.air_repository, "get_profile_context", lambda profile_id: _sample_profile())
     monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, **kwargs: _sample_environment())
+    monkeypatch.setattr(air_api, "_load_forecast_or_none", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         air_api.air_risk_engine,
         "build_day_plan",
-        lambda profile, environment: DayPlanResponse(
+        lambda profile, environment, **kwargs: DayPlanResponse(
             profileId=profile.profile_id,
             timezone=profile.timezone,
             hourlyRisk=[],
             safeWindows=[],
             ventilationWindows=[],
+            forecastAvailable=False,
         ),
     )
 
@@ -151,7 +153,7 @@ def test_air_recommendations_returns_payload(monkeypatch) -> None:
     monkeypatch.setattr(
         air_api.air_risk_engine,
         "evaluate_risk",
-        lambda profile, environment, personal_load=None: _sample_risk(),
+        lambda profile, environment, personal_load=None, hourly_points=None: _sample_risk(),
     )
     monkeypatch.setattr(
         air_api.air_recommendation_engine,
