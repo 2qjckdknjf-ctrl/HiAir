@@ -4,7 +4,7 @@ Date: 2026-08-21
 Branch: `feat/hiair-1.1-forecast-truth`
 Baseline: `21610011` (prompt-only) on the iOS 1.0 / build-188 release line.
 
-This audit describes **current production code**, not the 1.1 target. Code + API contracts beat older docs.
+This audit describes **pre-implementation production code**. Implementation status lives in `docs/audit/HIAIR_1_1_FORECAST_TRUTH_QA.md`. Code + API contracts beat older docs.
 
 ---
 
