@@ -1,6 +1,6 @@
 # HiAir 1.5 — Saved Places
 
-**Status:** IN PROGRESS (backend core)  
+**Status:** IN PROGRESS (backend + Settings UI)  
 **Branch:** `feat/hiair-1.2-best-time-planner` (stacked)
 
 ## Shipped
@@ -11,6 +11,7 @@
   - `POST /api/places`
   - `DELETE /api/places/{placeId}`
 - Tests: `backend/tests/test_places_api.py`
+- iOS/Android Settings: list / add current home / delete
 
 ## Scope (v0)
 - Per-user saved locations with typed labels (`home`, `work`, `school`, `parents`, `vacation`, `other`)
@@ -19,6 +20,6 @@
 
 ## Not yet
 - PostgreSQL migration + RLS-backed persistence
-- Mobile UI for managing saved places
 - Planner / dashboard consumption of saved places
 - Place limits by entitlement tier
+- Family/caregiver multi-profile monitoring

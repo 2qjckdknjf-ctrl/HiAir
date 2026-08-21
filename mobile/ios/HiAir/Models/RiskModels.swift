@@ -807,3 +807,91 @@ struct ActivityPlanResponse: Codable {
         forecastAvailable
     }
 }
+
+// MARK: - HiAir 1.3 Multi-Hazard
+
+struct HazardScore: Codable, Identifiable, Hashable {
+    let hazard: String
+    let level: String
+    let score: Int
+    let available: Bool
+    let reasonCodes: [String]
+    let unavailableReason: String?
+
+    var id: String { hazard }
+}
+
+struct MultiHazardAssessment: Codable {
+    let profileId: String
+    let assessedAt: String
+    let hazards: [HazardScore]
+    let overallLevel: String
+    let overallScore: Int
+    let availableCount: Int
+    let reasonCodes: [String]
+}
+
+struct HazardsResponse: Codable {
+    let profileId: String
+    let assessedAt: String
+    let environmental: AirEnvironmentalInput
+    let assessment: MultiHazardAssessment
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let generatedAt: String?
+}
+
+// MARK: - HiAir 1.5 Saved Places
+
+struct SavedPlace: Codable, Identifiable, Hashable {
+    let id: String
+    let userId: String
+    let name: String
+    let placeType: String
+    let lat: Double
+    let lon: Double
+    let timezone: String?
+    let createdAt: String?
+}
+
+struct SavedPlaceCreateRequest: Codable {
+    let name: String
+    let placeType: String
+    let lat: Double
+    let lon: Double
+    let timezone: String?
+}
+
+struct SavedPlaceListResponse: Codable {
+    let places: [SavedPlace]
+}
+
+// MARK: - HiAir 1.6 Personal Adaptation
+
+struct PersonalBaseline: Codable, Identifiable, Hashable {
+    let metric: String
+    let window: String
+    let value: Double?
+    let sampleSize: Int
+    let confidence: Double
+    let available: Bool
+
+    var id: String { "\(metric)-\(window)" }
+}
+
+struct ProtectedDaysSummary: Codable {
+    let highRiskPeriodsAvoided: Int
+    let workoutsMoved: Int
+    let ventilationWindowsUsed: Int
+    let poorAirExposureReduced: Int
+    let available: Bool
+}
+
+struct PersonalAdaptationSnapshot: Codable {
+    let profileId: String
+    let generatedAt: String
+    let baselines: [PersonalBaseline]
+    let protectedDays: ProtectedDaysSummary
+    let reasonCodes: [String]
+}

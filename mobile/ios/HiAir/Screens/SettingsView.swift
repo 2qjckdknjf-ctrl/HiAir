@@ -95,6 +95,10 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
     @Published var privacyExportSummary = "-"
     @Published var wearableStatus = "-"
+    @Published var savedPlaces: [SavedPlace] = []
+    @Published var placesStatusText = ""
+    @Published var profileHomeLat: Double?
+    @Published var profileHomeLon: Double?
     @Published var statusText = "-"
     @Published var loading = false
 
@@ -195,10 +199,13 @@ final class SettingsViewModel: ObservableObject {
             if let profile = profiles.first {
                 profileId = profile.id
                 selectedPersona = profile.personaType
+                profileHomeLat = profile.homeLat
+                profileHomeLon = profile.homeLon
                 if let raw = profile.dateOfBirth, let parsed = Self.birthDateFormatter.date(from: raw) {
                     dateOfBirth = parsed
                 }
             }
+            await loadSavedPlaces()
             let response = try await apiClient.fetchUserSettings(userId: userId, accessToken: accessToken)
             pushAlertsEnabled = response.pushAlertsEnabled
             riskThreshold = response.alertThreshold
@@ -300,6 +307,51 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             statusText = l("settings.account_delete_failed")
             return false
+        }
+    }
+
+    func loadSavedPlaces() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let response = try await apiClient.listPlaces(userId: userId, accessToken: accessToken)
+            savedPlaces = response.places
+            placesStatusText = ""
+        } catch {
+            placesStatusText = l("settings.places.load_failed")
+        }
+    }
+
+    func addHomePlace(name: String, lat: Double, lon: Double, timezone: String?) async {
+        guard !userId.isEmpty else { return }
+        placesStatusText = ""
+        do {
+            let place = try await apiClient.createPlace(
+                payload: SavedPlaceCreateRequest(
+                    name: name,
+                    placeType: "home",
+                    lat: lat,
+                    lon: lon,
+                    timezone: timezone
+                ),
+                userId: userId,
+                accessToken: accessToken
+            )
+            savedPlaces.append(place)
+            placesStatusText = l("settings.places.added")
+        } catch {
+            placesStatusText = l("settings.places.add_failed")
+        }
+    }
+
+    func deleteSavedPlace(_ placeId: String) async {
+        guard !userId.isEmpty else { return }
+        placesStatusText = ""
+        do {
+            try await apiClient.deletePlace(placeId: placeId, userId: userId, accessToken: accessToken)
+            savedPlaces.removeAll { $0.id == placeId }
+            placesStatusText = l("settings.places.deleted")
+        } catch {
+            placesStatusText = l("settings.places.delete_failed")
         }
     }
 
@@ -1018,6 +1070,71 @@ struct SettingsView: View {
                 }
                 .tint(HiAirV2Theme.accentStart)
                 .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.places.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    if viewModel.savedPlaces.isEmpty {
+                        Text(session.l("settings.places.empty"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    } else {
+                        ForEach(viewModel.savedPlaces) { place in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(place.name)
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                        .foregroundStyle(HiAirV2Theme.primaryText)
+                                    Text(
+                                        String(
+                                            format: session.l("settings.places.coords"),
+                                            locale: Locale(identifier: session.preferredLanguage),
+                                            place.lat,
+                                            place.lon
+                                        )
+                                    )
+                                    .font(AuroraTokens.Typography.caption)
+                                    .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                }
+                                Spacer()
+                                Button(session.l("settings.places.delete")) {
+                                    Task { await viewModel.deleteSavedPlace(place.id) }
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                            }
+                        }
+                    }
+                    if session.hasValidLocation || GeoCoordinates.isValid(
+                        lat: viewModel.profileHomeLat ?? 0,
+                        lon: viewModel.profileHomeLon ?? 0
+                    ) {
+                        Button(session.l("settings.places.add_home")) {
+                            let lat = session.hasValidLocation ? session.latitude : (viewModel.profileHomeLat ?? 0)
+                            let lon = session.hasValidLocation ? session.longitude : (viewModel.profileHomeLon ?? 0)
+                            let name = session.displayPlaceName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let resolvedName = (name?.isEmpty == false) ? name! : session.l("settings.places.home_default_name")
+                            Task {
+                                await viewModel.addHomePlace(
+                                    name: resolvedName,
+                                    lat: lat,
+                                    lon: lon,
+                                    timezone: TimeZone.current.identifier
+                                )
+                            }
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                    }
+                    if !viewModel.placesStatusText.isEmpty {
+                        Text(viewModel.placesStatusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+                .v2Card()
+                .onAppear {
+                    Task { await viewModel.loadSavedPlaces() }
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.wearables.title"))

@@ -765,10 +765,10 @@ HiAir reaches the intended 10/10 product state when:
 |---------|--------|
 | 1.1 Forecast Truth | CODE COMPLETE — waiting production deploy + device QA |
 | 1.2 Best Time Activity Planner | CODE COMPLETE (backend + iOS/Android additive UI) — waiting production/device QA |
-| 1.3 Multi-Hazard | Backend core IN PROGRESS (`GET /api/air/hazards`) |
-| 1.4 Alert Decision Engine | Core gate IN PROGRESS (`POST /api/alerts/decide`) |
-| 1.5 Saved Places | Backend core IN PROGRESS (`/api/places`) |
-| 1.6 Personal Adaptation | Backend core IN PROGRESS (`GET /api/insights/adaptation`) |
+| 1.3 Multi-Hazard | Backend + Dashboard UI IN PROGRESS (`GET /api/air/hazards`) |
+| 1.4 Alert Decision Engine | Gate wired into orchestrator IN PROGRESS (`POST /api/alerts/decide`) |
+| 1.5 Saved Places | Backend + Settings UI IN PROGRESS (`/api/places`) |
+| 1.6 Personal Adaptation | Backend + Insights UI IN PROGRESS (`GET /api/insights/adaptation`) |
 | 2.0 Work / B2B Safety | Backend scaffold IN PROGRESS (`GET /api/work/site-risk`; Heat Index ≠ WBGT) |
 
 Notes:

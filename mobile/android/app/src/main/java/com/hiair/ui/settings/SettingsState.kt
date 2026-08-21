@@ -16,6 +16,15 @@ import java.net.UnknownHostException
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class SavedPlaceItem(
+    val id: String,
+    val name: String,
+    val placeType: String,
+    val lat: Double,
+    val lon: Double,
+    val timezone: String? = null,
+)
+
 data class SettingsState(
     val email: String = "",
     val password: String = "",
@@ -68,6 +77,9 @@ data class SettingsState(
     val longitude: Double = 0.0,
     val locationSource: String = LocationSource.UNKNOWN.raw,
     val locationRevision: Int = 0,
+    val savedPlaces: List<SavedPlaceItem> = emptyList(),
+    val placesStatusText: String = "-",
+    val placesLoading: Boolean = false,
 )
 
 class SettingsViewModel(
@@ -609,6 +621,80 @@ class SettingsViewModel(
         }
     }
 
+    fun loadPlaces() {
+        if (state.userId.isBlank()) {
+            state = state.copy(placesStatusText = l("settings.user_id_required"))
+            return
+        }
+        state = state.copy(placesLoading = true)
+        try {
+            val raw = apiClient.listPlaces(state.userId, state.accessToken.ifBlank { null })
+            state = state.copy(
+                placesLoading = false,
+                savedPlaces = parsePlacesList(raw),
+                placesStatusText = l("places.loaded"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(placesLoading = false, placesStatusText = l("places.load_failed"))
+        }
+    }
+
+    fun addSavedPlace(name: String, placeType: String) {
+        if (state.userId.isBlank()) {
+            state = state.copy(placesStatusText = l("settings.user_id_required"))
+            return
+        }
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
+            state = state.copy(placesStatusText = l("places.name_required"))
+            return
+        }
+        if (!hasValidLocation()) {
+            state = state.copy(placesStatusText = l("places.location_required"))
+            return
+        }
+        state = state.copy(placesLoading = true)
+        try {
+            val raw = apiClient.createPlace(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                name = trimmedName,
+                placeType = placeType,
+                lat = state.latitude,
+                lon = state.longitude,
+            )
+            val created = parseSavedPlace(raw)
+            state = state.copy(
+                placesLoading = false,
+                savedPlaces = state.savedPlaces + created,
+                placesStatusText = l("places.added"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(placesLoading = false, placesStatusText = l("places.add_failed"))
+        }
+    }
+
+    fun deleteSavedPlace(placeId: String) {
+        if (state.userId.isBlank() || placeId.isBlank()) {
+            return
+        }
+        state = state.copy(placesLoading = true)
+        try {
+            apiClient.deletePlace(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                placeId = placeId,
+            )
+            state = state.copy(
+                placesLoading = false,
+                savedPlaces = state.savedPlaces.filterNot { it.id == placeId },
+                placesStatusText = l("places.deleted"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(placesLoading = false, placesStatusText = l("places.delete_failed"))
+        }
+    }
+
     fun refreshWearableStatus() {
         if (state.userId.isBlank()) return
         try {
@@ -1029,6 +1115,32 @@ class SettingsViewModel(
                 aiInlineActionType = inlineActionType,
                 aiBreakdownText = "-",
                 statusText = l("settings.ai_failed")
+            )
+        }
+    }
+
+    companion object {
+        fun parsePlacesList(raw: String): List<SavedPlaceItem> {
+            val array = JSONObject(raw).optJSONArray("places") ?: JSONArray()
+            return buildList {
+                for (index in 0 until array.length()) {
+                    add(parseSavedPlace(array.getJSONObject(index)))
+                }
+            }
+        }
+
+        fun parseSavedPlace(raw: String): SavedPlaceItem {
+            return parseSavedPlace(JSONObject(raw))
+        }
+
+        private fun parseSavedPlace(json: JSONObject): SavedPlaceItem {
+            return SavedPlaceItem(
+                id = json.getString("id"),
+                name = json.getString("name"),
+                placeType = json.optString("placeType"),
+                lat = json.getDouble("lat"),
+                lon = json.getDouble("lon"),
+                timezone = json.optString("timezone").takeIf { it.isNotBlank() },
             )
         }
     }

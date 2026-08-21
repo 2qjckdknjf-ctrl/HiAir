@@ -28,6 +28,13 @@ enum class DashboardStatus {
     OFFLINE,
 }
 
+data class HazardLine(
+    val hazard: String,
+    val level: String,
+    val score: Int,
+    val available: Boolean,
+)
+
 data class DashboardState(
     val status: DashboardStatus = DashboardStatus.INITIAL,
     val riskLevel: String? = null,
@@ -51,6 +58,9 @@ data class DashboardState(
     val wearableSummary: String? = null,
     val wearableConnected: Boolean = false,
     val healthSummaryRaw: String? = null,
+    val hazardsOverallLevel: String? = null,
+    val hazardsOverallScore: Int? = null,
+    val hazardLines: List<HazardLine> = emptyList(),
 )
 
 class DashboardViewModel(
@@ -118,7 +128,12 @@ class DashboardViewModel(
                 ),
             )
             onRiskReady?.invoke()
-            state = withWearable(parsed, userId, accessToken)
+            state = withHazards(
+                withWearable(parsed, userId, accessToken),
+                userId,
+                accessToken,
+                profileId,
+            )
         } catch (error: Exception) {
             val offline = isOffline(error)
             state = DashboardState(
@@ -129,6 +144,29 @@ class DashboardViewModel(
                 mapOf("offline" to offline.toString()),
             )
             ProductAnalytics.track("forecast_fetch_failed", mapOf("surface" to "dashboard"))
+        }
+    }
+
+    private fun withHazards(
+        base: DashboardState,
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+    ): DashboardState {
+        return try {
+            val raw = apiClient.fetchHazards(
+                userId = userId,
+                accessToken = accessToken,
+                profileId = profileId,
+            )
+            val parsed = parseHazards(raw)
+            base.copy(
+                hazardsOverallLevel = parsed.overallLevel,
+                hazardsOverallScore = parsed.overallScore,
+                hazardLines = parsed.lines,
+            )
+        } catch (_: Exception) {
+            base
         }
     }
 
@@ -249,6 +287,41 @@ class DashboardViewModel(
                 freshness = freshness,
                 dataQuality = dataQuality,
                 timezone = timezone,
+            )
+        }
+
+        data class ParsedHazards(
+            val overallLevel: String,
+            val overallScore: Int,
+            val lines: List<HazardLine>,
+        )
+
+        fun parseHazards(raw: String): ParsedHazards {
+            val json = JSONObject(raw)
+            val assessment = json.optJSONObject("assessment")
+                ?: throw IllegalStateException("hazards response missing 'assessment'")
+            val overallLevel = assessment.optString("overallLevel", "")
+            if (overallLevel.isBlank()) {
+                throw IllegalStateException("hazards response missing 'overallLevel'")
+            }
+            val lines = mutableListOf<HazardLine>()
+            assessment.optJSONArray("hazards")?.let { array ->
+                for (index in 0 until array.length()) {
+                    val row = array.getJSONObject(index)
+                    lines.add(
+                        HazardLine(
+                            hazard = row.optString("hazard"),
+                            level = row.optString("level"),
+                            score = row.optInt("score", 0),
+                            available = row.optBoolean("available", false),
+                        ),
+                    )
+                }
+            }
+            return ParsedHazards(
+                overallLevel = overallLevel,
+                overallScore = assessment.optInt("overallScore", 0),
+                lines = lines,
             )
         }
 

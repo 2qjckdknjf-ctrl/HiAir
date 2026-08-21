@@ -11,6 +11,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var nearestSafeWindow = ""
     @Published var safeWindowLabels: [String] = []
     @Published var environmental: AirEnvironmentalInput?
+    @Published var hazardsResponse: HazardsResponse?
     @Published var wearableToday: WearableTodayResponse?
     @Published var healthSummary: HealthSummaryResponseDTO?
     @Published var morningReport: AIReportResponseDTO?
@@ -42,6 +43,7 @@ final class DashboardViewModel: ObservableObject {
             nearestSafeWindow = ""
             safeWindowLabels = []
             environmental = nil
+            hazardsResponse = nil
             freshness = ""
             dataQuality = ""
             wearableToday = nil
@@ -53,6 +55,11 @@ final class DashboardViewModel: ObservableObject {
             ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "dashboard"])
             // Phase 1: risk only — paints hero as soon as current-risk returns.
             async let riskTask = apiClient.fetchCurrentRisk(
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken
+            )
+            async let hazardsTask = apiClient.fetchHazards(
                 profileId: profileId,
                 userId: userId,
                 accessToken: accessToken
@@ -132,6 +139,7 @@ final class DashboardViewModel: ObservableObject {
             )
 
             // Phase 2: optional enrichments (must not delay first useful UI).
+            hazardsResponse = try? await hazardsTask
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
             morningReport = try? await morningTask
@@ -145,6 +153,7 @@ final class DashboardViewModel: ObservableObject {
             nearestSafeWindow = ""
             safeWindowLabels = []
             environmental = nil
+            hazardsResponse = nil
             freshness = ""
             dataQuality = ""
             wearableToday = nil
@@ -360,6 +369,7 @@ struct DashboardView: View {
                         aiSummarySection
                         riskHeroSection(width: width)
                         todaysAirSection
+                        hazardsSection
                         healthMetricsSection
                         wearableLoadSection
                         quickActionsSection
@@ -726,6 +736,61 @@ struct DashboardView: View {
             )
             .v2Card()
         }
+    }
+
+    @ViewBuilder
+    private var hazardsSection: some View {
+        if let hazards = viewModel.hazardsResponse {
+            VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+                HStack {
+                    Text(session.l("dashboard.hazards.title"))
+                        .font(HiAirTypography.titleMD)
+                        .foregroundStyle(HiAirColors.Text.primary)
+                    Spacer()
+                    HiAirStatusChip(
+                        riskLevel: hazards.assessment.overallLevel,
+                        label: hazardLevelLabel(hazards.assessment.overallLevel)
+                    )
+                }
+                if hazards.assessment.hazards.isEmpty {
+                    Text(session.l("dashboard.hazards.empty"))
+                        .font(HiAirTypography.bodyMD)
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 120), spacing: HiAirSpacing.xs)],
+                        alignment: .leading,
+                        spacing: HiAirSpacing.xs
+                    ) {
+                        ForEach(hazards.assessment.hazards) { item in
+                            if item.available {
+                                HiAirStatusChip(
+                                    riskLevel: item.level,
+                                    label: "\(hazardTypeLabel(item.hazard)) · \(hazardLevelLabel(item.level))"
+                                )
+                            } else {
+                                Text("\(hazardTypeLabel(item.hazard)) · \(session.l("dashboard.hazards.unavailable"))")
+                                    .font(HiAirTypography.caption.weight(.semibold))
+                                    .foregroundStyle(HiAirColors.Text.tertiary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(HiAirColors.Text.tertiary.opacity(0.12), in: Capsule())
+                            }
+                        }
+                    }
+                }
+            }
+            .v2Card()
+        }
+    }
+
+    private func hazardTypeLabel(_ hazard: String) -> String {
+        session.l("hazard.type.\(hazard.lowercased())")
+    }
+
+    private func hazardLevelLabel(_ level: String) -> String {
+        let normalized = level.lowercased().replacingOccurrences(of: " ", with: "_")
+        return session.l("hazard.level.\(normalized)")
     }
 
     @ViewBuilder

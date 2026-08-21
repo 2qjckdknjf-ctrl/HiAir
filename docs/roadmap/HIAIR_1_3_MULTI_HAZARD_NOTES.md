@@ -1,7 +1,7 @@
 # HiAir 1.3 — Multi-Hazard Intelligence
 
-**Status:** IN PROGRESS (backend core)  
-**Branch:** `feat/hiair-1.1-forecast-truth` (1.3 core landed additively; full release TBD)  
+**Status:** IN PROGRESS (backend + additive mobile UI)  
+**Branch:** `feat/hiair-1.2-best-time-planner`  
 **Depends on:** HiAir 1.1 Forecast Truth (never invent environmental metrics)
 
 ## Goal
@@ -16,6 +16,11 @@ Expand from heat + air quality into a modular personal environmental safety laye
 - Hazard modules: heat, air, UV (from real `EnvironmentalInput`); pollen, smoke, dust return `unavailable` / `provider_not_configured` until providers exist
 - Aggregation uses **available hazards only**; never synthesizes missing metrics
 
+## Mobile (additive)
+
+- iOS/Android Dashboard hazards card after air metrics
+- Shows overall level + available hazard chips only; unavailable stay honest
+
 ## Product rules
 
 1. Deterministic hazard scoring; AI may explain, not invent measurements.
@@ -27,6 +32,5 @@ Expand from heat + air quality into a modular personal environmental safety laye
 - [ ] Pollen / smoke / dust provider integrations
 - [ ] Regional hazard configuration (USA, Southern Europe, GCC, Egypt)
 - [ ] NO2 and official alert feeds where data quality allows
-- [ ] iOS / Android multi-hazard UI
 - [ ] Production smoke on `api.hiair.io`
 - [ ] Merge Personal Environmental Risk with existing risk engine output

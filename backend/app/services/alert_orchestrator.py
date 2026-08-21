@@ -8,9 +8,14 @@ from app.models.air import (
     RiskAssessmentResult,
     UserProfileContext,
 )
+from app.models.alert_decision import (
+    AlertCandidate,
+    AlertDecisionReason as DecisionReason,
+)
 from app.services.localization import normalize_language, t
 from app.services.risk_level_contract import normalize_air_level_value
 import app.services.air_repository as air_repository
+import app.services.alert_decision_engine as alert_decision_engine
 import app.services.settings_repository as settings_repository
 
 
@@ -51,16 +56,6 @@ def evaluate_alert(
             dedupeKey=f"{profile.profile_id}:disabled",
             reason="alerts_disabled",
         )
-    if _is_quiet_hours(user_settings.quiet_hours_start, user_settings.quiet_hours_end, now_hour):
-        return AlertDecision(
-            shouldSend=False,
-            alertType=None,
-            severity=None,
-            title=t(lang, "alert.quiet.title"),
-            body=t(lang, "alert.quiet.body"),
-            dedupeKey=f"{profile.profile_id}:quiet_hours",
-            reason="quiet_hours",
-        )
 
     latest = air_repository.get_latest_risk_assessment(profile.profile_id)
     latest_level = normalize_air_level_value(latest["overall_risk"]) if latest else "low"
@@ -80,25 +75,57 @@ def evaluate_alert(
         )
 
     dedupe_key = f"{profile.profile_id}:{alert_type.value}:{severity.value}:{current_level}"
+    already_sent = None
     if air_repository.find_recent_alert_by_dedupe_key(dedupe_key, within_hours=4):
+        already_sent = dedupe_key
+
+    reason_code = (
+        DecisionReason.THRESHOLD_CROSSED
+        if alert_type == AlertType.RISK_INCREASE
+        else DecisionReason.SIGNIFICANT_CHANGE
+    )
+    gate = alert_decision_engine.decide_alert(
+        AlertCandidate(
+            alertType=alert_type.value,
+            severity=severity.value,
+            reasonCode=reason_code,
+            profileId=profile.profile_id,
+            localHour=now_hour,
+            quietHoursStart=user_settings.quiet_hours_start,
+            quietHoursEnd=user_settings.quiet_hours_end,
+            cooldownMinutesRemaining=0,
+            alreadySentFingerprint=already_sent,
+            fingerprint=dedupe_key,
+            actionable=current_level in ("high", "very_high") or alert_type == AlertType.RISK_INCREASE,
+            personalThresholdMet=True,
+        )
+    )
+    if not gate.shouldNotify:
+        suppress_reason = gate.reasonCodes[0] if gate.reasonCodes else "suppressed"
+        # Preserve legacy reason string used by clients/tests.
+        if suppress_reason == "duplicate":
+            suppress_reason = "deduplicated"
+        title_key = "alert.quiet.title" if suppress_reason == "quiet_hours" else "alert.duplicate.title"
+        body_key = "alert.quiet.body" if suppress_reason == "quiet_hours" else "alert.duplicate.body"
+        if suppress_reason == "no_actionable_change":
+            title_key = "alert.nochange.title"
+            body_key = "alert.nochange.body"
         return AlertDecision(
             shouldSend=False,
             alertType=None,
             severity=None,
-            title=t(lang, "alert.duplicate.title"),
-            body=t(lang, "alert.duplicate.body"),
+            title=t(lang, title_key),
+            body=t(lang, body_key),
             dedupeKey=dedupe_key,
-            reason="deduplicated",
+            reason=suppress_reason,
         )
 
-    title = recommendation.headline
-    body = recommendation.summary
     return AlertDecision(
         shouldSend=True,
         alertType=alert_type,
         severity=severity,
-        title=title,
-        body=body,
+        title=recommendation.headline,
+        body=recommendation.summary,
         dedupeKey=dedupe_key,
         reason="risk_rules_triggered",
     )

@@ -17,6 +17,7 @@ final class InsightsViewModel: ObservableObject {
     @Published var loggedDays = 0
     @Published var generatedAtDisplay = ""
     @Published var premiumLocked = false
+    @Published var adaptation: PersonalAdaptationSnapshot?
     @Published var windowDays: Int = 30
 
     private let apiClient = APIClient.live()
@@ -39,6 +40,7 @@ final class InsightsViewModel: ObservableObject {
         loading = true
         defer { loading = false }
         premiumLocked = false
+        adaptation = nil
         do {
             async let historyTask = apiClient.fetchSymptomHistory(
                 profileId: profileId,
@@ -129,6 +131,22 @@ final class InsightsViewModel: ObservableObject {
                 }
             } catch {
                 items = []
+            }
+
+            do {
+                adaptation = try await apiClient.fetchAdaptation(
+                    profileId: profileId,
+                    userId: userId,
+                    accessToken: accessToken
+                )
+            } catch let error as APIError {
+                adaptation = nil
+                if case .server(let code) = error, code == 402 {
+                    premiumLocked = true
+                    onPremiumRequired?()
+                }
+            } catch {
+                adaptation = nil
             }
 
             lastError = nil
@@ -238,6 +256,7 @@ struct InsightsView: View {
                     } else {
                         windowPicker
                         todayCard
+                        adaptationCard
                         if viewModel.premiumLocked {
                             premiumLockedCard
                         }
@@ -341,6 +360,61 @@ struct InsightsView: View {
             }
         }
         .v2Card()
+    }
+
+    @ViewBuilder
+    private var adaptationCard: some View {
+        if let snapshot = viewModel.adaptation {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(session.l("insights.adaptation.title"))
+                    .font(AuroraTokens.Typography.titleMD)
+                    .foregroundStyle(HiAirV2Theme.primaryText)
+                let availableBaselines = snapshot.baselines.filter(\.available)
+                if availableBaselines.isEmpty {
+                    Text(session.l("insights.adaptation.baselines.empty"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                } else {
+                    ForEach(availableBaselines) { baseline in
+                        Text(adaptationBaselineLine(baseline))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+                if snapshot.protectedDays.available {
+                    Text(adaptationProtectedDaysLine(snapshot.protectedDays))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
+            }
+            .v2Card()
+        }
+    }
+
+    private func adaptationBaselineLine(_ baseline: PersonalBaseline) -> String {
+        let metric = session.l("insights.adaptation.metric.\(baseline.metric)")
+        let window = session.l("insights.adaptation.window.\(baseline.window)")
+        guard let value = baseline.value else {
+            return "\(metric) (\(window)): \(session.l("dashboard.hazards.unavailable"))"
+        }
+        return String(
+            format: session.l("insights.adaptation.baseline_line"),
+            locale: Locale(identifier: session.preferredLanguage),
+            metric,
+            window,
+            value
+        )
+    }
+
+    private func adaptationProtectedDaysLine(_ summary: ProtectedDaysSummary) -> String {
+        String(
+            format: session.l("insights.adaptation.protected_days"),
+            locale: Locale(identifier: session.preferredLanguage),
+            summary.highRiskPeriodsAvoided,
+            summary.workoutsMoved,
+            summary.ventilationWindowsUsed,
+            summary.poorAirExposureReduced
+        )
     }
 
     private var premiumLockedCard: some View {

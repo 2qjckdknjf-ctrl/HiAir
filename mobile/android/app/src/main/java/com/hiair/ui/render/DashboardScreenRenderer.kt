@@ -177,6 +177,7 @@ internal object DashboardScreenRenderer {
         )
 
         airMetricsCard(ctx, state)?.let { bodyContainer.addView(it) }
+        hazardsCard(ctx, state)?.let { bodyContainer.addView(it) }
         if (state.wearableConnected) {
             bodyContainer.addView(
                 HealthTodayMetricsRenderer.render(
@@ -244,6 +245,69 @@ internal object DashboardScreenRenderer {
             gravity = Gravity.CENTER_HORIZONTAL
             setTextColor(Tokens.Text.tertiary)
         }
+    }
+
+    private fun hazardsCard(ctx: RenderContext, state: DashboardState): View? {
+        val overall = state.hazardsOverallLevel ?: return null
+        if (state.hazardLines.isEmpty()) return null
+        val activity = ctx.activity
+        val unavailable = ctx.l("dashboard.metric.unavailable")
+        return V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("hazards.title")).apply { textSize = 16f })
+            addView(V2Ui.spacer(activity, 6))
+            addView(
+                metricRow(
+                    ctx,
+                    ctx.l("hazards.overall"),
+                    "${hazardLevelLabel(ctx, overall)} (${state.hazardsOverallScore ?: 0})",
+                ),
+            )
+            state.hazardLines.filter { it.available }.forEach { line ->
+                addView(
+                    metricRow(
+                        ctx,
+                        hazardTypeLabel(ctx, line.hazard),
+                        "${hazardLevelLabel(ctx, line.level)} · ${line.score}",
+                    ),
+                )
+            }
+            val unavailableTypes = state.hazardLines.filterNot { it.available }
+            if (unavailableTypes.isNotEmpty()) {
+                addView(V2Ui.spacer(activity, 4))
+                addView(
+                    V2Ui.styledSecondaryText(activity, ctx.l("hazards.unavailable_count")
+                        .replace("%d", unavailableTypes.size.toString())).apply { textSize = 12f },
+                )
+            }
+            if (overall.equals("unavailable", ignoreCase = true) && state.hazardLines.none { it.available }) {
+                addView(V2Ui.styledSecondaryText(activity, unavailable))
+            }
+        }
+    }
+
+    private fun hazardTypeLabel(ctx: RenderContext, hazard: String): String {
+        val key = when (hazard.lowercase()) {
+            "heat" -> "hazards.type.heat"
+            "air" -> "hazards.type.air"
+            "uv" -> "hazards.type.uv"
+            "pollen" -> "hazards.type.pollen"
+            "smoke" -> "hazards.type.smoke"
+            "dust" -> "hazards.type.dust"
+            else -> null
+        }
+        return key?.let { ctx.l(it) } ?: hazard
+    }
+
+    private fun hazardLevelLabel(ctx: RenderContext, level: String): String {
+        val key = when (level.lowercase()) {
+            "low" -> "hazards.level.low"
+            "moderate", "medium" -> "hazards.level.moderate"
+            "high" -> "hazards.level.high"
+            "very_high", "very high" -> "hazards.level.very_high"
+            "unavailable" -> "hazards.level.unavailable"
+            else -> null
+        }
+        return key?.let { ctx.l(it) } ?: level
     }
 
     private fun airMetricsCard(ctx: RenderContext, state: DashboardState): View? {

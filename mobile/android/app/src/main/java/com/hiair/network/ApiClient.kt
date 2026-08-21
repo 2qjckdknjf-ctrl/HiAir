@@ -112,6 +112,63 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchHazards(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/air/hazards?profileId=$profileId"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun listPlaces(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/places"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createPlace(
+        userId: String,
+        accessToken: String? = null,
+        name: String,
+        placeType: String,
+        lat: Double,
+        lon: Double,
+        timezone: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/places"
+        val json = JSONObject().apply {
+            put("name", name)
+            put("placeType", placeType)
+            put("lat", lat)
+            put("lon", lon)
+            if (!timezone.isNullOrBlank()) {
+                put("timezone", timezone)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun deletePlace(
+        userId: String,
+        accessToken: String? = null,
+        placeId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/places/$placeId"
+        return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchAdaptation(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/insights/adaptation?profileId=$profileId"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchAirDayPlan(
         userId: String,
         accessToken: String? = null,

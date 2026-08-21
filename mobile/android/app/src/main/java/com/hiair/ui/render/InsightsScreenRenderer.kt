@@ -12,6 +12,8 @@ import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirHumanDate
 import com.hiair.ui.design.HiAirSpacing
 import com.hiair.ui.design.Tokens
+import com.hiair.ui.insights.AdaptationInsightsParser
+import com.hiair.ui.insights.AdaptationSnapshot
 import com.hiair.ui.theme.V2Ui
 import org.json.JSONObject
 import java.util.Calendar
@@ -48,6 +50,8 @@ internal object InsightsScreenRenderer {
         val loggedDays: Int,
         val healthStatusText: String? = null,
         val premiumLocked: Boolean = false,
+        val adaptation: AdaptationSnapshot? = null,
+        val adaptationPremiumLocked: Boolean = false,
     )
 
     fun render(ctx: RenderContext) {
@@ -117,6 +121,11 @@ internal object InsightsScreenRenderer {
             if (viewData.healthStatusText != null) {
                 contentHost.addView(buildHealthStatusCard(ctx, viewData.healthStatusText))
             }
+            if (viewData.adaptationPremiumLocked) {
+                contentHost.addView(buildAdaptationPremiumLockedCard(ctx))
+            } else if (viewData.adaptation != null) {
+                contentHost.addView(buildAdaptationSection(ctx, viewData.adaptation))
+            }
             if (viewData.premiumPatterns.isNotEmpty()) {
                 contentHost.addView(buildPremiumPatternsSection(ctx, viewData.premiumPatterns))
             }
@@ -177,6 +186,8 @@ internal object InsightsScreenRenderer {
                 var loggedDays = 0
                 var premiumLocked = false
                 var healthStatusText: String? = null
+                var adaptation: AdaptationSnapshot? = null
+                var adaptationPremiumLocked = false
 
                 try {
                     val bundleRaw = apiClient.fetchHealthInsights(
@@ -233,6 +244,21 @@ internal object InsightsScreenRenderer {
                     }
                 } catch (_: Exception) {
                     // Fall through to premium personal patterns.
+                }
+
+                try {
+                    val adaptationRaw = apiClient.fetchAdaptation(
+                        userId = settings.userId,
+                        accessToken = settings.accessToken.ifBlank { null },
+                        profileId = profileId,
+                    )
+                    adaptation = AdaptationInsightsParser.parse(adaptationRaw)
+                } catch (error: ApiHttpException) {
+                    if (error.statusCode == 402) {
+                        adaptationPremiumLocked = true
+                    }
+                } catch (_: Exception) {
+                    // Adaptation is optional enrichment.
                 }
 
                 if (!premiumLocked && trends.isEmpty() && associations.isEmpty() && insufficient.isEmpty()) {
@@ -311,6 +337,8 @@ internal object InsightsScreenRenderer {
                             generatedAt = generatedAt,
                             loggedDays = loggedDays,
                             healthStatusText = healthStatusText,
+                            adaptation = adaptation,
+                            adaptationPremiumLocked = adaptationPremiumLocked,
                         ),
                         null,
                     )
@@ -391,6 +419,87 @@ internal object InsightsScreenRenderer {
         card.addView(V2Ui.styledSecondaryText(activity, healthStatusText))
         section.addView(card)
         return section
+    }
+
+    private fun buildAdaptationPremiumLockedCard(ctx: RenderContext): LinearLayout {
+        return buildPremiumLockedCard(ctx)
+    }
+
+    private fun buildAdaptationSection(ctx: RenderContext, snapshot: AdaptationSnapshot): LinearLayout {
+        val activity = ctx.activity
+        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        section.addView(HiAirComponents.sectionHeader(activity, ctx.l("adaptation.title")))
+        val card = HiAirComponents.cardContainer(activity)
+        val availableBaselines = snapshot.baselines.filter { it.available }
+        if (availableBaselines.isEmpty()) {
+            card.addView(V2Ui.styledSecondaryText(activity, ctx.l("adaptation.baselines.empty")))
+        } else {
+            card.addView(V2Ui.styledBodyText(activity, ctx.l("adaptation.baselines.title")).apply {
+                setTypeface(typeface, Typeface.BOLD)
+            })
+            availableBaselines.forEach { baseline ->
+                val valueText = baseline.value?.let { String.format(Locale.US, "%.1f", it) }
+                    ?: ctx.l("common.unavailable")
+                val line = ctx.l("adaptation.baseline.line")
+                    .replaceFirst("%@", adaptationMetricLabel(ctx, baseline.metric))
+                    .replaceFirst("%@", adaptationWindowLabel(ctx, baseline.window))
+                    .replaceFirst("%@", valueText)
+                    .replaceFirst("%d", baseline.sampleSize.toString())
+                card.addView(V2Ui.styledSecondaryText(activity, line))
+            }
+        }
+        card.addView(V2Ui.spacer(activity, 8))
+        if (snapshot.protectedDays.available) {
+            card.addView(V2Ui.styledBodyText(activity, ctx.l("adaptation.protected.title")).apply {
+                setTypeface(typeface, Typeface.BOLD)
+            })
+            val protected = snapshot.protectedDays
+            listOf(
+                ctx.l("adaptation.protected.avoided") to protected.highRiskPeriodsAvoided,
+                ctx.l("adaptation.protected.workouts") to protected.workoutsMoved,
+                ctx.l("adaptation.protected.ventilation") to protected.ventilationWindowsUsed,
+                ctx.l("adaptation.protected.exposure") to protected.poorAirExposureReduced,
+            ).forEach { (label, count) ->
+                card.addView(V2Ui.styledSecondaryText(activity, "$label: $count"))
+            }
+        } else {
+            card.addView(V2Ui.styledSecondaryText(activity, ctx.l("adaptation.protected.empty")))
+        }
+        if (snapshot.generatedAt.isNotBlank()) {
+            card.addView(
+                V2Ui.styledSecondaryText(
+                    activity,
+                    HiAirHumanDate.display(
+                        snapshot.generatedAt,
+                        Locale.getDefault(),
+                        HiAirHumanDate.Style.DATE_TIME,
+                        unavailable = ctx.l("common.unavailable"),
+                    ),
+                ).apply { textSize = 12f },
+            )
+        }
+        section.addView(card)
+        return section
+    }
+
+    private fun adaptationMetricLabel(ctx: RenderContext, metric: String): String {
+        val key = when (metric.lowercase(Locale.ROOT)) {
+            "resting_heart_rate" -> "adaptation.metric.rhr"
+            "hrv" -> "adaptation.metric.hrv"
+            "sleep_minutes" -> "adaptation.metric.sleep"
+            "steps" -> "adaptation.metric.steps"
+            "exercise_minutes" -> "adaptation.metric.exercise"
+            else -> null
+        }
+        return key?.let { ctx.l(it) } ?: metric
+    }
+
+    private fun adaptationWindowLabel(ctx: RenderContext, window: String): String {
+        return when (window.lowercase(Locale.ROOT)) {
+            "d7" -> ctx.l("adaptation.window.d7")
+            "d30" -> ctx.l("adaptation.window.d30")
+            else -> window
+        }
     }
 
     private fun buildPremiumLockedCard(ctx: RenderContext): LinearLayout {

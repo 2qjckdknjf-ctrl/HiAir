@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.View
 import com.hiair.BuildConfig
 import com.hiair.health.WearableHealthHost
@@ -17,6 +18,7 @@ import android.widget.TextView
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
+import java.util.Locale
 
 internal object SettingsScreenRenderer {
     fun render(ctx: RenderContext) {
@@ -527,6 +529,101 @@ internal object SettingsScreenRenderer {
             addView(languageSpinner)
         }
         bodyContainer.addView(defaultsCard)
+
+        val placeNameInput = HiAirComponents.inputField(activity, ctx.l("places.name_hint"))
+        val placeTypeSpinner = Spinner(activity)
+        val placeTypeOptions = listOf("home", "work", "school", "parents", "vacation", "other")
+        val placeTypeLabels = listOf(
+            ctx.l("places.type.home"),
+            ctx.l("places.type.work"),
+            ctx.l("places.type.school"),
+            ctx.l("places.type.parents"),
+            ctx.l("places.type.vacation"),
+            ctx.l("places.type.other"),
+        )
+        placeTypeSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, placeTypeLabels)
+        val placesStatusView = TextView(activity).apply {
+            text = rootShell.settingsViewModel.state.placesStatusText
+            textSize = 14f
+            setTextColor(Tokens.Text.secondary)
+        }
+        val placesListContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        fun renderPlacesList() {
+            placesListContainer.removeAllViews()
+            val places = rootShell.settingsViewModel.state.savedPlaces
+            if (places.isEmpty()) {
+                placesListContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("places.empty")))
+                return
+            }
+            places.forEach { place ->
+                val row = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                val label = "${place.name} · ${ctx.l("places.type.${place.placeType}")} · ${String.format(Locale.US, "%.2f", place.lat)}, ${String.format(Locale.US, "%.2f", place.lon)}"
+                row.addView(
+                    V2Ui.styledBodyText(activity, label).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        textSize = 13f
+                    },
+                )
+                row.addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("places.delete")).apply {
+                        setOnClickListener {
+                            Thread {
+                                rootShell.settingsViewModel.deleteSavedPlace(place.id)
+                                activity.runOnUiThread {
+                                    placesStatusView.text = rootShell.settingsViewModel.state.placesStatusText
+                                    renderPlacesList()
+                                }
+                            }.start()
+                        }
+                    },
+                )
+                placesListContainer.addView(row)
+            }
+        }
+        if (isLoggedIn) {
+            Thread {
+                rootShell.settingsViewModel.loadPlaces()
+                activity.runOnUiThread {
+                    placesStatusView.text = rootShell.settingsViewModel.state.placesStatusText
+                    renderPlacesList()
+                }
+            }.start()
+        }
+        val placesCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("places.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("places.subtitle")))
+            addView(placesListContainer)
+            addView(V2Ui.spacer(activity, 8))
+            addView(placeNameInput)
+            addView(placeTypeSpinner)
+            addView(
+                HiAirComponents.primaryButton(activity, ctx.l("places.add")).apply {
+                    setOnClickListener {
+                        val typeIndex = placeTypeSpinner.selectedItemPosition.coerceIn(0, placeTypeOptions.lastIndex)
+                        Thread {
+                            rootShell.settingsViewModel.addSavedPlace(
+                                name = placeNameInput.text.toString(),
+                                placeType = placeTypeOptions[typeIndex],
+                            )
+                            activity.runOnUiThread {
+                                placesStatusView.text = rootShell.settingsViewModel.state.placesStatusText
+                                if (rootShell.settingsViewModel.state.placesStatusText == ctx.l("places.added")) {
+                                    placeNameInput.setText("")
+                                }
+                                renderPlacesList()
+                            }
+                        }.start()
+                    }
+                },
+            )
+            addView(placesStatusView)
+        }
+        bodyContainer.addView(placesCard)
 
         val upgradePremiumButton = HiAirComponents.primaryButton(activity, ctx.l("settings.upgrade_premium")).apply {
             setOnClickListener {

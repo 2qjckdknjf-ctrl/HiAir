@@ -937,6 +937,105 @@ final class APIClient {
         return try JSONDecoder().decode(DashboardOverviewResponse.self, from: data)
     }
 
+    func fetchHazards(
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> HazardsResponse {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/air/hazards"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [URLQueryItem(name: "profileId", value: profileId)]
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(HazardsResponse.self, from: data)
+    }
+
+    func listPlaces(userId: String, accessToken: String? = nil) async throws -> SavedPlaceListResponse {
+        let url = baseURL.appending(path: "/api/places")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(SavedPlaceListResponse.self, from: data)
+    }
+
+    func createPlace(
+        payload: SavedPlaceCreateRequest,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> SavedPlace {
+        let url = baseURL.appending(path: "/api/places")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            if let detail = extractErrorDetail(from: data), !detail.isEmpty {
+                throw APIError.serverWithDetail(statusCode: httpResponse.statusCode, detail: detail)
+            }
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(SavedPlace.self, from: data)
+    }
+
+    func deletePlace(
+        placeId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws {
+        let url = baseURL.appending(path: "/api/places/\(placeId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    func fetchAdaptation(
+        profileId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> PersonalAdaptationSnapshot {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/insights/adaptation"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [URLQueryItem(name: "profileId", value: profileId)]
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(PersonalAdaptationSnapshot.self, from: data)
+    }
+
     func fetchCurrentRisk(
         profileId: String,
         userId: String,

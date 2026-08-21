@@ -1,13 +1,14 @@
 # HiAir 1.6 — Personal Adaptation & Protected Days
 
-**Status:** IN PROGRESS (core backend)  
-**Branch:** `feat/hiair-1.1-forecast-truth` (stacked)
+**Status:** IN PROGRESS (backend + Insights UI)  
+**Branch:** `feat/hiair-1.2-best-time-planner` (stacked)
 
 ## Shipped
 - Models: `backend/app/models/personal_adaptation.py`
 - Engine: `backend/app/services/personal_adaptation_engine.py`
 - Additive API: `GET /api/insights/adaptation?profileId=`
 - Tests: `backend/tests/test_personal_adaptation_engine.py`
+- iOS/Android Insights: adaptation card (402 → existing paywall)
 
 ## Personal baselines
 - Windows: `d7`, `d30`
@@ -30,6 +31,5 @@
 
 ## Not yet
 - Persist recommendation-follow / protected-day events
-- Mobile UI for Protected Days summary
 - Wire baselines into alert thresholds and activity planner weighting
 - Production smoke on `api.hiair.io`
