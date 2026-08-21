@@ -1,24 +1,25 @@
 # 08 Known Gaps
 
-Updated: 2026-07-25 (PR #34 Runtime UX Recovery merged · TF 127)
+Updated: 2026-08-21 (design/redesign-v4-deep-glass aligned for 1.0 / 188 ship PR)
 
 ## P0 (block first 10 real users)
 
-- **Physical Runtime UX retest pending:** PR #34 merged (`cda6722`); TestFlight **127** VALID («Первый»); city / Health revoke / Premium matrix still **NOT RUN** on physical iPhone. See `docs/audit/P0_RUNTIME_UX_RECOVERY.md`.
+- **Physical Runtime UX retest pending:** redesign line is now code-aligned to **iOS 1.0 (188)**, but the last proven Apple upload is still **181**; city / Health revoke / Premium matrix still **NOT RUN** on physical iPhone for the ship line.
 - **Physical HealthKit / Health Connect E2E pending:** synthetic health smoke PASS; device matrices still **NOT RUN**.
 - **Maestro physical iOS automation tooling:** driver build/connect flaky on Maestro 2.7 + Xcode 26.6 — not a product FAIL; blocks unattended UI certification.
-- **StoreKit sandbox purchase:** retest on **TF 127**. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
-- **Android physical + Play Billing:** no USB device this session; Play Console app for `com.hiair` EXTERNALLY BLOCKED.
+- **StoreKit sandbox purchase:** retest on real TestFlight **188** after upload. Confirm Paid Apps Agreement / Tax / Banking Active if catalog empty.
+- **Android physical + Play Billing:** Play Internal **188** exists, but no physical Android verification happened in this session.
 - **Cloudflare CI credential durability:** prefer long-lived Custom API Token (runbook).
 - **Use release / TestFlight builds against production** — debug variants point to localhost.
 - **Push notifications not wired on mobile** — sequenced after device QA.
 
-## Closed this pass (PR #34)
+## Closed this pass (ship prep on 2026-08-21)
 
 - Untracked Dashboard Health sync → cancellable coordinator.
 - Local durable consent cleared before remote revoke/delete await.
 - Premium rollback notifications account-attributed.
-- Fresh iOS CI + Security + Xcode Cloud green; PR merged; TF **127** distributed.
+- iOS source-of-truth aligned to **1.0 (188)** in tracked project files.
+- Store packet refreshed to current truth: Play Internal **188** today; last proven Apple upload **181**; owner-only store/legal/secrets tasks explicit.
 
 ## P1 (important before wider beta)
 

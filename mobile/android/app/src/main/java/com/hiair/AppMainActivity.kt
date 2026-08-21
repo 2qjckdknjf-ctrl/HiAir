@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
-import android.widget.Button
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -16,6 +16,7 @@ import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.HiAirColors
 import com.hiair.ui.design.HiAirLiquidGlass
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
@@ -42,11 +43,11 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var overlayContainer: FrameLayout
     private lateinit var screenRenderer: MainScreenRenderer
     private val paywallController = SubscriptionPaywallController(rootShell.settingsViewModel)
-    private lateinit var dashboardButton: Button
-    private lateinit var plannerButton: Button
-    private lateinit var insightsButton: Button
-    private lateinit var symptomsButton: Button
-    private lateinit var settingsButton: Button
+    private lateinit var dashboardTab: HiAirComponents.FloatingTabItem
+    private lateinit var plannerTab: HiAirComponents.FloatingTabItem
+    private lateinit var insightsTab: HiAirComponents.FloatingTabItem
+    private lateinit var symptomsTab: HiAirComponents.FloatingTabItem
+    private lateinit var settingsTab: HiAirComponents.FloatingTabItem
     private lateinit var supabaseAuth: SupabaseAuthService
     private lateinit var healthConnectService: HealthConnectService
     private lateinit var wearableHealthController: WearableHealthController
@@ -129,52 +130,12 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
         titleView = TextView(this).apply {
             text = AndroidL10n.t("title.dashboard", rootShell.settingsViewModel.state.preferredLanguage)
-            textSize = 30f
-            setTextColor(Tokens.Text.primary)
+            textSize = 26f
+            setTextColor(HiAirColors.Spectrum.cyan)
             setTypeface(typeface, Typeface.BOLD)
+            visibility = View.GONE
         }
         root.addView(titleView)
-
-        val navRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            val p = dp(8)
-            setPadding(p, p, p, p)
-            background = HiAirComponents.liquidGlassNavBackground(this@AppMainActivity)
-            HiAirLiquidGlass.applyNavigationBlur(this)
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.topMargin = dp(12)
-            layoutParams = params
-        }
-        val lang = rootShell.settingsViewModel.state.preferredLanguage
-        dashboardButton = V2Ui.navButton(this, AndroidL10n.t("nav.dashboard", lang)) {
-            rootShell.openDashboard()
-            renderCurrentScreen()
-        }
-        plannerButton = V2Ui.navButton(this, AndroidL10n.t("nav.planner", lang)) {
-            rootShell.openPlanner()
-            renderCurrentScreen()
-        }
-        insightsButton = V2Ui.navButton(this, AndroidL10n.t("nav.insights", lang)) {
-            rootShell.openInsights()
-            renderCurrentScreen()
-        }
-        symptomsButton = V2Ui.navButton(this, AndroidL10n.t("nav.symptoms", lang)) {
-            rootShell.openSymptoms()
-            renderCurrentScreen()
-        }
-        settingsButton = V2Ui.navButton(this, AndroidL10n.t("nav.settings", lang)) {
-            rootShell.openSettings()
-            renderCurrentScreen()
-        }
-        navRow.addView(dashboardButton)
-        navRow.addView(plannerButton)
-        navRow.addView(insightsButton)
-        navRow.addView(symptomsButton)
-        navRow.addView(settingsButton)
-        root.addView(navRow)
 
         val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -206,6 +167,48 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         contentFrame.addView(overlayContainer)
         root.addView(contentFrame)
 
+        val lang = rootShell.settingsViewModel.state.preferredLanguage
+        val navRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            val p = dp(6)
+            setPadding(p, dp(8), p, dp(10))
+            background = HiAirComponents.liquidGlassNavBackground(this@AppMainActivity)
+            HiAirLiquidGlass.applyNavigationBlur(this)
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            params.topMargin = dp(8)
+            layoutParams = params
+        }
+        dashboardTab = HiAirComponents.floatingTabItem(this, R.drawable.ic_tab_home, AndroidL10n.t("nav.dashboard", lang)) {
+            rootShell.openDashboard()
+            renderCurrentScreen()
+        }
+        plannerTab = HiAirComponents.floatingTabItem(this, R.drawable.ic_tab_plan, AndroidL10n.t("nav.planner", lang)) {
+            rootShell.openPlanner()
+            renderCurrentScreen()
+        }
+        insightsTab = HiAirComponents.floatingTabItem(this, R.drawable.ic_tab_insights, AndroidL10n.t("nav.insights", lang)) {
+            rootShell.openInsights()
+            renderCurrentScreen()
+        }
+        symptomsTab = HiAirComponents.floatingTabItem(this, R.drawable.ic_tab_health, AndroidL10n.t("nav.symptoms", lang)) {
+            rootShell.openSymptoms()
+            renderCurrentScreen()
+        }
+        settingsTab = HiAirComponents.floatingTabItem(this, R.drawable.ic_tab_settings, AndroidL10n.t("nav.settings", lang)) {
+            rootShell.openSettings()
+            renderCurrentScreen()
+        }
+        navRow.addView(dashboardTab.root)
+        navRow.addView(plannerTab.root)
+        navRow.addView(insightsTab.root)
+        navRow.addView(symptomsTab.root)
+        navRow.addView(settingsTab.root)
+        root.addView(navRow)
+
         screenRenderer = MainScreenRenderer(
             activity = this,
             rootShell = rootShell,
@@ -218,7 +221,10 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
                 sessionStore.clear()
                 rootShell.settingsViewModel.clearEntitlementState()
             },
-            rerender = ::renderCurrentScreen
+            rerender = ::renderCurrentScreen,
+            restorePurchases = {
+                paywallController.restore(this)
+            },
         )
 
         paywallController.onEntitlementUpdated = { renderCurrentScreen() }
@@ -299,25 +305,24 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     private fun syncNavLabels() {
         val lang = rootShell.settingsViewModel.state.preferredLanguage
-        dashboardButton.text = AndroidL10n.t("nav.dashboard", lang)
-        plannerButton.text = AndroidL10n.t("nav.planner", lang)
-        insightsButton.text = AndroidL10n.t("nav.insights", lang)
-        symptomsButton.text = AndroidL10n.t("nav.symptoms", lang)
-        settingsButton.text = AndroidL10n.t("nav.settings", lang)
+        dashboardTab.label.text = AndroidL10n.t("nav.dashboard", lang)
+        plannerTab.label.text = AndroidL10n.t("nav.planner", lang)
+        insightsTab.label.text = AndroidL10n.t("nav.insights", lang)
+        symptomsTab.label.text = AndroidL10n.t("nav.symptoms", lang)
+        settingsTab.label.text = AndroidL10n.t("nav.settings", lang)
     }
 
     private fun syncNavSelection() {
         val current = rootShell.state.currentScreen
-        setNavSelected(dashboardButton, current == AppScreen.DASHBOARD)
-        setNavSelected(plannerButton, current == AppScreen.PLANNER)
-        setNavSelected(insightsButton, current == AppScreen.INSIGHTS)
-        setNavSelected(symptomsButton, current == AppScreen.SYMPTOMS)
-        setNavSelected(settingsButton, current == AppScreen.SETTINGS)
+        setNavSelected(dashboardTab, current == AppScreen.DASHBOARD)
+        setNavSelected(plannerTab, current == AppScreen.PLANNER)
+        setNavSelected(insightsTab, current == AppScreen.INSIGHTS)
+        setNavSelected(symptomsTab, current == AppScreen.SYMPTOMS)
+        setNavSelected(settingsTab, current == AppScreen.SETTINGS)
     }
 
-    private fun setNavSelected(button: Button, selected: Boolean) {
-        button.background = HiAirComponents.navChipBackground(this, selected)
-        button.setTextColor(if (selected) Tokens.Text.primary else Tokens.Cta.start)
+    private fun setNavSelected(item: HiAirComponents.FloatingTabItem, selected: Boolean) {
+        HiAirComponents.applyFloatingTabSelected(this, item, selected)
     }
 
     private fun dp(value: Int): Int = V2Ui.dp(this, value)

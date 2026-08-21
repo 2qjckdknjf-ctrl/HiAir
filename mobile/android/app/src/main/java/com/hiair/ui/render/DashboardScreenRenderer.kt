@@ -24,6 +24,7 @@ internal object DashboardScreenRenderer {
         val bodyContainer = ctx.bodyContainer
 
         ctx.titleView.text = ctx.l("dashboard.greeting_neutral")
+        HiAirComponents.hidePageTitle(ctx.titleView)
         bodyContainer.addView(
             HiAirComponents.brandHeader(
                 activity,
@@ -32,6 +33,18 @@ internal object DashboardScreenRenderer {
                 orbSizeDp = 44,
             )
         )
+        bodyContainer.addView(
+            V2Ui.styledBodyText(activity, ctx.l("dashboard.greeting_neutral")).apply {
+                textSize = 26f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(com.hiair.ui.design.HiAirColors.Text.primary)
+            }
+        )
+        bodyContainer.addView(V2Ui.spacer(activity, 4))
+        bodyContainer.addView(
+            V2Ui.styledSecondaryText(activity, ctx.l("auth.subtitle")).apply { textSize = 14f }
+        )
+        bodyContainer.addView(V2Ui.spacer(activity, 12))
 
         when (ctx.rootShell.dashboardViewModel.state.status) {
             DashboardStatus.INITIAL -> {
@@ -256,6 +269,28 @@ internal object DashboardScreenRenderer {
         if (rows.isEmpty()) {
             return null
         }
+        val weatherValue = state.temperatureC?.let { "${round1(it)}°C" }
+        val aqiValue = state.aqi?.let { it.toString() }
+        if (weatherValue != null && aqiValue != null) {
+            val pair = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+                addView(metricTile(ctx, ctx.l("dashboard.metric_temp"), weatherValue).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                        rightMargin = V2Ui.dp(activity, 6)
+                    }
+                })
+                addView(metricTile(ctx, ctx.l("dashboard.metric_aqi"), aqiValue).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                        leftMargin = V2Ui.dp(activity, 6)
+                    }
+                })
+            }
+            return pair
+        }
         return V2Ui.cardContainer(activity).apply {
             addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.air_title")).apply { textSize = 16f })
             addView(V2Ui.spacer(activity, 6))
@@ -281,6 +316,22 @@ internal object DashboardScreenRenderer {
                 V2Ui.styledBodyText(activity, value).apply {
                     textSize = 13f
                     setTextColor(Tokens.Text.primary)
+                }
+            )
+        }
+    }
+
+    private fun metricTile(ctx: RenderContext, label: String, value: String): View {
+        val activity = ctx.activity
+        return HiAirComponents.cardContainer(activity).apply {
+            addView(
+                V2Ui.styledSecondaryText(activity, label).apply { textSize = 11f }
+            )
+            addView(
+                V2Ui.styledBodyText(activity, value).apply {
+                    textSize = 22f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    setTextColor(com.hiair.ui.design.HiAirColors.Text.primary)
                 }
             )
         }

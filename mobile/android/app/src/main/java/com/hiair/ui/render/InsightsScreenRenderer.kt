@@ -55,8 +55,8 @@ internal object InsightsScreenRenderer {
         val rootShell = ctx.rootShell
         val bodyContainer = ctx.bodyContainer
 
-        ctx.titleView.text = ctx.l("nav.insights")
-        bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        HiAirComponents.hidePageTitle(ctx.titleView)
+        bodyContainer.addView(HiAirComponents.screenWordmark(activity, ctx.l("nav.insights")))
 
         val contentHost = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL

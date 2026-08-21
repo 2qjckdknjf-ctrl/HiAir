@@ -15,8 +15,8 @@ internal object PlannerScreenRenderer {
         val titleView = ctx.titleView
         val bodyContainer = ctx.bodyContainer
 
-        bodyContainer.addView(HiAirComponents.brandHeader(activity))
-        titleView.text = ctx.l("title.planner")
+        bodyContainer.addView(HiAirComponents.screenWordmark(activity, ctx.l("nav.planner")))
+        HiAirComponents.hidePageTitle(titleView)
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.subtitle")).apply { textSize = 13f })
 
         if (rootShell.settingsViewModel.state.isPremium) {

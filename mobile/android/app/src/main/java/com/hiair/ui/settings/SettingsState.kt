@@ -464,10 +464,6 @@ class SettingsViewModel(
         supabaseAuthService?.launchGoogleSignIn()
     }
 
-    fun launchAppleOAuth() {
-        supabaseAuthService?.launchAppleSignIn()
-    }
-
     fun signOutSupabase() {
         try {
             supabaseAuthService?.signOut()

@@ -87,10 +87,6 @@ class SupabaseAuthService(
         launchOAuth("google")
     }
 
-    fun launchAppleSignIn() {
-        launchOAuth("apple")
-    }
-
     fun consumeOAuthCallback(intent: Intent?): SupabaseSession? {
         val data = intent?.data ?: return null
         if (data.scheme != "hiair" || data.host != "auth") {

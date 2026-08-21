@@ -12,6 +12,7 @@ object Tokens {
 
     object Cta {
         val start: Int = HiAirColors.Cta.gradientStart
+        val mid: Int = HiAirColors.Cta.gradientMid
         val end: Int = HiAirColors.Cta.gradientEnd
         val textOnGradient: Int = HiAirColors.Cta.labelOnGradient
     }
@@ -62,12 +63,12 @@ object Tokens {
     }
 
     enum class TimeOfDayPhase(val top: Int, val bottom: Int) {
-        Dawn(top = 0xFF1A1530.toInt(), bottom = 0xFF2B2050.toInt()),
-        Morning(top = 0xFF1B2845.toInt(), bottom = 0xFF2A4373.toInt()),
-        Midday(top = 0xFF1F3260.toInt(), bottom = 0xFF2E4A8A.toInt()),
-        Afternoon(top = 0xFF2A2547.toInt(), bottom = 0xFF3D2F5C.toInt()),
-        Evening(top = 0xFF1A1A35.toInt(), bottom = 0xFF25193D.toInt()),
-        Night(top = 0xFF0E1226.toInt(), bottom = 0xFF181D38.toInt());
+        Dawn(top = 0xFF050B16.toInt(), bottom = 0xFF16102C.toInt()),
+        Morning(top = 0xFF050B16.toInt(), bottom = 0xFF0B1730.toInt()),
+        Midday(top = 0xFF081221.toInt(), bottom = 0xFF10244A.toInt()),
+        Afternoon(top = 0xFF050B16.toInt(), bottom = 0xFF14142E.toInt()),
+        Evening(top = 0xFF050B16.toInt(), bottom = 0xFF120E28.toInt()),
+        Night(top = 0xFF050B16.toInt(), bottom = 0xFF081221.toInt());
 
         companion object {
             fun current(now: Calendar = Calendar.getInstance()): TimeOfDayPhase {
