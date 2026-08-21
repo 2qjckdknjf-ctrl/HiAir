@@ -271,7 +271,7 @@ internal object DashboardScreenRenderer {
         }
         val weatherValue = state.temperatureC?.let { "${round1(it)}°C" }
         val aqiValue = state.aqi?.let { it.toString() }
-        if (weatherValue != null && aqiValue != null) {
+        if (weatherValue != null && aqiValue != null && rows.size == 2) {
             val pair = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
