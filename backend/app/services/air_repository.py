@@ -126,9 +126,9 @@ def get_latest_environment_snapshot(
     return EnvironmentSnapshot(
         temperature_c=float(row["temperature_c"]),
         humidity_percent=float(row["humidity_percent"]),
-        aqi=int(row["aqi"]),
-        pm25=float(row["pm25"]),
-        ozone=float(row["ozone"]),
+        aqi=None if row["aqi"] is None else int(row["aqi"]),
+        pm25=None if row["pm25"] is None else float(row["pm25"]),
+        ozone=None if row["ozone"] is None else float(row["ozone"]),
         source=str(row["source"]),
         pm10=None if row.get("pm10") is None else float(row["pm10"]),
         uv=None if row.get("uv") is None else float(row["uv"]),

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.models.air import EnvironmentalInput
 from app.models.forecast import EnvironmentalDataKind, EnvironmentalForecast, EnvironmentalForecastPoint
 from app.models.risk import EnvironmentSnapshot
+from app.services.forecast.timeutil import is_hour_upcoming
 
 
 def forecast_point_to_environmental(point: EnvironmentalForecastPoint) -> EnvironmentalInput | None:
@@ -71,10 +74,21 @@ def apply_freshness_source(environment: EnvironmentalInput, freshness: str) -> E
     return environment
 
 
-def forecast_to_hourly_inputs(forecast: EnvironmentalForecast) -> list[EnvironmentalInput]:
+def forecast_to_hourly_inputs(
+    forecast: EnvironmentalForecast,
+    *,
+    from_now: bool = True,
+    now: datetime | None = None,
+    max_hours: int | None = None,
+) -> list[EnvironmentalInput]:
     points: list[EnvironmentalInput] = []
     for item in forecast.hourly:
         mapped = forecast_point_to_environmental(item)
-        if mapped is not None:
-            points.append(mapped)
+        if mapped is None:
+            continue
+        if from_now and not is_hour_upcoming(mapped.timestamp, now):
+            continue
+        points.append(mapped)
+        if max_hours is not None and len(points) >= max_hours:
+            break
     return points

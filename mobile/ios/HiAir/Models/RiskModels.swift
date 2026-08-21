@@ -2,10 +2,10 @@ import Foundation
 
 struct EnvironmentSnapshot: Codable {
     let temperatureC: Double
-    let humidityPercent: Double
-    let aqi: Int
-    let pm25: Double
-    let ozone: Double
+    let humidityPercent: Double?
+    let aqi: Int?
+    let pm25: Double?
+    let ozone: Double?
     let source: String
 
     enum CodingKeys: String, CodingKey {
@@ -212,7 +212,7 @@ struct AirEnvironmentalInput: Codable {
     let lon: Double
     let temperature: Double
     let feelsLike: Double
-    let humidity: Double
+    let humidity: Double?
     let aqi: Int?
     let pm25: Double?
     let pm10: Double?

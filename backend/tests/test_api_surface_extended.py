@@ -371,7 +371,10 @@ def test_planner_and_validation(monkeypatch) -> None:
         hourly = []
 
     monkeypatch.setattr("app.api.planner.get_forecast", lambda lat, lon, hours=48: _FakeForecast())
-    monkeypatch.setattr("app.api.planner.forecast_to_hourly_inputs", lambda forecast: [environment])
+    monkeypatch.setattr(
+        "app.api.planner.forecast_to_hourly_inputs",
+        lambda forecast, **kwargs: [environment],
+    )
     monkeypatch.setattr(
         "app.api.planner.air_risk_engine.evaluate_risk",
         lambda profile, env, personal_load=None, hourly_points=None: RiskAssessmentResult(

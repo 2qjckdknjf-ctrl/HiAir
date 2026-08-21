@@ -15,7 +15,12 @@ import app.services.risk_repository as risk_repository
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
 import app.services.air_environment_service as air_environment_service
-from app.services.forecast.mapping import forecast_to_hourly_inputs
+import app.services.wearable_service as wearable_service
+from app.services.forecast.mapping import (
+    apply_freshness_source,
+    forecast_point_to_environmental,
+    forecast_to_hourly_inputs,
+)
 from app.services.forecast.service import get_forecast
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -33,12 +38,11 @@ def _build_profile_context(profile_id: str | None, user_id: str, persona: str, l
     )
 
 
-def _hourly_for_overview(lat: float, lon: float):
+def _forecast_bundle(lat: float, lon: float):
     try:
-        forecast = get_forecast(lat, lon)
+        return get_forecast(lat, lon)
     except Exception:
-        return []
-    return forecast_to_hourly_inputs(forecast)
+        return None
 
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
@@ -84,12 +88,32 @@ def dashboard_overview(
         feels_like=snapshot.feels_like,
         timezone=snapshot.timezone,
     )
+    forecast = _forecast_bundle(lat, lon)
+    hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
+    if forecast is not None and forecast.current is not None:
+        mapped = forecast_point_to_environmental(forecast.current)
+        if mapped is not None:
+            mapped = apply_freshness_source(mapped, forecast.freshness.value)
+            environment = EnvironmentSnapshot(
+                temperature_c=mapped.temperature,
+                humidity_percent=mapped.humidity if mapped.humidity is not None else environment.humidity_percent,
+                aqi=mapped.aqi,
+                pm25=mapped.pm25,
+                ozone=mapped.ozone,
+                source=mapped.source,
+                pm10=mapped.pm10,
+                uv=mapped.uv,
+                wind_speed=mapped.wind_speed,
+                feels_like=mapped.feels_like,
+                timezone=mapped.timezone,
+            )
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
     air_environment = to_air_environment(environment, lat, lon)
-    hourly_points = _hourly_for_overview(lat, lon)
+    personal_load = wearable_service.build_personal_load_input(user_id, air_environment)
     air_risk = air_risk_engine.evaluate_risk(
         profile_context,
         air_environment,
+        personal_load,
         hourly_points=hourly_points,
     )
     user_settings = settings_repository.get_user_settings(user_id)
@@ -111,7 +135,13 @@ def dashboard_overview(
         },
     )
 
-    if profile_id:
+    if (
+        profile_id
+        and environment.aqi is not None
+        and environment.pm25 is not None
+        and environment.ozone is not None
+        and environment.humidity_percent is not None
+    ):
         try:
             snapshot_id = risk_repository.save_environment_snapshot(environment)
             risk_repository.save_risk_score(

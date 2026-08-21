@@ -73,8 +73,21 @@ def test_safe_windows_merge_consecutive_low_hours() -> None:
     walk = [window for window in plan.safeWindows if window.type == SafeWindowType.WALK]
     assert walk
     assert walk[0].start.endswith("+02:00")
+    # Exclusive end: last included hour 07:00 → end 08:00
+    assert walk[0].end.startswith("2026-07-15T08:00:00")
     timestamps = [item.timestamp for item in hourly]
     assert timestamps == sorted(timestamps)
+
+
+def test_single_safe_hour_has_exclusive_end() -> None:
+    temps = [22.0] * 3
+    aqi = [160, 30, 160]
+    hourly = _hourly("Europe/Madrid", 41.39, 2.17, temps, aqi)
+    plan = build_day_plan(_profile(), hourly[0], hourly_points=hourly)
+    walk = [window for window in plan.safeWindows if window.type == SafeWindowType.WALK]
+    assert len(walk) == 1
+    assert walk[0].start.startswith("2026-07-15T01:00:00")
+    assert walk[0].end.startswith("2026-07-15T02:00:00")
 
 
 def test_climates_produce_different_risk_periods() -> None:
@@ -126,3 +139,14 @@ def test_climates_produce_different_risk_periods() -> None:
 def test_evaluate_risk_does_not_invent_windows_without_hourly() -> None:
     result = evaluate_risk(_profile(), _hourly("Europe/Madrid", 41.39, 2.17, [22.0] * 3, [30] * 3)[0])
     assert result.safeWindows == []
+
+
+def test_missing_air_metrics_are_not_scored_as_low() -> None:
+    env = _hourly("Europe/Madrid", 41.39, 2.17, [22.0] * 1, [30] * 1)[0]
+    env = env.model_copy(update={"aqi": None, "pm25": None, "pm10": None, "ozone": None})
+    result = evaluate_risk(_profile(), env)
+    assert result.airRisk == RiskLevel.MODERATE
+    assert "air_data_unavailable" in result.reasonCodes
+    assert result.overallRisk != RiskLevel.LOW or result.heatRisk != RiskLevel.LOW
+    # With mild heat, overall follows air caution.
+    assert result.overallRisk == RiskLevel.MODERATE

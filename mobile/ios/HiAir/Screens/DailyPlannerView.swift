@@ -32,9 +32,11 @@ final class DailyPlannerViewModel: ObservableObject {
                 userId: userId,
                 accessToken: accessToken
             )
-            hourlyItems = planner.hourlyRisk
-            safeWindows = planner.safeWindows
-            ventilationWindows = planner.ventilationWindows
+            hourlyItems = planner.isForecastAvailable ? planner.hourlyRisk : []
+            safeWindows = planner.isForecastAvailable
+                ? planner.safeWindows.filter { $0.type.lowercased() != "ventilation" }
+                : []
+            ventilationWindows = planner.isForecastAvailable ? planner.ventilationWindows : []
             timezoneIdentifier = planner.timezone
             freshness = planner.freshness ?? ""
             dataQuality = planner.dataQuality ?? ""
@@ -64,7 +66,12 @@ final class DailyPlannerViewModel: ObservableObject {
             }
         } catch let error as APIError {
             ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "planner"])
-            if case .server(let code) = error, code == 402 {
+            let premiumCode: Int? = {
+                if case .server(let code) = error { return code }
+                if case .serverWithDetail(let code, _) = error { return code }
+                return nil
+            }()
+            if premiumCode == 402 {
                 premiumLocked = true
                 onPremiumRequired?()
                 statusText = HiAirL10n.t("planner.premium_required", lang: language)
@@ -148,7 +155,7 @@ struct DailyPlannerView: View {
                     )
                 }
 
-                if !viewModel.hourlyItems.isEmpty {
+                if !viewModel.hourlyItems.isEmpty && viewModel.forecastAvailable {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(session.l("planner.hourly"))
                             .font(AuroraTokens.Typography.titleMD)
@@ -177,7 +184,7 @@ struct DailyPlannerView: View {
                                 .font(AuroraTokens.Typography.bodyMD)
                                 .foregroundStyle(HiAirV2Theme.primaryText)
                             if let firstWindow = viewModel.safeWindows.first {
-                                Text("• \(session.l("planner.safe_windows")): \(humanWindowRange(firstWindow.start, firstWindow.end))")
+                                Text("• \(localizedWindowType(firstWindow.type)): \(humanWindowRange(firstWindow.start, firstWindow.end))")
                                     .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
                             }

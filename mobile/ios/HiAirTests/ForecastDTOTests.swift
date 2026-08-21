@@ -51,7 +51,7 @@ final class ForecastDTOTests: XCTestCase {
           "lon": 2.17,
           "temperature": 24.0,
           "feels_like": 25.0,
-          "humidity": 50.0,
+          "humidity": null,
           "aqi": 40,
           "pm25": 8.0,
           "pm10": null,
@@ -64,6 +64,7 @@ final class ForecastDTOTests: XCTestCase {
         }
         """.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AirEnvironmentalInput.self, from: json)
+        XCTAssertNil(decoded.humidity)
         XCTAssertNil(decoded.pm10)
         XCTAssertNil(decoded.uv)
         XCTAssertNil(decoded.windSpeed)

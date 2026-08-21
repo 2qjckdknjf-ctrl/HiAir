@@ -3,7 +3,6 @@ package com.hiair.ui.render
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
-import android.widget.TextView
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
@@ -36,14 +35,21 @@ internal object PlannerScreenRenderer {
             )
         }
 
-        val stateText = V2Ui.styledSecondaryText(activity, ctx.l("planner.fetch"))
+        val plannerState = rootShell.plannerViewModel.state
+        val stateText = V2Ui.styledSecondaryText(
+            activity,
+            listOf(plannerState.statusText, plannerState.freshnessText)
+                .filter { it.isNotBlank() }
+                .joinToString("\n")
+                .ifBlank { ctx.l("planner.fetch") },
+        )
         val plannerCard = HiAirComponents.cardContainer(activity)
         plannerCard.addView(V2Ui.styledBodyText(activity, ctx.l("planner.summary")))
         val heatStrip = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.BOTTOM
         }
-        val keyEvents = V2Ui.styledSecondaryText(activity, "• ${ctx.l("planner.fetch")}")
+        val keyEvents = V2Ui.styledSecondaryText(activity, buildKeyEvents(ctx, plannerState))
         plannerCard.addView(stateText)
         plannerCard.addView(V2Ui.spacer(activity, 6))
         plannerCard.addView(heatStrip)
@@ -51,48 +57,76 @@ internal object PlannerScreenRenderer {
         plannerCard.addView(keyEvents)
         bodyContainer.addView(plannerCard)
 
-        val refreshButton = HiAirComponents.primaryButton(activity, ctx.l("planner.refresh")).apply {
-            setOnClickListener {
-                stateText.text = ctx.l("common.loading")
-                Thread {
-                    val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
-                    val settings = rootShell.settingsViewModel.state
-                    val profileId = resolvedProfileId
-                        ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
-                    if (profileId.isBlank()) {
-                        activity.runOnUiThread { stateText.text = ctx.l("planner.profile_required") }
-                        return@Thread
-                    }
-                    rootShell.plannerViewModel.refresh(
-                        userId = settings.userId,
-                        accessToken = settings.accessToken.ifBlank { null },
-                        profileId = profileId,
-                        preferredLanguage = settings.preferredLanguage,
-                    )
-                    val state = rootShell.plannerViewModel.state
-                    activity.runOnUiThread {
-                        val caption = listOf(state.statusText, state.freshnessText)
-                            .filter { it.isNotBlank() }
-                            .joinToString("\n")
-                        stateText.text = caption.ifBlank { state.statusText }
-                        if (state.premiumRequired) {
-                            rootShell.settingsViewModel.requestShowPaywall()
-                            ctx.rerender()
-                            return@runOnUiThread
+        if (plannerState.premiumRequired) {
+            bodyContainer.addView(
+                HiAirComponents.cardContainer(activity).apply {
+                    addView(
+                        V2Ui.styledBodyText(activity, ctx.l("planner.premium_locked.title")).apply {
+                            textSize = 16f
                         }
-                        renderHeatStrip(activity, heatStrip, state.hourly)
-                        keyEvents.text = buildKeyEvents(ctx, state)
-                    }
-                }.start()
-            }
+                    )
+                    addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.premium_required")))
+                    addView(
+                        HiAirComponents.primaryButton(activity, ctx.l("insights.premium_locked.cta")).apply {
+                            setOnClickListener {
+                                rootShell.settingsViewModel.requestShowPaywall()
+                                ctx.rerender()
+                            }
+                        }
+                    )
+                }
+            )
         }
-        bodyContainer.addView(refreshButton)
+
+        if (plannerState.forecastAvailable && plannerState.hourly.isNotEmpty()) {
+            renderHeatStrip(activity, heatStrip, plannerState.hourly)
+        }
+
+        fun loadPlanner() {
+            stateText.text = ctx.l("common.loading")
+            Thread {
+                val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
+                val settings = rootShell.settingsViewModel.state
+                val profileId = resolvedProfileId
+                    ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
+                if (profileId.isBlank()) {
+                    activity.runOnUiThread { stateText.text = ctx.l("planner.profile_required") }
+                    return@Thread
+                }
+                rootShell.plannerViewModel.refresh(
+                    userId = settings.userId,
+                    accessToken = settings.accessToken.ifBlank { null },
+                    profileId = profileId,
+                    preferredLanguage = settings.preferredLanguage,
+                )
+                activity.runOnUiThread {
+                    ctx.rerender()
+                }
+            }.start()
+        }
+
+        bodyContainer.addView(
+            HiAirComponents.primaryButton(activity, ctx.l("planner.refresh")).apply {
+                setOnClickListener { loadPlanner() }
+            }
+        )
         bodyContainer.addView(HiAirComponents.secondaryButton(activity, ctx.l("planner.apply")).apply {
             setOnClickListener {
                 rootShell.openDashboard()
                 ctx.rerender()
             }
         })
+
+        // Auto-load once per session when planner opens with no data yet.
+        if (
+            !rootShell.plannerViewModel.hasAttemptedAutoLoad &&
+            !plannerState.loading &&
+            plannerState.hourly.isEmpty() &&
+            !plannerState.premiumRequired
+        ) {
+            rootShell.plannerViewModel.hasAttemptedAutoLoad = true
+            loadPlanner()
+        }
     }
 
     private fun renderHeatStrip(activity: android.app.Activity, container: LinearLayout, hourly: List<String>) {
@@ -118,13 +152,16 @@ internal object PlannerScreenRenderer {
     }
 
     private fun buildKeyEvents(ctx: RenderContext, state: com.hiair.ui.planner.PlannerState): String {
+        if (!state.forecastAvailable) {
+            return "• ${state.statusText.ifBlank { ctx.l("planner.forecast_unavailable") }}"
+        }
         val lines = mutableListOf<String>()
         if (state.peakLine.isNotBlank()) {
             lines.add("• ${state.peakLine}")
         }
         val firstSafe = state.safeWindows.firstOrNull()
         if (firstSafe != null) {
-            lines.add("• ${ctx.l("dashboard.safe_windows")}: $firstSafe")
+            lines.add("• $firstSafe")
         }
         val firstVent = state.ventilationWindows.firstOrNull()
         if (firstVent != null) {

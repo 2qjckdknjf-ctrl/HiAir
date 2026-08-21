@@ -74,7 +74,8 @@ class OpenMeteoWeatherProvider:
         self._fetcher = fetcher or default_fetcher()
 
     def _fetch(self, lat: float, lon: float, hours: int) -> dict[str, Any]:
-        forecast_days = max(1, min(8, (max(hours, 1) + 23) // 24))
+        # +1 day buffer so mid-afternoon clips still leave a full upcoming window.
+        forecast_days = max(1, min(8, (max(hours, 1) + 23) // 24 + 1))
         return self._fetcher(
             OPENMETEO_WEATHER_URL,
             {
@@ -175,7 +176,7 @@ class OpenMeteoAirQualityProvider:
         self._fetcher = fetcher or default_fetcher()
 
     def _fetch(self, lat: float, lon: float, hours: int) -> dict[str, Any]:
-        forecast_days = max(1, min(5, (max(hours, 1) + 23) // 24))
+        forecast_days = max(1, min(5, (max(hours, 1) + 23) // 24 + 1))
         return self._fetcher(
             OPENMETEO_AIR_URL,
             {

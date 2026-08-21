@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import get_current_user_id
 import app.services.entitlement_service as entitlement_service
 
-from app.models.air import UserProfileContext
+from app.models.air import SafeWindowType, UserProfileContext
 from app.models.planner import DailyPlannerResponse, HourlyRiskItem, SafeWindow
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE
@@ -56,7 +56,7 @@ def daily_planner(
             forecastAvailable=False,
         )
 
-    hourly_inputs = forecast_to_hourly_inputs(forecast)[:hours]
+    hourly_inputs = forecast_to_hourly_inputs(forecast, max_hours=hours)
     hourly: list[HourlyRiskItem] = []
     for slot in hourly_inputs:
         risk = air_risk_engine.evaluate_risk(profile_context, slot, hourly_points=[])
@@ -69,22 +69,13 @@ def daily_planner(
             )
         )
 
-    safe_windows: list[SafeWindow] = []
-    current_start: str | None = None
-    previous_hour: str | None = None
-    for item in hourly:
-        is_safe = item.level in ("low", "moderate")
-        if is_safe and current_start is None:
-            current_start = item.hour_iso
-        if is_safe:
-            previous_hour = item.hour_iso
-        if not is_safe and current_start is not None and previous_hour is not None:
-            safe_windows.append(SafeWindow(start_hour_iso=current_start, end_hour_iso=previous_hour))
-            current_start = None
-            previous_hour = None
-
-    if current_start is not None and previous_hour is not None:
-        safe_windows.append(SafeWindow(start_hour_iso=current_start, end_hour_iso=previous_hour))
+    # Same outdoor gate as day-plan — never treat air-unknown "moderate" as a safe window.
+    engine_windows = air_risk_engine._build_safe_windows_from_hourly(profile_context, hourly_inputs)
+    safe_windows = [
+        SafeWindow(start_hour_iso=window.start, end_hour_iso=window.end)
+        for window in engine_windows
+        if window.type == SafeWindowType.GENERAL_OUTDOOR
+    ]
 
     return DailyPlannerResponse(
         persona=normalized_persona,

@@ -31,6 +31,9 @@ class DailyPlannerViewModel(
     var state: PlannerState = PlannerState()
         private set
 
+    /** True after the first auto or manual planner fetch attempt in this process. */
+    var hasAttemptedAutoLoad: Boolean = false
+
     fun refresh(userId: String, accessToken: String?, profileId: String, preferredLanguage: String) {
         state = state.copy(loading = true)
         ProductAnalytics.track("forecast_fetch_started", mapOf("surface" to "planner"))
@@ -106,38 +109,47 @@ class DailyPlannerViewModel(
 
             val safeWindowItems = mutableListOf<String>()
             val safeWindows = json.optJSONArray("safeWindows") ?: JSONArray()
-            for (i in 0 until safeWindows.length()) {
-                val item = safeWindows.getJSONObject(i)
-                safeWindowItems.add(
-                    formatSafeWindow(
-                        type = item.getString("type"),
-                        start = item.getString("start"),
-                        end = item.getString("end"),
-                        preferredLanguage = preferredLanguage,
-                        zoneId = zoneId,
+            if (forecastAvailable) {
+                for (i in 0 until safeWindows.length()) {
+                    val item = safeWindows.getJSONObject(i)
+                    val type = item.getString("type")
+                    if (type.equals("ventilation", ignoreCase = true)) continue
+                    safeWindowItems.add(
+                        formatSafeWindow(
+                            type = type,
+                            start = item.getString("start"),
+                            end = item.getString("end"),
+                            preferredLanguage = preferredLanguage,
+                            zoneId = zoneId,
+                        )
                     )
-                )
+                }
             }
             val ventilationItems = mutableListOf<String>()
             val ventilationWindows = json.optJSONArray("ventilationWindows") ?: JSONArray()
-            for (i in 0 until ventilationWindows.length()) {
-                val item = ventilationWindows.getJSONObject(i)
-                ventilationItems.add(
-                    formatSafeWindow(
-                        type = item.optString("type", "ventilation"),
-                        start = item.getString("start"),
-                        end = item.getString("end"),
-                        preferredLanguage = preferredLanguage,
-                        zoneId = zoneId,
+            if (forecastAvailable) {
+                for (i in 0 until ventilationWindows.length()) {
+                    val item = ventilationWindows.getJSONObject(i)
+                    val range = HiAirHumanDate.timeRangeIso(
+                        item.getString("start"),
+                        item.getString("end"),
+                        Locale.getDefault(),
+                        "",
+                        zoneId,
                     )
-                )
+                    if (range.isNotBlank()) {
+                        ventilationItems.add(range)
+                    }
+                }
             }
             val hourlyItems = mutableListOf<String>()
-            for (i in 0 until hourly.length()) {
-                val item = hourly.getJSONObject(i)
-                val hourLabel = humanHour(item.getString("hour"), preferredLanguage, zoneId)
-                val riskLabel = localizedRisk(item.getString("overallRisk"), preferredLanguage)
-                hourlyItems.add("$hourLabel: $riskLabel")
+            if (forecastAvailable) {
+                for (i in 0 until hourly.length()) {
+                    val item = hourly.getJSONObject(i)
+                    val hourLabel = humanHour(item.getString("hour"), preferredLanguage, zoneId)
+                    val riskLabel = localizedRisk(item.getString("overallRisk"), preferredLanguage)
+                    hourlyItems.add("$hourLabel: $riskLabel")
+                }
             }
             val statusText = when {
                 !forecastAvailable -> l("planner.forecast_unavailable", preferredLanguage)

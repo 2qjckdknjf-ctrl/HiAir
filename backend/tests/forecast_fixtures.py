@@ -97,16 +97,17 @@ def openmeteo_air_payload(
 
 def barcelona_summer_payloads() -> tuple[dict, dict]:
     start = datetime(2026, 7, 15, 0, 0)
-    hours = 24
-    temps = [24 + (6 if 11 <= h <= 17 else 0) for h in range(hours)]
-    aqi = [45 + (40 if 8 <= h <= 10 or 18 <= h <= 20 else 0) for h in range(hours)]
+    hours = 48
+    temps = [24 + (6 if 11 <= (h % 24) <= 17 else 0) for h in range(hours)]
+    aqi = [45 + (40 if 8 <= (h % 24) <= 10 or 18 <= (h % 24) <= 20 else 0) for h in range(hours)]
+    uv_day = [0, 0, 0, 0, 0, 1, 2, 4, 6, 8, 9, 9, 10, 9, 8, 6, 4, 2, 1, 0, 0, 0, 0, 0]
     weather = openmeteo_weather_payload(
         timezone_name="Europe/Madrid",
         start=start,
         hours=hours,
         temperatures=temps,
         humidity=[65.0] * hours,
-        uv=[0, 0, 0, 0, 0, 1, 2, 4, 6, 8, 9, 9, 10, 9, 8, 6, 4, 2, 1, 0, 0, 0, 0, 0],
+        uv=uv_day * 2,
         wind=[1.2] * hours,
     )
     air = openmeteo_air_payload(

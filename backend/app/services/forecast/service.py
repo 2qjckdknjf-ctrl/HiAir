@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from time import perf_counter
 
 from app.core.settings import settings
@@ -19,7 +20,7 @@ from app.services.forecast.merge import merge_hourly, merge_points
 from app.services.forecast.openmeteo import OpenMeteoAirQualityProvider, OpenMeteoWeatherProvider
 from app.services.forecast.openweather import OpenWeatherProvider
 from app.services.forecast.quality import classify_forecast
-from app.services.forecast.timeutil import utcnow_iso
+from app.services.forecast.timeutil import upcoming_points, utcnow_iso
 from app.services.forecast.waqi import WaqiAirQualityProvider
 
 logger = logging.getLogger("hiair.forecast")
@@ -48,11 +49,8 @@ def _label_cached(
     freshness: ForecastFreshness,
     age_seconds: int,
 ) -> EnvironmentalForecast:
-    kind = (
-        EnvironmentalDataKind.CACHED
-        if freshness == ForecastFreshness.CACHED
-        else EnvironmentalDataKind.FORECAST
-    )
+    # Cached and stale responses must not look like a fresh live forecast point.
+    kind = EnvironmentalDataKind.CACHED
     hourly = []
     for point in forecast.hourly:
         provenance = point.provenance.model_copy(
@@ -198,14 +196,27 @@ def _fetch_live(lat: float, lon: float, hours: int) -> EnvironmentalForecast:
     )
 
 
+def _clip_upcoming(
+    forecast: EnvironmentalForecast,
+    hours: int,
+    reference_now: datetime | None,
+) -> EnvironmentalForecast:
+    """Drop fully elapsed hours so planners never present yesterday morning as 'the day'."""
+    clipped = upcoming_points(forecast.hourly, hours, now=reference_now)
+    return forecast.model_copy(update={"hourly": clipped})
+
+
 def get_forecast(
     lat: float,
     lon: float,
     *,
     hours: int = 48,
     force_refresh: bool = False,
+    reference_now: datetime | None = None,
 ) -> EnvironmentalForecast:
     hours = max(24, min(48, hours))
+    # Fetch a same-day buffer so mid-afternoon still yields a full upcoming window.
+    fetch_hours = min(72, hours + 24)
     ttl = settings.environment_cache_ttl_seconds
     logger.info("forecast_fetch_started hours=%s force_refresh=%s", hours, str(force_refresh).lower())
 
@@ -213,24 +224,25 @@ def get_forecast(
         cached = forecast_cache.get(lat, lon, hours, ttl, allow_stale=False)
         if cached is not None:
             forecast, freshness, age = cached
+            labeled = _clip_upcoming(_label_cached(forecast, freshness, age), hours, reference_now)
             logger.info(
                 "forecast_cache_used freshness=%s hours_returned=%s cache_age_seconds=%s",
                 freshness.value,
-                len(forecast.hourly),
+                len(labeled.hourly),
                 age,
             )
-            return _label_cached(forecast, freshness, age)
+            return labeled
 
     try:
-        live = _fetch_live(lat, lon, hours)
+        live = _fetch_live(lat, lon, fetch_hours)
         forecast_cache.put(lat, lon, hours, live)
-        return live
+        return _clip_upcoming(live, hours, reference_now)
     except Exception:
         stale = forecast_cache.get(lat, lon, hours, ttl, allow_stale=True)
         if stale is not None:
             forecast, freshness, age = stale
             if not settings.environment_allow_sample_fallback and freshness == ForecastFreshness.STALE:
-                labeled = _label_cached(forecast, freshness, age)
+                labeled = _clip_upcoming(_label_cached(forecast, freshness, age), hours, reference_now)
                 logger.info(
                     "forecast_cache_used freshness=stale hours_returned=%s cache_age_seconds=%s",
                     len(labeled.hourly),
@@ -238,5 +250,5 @@ def get_forecast(
                 )
                 return labeled
             if freshness == ForecastFreshness.CACHED:
-                return _label_cached(forecast, freshness, age)
+                return _clip_upcoming(_label_cached(forecast, freshness, age), hours, reference_now)
         raise

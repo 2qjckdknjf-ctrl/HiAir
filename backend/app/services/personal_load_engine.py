@@ -80,9 +80,10 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
     explanations: list[str] = []
 
     heat_index = data.heat_index if data.heat_index is not None else (data.temperature or 0)
-    aqi = data.aqi or 0
+    aqi = data.aqi
     steps = data.steps_today or 0
     steps_hour = data.steps_last_hour or 0
+    air_known = aqi is not None
 
     # Steps + heat
     if steps > 10_000 and heat_index >= 34:
@@ -103,7 +104,7 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
         raw_points += 10
         reason_codes.append("recent_steps_heat")
         explanations.append("Недавно была высокая активность при повышенной температуре.")
-    if steps_hour > 2_500 and aqi >= 100:
+    if steps_hour > 2_500 and air_known and aqi >= 100:
         raw_points += 10
         reason_codes.append("recent_steps_poor_air")
         explanations.append("При текущем AQI лучше снизить интенсивную активность на улице.")
@@ -116,7 +117,7 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
 
     # Heart rate avg elevated + environment
     if data.heart_rate_avg is not None and data.heart_rate_avg > 100:
-        if heat_index >= 30 or aqi >= 100:
+        if heat_index >= 30 or (air_known and aqi >= 100):
             raw_points += 10
             reason_codes.append("elevated_hr_avg_environment")
             explanations.append("Пульс выше вашей обычной нормы.")
@@ -139,18 +140,18 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
             explanations.append("Пульс в покое выше вашей обычной нормы.")
 
     # AQI + activity
-    if aqi >= 150 and steps > 4_000:
+    if air_known and aqi >= 150 and steps > 4_000:
         raw_points += 15
         reason_codes.append("poor_air_moderate_activity")
         explanations.append("При текущем AQI лучше снизить интенсивную активность на улице.")
-    elif aqi >= 100 and steps > 6_000:
+    elif air_known and aqi >= 100 and steps > 6_000:
         raw_points += 10
         reason_codes.append("elevated_air_high_activity")
         explanations.append("При текущем AQI лучше снизить интенсивную активность на улице.")
 
     # Short sleep + environment / activity
     if data.sleep_minutes is not None and data.sleep_minutes < 360:
-        if heat_index >= 30 or aqi >= 100:
+        if heat_index >= 30 or (air_known and aqi >= 100):
             raw_points += 15
             reason_codes.append("short_sleep_environment")
             explanations.append("После короткого сна нагрузка от жары или воздуха ощущается сильнее.")
@@ -171,7 +172,7 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
         explanations.append("Восстановление ниже вашей недавней линии — учитывайте сон и нагрузку.")
 
     # Hard workout day + poor air
-    if data.exercise_minutes is not None and data.exercise_minutes >= 45 and aqi >= 100:
+    if data.exercise_minutes is not None and data.exercise_minutes >= 45 and air_known and aqi >= 100:
         raw_points += 10
         reason_codes.append("long_exercise_poor_air")
         explanations.append("После длительной тренировки при повышенном AQI лучше больше восстановиться indoors.")

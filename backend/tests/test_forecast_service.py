@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.services.forecast.cache import forecast_cache
 from app.services.forecast.merge import merge_hourly
@@ -7,19 +8,22 @@ from app.services.forecast.service import get_forecast
 from tests.forecast_fixtures import barcelona_summer_payloads, openmeteo_weather_payload
 
 
+BARCELONA_REF = datetime(2026, 7, 15, 8, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+
+
 def test_merge_hourly_aligns_on_utc_hour() -> None:
     weather_payload, air_payload = barcelona_summer_payloads()
     weather = OpenMeteoWeatherProvider(fetcher=lambda url, params: weather_payload)
     air = OpenMeteoAirQualityProvider(fetcher=lambda url, params: air_payload)
     merged = merge_hourly(
-        weather.get_hourly(41.39, 2.17, 24),
-        air.get_hourly(41.39, 2.17, 24),
+        weather.get_hourly(41.39, 2.17, 48),
+        air.get_hourly(41.39, 2.17, 48),
         lat=41.39,
         lon=2.17,
         timezone_name="Europe/Madrid",
         fetched_at="2026-07-15T00:00:00+00:00",
     )
-    assert len(merged) == 24
+    assert len(merged) == 48
     noon = merged[12]
     assert noon.temperature_c == 30
     assert noon.aqi == 45
@@ -44,7 +48,7 @@ def test_get_forecast_uses_configured_openmeteo_fixtures(monkeypatch) -> None:
         lambda: OpenMeteoAirQualityProvider(fetcher=fetcher),
     )
     forecast_cache.clear()
-    result = get_forecast(41.39, 2.17, hours=24, force_refresh=True)
+    result = get_forecast(41.39, 2.17, hours=24, force_refresh=True, reference_now=BARCELONA_REF)
     assert result.quality.value in ("complete", "partial")
     assert result.freshness.value == "live"
     assert len(result.hourly) == 24
@@ -52,8 +56,12 @@ def test_get_forecast_uses_configured_openmeteo_fixtures(monkeypatch) -> None:
     assert result.current is not None
     assert result.current.temperature_c == 24
     assert result.hourly[0].timestamp.endswith("+02:00")
-    cached = get_forecast(41.39, 2.17, hours=24, force_refresh=False)
+    # Mid-morning clip: first returned hour is still active (08:00), not midnight.
+    assert result.hourly[0].timestamp.startswith("2026-07-15T08:00:00")
+    cached = get_forecast(41.39, 2.17, hours=24, force_refresh=False, reference_now=BARCELONA_REF)
     assert cached.freshness.value == "cached"
+    assert cached.hourly[0].provenance is not None
+    assert cached.hourly[0].provenance.kind.value == "cached"
 
 
 def test_partial_when_air_hourly_missing(monkeypatch) -> None:
@@ -77,7 +85,8 @@ def test_partial_when_air_hourly_missing(monkeypatch) -> None:
         lambda: OpenMeteoAirQualityProvider(fetcher=lambda url, params: (_ for _ in ()).throw(RuntimeError("down"))),
     )
     forecast_cache.clear()
-    result = get_forecast(25.2, 55.27, hours=24, force_refresh=True)
+    dubai_ref = datetime(2026, 8, 1, 8, 0, tzinfo=ZoneInfo("Asia/Dubai"))
+    result = get_forecast(25.2, 55.27, hours=24, force_refresh=True, reference_now=dubai_ref)
     assert result.quality.value in ("partial", "unavailable")
     assert result.hourly
     assert result.hourly[0].aqi is None

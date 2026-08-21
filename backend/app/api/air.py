@@ -109,7 +109,12 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     risk = air_risk_engine.evaluate_risk(profile, environment, personal_load, hourly_points=hourly_points)
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
     snapshot_id = None
-    if environment.aqi is not None and environment.pm25 is not None and environment.ozone is not None:
+    if (
+        environment.aqi is not None
+        and environment.pm25 is not None
+        and environment.ozone is not None
+        and environment.humidity is not None
+    ):
         snapshot_id = air_repository.save_environment_snapshot(environment)
         assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
     else:
@@ -204,7 +209,13 @@ def get_recommendations(
             mapped = forecast_point_to_environmental(forecast.current)
             if mapped is not None:
                 environment = apply_freshness_source(mapped, forecast.freshness.value)
-        risk = air_risk_engine.evaluate_risk(profile, environment, hourly_points=hourly_points)
+        personal_load = wearable_service.build_personal_load_input(user_id, environment)
+        risk = air_risk_engine.evaluate_risk(
+            profile,
+            environment,
+            personal_load,
+            hourly_points=hourly_points,
+        )
         recommendation = air_recommendation_engine.generate_recommendation(
             profile,
             risk,

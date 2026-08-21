@@ -2,10 +2,10 @@ package com.hiair.models
 
 data class EnvironmentSnapshot(
     val temperature_c: Double,
-    val humidity_percent: Double,
-    val aqi: Int,
-    val pm25: Double,
-    val ozone: Double,
+    val humidity_percent: Double? = null,
+    val aqi: Int? = null,
+    val pm25: Double? = null,
+    val ozone: Double? = null,
     val source: String
 )
 

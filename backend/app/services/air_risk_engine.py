@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from app.models.air import (
     DayPlanResponse,
     EnvironmentalInput,
@@ -20,6 +22,12 @@ RISK_ORDER = {
     RiskLevel.HIGH: 2,
     RiskLevel.VERY_HIGH: 3,
 }
+
+
+def hour_end_iso(start_iso: str) -> str:
+    """Exclusive end of an hourly slot (start 08:00 → end 09:00)."""
+    parsed = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+    return (parsed + timedelta(hours=1)).isoformat()
 
 
 def _heat_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> tuple[RiskLevel, list[str]]:
@@ -90,7 +98,7 @@ def _air_risk(environment: EnvironmentalInput, profile: UserProfileContext) -> t
         and environment.pm10 is None
         and environment.ozone is None
     ):
-        return RiskLevel.LOW, ["air_data_unavailable"]
+        return RiskLevel.MODERATE, ["air_data_unavailable"]
 
     score += max(0, profile.respiratory_sensitivity_level - 2)
     if profile.profile_type in (ProfileType.ASTHMA_SENSITIVE, ProfileType.ALLERGY_SENSITIVE):
@@ -196,7 +204,7 @@ def _build_safe_windows_from_hourly(
                     SafeWindow(
                         type=window_type,
                         start=open_windows[window_type],
-                        end=last_seen[window_type],
+                        end=hour_end_iso(last_seen[window_type]),
                         confidence=_window_confidence(env, window_type),
                     )
                 )
@@ -211,7 +219,7 @@ def _build_safe_windows_from_hourly(
                 SafeWindow(
                     type=window_type,
                     start=start_time,
-                    end=last_seen[window_type],
+                    end=hour_end_iso(last_seen[window_type]),
                     confidence=_window_confidence(env, window_type),
                 )
             )
@@ -332,12 +340,18 @@ def build_day_plan(
 
     all_windows = _build_safe_windows_from_hourly(profile, points)
     ventilation_windows = [window for window in all_windows if window.type == SafeWindowType.VENTILATION]
+    outdoor_windows = [
+        window
+        for window in all_windows
+        if window.type
+        in (SafeWindowType.WALK, SafeWindowType.RUN, SafeWindowType.GENERAL_OUTDOOR)
+    ]
     available = len(points) > 0
     return DayPlanResponse(
         profileId=profile.profile_id,
         timezone=points[0].timezone if points else environment.timezone,
         hourlyRisk=hourly,
-        safeWindows=all_windows,
+        safeWindows=outdoor_windows,
         ventilationWindows=ventilation_windows,
         generatedAt=generated_at,
         dataQuality=data_quality if data_quality is not None else ("unavailable" if not available else "complete"),
