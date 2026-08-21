@@ -51,6 +51,7 @@ See `docs/release/DEVICE_CERTIFICATION_CHECKLIST.md`.
 - Email: value from `APP_REVIEW_TEST_EMAIL` in `backend/.env.local`
 - Password: `APP_REVIEW_TEST_PASSWORD` (store in Play App access section)
 
-## Known upload blocker (2026-07-07)
+## Current track truth (2026-08-21)
 
-Unsigned AAB builds successfully but **Play Console requires signed AAB**. Owner must provide keystore.
+- Internal track already has **HiAir 1.0 (188)** from CI run `32485234454`.
+- Remaining owner work is now Console-side: questionnaires, tester validation, and release sign-off — not artifact creation for this branch.

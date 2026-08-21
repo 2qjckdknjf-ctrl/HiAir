@@ -1,7 +1,9 @@
 # TestFlight Upload Checklist
 
 **App:** HiAir (`com.hiair.app`)  
-**Version:** 0.1.0 (build 13)  
+**Version target on redesign ship line:** 1.0 (build 188)  
+**Last proven uploaded Apple build:** 181 (VALID on 2026-08-11)  
+**Important:** build 188 is code-aligned in repo but must still be archived/uploaded from macOS/Xcode.
 **Team:** `43A4KW5BKB`
 
 ## Pre-upload (engineering)
@@ -56,4 +58,4 @@ Use `docs/release/store/RELEASE_NOTES.md` and `docs/release/store/REVIEWER_NOTES
 
 ~~Local archive fails until HealthKit is enabled on App ID~~ **RESOLVED** — use `-allowProvisioningUpdates` on archive/export (see `archive_and_upload_testflight.sh`).
 
-**2026-07-07 Mission #2:** Build **65** uploaded and **VALID** in TestFlight.
+Current operator goal: upload **188** and verify processing before claiming TestFlight parity with Android 188.

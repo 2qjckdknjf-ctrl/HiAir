@@ -67,13 +67,13 @@ Workflow: `.github/workflows/android-release.yml`
 Manual run:
 1. GitHub -> Actions -> Android Release -> Run workflow.
 2. Choose track (`internal` recommended for first upload).
-3. Optionally set `version_name` (defaults to `0.1.<run_number>`).
+3. Optionally set `version_name` (defaults to `1.0`).
 
 Tag trigger (optional):
 
 ```bash
-git tag android/v0.1.0
-git push origin android/v0.1.0
+git tag android/v1.0.188
+git push origin android/v1.0.188
 ```
 
 Tag pushes publish to the `internal` track by default.
@@ -92,8 +92,8 @@ export ANDROID_KEYSTORE_PATH="/absolute/path/upload-keystore.jks"
 export ANDROID_KEYSTORE_PASSWORD="..."
 export ANDROID_KEY_ALIAS="hiair-upload"
 export ANDROID_KEY_PASSWORD="..."
-export ANDROID_VERSION_CODE=2
-export ANDROID_VERSION_NAME="0.1.2"
+export ANDROID_VERSION_CODE=188
+export ANDROID_VERSION_NAME="1.0"
 
 cd mobile/android
 ./gradlew :app:bundleRelease --no-daemon
@@ -101,6 +101,10 @@ cd mobile/android
 
 Output:
 `mobile/android/app/build/outputs/bundle/release/app-release.aab`
+
+Current truth (2026-08-21):
+- Android Release CI has already produced/uploaded **HiAir 1.0 (188)** to Play Internal.
+- Remaining work is Console-side verification/questionnaires, not another version bump.
 
 ## Notes
 

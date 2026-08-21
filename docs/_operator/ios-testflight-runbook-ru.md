@@ -4,7 +4,9 @@
 Проект iOS: `mobile/ios`  
 Bundle ID: `com.hiair.app`  
 Team ID (уже в репо): `43A4KW5BKB`  
-Версия: `0.1.0` (build `12` — увеличивай перед каждой загрузкой)
+Текущий ship target: `1.0` (build `188` на redesign-ветке); последний подтверждённый Apple upload — build `181`  
+
+> Важно: из Linux cloud VM загрузку в TestFlight не делаем. Для build `188` нужен **Mac + Xcode 26+** или **Xcode Cloud**.
 
 ---
 

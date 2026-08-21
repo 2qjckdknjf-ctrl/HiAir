@@ -82,8 +82,8 @@ See `docs/release/store/DATA_SAFETY.md`.
 
 ## Testing Track Checklist
 
-- [x] Internal testing track historically live (182).
-- [ ] Internal 188 signed AAB uploaded.
+- [x] Internal testing track live.
+- [x] Internal **188** signed AAB uploaded on 2026-08-21 (CI run `32485234454` / artifact `hiair-android-1.0`).
 - [ ] License testers can purchase Premium.
 - [ ] Validate login/Google OAuth/session refresh/logout.
 - [ ] Validate notification permission flow on Android 13+.

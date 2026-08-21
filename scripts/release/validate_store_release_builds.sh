@@ -49,7 +49,7 @@ check_ios_config() {
   echo "==> iOS Release configuration"
   rg -q 'let defaultBaseURL = "https://api.hiair.io"' "$ROOT/mobile/ios/HiAir/Networking/APIClient.swift" \
     || fail "iOS Release defaultBaseURL missing"
-  rg -q 'CURRENT_PROJECT_VERSION: 13' "$ROOT/mobile/ios/project.yml" \
+  rg -q 'CURRENT_PROJECT_VERSION: 188' "$ROOT/mobile/ios/project.yml" \
     || fail "iOS build number mismatch in project.yml"
   test -f "$ROOT/mobile/ios/HiAir/PrivacyInfo.xcprivacy" \
     || fail "PrivacyInfo.xcprivacy missing"

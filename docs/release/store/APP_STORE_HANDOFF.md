@@ -6,7 +6,9 @@
 - Category: Health & Fitness
 - Primary locale: en-US (RU localized in-app)
 - Bundle ID: `com.hiair.app`
-- Version: `0.1.0` (build **13**)
+- Version target on this branch: `1.0` (build **188**)
+- Last proven uploaded Apple build: **181** VALID / App Store 1.0 waiting-for-review context as of 2026-08-11
+- Upload status for build 188: **NOT UPLOADED FROM THIS VM** (requires macOS/Xcode)
 - Privacy manifest: `mobile/ios/HiAir/PrivacyInfo.xcprivacy`
 
 ## Description Draft
@@ -35,7 +37,7 @@ HiAir helps users plan daily activity around heat and air quality trends, log sy
 - Notes: account must include at least one profile and symptom log for Insights flows.
 
 ## TestFlight Checklist
-- [ ] Upload build from Xcode Organizer.
+- [ ] Build and upload **188** from Xcode Organizer / Xcode Cloud on macOS.
 - [ ] Attach release notes and known limitations.
 - [ ] Confirm login/signup/refresh/logout flow.
 - [ ] Confirm Dashboard/Planner/Insights/Symptoms/Settings.
@@ -43,6 +45,7 @@ HiAir helps users plan daily activity around heat and air quality trends, log sy
 - [ ] Confirm no blocking crashes on iPhone 15 + SE simulator baseline.
 
 ## External Blockers
-- Apple Developer account roles/permissions.
-- App Store Connect metadata submission.
+- macOS/Xcode environment with signing to produce/upload build **188**.
+- Apple Developer / App Store Connect roles and permissions.
+- App Store Connect binary attach / submission decisions for replacing build **181** with **188**.
 - Final legal wording sign-off.
