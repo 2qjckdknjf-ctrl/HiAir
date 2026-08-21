@@ -125,7 +125,11 @@ data class AirCurrentRiskResponse(
     val risk: AirRiskAssessment,
     val recommendation: AirRecommendationCard,
     val explanation: String,
-    val explanationSource: String
+    val explanationSource: String,
+    val dataQuality: String? = null,
+    val freshness: String? = null,
+    val sources: List<String>? = null,
+    val generatedAt: String? = null
 )
 
 data class AirDayPlanResponse(
@@ -133,5 +137,12 @@ data class AirDayPlanResponse(
     val timezone: String,
     val hourlyRisk: List<Map<String, String>>,
     val safeWindows: List<AirSafeWindow>,
-    val ventilationWindows: List<AirSafeWindow>
+    val ventilationWindows: List<AirSafeWindow>,
+    val generatedAt: String? = null,
+    val dataQuality: String? = null,
+    val freshness: String? = null,
+    val sources: List<String>? = null,
+    val forecastHours: Int? = null,
+    val forecastAvailable: Boolean? = null,
+    val missingMetrics: List<String>? = null
 )

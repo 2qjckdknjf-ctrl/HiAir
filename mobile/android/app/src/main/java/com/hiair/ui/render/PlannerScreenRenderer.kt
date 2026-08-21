@@ -71,7 +71,10 @@ internal object PlannerScreenRenderer {
                     )
                     val state = rootShell.plannerViewModel.state
                     activity.runOnUiThread {
-                        stateText.text = state.statusText
+                        val caption = listOf(state.statusText, state.freshnessText)
+                            .filter { it.isNotBlank() }
+                            .joinToString("\n")
+                        stateText.text = caption.ifBlank { state.statusText }
                         if (state.premiumRequired) {
                             rootShell.settingsViewModel.requestShowPaywall()
                             ctx.rerender()

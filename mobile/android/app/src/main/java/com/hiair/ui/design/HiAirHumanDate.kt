@@ -95,9 +95,15 @@ object HiAirHumanDate {
         endIso: String,
         locale: Locale = Locale.getDefault(),
         unavailable: String = "—",
+        zoneId: ZoneId = ZoneId.systemDefault(),
     ): String {
         val start = parseIso(startIso) ?: return unavailable
         val end = parseIso(endIso) ?: return unavailable
-        return timeRange(start, end, locale)
+        return timeRange(start, end, locale, zoneId)
+    }
+
+    fun zoneId(identifier: String?): ZoneId {
+        if (identifier.isNullOrBlank()) return ZoneId.systemDefault()
+        return runCatching { ZoneId.of(identifier) }.getOrDefault(ZoneId.systemDefault())
     }
 }

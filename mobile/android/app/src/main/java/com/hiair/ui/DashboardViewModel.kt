@@ -10,6 +10,7 @@ import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.time.ZoneId
 import java.util.Locale
 import org.json.JSONObject
 
@@ -42,6 +43,8 @@ data class DashboardState(
     val temperatureC: Double? = null,
     val feelsLikeC: Double? = null,
     val humidityPercent: Double? = null,
+    val freshness: String? = null,
+    val timezone: String? = null,
     val wearableSteps: Int? = null,
     val wearableLoadLevel: String? = null,
     val wearableSummary: String? = null,
@@ -91,6 +94,7 @@ class DashboardViewModel(
         }
         state = state.copy(status = DashboardStatus.LOADING)
         ProductAnalytics.track("dashboard_loading")
+        ProductAnalytics.track("forecast_fetch_started", mapOf("surface" to "dashboard"))
         try {
             val raw = apiClient.fetchCurrentRisk(
                 userId = userId,
@@ -104,6 +108,14 @@ class DashboardViewModel(
                 "dashboard_loaded",
                 mapOf("source" to (parsed.dataSource ?: "unknown")),
             )
+            ProductAnalytics.track(
+                "forecast_fetch_succeeded",
+                mapOf(
+                    "freshness" to (parsed.freshness ?: parsed.dataSource ?: ""),
+                    "quality" to (parsed.dataSource ?: ""),
+                    "hours" to parsed.safeWindows.size.toString(),
+                ),
+            )
             onRiskReady?.invoke()
             state = withWearable(parsed, userId, accessToken)
         } catch (error: Exception) {
@@ -115,67 +127,8 @@ class DashboardViewModel(
                 "dashboard_failed",
                 mapOf("offline" to offline.toString()),
             )
+            ProductAnalytics.track("forecast_fetch_failed", mapOf("surface" to "dashboard"))
         }
-    }
-
-    private fun parseCurrentRisk(raw: String, preferredLanguage: String): DashboardState {
-        val json = JSONObject(raw)
-        val risk = json.optJSONObject("risk")
-            ?: throw IllegalStateException("current-risk response missing 'risk'")
-        val level = risk.optString("overallRisk", "")
-        if (level.isBlank()) {
-            throw IllegalStateException("current-risk response missing 'overallRisk'")
-        }
-        val recommendation = json.optJSONObject("recommendation")
-        val environment = json.optJSONObject("environmental")
-
-        val actions = mutableListOf<String>()
-        recommendation?.optJSONArray("actions")?.let { array ->
-            for (index in 0 until array.length()) {
-                array.optString(index).takeIf { it.isNotBlank() }?.let(actions::add)
-            }
-        }
-
-        val safeWindows = mutableListOf<String>()
-        risk.optJSONArray("safeWindows")?.let { array ->
-            for (index in 0 until array.length()) {
-                val window = array.optJSONObject(index) ?: continue
-                val type = window.optString("type")
-                val start = window.optString("start")
-                val end = window.optString("end")
-                if (start.isNotBlank() && end.isNotBlank()) {
-                    safeWindows.add(formatSafeWindow(type, start, end, preferredLanguage))
-                }
-            }
-        }
-
-        return DashboardState(
-            status = DashboardStatus.SUCCESS,
-            riskLevel = level,
-            riskScore = scoreForLevel(level),
-            headline = recommendation?.optString("headline")?.takeIf { it.isNotBlank() },
-            explanation = json.optString("explanation").takeIf { it.isNotBlank() },
-            actions = actions,
-            safeWindows = safeWindows,
-            dataSource = environment?.optString("source")?.takeIf { it.isNotBlank() },
-            aqi = environment?.takeIf { it.has("aqi") }?.optInt("aqi"),
-            pm25 = environment?.takeIf { it.has("pm25") }?.optDouble("pm25"),
-            ozone = environment?.takeIf { it.has("ozone") }?.optDouble("ozone"),
-            temperatureC = environment?.takeIf { it.has("temperature") }?.optDouble("temperature"),
-            feelsLikeC = environment?.takeIf { it.has("feels_like") }?.optDouble("feels_like"),
-            humidityPercent = environment?.takeIf { it.has("humidity") }?.optDouble("humidity"),
-        )
-    }
-
-    private fun formatSafeWindow(type: String, start: String, end: String, preferredLanguage: String): String {
-        val typeKey = when (type.lowercase()) {
-            "walk", "outdoor", "safe", "sport", "exercise", "run" -> "planner.window.safe"
-            "ventilation", "ventilate" -> "planner.window.ventilation"
-            else -> "dashboard.safe_window"
-        }
-        val label = AndroidL10n.t(typeKey, preferredLanguage)
-        val range = HiAirHumanDate.timeRangeIso(start, end, Locale.getDefault(), "")
-        return if (range.isEmpty()) label else "$label: $range"
     }
 
     private fun withWearable(base: DashboardState, userId: String, accessToken: String?): DashboardState {
@@ -222,6 +175,78 @@ class DashboardViewModel(
     }
 
     companion object {
+        fun parseCurrentRisk(raw: String, preferredLanguage: String): DashboardState {
+            val json = JSONObject(raw)
+            val risk = json.optJSONObject("risk")
+                ?: throw IllegalStateException("current-risk response missing 'risk'")
+            val level = risk.optString("overallRisk", "")
+            if (level.isBlank()) {
+                throw IllegalStateException("current-risk response missing 'overallRisk'")
+            }
+            val recommendation = json.optJSONObject("recommendation")
+            val environment = json.optJSONObject("environmental")
+            val timezone = environment?.optString("timezone")?.takeIf { it.isNotBlank() }
+            val zoneId = HiAirHumanDate.zoneId(timezone)
+            val freshness = json.optString("freshness").takeIf { it.isNotBlank() }
+                ?: environment?.optString("source")?.takeIf { it.isNotBlank() }
+
+            val actions = mutableListOf<String>()
+            recommendation?.optJSONArray("actions")?.let { array ->
+                for (index in 0 until array.length()) {
+                    array.optString(index).takeIf { it.isNotBlank() }?.let(actions::add)
+                }
+            }
+
+            val safeWindows = mutableListOf<String>()
+            risk.optJSONArray("safeWindows")?.let { array ->
+                for (index in 0 until array.length()) {
+                    val window = array.optJSONObject(index) ?: continue
+                    val type = window.optString("type")
+                    val start = window.optString("start")
+                    val end = window.optString("end")
+                    if (start.isNotBlank() && end.isNotBlank()) {
+                        safeWindows.add(formatSafeWindow(type, start, end, preferredLanguage, zoneId))
+                    }
+                }
+            }
+
+            return DashboardState(
+                status = DashboardStatus.SUCCESS,
+                riskLevel = level,
+                riskScore = scoreForLevel(level),
+                headline = recommendation?.optString("headline")?.takeIf { it.isNotBlank() },
+                explanation = json.optString("explanation").takeIf { it.isNotBlank() },
+                actions = actions,
+                safeWindows = safeWindows,
+                dataSource = environment?.optString("source")?.takeIf { it.isNotBlank() },
+                aqi = environment.optionalInt("aqi"),
+                pm25 = environment.optionalDouble("pm25"),
+                ozone = environment.optionalDouble("ozone"),
+                temperatureC = environment.optionalDouble("temperature"),
+                feelsLikeC = environment.optionalDouble("feels_like"),
+                humidityPercent = environment.optionalDouble("humidity"),
+                freshness = freshness,
+                timezone = timezone,
+            )
+        }
+
+        private fun formatSafeWindow(
+            type: String,
+            start: String,
+            end: String,
+            preferredLanguage: String,
+            zoneId: ZoneId,
+        ): String {
+            val typeKey = when (type.lowercase()) {
+                "walk", "outdoor", "safe", "sport", "exercise", "run" -> "planner.window.safe"
+                "ventilation", "ventilate" -> "planner.window.ventilation"
+                else -> "dashboard.safe_window"
+            }
+            val label = AndroidL10n.t(typeKey, preferredLanguage)
+            val range = HiAirHumanDate.timeRangeIso(start, end, Locale.getDefault(), "", zoneId)
+            return if (range.isEmpty()) label else "$label: $range"
+        }
+
         /**
          * Canonical numeric encoding of the backend risk level, matching the
          * server's RISK_LEVEL_TO_SCORE mapping. This is a deterministic visual
@@ -237,4 +262,14 @@ class DashboardViewModel(
             }
         }
     }
+}
+
+private fun JSONObject?.optionalInt(key: String): Int? {
+    if (this == null || !has(key) || isNull(key)) return null
+    return optInt(key)
+}
+
+private fun JSONObject?.optionalDouble(key: String): Double? {
+    if (this == null || !has(key) || isNull(key)) return null
+    return optDouble(key)
 }

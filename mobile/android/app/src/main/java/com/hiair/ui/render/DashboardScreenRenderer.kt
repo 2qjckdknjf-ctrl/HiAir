@@ -231,11 +231,13 @@ internal object DashboardScreenRenderer {
     }
 
     private fun dataSourceLabel(ctx: RenderContext, state: DashboardState): TextView? {
-        val source = state.dataSource ?: return null
+        val source = state.freshness ?: state.dataSource ?: return null
         val key = when {
-            source.equals("live", ignoreCase = true) -> "dashboard.source_live"
-            source.equals("cached", ignoreCase = true) -> "dashboard.source_cached"
-            else -> "dashboard.source_estimated"
+            source.equals("live", ignoreCase = true) -> "planner.freshness.live"
+            source.equals("cached", ignoreCase = true) -> "planner.freshness.cached"
+            source.equals("stale", ignoreCase = true) -> "planner.freshness.stale"
+            source.equals("sample", ignoreCase = true) -> "dashboard.source_estimated"
+            else -> "dashboard.source_live"
         }
         return V2Ui.styledSecondaryText(ctx.activity, ctx.l(key)).apply {
             textSize = 11f
@@ -246,16 +248,18 @@ internal object DashboardScreenRenderer {
 
     private fun airMetricsCard(ctx: RenderContext, state: DashboardState): View? {
         val activity = ctx.activity
+        val unavailable = ctx.l("dashboard.metric.unavailable")
         val rows = mutableListOf<Pair<String, String>>()
-        state.aqi?.let { rows.add(ctx.l("dashboard.metric_aqi") to it.toString()) }
-        state.pm25?.let { rows.add(ctx.l("dashboard.metric_pm25") to "${round1(it)} µg/m³") }
-        state.ozone?.let { rows.add(ctx.l("dashboard.metric_ozone") to "${round1(it)} µg/m³") }
+        rows.add(ctx.l("dashboard.metric_aqi") to (state.aqi?.toString() ?: unavailable))
+        rows.add(
+            ctx.l("dashboard.metric_pm25") to (state.pm25?.let { "${round1(it)} µg/m³" } ?: unavailable)
+        )
+        rows.add(
+            ctx.l("dashboard.metric_ozone") to (state.ozone?.let { "${round1(it)} µg/m³" } ?: unavailable)
+        )
         state.temperatureC?.let { rows.add(ctx.l("dashboard.metric_temp") to "${round1(it)}°C") }
         state.feelsLikeC?.let { rows.add(ctx.l("dashboard.metric_feels") to "${round1(it)}°C") }
         state.humidityPercent?.let { rows.add(ctx.l("dashboard.metric_humidity") to "${round1(it)}%") }
-        if (rows.isEmpty()) {
-            return null
-        }
         return V2Ui.cardContainer(activity).apply {
             addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.air_title")).apply { textSize = 16f })
             addView(V2Ui.spacer(activity, 6))
