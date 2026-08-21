@@ -41,3 +41,16 @@ class PersonalAdaptationSnapshot(BaseModel):
     baselines: list[PersonalBaseline] = Field(default_factory=list)
     protectedDays: ProtectedDaysSummary
     reasonCodes: list[str] = Field(default_factory=list)
+
+
+class ProtectedDayEventCreateRequest(BaseModel):
+    profileId: str = Field(min_length=1)
+    eventType: str = Field(min_length=1)
+    eventDate: str | None = None
+
+
+class ProtectedDayEventRecord(BaseModel):
+    id: str
+    profileId: str
+    eventType: str
+    eventDate: str

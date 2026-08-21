@@ -768,7 +768,7 @@ HiAir reaches the intended 10/10 product state when:
 | 1.3 Multi-Hazard | Backend + Dashboard UI IN PROGRESS (`GET /api/air/hazards`) |
 | 1.4 Alert Decision Engine | Gate wired into orchestrator IN PROGRESS (`POST /api/alerts/decide`) |
 | 1.5 Saved Places | Backend + Settings UI IN PROGRESS (`/api/places`) |
-| 1.6 Personal Adaptation | Backend + Insights UI IN PROGRESS (`GET /api/insights/adaptation`) |
+| 1.6 Personal Adaptation | Backend + Insights UI + event persistence IN PROGRESS |
 | 2.0 Work / B2B Safety | Backend scaffold IN PROGRESS (`GET /api/work/site-risk`; Heat Index ≠ WBGT) |
 
 Notes:

@@ -6,12 +6,17 @@ from psycopg import Error as PsycopgError
 from app.api.deps import get_current_user_id
 import app.services.entitlement_service as entitlement_service
 from app.models.air import PersonalPatternInsight, PersonalPatternsResponse
-from app.models.personal_adaptation import PersonalAdaptationSnapshot
+from app.models.personal_adaptation import (
+    PersonalAdaptationSnapshot,
+    ProtectedDayEventCreateRequest,
+    ProtectedDayEventRecord,
+)
 import app.services.air_repository as air_repository
 import app.services.correlation_engine as correlation_engine
 import app.services.health_sync_repository as health_sync_repository
 import app.services.insights_repository as insights_repository
 import app.services.personal_adaptation_engine as personal_adaptation_engine
+import app.services.protected_day_events_repository as protected_day_events_repository
 import app.services.wearable_repository as wearable_repository
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -72,10 +77,15 @@ def get_personal_adaptation(
             raise HTTPException(status_code=403, detail="Profile does not belong to user")
 
         consent = wearable_repository.get_active_consent(user_id)
+        protected_events = protected_day_events_repository.list_events(
+            profile_id=profile_id,
+            user_id=user_id,
+        )
         if consent is None or not consent.isActive:
             return personal_adaptation_engine.build_adaptation_snapshot(
                 profile_id=profile_id,
                 baseline_inputs=personal_adaptation_engine.BaselineInputs(),
+                protected_events=protected_events,
                 generated_at=personal_adaptation_engine.now_utc_iso(),
             )
 
@@ -99,8 +109,55 @@ def get_personal_adaptation(
         return personal_adaptation_engine.build_adaptation_snapshot(
             profile_id=profile_id,
             baseline_inputs=baseline_inputs,
-            protected_events=[],
+            protected_events=protected_events,
             generated_at=personal_adaptation_engine.now_utc_iso(),
+        )
+    except PsycopgError as exc:
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+
+@router.post("/protected-day-events", response_model=ProtectedDayEventRecord)
+def create_protected_day_event(
+    payload: ProtectedDayEventCreateRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> ProtectedDayEventRecord:
+    try:
+        entitlement_service.require_feature(user_id, "wearable_insights", "wearable_insights_enabled")
+        profile = air_repository.get_profile_context(payload.profileId)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        if profile.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Profile does not belong to user")
+
+        try:
+            event_type = personal_adaptation_engine.ProtectedDayEventType(payload.eventType)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Unsupported protected-day event type") from exc
+
+        event_date: date | None = None
+        if payload.eventDate:
+            try:
+                event_date = date.fromisoformat(payload.eventDate[:10])
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail="Invalid eventDate") from exc
+
+        record = protected_day_events_repository.record_event(
+            user_id=user_id,
+            profile_id=payload.profileId,
+            event_type=event_type,
+            event_date=event_date,
+        )
+        resolved_date = record["event_date"]
+        date_text = (
+            resolved_date.isoformat()
+            if hasattr(resolved_date, "isoformat")
+            else str(resolved_date)
+        )
+        return ProtectedDayEventRecord(
+            id=str(record["id"]),
+            profileId=payload.profileId,
+            eventType=event_type.value,
+            eventDate=date_text,
         )
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
