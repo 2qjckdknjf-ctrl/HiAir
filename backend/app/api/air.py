@@ -196,7 +196,13 @@ def get_recommendations(
         profile = _resolve_profile_for_user(profileId, user_id)
         user_settings = settings_repository.get_user_settings(user_id)
         environment = air_environment_service.load_environment(profile)
-        risk = air_risk_engine.evaluate_risk(profile, environment)
+        forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
+        if forecast is not None and forecast.current is not None:
+            mapped = forecast_point_to_environmental(forecast.current)
+            if mapped is not None:
+                environment = apply_freshness_source(mapped, forecast.freshness.value)
+        risk = air_risk_engine.evaluate_risk(profile, environment, hourly_points=hourly_points)
         recommendation = air_recommendation_engine.generate_recommendation(
             profile,
             risk,

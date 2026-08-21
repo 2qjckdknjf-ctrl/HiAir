@@ -107,6 +107,25 @@ class ForecastTruthParseTest {
     }
 
     @Test
+    fun dayPlanParsesVentilationWindows() {
+        val raw = """
+            {
+              "profileId": "profile-1",
+              "timezone": "Europe/Madrid",
+              "hourlyRisk": [{"hour": "2026-07-15T08:00:00+02:00", "overallRisk": "low"}],
+              "safeWindows": [],
+              "ventilationWindows": [
+                {"type": "ventilation", "start": "2026-07-15T06:00:00+02:00", "end": "2026-07-15T07:00:00+02:00", "confidence": 0.8}
+              ],
+              "forecastAvailable": true
+            }
+        """.trimIndent()
+        val state = DailyPlannerViewModel.parsePlan(raw, "en")
+        assertEquals(1, state.ventilationWindows.size)
+        assertFalse(state.ventilationWindows.first().contains("T06"))
+    }
+
+    @Test
     fun windowFormattingUsesForecastTimezone() {
         val madrid = ZoneId.of("Europe/Madrid")
         val range = HiAirHumanDate.timeRangeIso(

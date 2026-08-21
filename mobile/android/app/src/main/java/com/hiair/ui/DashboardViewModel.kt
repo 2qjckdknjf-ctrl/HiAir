@@ -44,6 +44,7 @@ data class DashboardState(
     val feelsLikeC: Double? = null,
     val humidityPercent: Double? = null,
     val freshness: String? = null,
+    val dataQuality: String? = null,
     val timezone: String? = null,
     val wearableSteps: Int? = null,
     val wearableLoadLevel: String? = null,
@@ -112,7 +113,7 @@ class DashboardViewModel(
                 "forecast_fetch_succeeded",
                 mapOf(
                     "freshness" to (parsed.freshness ?: parsed.dataSource ?: ""),
-                    "quality" to (parsed.dataSource ?: ""),
+                    "quality" to (parsed.dataQuality ?: ""),
                     "hours" to parsed.safeWindows.size.toString(),
                 ),
             )
@@ -189,6 +190,7 @@ class DashboardViewModel(
             val zoneId = HiAirHumanDate.zoneId(timezone)
             val freshness = json.optString("freshness").takeIf { it.isNotBlank() }
                 ?: environment?.optString("source")?.takeIf { it.isNotBlank() }
+            val dataQuality = json.optString("dataQuality").takeIf { it.isNotBlank() }
 
             val actions = mutableListOf<String>()
             recommendation?.optJSONArray("actions")?.let { array ->
@@ -226,6 +228,7 @@ class DashboardViewModel(
                 feelsLikeC = environment.optionalDouble("feels_like"),
                 humidityPercent = environment.optionalDouble("humidity"),
                 freshness = freshness,
+                dataQuality = dataQuality,
                 timezone = timezone,
             )
         }

@@ -16,6 +16,7 @@ data class PlannerState(
     val statusText: String = "-",
     val freshnessText: String = "",
     val safeWindows: List<String> = emptyList(),
+    val ventilationWindows: List<String> = emptyList(),
     val hourly: List<String> = emptyList(),
     val peakLine: String = "",
     val premiumRequired: Boolean = false,
@@ -67,6 +68,7 @@ class DailyPlannerViewModel(
                 },
                 freshnessText = "",
                 safeWindows = emptyList(),
+                ventilationWindows = emptyList(),
                 hourly = emptyList(),
                 peakLine = "",
                 premiumRequired = premiumRequired,
@@ -79,6 +81,7 @@ class DailyPlannerViewModel(
                 statusText = l("planner.failed", preferredLanguage),
                 freshnessText = "",
                 safeWindows = emptyList(),
+                ventilationWindows = emptyList(),
                 hourly = emptyList(),
                 peakLine = "",
                 premiumRequired = false,
@@ -115,6 +118,20 @@ class DailyPlannerViewModel(
                     )
                 )
             }
+            val ventilationItems = mutableListOf<String>()
+            val ventilationWindows = json.optJSONArray("ventilationWindows") ?: JSONArray()
+            for (i in 0 until ventilationWindows.length()) {
+                val item = ventilationWindows.getJSONObject(i)
+                ventilationItems.add(
+                    formatSafeWindow(
+                        type = item.optString("type", "ventilation"),
+                        start = item.getString("start"),
+                        end = item.getString("end"),
+                        preferredLanguage = preferredLanguage,
+                        zoneId = zoneId,
+                    )
+                )
+            }
             val hourlyItems = mutableListOf<String>()
             for (i in 0 until hourly.length()) {
                 val item = hourly.getJSONObject(i)
@@ -135,6 +152,7 @@ class DailyPlannerViewModel(
                 statusText = statusText,
                 freshnessText = freshnessText,
                 safeWindows = safeWindowItems,
+                ventilationWindows = ventilationItems,
                 hourly = hourlyItems,
                 peakLine = buildPeakLine(hourly, preferredLanguage, zoneId),
                 premiumRequired = false,

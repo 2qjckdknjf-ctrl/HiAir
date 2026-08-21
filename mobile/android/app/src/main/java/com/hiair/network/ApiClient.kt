@@ -118,7 +118,7 @@ class ApiClient(private val baseUrl: String) {
         profileId: String
     ): String {
         val endpoint = "$baseUrl/api/air/day-plan?profileId=$profileId"
-        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
     fun fetchPersonalPatterns(

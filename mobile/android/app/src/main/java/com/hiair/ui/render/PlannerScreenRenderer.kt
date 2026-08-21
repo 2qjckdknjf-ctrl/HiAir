@@ -126,6 +126,10 @@ internal object PlannerScreenRenderer {
         if (firstSafe != null) {
             lines.add("• ${ctx.l("dashboard.safe_windows")}: $firstSafe")
         }
+        val firstVent = state.ventilationWindows.firstOrNull()
+        if (firstVent != null) {
+            lines.add("• ${ctx.l("planner.window.ventilation")}: $firstVent")
+        }
         return lines.joinToString("\n").ifBlank { "• ${ctx.l("planner.fetch")}" }
     }
 

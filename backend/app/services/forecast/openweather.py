@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from app.core.settings import settings
 from app.models.forecast import (
     EnvironmentalDataKind,
@@ -41,8 +43,6 @@ class OpenWeatherProvider:
         dt = payload.get("dt")
         timestamp = fetched_at
         if isinstance(dt, (int, float)):
-            from datetime import datetime, timezone
-
             timestamp = datetime.fromtimestamp(dt, tz=timezone.utc).isoformat()
         kwargs = {
             "temperature_c": optional_float(main.get("temp")),

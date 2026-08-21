@@ -150,6 +150,7 @@ def test_air_recommendations_returns_payload(monkeypatch) -> None:
         lambda user_id: type("Settings", (), {"preferred_language": "en"})(),
     )
     monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, **kwargs: _sample_environment())
+    monkeypatch.setattr(air_api, "_load_forecast_or_none", lambda lat, lon, force_refresh=False: None)
     monkeypatch.setattr(
         air_api.air_risk_engine,
         "evaluate_risk",

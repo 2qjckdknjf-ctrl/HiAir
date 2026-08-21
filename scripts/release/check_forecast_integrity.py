@@ -52,6 +52,40 @@ def _iter_files() -> list[Path]:
     return files
 
 
+def _check_android_day_plan_uses_strict_http() -> list[str]:
+    path = (
+        ROOT
+        / "mobile"
+        / "android"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "hiair"
+        / "network"
+        / "ApiClient.kt"
+    )
+    if not path.exists():
+        return [f"{path.relative_to(ROOT).as_posix()}: missing"]
+    text = path.read_text(encoding="utf-8")
+    marker = "fun fetchAirDayPlan"
+    idx = text.find(marker)
+    if idx < 0:
+        return [f"{path.relative_to(ROOT).as_posix()}: fetchAirDayPlan missing"]
+    window = text[idx : idx + 350]
+    if "requestStrict(" not in window:
+        return [
+            f"{path.relative_to(ROOT).as_posix()}: fetchAirDayPlan must use requestStrict "
+            "(so HTTP 402 premium gating works)"
+        ]
+    if 'return request("GET"' in window:
+        return [
+            f"{path.relative_to(ROOT).as_posix()}: fetchAirDayPlan still uses non-strict request()"
+        ]
+    return []
+
+
 def main() -> int:
     violations: list[str] = []
     for path in _iter_files():
@@ -63,6 +97,7 @@ def main() -> int:
         for needle, reason in FORBIDDEN:
             if needle in text:
                 violations.append(f"{rel}: found `{needle}` ({reason})")
+    violations.extend(_check_android_day_plan_uses_strict_http())
     if violations:
         print("Forecast integrity: FAIL")
         for item in violations:

@@ -15,6 +15,8 @@ import app.services.risk_repository as risk_repository
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
 import app.services.air_environment_service as air_environment_service
+from app.services.forecast.mapping import forecast_to_hourly_inputs
+from app.services.forecast.service import get_forecast
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -29,6 +31,14 @@ def _build_profile_context(profile_id: str | None, user_id: str, persona: str, l
         home_lat=lat,
         home_lon=lon,
     )
+
+
+def _hourly_for_overview(lat: float, lon: float):
+    try:
+        forecast = get_forecast(lat, lon)
+    except Exception:
+        return []
+    return forecast_to_hourly_inputs(forecast)
 
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
@@ -76,7 +86,12 @@ def dashboard_overview(
     )
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
     air_environment = to_air_environment(environment, lat, lon)
-    air_risk = air_risk_engine.evaluate_risk(profile_context, air_environment)
+    hourly_points = _hourly_for_overview(lat, lon)
+    air_risk = air_risk_engine.evaluate_risk(
+        profile_context,
+        air_environment,
+        hourly_points=hourly_points,
+    )
     user_settings = settings_repository.get_user_settings(user_id)
     recommendation_card = air_recommendation_engine.generate_recommendation(
         profile_context,
