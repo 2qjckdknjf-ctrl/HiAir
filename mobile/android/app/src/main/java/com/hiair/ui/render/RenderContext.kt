@@ -15,7 +15,8 @@ data class RenderContext(
     val overlayContainer: FrameLayout,
     val persistSession: () -> Unit,
     val clearSession: () -> Unit,
-    val rerender: () -> Unit
+    val rerender: () -> Unit,
+    val restorePurchases: () -> Unit = {},
 ) {
     fun l(key: String): String = AndroidL10n.t(key, rootShell.settingsViewModel.state.preferredLanguage)
 }
