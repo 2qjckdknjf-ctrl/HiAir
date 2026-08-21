@@ -63,12 +63,12 @@ class EnvironmentalInput(BaseModel):
     temperature: float
     feels_like: float
     humidity: float = Field(ge=0, le=100)
-    aqi: int = Field(ge=0)
-    pm25: float = Field(ge=0)
-    pm10: float = Field(ge=0)
-    ozone: float = Field(ge=0)
-    uv: float = Field(ge=0)
-    wind_speed: float = Field(ge=0)
+    aqi: int | None = Field(default=None, ge=0)
+    pm25: float | None = Field(default=None, ge=0)
+    pm10: float | None = Field(default=None, ge=0)
+    ozone: float | None = Field(default=None, ge=0)
+    uv: float | None = Field(default=None, ge=0)
+    wind_speed: float | None = Field(default=None, ge=0)
     source: str
     timestamp: str
     timezone: str = "UTC"

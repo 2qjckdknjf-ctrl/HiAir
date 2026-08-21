@@ -28,6 +28,11 @@ class EnvironmentSnapshot(BaseModel):
     pm25: float = Field(ge=0)
     ozone: float = Field(ge=0)
     source: str = "mock"
+    pm10: float | None = None
+    uv: float | None = None
+    wind_speed: float | None = None
+    feels_like: float | None = None
+    timezone: str | None = None
 
 
 class RiskEstimateRequest(BaseModel):
