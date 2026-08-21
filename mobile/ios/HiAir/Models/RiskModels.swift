@@ -213,15 +213,15 @@ struct AirEnvironmentalInput: Codable {
     let temperature: Double
     let feelsLike: Double
     let humidity: Double
-    let aqi: Int
-    let pm25: Double
-    let pm10: Double
-    let ozone: Double
-    let uv: Double
-    let windSpeed: Double
+    let aqi: Int?
+    let pm25: Double?
+    let pm10: Double?
+    let ozone: Double?
+    let uv: Double?
+    let windSpeed: Double?
     let source: String
     let timestamp: String
-    let timezone: String
+    let timezone: String?
 
     enum CodingKeys: String, CodingKey {
         case lat
@@ -249,6 +249,10 @@ struct AirCurrentRiskResponse: Codable {
     let recommendation: AirRecommendationCard
     let explanation: String
     let explanationSource: String
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let generatedAt: String?
 }
 
 struct AirHourlyRiskPoint: Codable {
@@ -262,6 +266,17 @@ struct AirDayPlanResponse: Codable {
     let hourlyRisk: [AirHourlyRiskPoint]
     let safeWindows: [AirSafeWindow]
     let ventilationWindows: [AirSafeWindow]
+    let generatedAt: String?
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let forecastHours: Int?
+    let forecastAvailable: Bool?
+    let missingMetrics: [String]?
+
+    var isForecastAvailable: Bool {
+        forecastAvailable ?? !hourlyRisk.isEmpty
+    }
 }
 
 struct PersonalPatternInsight: Codable {

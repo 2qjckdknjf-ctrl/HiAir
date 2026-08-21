@@ -55,7 +55,6 @@
 		950FC2F499655961DDEFA56A /* HiAirPremium.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 58B07551915E7C0571623EC9 /* HiAirPremium.storekit */; };
 		9FE7D02DC3FF7325D197975D /* TimeOfDayBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B75F7FAF52543E6F33F582 /* TimeOfDayBackground.swift */; };
 		A0CA86795A1CC3231558309F /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED16BD25D90EB9CF5D8303 /* InsightsView.swift */; };
-		A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */; };
 		A926FA88A521C2D6C60E7C1C /* HiAirRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */; };
 		A9F0AF0840E59506B4791F07 /* HiAirScreenMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A454EB07D85907CF969834B /* HiAirScreenMetrics.swift */; };
 		AAEBA1D053A217B36A8011EC /* hiair-ai-guide-avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = 0A2CAE228241EA1938B7BC3D /* hiair-ai-guide-avatar.png */; };
@@ -75,6 +74,7 @@
 		E28D30B53EBF55C4AD19399C /* HiAirShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */; };
 		E3FD1B7D4C89BE80F522389A /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */; };
 		E8574E435130C15C6FC138B9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */; };
+		E8BD8007A0F000FF990B49F1 /* ForecastDTOTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */; };
 		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
@@ -131,6 +131,7 @@
 		5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		5D79B00DF93EE905C5824D90 /* HiAir.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HiAir.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentUITests.swift; sourceTree = "<group>"; };
+		6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForecastDTOTests.swift; sourceTree = "<group>"; };
 		606F94F2339205445B9E3E37 /* HiAirColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirColors.swift; sourceTree = "<group>"; };
 		6183833DB60B26DF8F99DF12 /* HiAirLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLaunchView.swift; sourceTree = "<group>"; };
 		633C39532BF5572FD090BFB8 /* HealthKitTimeoutRace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTimeoutRace.swift; sourceTree = "<group>"; };
@@ -161,7 +162,6 @@
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
 		BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
-		C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreScreenshotTests.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPlistPackagingTests.swift; sourceTree = "<group>"; };
@@ -223,7 +223,6 @@
 			isa = PBXGroup;
 			children = (
 				CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */,
-				C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */,
 				9877705B2259F97CBA762758 /* UITestSupport.swift */,
 				5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */,
 			);
@@ -305,6 +304,7 @@
 			isa = PBXGroup;
 			children = (
 				3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */,
+				6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */,
 				D5B7431269DC0B1AC625289B /* GeoCoordinatesTests.swift */,
 				AB03AB32DC5D272A4BCF0999 /* HealthKitAuthorizationSingleFlightTests.swift */,
 				8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */,
@@ -498,7 +498,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */,
-				A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */,
 				C30E487232AD1079B0F38B2B /* UITestSupport.swift in Sources */,
 				D7E1D5F55E8D6B828BBA6EA9 /* WearableConsentUITests.swift in Sources */,
 			);
@@ -509,6 +508,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */,
+				E8BD8007A0F000FF990B49F1 /* ForecastDTOTests.swift in Sources */,
 				022C18940F38359470483E2A /* GeoCoordinatesTests.swift in Sources */,
 				C1113FCF17266A966F5C04D3 /* HealthKitAuthorizationSingleFlightTests.swift in Sources */,
 				47FDE2DE4AB462EA0052DD48 /* HealthKitTimeoutRaceTests.swift in Sources */,

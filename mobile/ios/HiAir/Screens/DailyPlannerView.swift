@@ -8,6 +8,10 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var ventilationWindows: [AirSafeWindow] = []
     @Published var statusText = ""
     @Published var premiumLocked = false
+    @Published var timezoneIdentifier = ""
+    @Published var freshness = ""
+    @Published var dataQuality = ""
+    @Published var forecastAvailable = true
 
     private let apiClient = APIClient.live()
 
@@ -22,6 +26,7 @@ final class DailyPlannerViewModel: ObservableObject {
         defer { loading = false }
         premiumLocked = false
         do {
+            ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "planner"])
             let planner = try await apiClient.fetchAirDayPlan(
                 profileId: profileId,
                 userId: userId,
@@ -30,11 +35,35 @@ final class DailyPlannerViewModel: ObservableObject {
             hourlyItems = planner.hourlyRisk
             safeWindows = planner.safeWindows
             ventilationWindows = planner.ventilationWindows
-            statusText = String(
-                format: HiAirL10n.t("planner.loaded", lang: language),
-                planner.hourlyRisk.count
-            )
+            timezoneIdentifier = planner.timezone
+            freshness = planner.freshness ?? ""
+            dataQuality = planner.dataQuality ?? ""
+            forecastAvailable = planner.isForecastAvailable
+            if !planner.isForecastAvailable {
+                statusText = HiAirL10n.t("planner.forecast_unavailable", lang: language)
+                ProductAnalytics.track("planner_forecast_unavailable", properties: ["quality": dataQuality])
+            } else if planner.dataQuality == "partial" {
+                statusText = HiAirL10n.t("planner.forecast_partial", lang: language)
+                ProductAnalytics.track(
+                    "planner_real_forecast_loaded",
+                    properties: ["quality": "partial", "hours": String(planner.hourlyRisk.count)]
+                )
+            } else {
+                statusText = String(
+                    format: HiAirL10n.t("planner.loaded", lang: language),
+                    planner.hourlyRisk.count
+                )
+                ProductAnalytics.track(
+                    "planner_real_forecast_loaded",
+                    properties: [
+                        "quality": planner.dataQuality ?? "complete",
+                        "hours": String(planner.hourlyRisk.count),
+                        "freshness": planner.freshness ?? "",
+                    ]
+                )
+            }
         } catch let error as APIError {
+            ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "planner"])
             if case .server(let code) = error, code == 402 {
                 premiumLocked = true
                 onPremiumRequired?()
@@ -45,11 +74,14 @@ final class DailyPlannerViewModel: ObservableObject {
             hourlyItems = []
             safeWindows = []
             ventilationWindows = []
+            forecastAvailable = false
         } catch {
+            ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "planner"])
             statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             hourlyItems = []
             safeWindows = []
             ventilationWindows = []
+            forecastAvailable = false
         }
     }
 }
@@ -74,6 +106,11 @@ struct DailyPlannerView: View {
                     Text(viewModel.statusText)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
+                if !viewModel.freshness.isEmpty && viewModel.forecastAvailable {
+                    Text(freshnessCaption)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                 }
 
                 if viewModel.premiumLocked {
@@ -124,7 +161,7 @@ struct DailyPlannerView: View {
                                         .frame(width: 4, height: index % 2 == 0 ? 32 : 24)
                                         .overlay(alignment: .bottom) {
                                             if index % 6 == 0 {
-                                                Text(String(item.hour.prefix(2)))
+                                                Text(humanHour(item.hour))
                                                     .font(.system(size: 8))
                                                     .foregroundStyle(HiAirV2Theme.tertiaryText)
                                                     .offset(y: 11)
@@ -245,6 +282,17 @@ struct DailyPlannerView: View {
         }
     }
 
+    private var freshnessCaption: String {
+        switch viewModel.freshness.lowercased() {
+        case "cached":
+            return session.l("planner.freshness.cached")
+        case "stale":
+            return session.l("planner.freshness.stale")
+        default:
+            return session.l("planner.freshness.live")
+        }
+    }
+
     private func color(for risk: String) -> Color {
         RiskAccentColor.color(for: risk)
     }
@@ -289,13 +337,20 @@ struct DailyPlannerView: View {
             fromISO: start,
             toISO: end,
             locale: Locale(identifier: session.preferredLanguage),
+            timeZone: HiAirHumanDate.timeZone(identifier: viewModel.timezoneIdentifier),
             unavailable: session.l("common.unavailable")
         )
     }
 
     private func humanHour(_ raw: String) -> String {
+        let zone = HiAirHumanDate.timeZone(identifier: viewModel.timezoneIdentifier)
         if let date = HiAirHumanDate.date(fromISO: raw) {
-            return HiAirHumanDate.string(from: date, locale: Locale(identifier: session.preferredLanguage), style: .time)
+            return HiAirHumanDate.string(
+                from: date,
+                locale: Locale(identifier: session.preferredLanguage),
+                style: .time,
+                timeZone: zone
+            )
         }
         // Hourly slots may be "14:00" or "14"
         if raw.count >= 2, raw.prefix(2).allSatisfy(\.isNumber) {

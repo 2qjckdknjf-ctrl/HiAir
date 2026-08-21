@@ -16,6 +16,8 @@ final class DashboardViewModel: ObservableObject {
     @Published var morningReport: AIReportResponseDTO?
     @Published var wearableConnectionState: WearableConnectionState = .notConnected
     @Published var loadFailed = false
+    @Published var freshness: String = ""
+    @Published var dataQuality: String = ""
 
     private let apiClient = APIClient.live()
     private let healthService = HealthKitService.shared
@@ -40,12 +42,15 @@ final class DashboardViewModel: ObservableObject {
             nearestSafeWindow = ""
             safeWindowLabels = []
             environmental = nil
+            freshness = ""
+            dataQuality = ""
             wearableToday = nil
             healthSummary = nil
             morningReport = nil
             return
         }
         do {
+            ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "dashboard"])
             // Phase 1: risk only — paints hero as soon as current-risk returns.
             async let riskTask = apiClient.fetchCurrentRisk(
                 profileId: profileId,
@@ -75,9 +80,19 @@ final class DashboardViewModel: ObservableObject {
             headline = result.recommendation.headline
             actions = result.recommendation.actions
             environmental = result.environmental
+            freshness = result.freshness ?? result.environmental.source
+            dataQuality = result.dataQuality ?? ""
             let locale = Locale(identifier: language)
+            let zone = HiAirHumanDate.timeZone(identifier: result.environmental.timezone)
             safeWindowLabels = result.risk.safeWindows.map { window in
-                Self.formatSafeWindow(type: window.type, start: window.start, end: window.end, language: language, locale: locale)
+                Self.formatSafeWindow(
+                    type: window.type,
+                    start: window.start,
+                    end: window.end,
+                    language: language,
+                    locale: locale,
+                    timeZone: zone
+                )
             }
             if let firstWindow = result.risk.safeWindows.first {
                 nearestSafeWindow = Self.formatSafeWindow(
@@ -85,7 +100,8 @@ final class DashboardViewModel: ObservableObject {
                     start: firstWindow.start,
                     end: firstWindow.end,
                     language: language,
-                    locale: locale
+                    locale: locale,
+                    timeZone: zone
                 )
             } else {
                 nearestSafeWindow = HiAirL10n.t("dashboard.no_safe_window", lang: language)
@@ -93,12 +109,21 @@ final class DashboardViewModel: ObservableObject {
             // End skeleton as soon as risk is ready; enrichments fill in below.
             loading = false
             hasLoadedOnce = true
+            ProductAnalytics.track(
+                "forecast_fetch_succeeded",
+                properties: [
+                    "freshness": freshness,
+                    "quality": dataQuality,
+                    "hours": String(result.risk.safeWindows.isEmpty ? 0 : 24),
+                ]
+            )
 
             // Phase 2: optional enrichments (must not delay first useful UI).
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
             morningReport = try? await morningTask
         } catch {
+            ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "dashboard"])
             loadFailed = true
             riskLevel = "error"
             headline = HiAirL10n.t("dashboard.error", lang: language)
@@ -107,6 +132,9 @@ final class DashboardViewModel: ObservableObject {
             nearestSafeWindow = ""
             safeWindowLabels = []
             environmental = nil
+            freshness = ""
+            dataQuality = ""
+            wearableToday = nil
             healthSummary = nil
             morningReport = nil
         }
@@ -117,7 +145,8 @@ final class DashboardViewModel: ObservableObject {
         start: String,
         end: String,
         language: String,
-        locale: Locale
+        locale: Locale,
+        timeZone: TimeZone = .autoupdatingCurrent
     ) -> String {
         let typeKey: String
         switch type.lowercased() {
@@ -131,7 +160,13 @@ final class DashboardViewModel: ObservableObject {
             typeKey = "dashboard.safe_window"
         }
         let label = HiAirL10n.t(typeKey, lang: language)
-        let range = HiAirHumanDate.timeRange(fromISO: start, toISO: end, locale: locale, unavailable: "")
+        let range = HiAirHumanDate.timeRange(
+            fromISO: start,
+            toISO: end,
+            locale: locale,
+            timeZone: timeZone,
+            unavailable: ""
+        )
         if range.isEmpty {
             return label
         }
@@ -187,7 +222,17 @@ struct DashboardView: View {
     }
 
     private var freshnessLabel: String {
-        viewModel.loading ? session.l("dashboard.freshness_updating") : session.l("dashboard.freshness_fresh")
+        if viewModel.loading { return session.l("dashboard.freshness_updating") }
+        switch viewModel.freshness.lowercased() {
+        case "cached":
+            return session.l("dashboard.source_cached")
+        case "stale":
+            return session.l("dashboard.freshness_stale")
+        case "live":
+            return session.l("dashboard.freshness_fresh")
+        default:
+            return session.l("dashboard.freshness_fresh")
+        }
     }
 
     private var showLiveRiskContent: Bool {
@@ -633,19 +678,19 @@ struct DashboardView: View {
                 ) {
                     airMetricTile(
                         title: session.l("dashboard.metric.aqi"),
-                        value: "\(env.aqi)",
+                        value: metricText(env.aqi.map { "\($0)" }),
                         icon: "aqi.medium",
                         tooltip: "dashboard.tooltip.aqi"
                     )
                     airMetricTile(
                         title: session.l("dashboard.metric.pm25"),
-                        value: String(format: "%.1f", env.pm25),
+                        value: metricText(env.pm25.map { String(format: "%.1f", $0) }),
                         icon: "aqi.low",
                         tooltip: "dashboard.tooltip.pm25"
                     )
                     airMetricTile(
                         title: session.l("dashboard.metric.ozone"),
-                        value: String(format: "%.1f", env.ozone),
+                        value: metricText(env.ozone.map { String(format: "%.1f", $0) }),
                         icon: "sun.max.fill",
                         tooltip: "dashboard.tooltip.ozone"
                     )
@@ -740,6 +785,10 @@ struct DashboardView: View {
             }
         }
         .v2Card()
+    }
+
+    private func metricText(_ value: String?) -> String {
+        value ?? session.l("dashboard.metric.unavailable")
     }
 
     private func airMetricTile(title: String, value: String, icon: String, tooltip: String) -> some View {
