@@ -33,6 +33,7 @@ from app.api.thresholds import router as thresholds_router
 from app.api.validation import router as validation_router
 from app.api.waitlist import router as waitlist_router
 from app.api.wearables import router as wearables_router
+from app.api.work import router as work_router
 from app.core.settings import _is_protected_env, settings, validate_runtime_settings
 from app.services.observability import record_request
 
@@ -117,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(wearables_router, prefix="/api")
     app.include_router(health_intelligence_router, prefix="/api")
     app.include_router(ai_reports_router, prefix="/api")
+    app.include_router(work_router, prefix="/api")
     return app
 
 

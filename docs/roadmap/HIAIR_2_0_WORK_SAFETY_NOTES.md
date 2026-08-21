@@ -1,0 +1,34 @@
+# HiAir 2.0 — Work / B2B Safety CORE
+
+**Status:** IN PROGRESS (backend scaffold)  
+**Branch:** `feat/hiair-1.2-best-time-planner`  
+**Depends on:** HiAir 1.1 Forecast Truth (honest environmental metrics)
+
+## Goal
+
+Occupational heat safety layer for worksites and B2B integrations — clearly separated from consumer “feels hot” language and personal risk scoring.
+
+## Backend (this slice)
+
+- `GET /api/work/site-risk?lat=&lon=&workload=moderate&acclimatized=true` — auth required
+- Engine: `backend/app/services/work_safety_engine.py`
+- Models: `backend/app/models/work_safety.py`
+- Workloads: `light`, `moderate`, `heavy`, `very_heavy`
+- Work/rest tables: NIOSH-*inspired* heuristic v0 (scaffold only)
+
+## Product rules
+
+1. **Consumer Heat Index ≠ occupational WBGT.** Never label apparent temperature / feels-like as WBGT.
+2. When WBGT is unavailable → `wbgtC=null`, `reasonCodes` includes `wbgt_unavailable`.
+3. Heat index may be used only with explicit `heat_index_proxy_only` caution — not as regulatory WBGT.
+4. Missing metrics stay null; never zero-filled or inferred.
+5. Not medical advice, not OSHA/NIOSH compliance certification.
+
+## Still open
+
+- [ ] WBGT provider / on-site sensor ingestion
+- [ ] Site registry and multi-site dashboards
+- [ ] Crew scheduling integrations
+- [ ] B2B admin API keys and org tenancy
+- [ ] iOS / Android work-mode UI (separate from consumer heat cards)
+- [ ] Production smoke on `api.hiair.io`

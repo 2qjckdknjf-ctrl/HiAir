@@ -769,6 +769,7 @@ HiAir reaches the intended 10/10 product state when:
 | 1.4 Alert Decision Engine | Core gate IN PROGRESS (`POST /api/alerts/decide`) |
 | 1.5 Saved Places | Backend core IN PROGRESS (`/api/places`) |
 | 1.6 Personal Adaptation | Backend core IN PROGRESS (`GET /api/insights/adaptation`) |
+| 2.0 Work / B2B Safety | Backend scaffold IN PROGRESS (`GET /api/work/site-risk`; Heat Index ≠ WBGT) |
 
 Notes:
 - `docs/roadmap/HIAIR_1_2_BEST_TIME_ACTIVITY_PLANNER.md`
@@ -776,6 +777,7 @@ Notes:
 - `docs/roadmap/HIAIR_1_4_ALERT_DECISION_NOTES.md`
 - `docs/roadmap/HIAIR_1_5_SAVED_PLACES_NOTES.md`
 - `docs/roadmap/HIAIR_1_6_PERSONAL_ADAPTATION_NOTES.md`
+- `docs/roadmap/HIAIR_2_0_WORK_SAFETY_NOTES.md`
 - `docs/audit/HIAIR_1_1_FORECAST_TRUTH_QA.md`
 
 No later feature should weaken or bypass the Forecast Truth integrity rules.
