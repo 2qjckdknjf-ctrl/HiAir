@@ -17,6 +17,8 @@ final class DailyPlannerViewModel: ObservableObject {
 
     @Published var activities: [ActivityCatalogItem] = []
     @Published var selectedActivity = "walking"
+    @Published var selectedPlaceId: String? = nil
+    @Published var savedPlaces: [SavedPlace] = []
     @Published var activityPlanLoading = false
     @Published var activityPlan: ActivityPlanResponse?
     @Published var activityStatusText = ""
@@ -135,6 +137,20 @@ final class DailyPlannerViewModel: ObservableObject {
                 activities = Self.fallbackActivities
             }
         }
+        await loadSavedPlaces(userId: userId, accessToken: accessToken)
+    }
+
+    func loadSavedPlaces(userId: String, accessToken: String) async {
+        do {
+            let response = try await apiClient.listPlaces(userId: userId, accessToken: accessToken)
+            savedPlaces = response.places
+            if let selectedPlaceId,
+               !savedPlaces.contains(where: { $0.id == selectedPlaceId }) {
+                self.selectedPlaceId = nil
+            }
+        } catch {
+            // Places are optional for planner; keep previous list on failure.
+        }
     }
 
     func refreshActivityPlan(
@@ -159,7 +175,8 @@ final class DailyPlannerViewModel: ObservableObject {
                 durationMinutes: nil,
                 intensity: nil,
                 earliestStart: nil,
-                latestStart: nil
+                latestStart: nil,
+                placeId: selectedPlaceId
             )
             let plan = try await apiClient.createActivityPlan(
                 payload: payload,
@@ -488,6 +505,30 @@ struct DailyPlannerView: View {
                         language: session.preferredLanguage,
                         onPremiumRequired: { session.showPaywall = true }
                     )
+                }
+
+                if !viewModel.savedPlaces.isEmpty {
+                    Picker(session.l("planner.activity.place"), selection: Binding(
+                        get: { viewModel.selectedPlaceId ?? "" },
+                        set: { viewModel.selectedPlaceId = $0.isEmpty ? nil : $0 }
+                    )) {
+                        Text(session.l("planner.activity.place_home")).tag("")
+                        ForEach(viewModel.savedPlaces) { place in
+                            Text(place.name).tag(place.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: viewModel.selectedPlaceId) { _ in
+                        Task {
+                            await viewModel.refreshActivityPlan(
+                                profileId: session.profileId,
+                                userId: session.userId,
+                                accessToken: session.accessToken,
+                                language: session.preferredLanguage,
+                                onPremiumRequired: { session.showPaywall = true }
+                            )
+                        }
+                    }
                 }
 
                 if viewModel.activityPlanLoading {

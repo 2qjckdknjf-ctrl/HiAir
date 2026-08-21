@@ -764,6 +764,7 @@ struct ActivityPlanRequest: Codable {
     let intensity: String?
     let earliestStart: String?
     let latestStart: String?
+    let placeId: String?
 }
 
 struct ActivityHourAssessment: Codable {

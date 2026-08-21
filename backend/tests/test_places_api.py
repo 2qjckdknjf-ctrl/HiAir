@@ -14,11 +14,13 @@ def _auth() -> dict[str, str]:
 
 
 def setup_function() -> None:
+    places_repository.force_memory_store(True)
     places_repository.reset_store()
 
 
 def teardown_function() -> None:
     places_repository.reset_store()
+    places_repository.force_memory_store(False)
 
 
 def test_create_and_list_saved_places() -> None:

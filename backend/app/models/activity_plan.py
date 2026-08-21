@@ -44,6 +44,7 @@ class ActivityPlanRequest(BaseModel):
     intensity: ActivityIntensity | None = None
     earliestStart: str | None = None
     latestStart: str | None = None
+    placeId: str | None = None
 
 
 class ActivityHourAssessment(BaseModel):

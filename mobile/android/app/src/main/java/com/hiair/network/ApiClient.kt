@@ -193,6 +193,7 @@ class ApiClient(private val baseUrl: String) {
         activity: String,
         durationMinutes: Int? = null,
         intensity: String? = null,
+        placeId: String? = null,
     ): String {
         val endpoint = "$baseUrl/api/planner/activity-plan"
         val json = JSONObject().apply {
@@ -203,6 +204,9 @@ class ApiClient(private val baseUrl: String) {
             }
             if (!intensity.isNullOrBlank()) {
                 put("intensity", intensity)
+            }
+            if (!placeId.isNullOrBlank()) {
+                put("placeId", placeId)
             }
         }.toString()
         return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))

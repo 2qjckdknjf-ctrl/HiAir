@@ -41,6 +41,7 @@ data class PlannerState(
     val sources: List<String> = emptyList(),
     val activityCatalog: List<ActivityCatalogEntry> = emptyList(),
     val selectedActivityId: String = DEFAULT_ACTIVITY_ID,
+    val selectedPlaceId: String = "",
     val activityPlanLoading: Boolean = false,
     val activityPlanStatusText: String = "",
     val activityWindows: List<ActivityWindowLine> = emptyList(),
@@ -120,6 +121,7 @@ class DailyPlannerViewModel(
                 activity = activityId,
                 durationMinutes = catalogEntry?.defaultDurationMinutes,
                 intensity = catalogEntry?.defaultIntensity,
+                placeId = state.selectedPlaceId.takeIf { it.isNotBlank() },
             )
             val parsed = parseActivityPlan(raw, preferredLanguage)
             state = state.copy(
