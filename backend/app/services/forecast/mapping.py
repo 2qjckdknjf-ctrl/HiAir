@@ -74,6 +74,33 @@ def apply_freshness_source(environment: EnvironmentalInput, freshness: str) -> E
     return environment
 
 
+def merge_environmental_inputs(
+    base: EnvironmentalInput,
+    current: EnvironmentalInput,
+) -> EnvironmentalInput:
+    """Overlay forecast current fields without discarding known air metrics."""
+    update = {
+        "lat": current.lat,
+        "lon": current.lon,
+        "temperature": current.temperature,
+        "feels_like": current.feels_like,
+        "timestamp": current.timestamp,
+        "timezone": current.timezone or base.timezone,
+        "source": current.source,
+    }
+    preserved_core_metric = False
+    for field in ("humidity", "aqi", "pm25", "pm10", "ozone", "uv", "wind_speed"):
+        value = getattr(current, field)
+        if value is None:
+            value = getattr(base, field)
+            if field in ("humidity", "aqi", "pm25", "ozone") and value is not None:
+                preserved_core_metric = True
+        update[field] = value
+    if preserved_core_metric:
+        update["source"] = base.source
+    return base.model_copy(update=update)
+
+
 def forecast_to_hourly_inputs(
     forecast: EnvironmentalForecast,
     *,

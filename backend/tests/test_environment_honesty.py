@@ -103,6 +103,77 @@ def test_forecast_mapping_does_not_default_missing_humidity_to_zero() -> None:
     assert mapped.humidity is None
 
 
+def test_merge_environmental_inputs_preserves_known_air_metrics_on_partial_current() -> None:
+    from app.models.air import EnvironmentalInput
+    from app.models.forecast import (
+        EnvironmentalDataKind,
+        EnvironmentalForecastPoint,
+        ForecastQuality,
+        MetricProvenance,
+    )
+    from app.services.forecast.mapping import (
+        apply_freshness_source,
+        forecast_point_to_environmental,
+        merge_environmental_inputs,
+    )
+
+    base = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=22.0,
+        feels_like=22.5,
+        humidity=60.0,
+        aqi=44,
+        pm25=9.0,
+        pm10=14.0,
+        ozone=28.0,
+        uv=3.0,
+        wind_speed=1.5,
+        source="cached",
+        timestamp="2026-07-15T07:30:00+02:00",
+        timezone="Europe/Madrid",
+    )
+    point = EnvironmentalForecastPoint(
+        timestamp="2026-07-15T08:00:00+02:00",
+        timezone="Europe/Madrid",
+        lat=41.39,
+        lon=2.17,
+        temperature_c=24.0,
+        apparent_temperature_c=25.0,
+        relative_humidity_pct=None,
+        dew_point_c=None,
+        wind_speed_mps=None,
+        wind_gust_mps=None,
+        uv_index=None,
+        aqi=None,
+        pm25_ugm3=None,
+        pm10_ugm3=None,
+        ozone_ugm3=None,
+        provenance=MetricProvenance(
+            provider="openmeteo",
+            product="test",
+            observed_at="2026-07-15T08:00:00+02:00",
+            fetched_at="2026-07-15T08:00:00+02:00",
+            kind=EnvironmentalDataKind.FORECAST,
+        ),
+        missing_metrics=["relative_humidity_pct", "aqi", "pm25_ugm3", "ozone_ugm3"],
+        quality=ForecastQuality.PARTIAL,
+    )
+
+    mapped = forecast_point_to_environmental(point)
+    assert mapped is not None
+
+    merged = merge_environmental_inputs(base, apply_freshness_source(mapped, "live"))
+    assert merged.temperature == 24.0
+    assert merged.feels_like == 25.0
+    assert merged.humidity == 60.0
+    assert merged.aqi == 44
+    assert merged.pm25 == 9.0
+    assert merged.pm10 == 14.0
+    assert merged.ozone == 28.0
+    assert merged.source == "cached"
+
+
 class _FakeClient:
     def __init__(self, payload: dict) -> None:
         self._payload = payload

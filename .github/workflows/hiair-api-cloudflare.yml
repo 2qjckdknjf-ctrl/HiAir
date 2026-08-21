@@ -114,6 +114,7 @@ jobs:
               "GOOGLE_PLAY_PACKAGE_NAME",
               "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
               "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
+              "DEPLOY_GIT_SHA",
               "WEATHER_API_PROVIDER",
               "WEATHER_API_KEY",
               "AQI_API_PROVIDER",
@@ -135,6 +136,9 @@ jobs:
                   value = defaults[key]
               if value:
                   lines.append(f"{key}={value}")
+          deploy_sha = os.environ.get("GITHUB_SHA", "").strip()
+          if deploy_sha:
+              lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")
           env_map = dict(line.split("=", 1) for line in lines)
           apple_mode = env_map.get("APPLE_STORE_VERIFIER_MODE", "").strip().lower()
           apple_store_env = env_map.get("APPLE_STORE_ENVIRONMENT", "").strip().lower()

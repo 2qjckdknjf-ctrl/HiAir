@@ -20,6 +20,7 @@ from app.services.forecast.mapping import (
     apply_freshness_source,
     forecast_point_to_environmental,
     forecast_to_hourly_inputs,
+    merge_environmental_inputs,
 )
 from app.services.forecast.service import get_forecast
 
@@ -93,19 +94,22 @@ def dashboard_overview(
     if forecast is not None and forecast.current is not None:
         mapped = forecast_point_to_environmental(forecast.current)
         if mapped is not None:
-            mapped = apply_freshness_source(mapped, forecast.freshness.value)
+            merged = merge_environmental_inputs(
+                to_air_environment(environment, lat, lon),
+                apply_freshness_source(mapped, forecast.freshness.value),
+            )
             environment = EnvironmentSnapshot(
-                temperature_c=mapped.temperature,
-                humidity_percent=mapped.humidity if mapped.humidity is not None else environment.humidity_percent,
-                aqi=mapped.aqi,
-                pm25=mapped.pm25,
-                ozone=mapped.ozone,
-                source=mapped.source,
-                pm10=mapped.pm10,
-                uv=mapped.uv,
-                wind_speed=mapped.wind_speed,
-                feels_like=mapped.feels_like,
-                timezone=mapped.timezone,
+                temperature_c=merged.temperature,
+                humidity_percent=merged.humidity if merged.humidity is not None else environment.humidity_percent,
+                aqi=merged.aqi,
+                pm25=merged.pm25,
+                ozone=merged.ozone,
+                source=merged.source,
+                pm10=merged.pm10,
+                uv=merged.uv,
+                wind_speed=merged.wind_speed,
+                feels_like=merged.feels_like,
+                timezone=merged.timezone,
             )
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
     air_environment = to_air_environment(environment, lat, lon)

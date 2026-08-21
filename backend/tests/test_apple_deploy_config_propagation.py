@@ -105,6 +105,13 @@ def test_cloudflare_workflow_maps_notification_admin_token() -> None:
     assert "post_deploy_api_smoke.py --require-live-ai" in text
 
 
+def test_cloudflare_workflow_forwards_deploy_git_sha() -> None:
+    text = _read(".github/workflows/hiair-api-cloudflare.yml")
+    assert '"DEPLOY_GIT_SHA"' in text
+    assert 'os.environ.get("GITHUB_SHA", "").strip()' in text
+    assert 'lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")' in text
+
+
 def test_sync_script_contains_production_contract_keys() -> None:
     text = _read("scripts/release/sync_github_env_secrets.py")
     for key in (
