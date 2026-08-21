@@ -4,11 +4,13 @@ from psycopg.errors import UndefinedTable
 
 from app.api.deps import get_current_user_id
 from app.models.air import CurrentRiskResponse, DayPlanResponse, RecommendationResponse, RecomputeRiskRequest
+from app.models.hazard import HazardsResponse
 import app.services.air_environment_service as air_environment_service
 import app.services.air_repository as air_repository
 import app.services.air_recommendation_engine as air_recommendation_engine
 import app.services.ai_explanation_service as ai_explanation_service
 import app.services.air_risk_engine as air_risk_engine
+import app.services.hazard_engine as hazard_engine
 import app.services.entitlement_service as entitlement_service
 import app.services.health_analytics_service as health_analytics_service
 import app.services.settings_repository as settings_repository
@@ -150,6 +152,47 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
         sources=sources,
         generatedAt=generated_at,
     )
+
+
+@router.get("/hazards", response_model=HazardsResponse)
+def get_hazards(
+    profileId: str = Query(...),
+    user_id: str = Depends(get_current_user_id),
+) -> HazardsResponse:
+    try:
+        profile = _resolve_profile_for_user(profileId, user_id)
+        environment = air_environment_service.load_environment(profile)
+        forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        freshness = None
+        data_quality = None
+        sources = None
+        generated_at = None
+        if forecast is not None:
+            if forecast.current is not None:
+                mapped = forecast_point_to_environmental(forecast.current)
+                if mapped is not None:
+                    environment = apply_freshness_source(mapped, forecast.freshness.value)
+            freshness = forecast.freshness.value
+            data_quality = forecast.quality.value
+            sources = forecast.sources
+            generated_at = forecast.generated_at
+        assessment = hazard_engine.assess_multi_hazard(profile, environment)
+        return HazardsResponse(
+            profileId=profile.profile_id,
+            assessedAt=environment.timestamp,
+            environmental=environment,
+            assessment=assessment,
+            dataQuality=data_quality,
+            freshness=freshness,
+            sources=sources,
+            generatedAt=generated_at,
+        )
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
+    except PsycopgError as exc:
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
 
 @router.get("/current-risk", response_model=CurrentRiskResponse)

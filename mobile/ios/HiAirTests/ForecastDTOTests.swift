@@ -85,4 +85,51 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertTrue(range.contains("08") || range.contains("8"))
         XCTAssertFalse(range.contains("T08"))
     }
+
+    func testActivityPlanDecodesWindowsAndMetadata() throws {
+        let json = """
+        {
+          "profileId": "profile-1",
+          "activity": "running",
+          "intensity": "high",
+          "durationMinutes": 45,
+          "timezone": "Europe/Madrid",
+          "forecastAvailable": true,
+          "dataQuality": "complete",
+          "freshness": "live",
+          "sources": ["openmeteo_weather"],
+          "missingMetrics": [],
+          "generatedAt": "2026-08-21T07:05:00+02:00",
+          "hourly": [{"hour": "2026-08-21T07:00:00+02:00", "tier": "best", "score": 90, "reasonCodes": ["good_air"]}],
+          "windows": [{"tier": "best", "start": "2026-08-21T07:00:00+02:00", "end": "2026-08-21T08:00:00+02:00", "score": 90, "reasonCodes": ["good_air"], "confidence": 0.92}],
+          "recommendedStart": "2026-08-21T07:00:00+02:00",
+          "personalLoadScore": 35,
+          "personalLoadLevel": "moderate",
+          "personalLoadReasonCodes": ["sleep_debt"]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(ActivityPlanResponse.self, from: json)
+        XCTAssertEqual(decoded.activity, "running")
+        XCTAssertTrue(decoded.isForecastAvailable)
+        XCTAssertEqual(decoded.windows.count, 1)
+        XCTAssertEqual(decoded.windows[0].tier, "best")
+        XCTAssertEqual(decoded.recommendedStart, "2026-08-21T07:00:00+02:00")
+        XCTAssertEqual(decoded.personalLoadScore, 35)
+    }
+
+    func testActivityCatalogDecodes() throws {
+        let json = """
+        {
+          "activities": [
+            {"activity": "walking", "defaultDurationMinutes": 30, "defaultIntensity": "low", "outdoor": true},
+            {"activity": "ventilation", "defaultDurationMinutes": 60, "defaultIntensity": "low", "outdoor": false}
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(ActivityCatalogResponse.self, from: json)
+        XCTAssertEqual(decoded.activities.count, 2)
+        XCTAssertFalse(decoded.activities[1].outdoor)
+    }
 }

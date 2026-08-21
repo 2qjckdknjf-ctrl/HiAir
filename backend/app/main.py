@@ -21,6 +21,7 @@ from app.api.insights import router as insights_router
 from app.api.notifications import router as notifications_router
 from app.api.observability import router as observability_router
 from app.api.planner import router as planner_router
+from app.api.places import router as places_router
 from app.api.privacy import router as privacy_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(privacy_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")
     app.include_router(planner_router, prefix="/api")
+    app.include_router(places_router, prefix="/api")
     app.include_router(environment_router, prefix="/api")
     app.include_router(risk_router, prefix="/api")
     app.include_router(air_router, prefix="/api")

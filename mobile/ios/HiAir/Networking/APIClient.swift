@@ -961,6 +961,41 @@ final class APIClient {
         return try JSONDecoder().decode(AirCurrentRiskResponse.self, from: data)
     }
 
+    func fetchActivityCatalog(
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> ActivityCatalogResponse {
+        let url = baseURL.appending(path: "/api/planner/activities")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(ActivityCatalogResponse.self, from: data)
+    }
+
+    func createActivityPlan(
+        payload: ActivityPlanRequest,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> ActivityPlanResponse {
+        let url = baseURL.appending(path: "/api/planner/activity-plan")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(ActivityPlanResponse.self, from: data)
+    }
+
     func fetchAirDayPlan(
         profileId: String,
         userId: String,

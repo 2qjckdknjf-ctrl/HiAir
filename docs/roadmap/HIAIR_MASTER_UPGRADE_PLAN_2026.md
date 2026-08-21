@@ -759,12 +759,24 @@ HiAir reaches the intended 10/10 product state when:
 
 # 13. Current Next Action
 
-**Active release:** HiAir 1.2 — Best Time & Activity Planner (backend core started)  
-**1.1 branch:** `feat/hiair-1.1-forecast-truth` — code complete; waiting for production deploy + physical-device QA  
-**1.2 branch:** `feat/hiair-1.2-best-time-planner`  
-**1.1 prompt:** `docs/roadmap/HIAIR_1_1_FORECAST_TRUTH_IMPLEMENTATION_PROMPT.md`  
-**1.2 notes:** `docs/roadmap/HIAIR_1_2_BEST_TIME_ACTIVITY_PLANNER.md`  
-**1.1 QA:** `docs/audit/HIAIR_1_1_FORECAST_TRUTH_QA.md`
+**Active stack branch:** `feat/hiair-1.2-best-time-planner`  
+
+| Release | Status |
+|---------|--------|
+| 1.1 Forecast Truth | CODE COMPLETE — waiting production deploy + device QA |
+| 1.2 Best Time Activity Planner | CODE COMPLETE (backend + iOS/Android additive UI) — waiting production/device QA |
+| 1.3 Multi-Hazard | Backend core IN PROGRESS (`GET /api/air/hazards`) |
+| 1.4 Alert Decision Engine | Core gate IN PROGRESS (`POST /api/alerts/decide`) |
+| 1.5 Saved Places | Backend core IN PROGRESS (`/api/places`) |
+| 1.6 Personal Adaptation | Backend core IN PROGRESS (`GET /api/insights/adaptation`) |
+
+Notes:
+- `docs/roadmap/HIAIR_1_2_BEST_TIME_ACTIVITY_PLANNER.md`
+- `docs/roadmap/HIAIR_1_3_MULTI_HAZARD_NOTES.md`
+- `docs/roadmap/HIAIR_1_4_ALERT_DECISION_NOTES.md`
+- `docs/roadmap/HIAIR_1_5_SAVED_PLACES_NOTES.md`
+- `docs/roadmap/HIAIR_1_6_PERSONAL_ADAPTATION_NOTES.md`
+- `docs/audit/HIAIR_1_1_FORECAST_TRUTH_QA.md`
 
 No later feature should weaken or bypass the Forecast Truth integrity rules.
 

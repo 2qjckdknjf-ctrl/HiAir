@@ -11,6 +11,20 @@ import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
+private const val DEFAULT_ACTIVITY_ID = "walking"
+
+data class ActivityCatalogEntry(
+    val id: String,
+    val defaultDurationMinutes: Int,
+    val defaultIntensity: String,
+    val outdoor: Boolean = true,
+)
+
+data class ActivityWindowLine(
+    val tier: String,
+    val line: String,
+)
+
 data class PlannerState(
     val loading: Boolean = false,
     val statusText: String = "-",
@@ -25,6 +39,14 @@ data class PlannerState(
     val freshness: String = "",
     val missingMetrics: List<String> = emptyList(),
     val sources: List<String> = emptyList(),
+    val activityCatalog: List<ActivityCatalogEntry> = emptyList(),
+    val selectedActivityId: String = DEFAULT_ACTIVITY_ID,
+    val activityPlanLoading: Boolean = false,
+    val activityPlanStatusText: String = "",
+    val activityWindows: List<ActivityWindowLine> = emptyList(),
+    val activityRecommendedStart: String = "",
+    val activityPremiumRequired: Boolean = false,
+    val activityForecastAvailable: Boolean = true,
 )
 
 class DailyPlannerViewModel(
@@ -35,6 +57,114 @@ class DailyPlannerViewModel(
 
     /** True after the first auto or manual planner fetch attempt in this process. */
     var hasAttemptedAutoLoad: Boolean = false
+
+    /** True after the first activity catalog fetch attempt in this process. */
+    var hasAttemptedActivityCatalogLoad: Boolean = false
+
+    /** True after the first activity plan fetch attempt in this process. */
+    var hasAttemptedActivityPlanLoad: Boolean = false
+
+    fun selectActivity(activityId: String) {
+        if (activityId.isBlank() || activityId == state.selectedActivityId) return
+        state = state.copy(
+            selectedActivityId = activityId,
+            activityWindows = emptyList(),
+            activityRecommendedStart = "",
+            activityPlanStatusText = "",
+            activityPremiumRequired = false,
+        )
+    }
+
+    fun loadActivityCatalog(userId: String, accessToken: String?) {
+        try {
+            val raw = apiClient.fetchActivityCatalog(
+                userId = userId,
+                accessToken = accessToken,
+            )
+            val catalog = parseActivityCatalog(raw)
+            val selected = catalog.firstOrNull { it.id == state.selectedActivityId }?.id
+                ?: catalog.firstOrNull()?.id
+                ?: DEFAULT_ACTIVITY_ID
+            state = state.copy(
+                activityCatalog = catalog,
+                selectedActivityId = selected,
+            )
+        } catch (_: Exception) {
+            if (state.activityCatalog.isEmpty()) {
+                state = state.copy(
+                    activityCatalog = fallbackActivityCatalog(),
+                    selectedActivityId = state.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID },
+                )
+            }
+        }
+    }
+
+    fun refreshActivityPlan(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        preferredLanguage: String,
+    ) {
+        val activityId = state.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID }
+        val catalogEntry = state.activityCatalog.firstOrNull { it.id == activityId }
+        state = state.copy(activityPlanLoading = true, activityPlanStatusText = "")
+        ProductAnalytics.track(
+            "activity_plan_fetch_started",
+            mapOf("activity" to activityId),
+        )
+        try {
+            val raw = apiClient.createActivityPlan(
+                userId = userId,
+                accessToken = accessToken,
+                profileId = profileId,
+                activity = activityId,
+                durationMinutes = catalogEntry?.defaultDurationMinutes,
+                intensity = catalogEntry?.defaultIntensity,
+            )
+            val parsed = parseActivityPlan(raw, preferredLanguage)
+            state = state.copy(
+                activityPlanLoading = false,
+                activityPlanStatusText = parsed.statusText,
+                activityWindows = parsed.windows,
+                activityRecommendedStart = parsed.recommendedStart,
+                activityPremiumRequired = false,
+                activityForecastAvailable = parsed.forecastAvailable,
+            )
+            ProductAnalytics.track(
+                "activity_plan_loaded",
+                mapOf(
+                    "activity" to activityId,
+                    "windows" to parsed.windows.size.toString(),
+                    "forecast" to parsed.forecastAvailable.toString(),
+                ),
+            )
+        } catch (error: ApiHttpException) {
+            ProductAnalytics.track("activity_plan_fetch_failed", mapOf("activity" to activityId))
+            val premiumRequired = error.statusCode == 402
+            state = state.copy(
+                activityPlanLoading = false,
+                activityPlanStatusText = if (premiumRequired) {
+                    l("planner.activity.premium_required", preferredLanguage)
+                } else {
+                    l("planner.activity.failed", preferredLanguage)
+                },
+                activityWindows = emptyList(),
+                activityRecommendedStart = "",
+                activityPremiumRequired = premiumRequired,
+                activityForecastAvailable = false,
+            )
+        } catch (_: Exception) {
+            ProductAnalytics.track("activity_plan_fetch_failed", mapOf("activity" to activityId))
+            state = state.copy(
+                activityPlanLoading = false,
+                activityPlanStatusText = l("planner.activity.failed", preferredLanguage),
+                activityWindows = emptyList(),
+                activityRecommendedStart = "",
+                activityPremiumRequired = false,
+                activityForecastAvailable = false,
+            )
+        }
+    }
 
     fun refresh(userId: String, accessToken: String?, profileId: String, preferredLanguage: String) {
         state = state.copy(loading = true)
@@ -96,6 +226,124 @@ class DailyPlannerViewModel(
     }
 
     companion object {
+        const val DEFAULT_ACTIVITY = DEFAULT_ACTIVITY_ID
+
+        data class ActivityPlanParseResult(
+            val statusText: String,
+            val windows: List<ActivityWindowLine>,
+            val recommendedStart: String,
+            val forecastAvailable: Boolean,
+        )
+
+        fun parseActivityCatalog(raw: String): List<ActivityCatalogEntry> {
+            val json = JSONObject(raw)
+            val activities = json.optJSONArray("activities") ?: JSONArray()
+            val items = mutableListOf<ActivityCatalogEntry>()
+            for (i in 0 until activities.length()) {
+                val item = activities.getJSONObject(i)
+                val id = item.optString("activity")
+                if (id.isBlank()) continue
+                items.add(
+                    ActivityCatalogEntry(
+                        id = id,
+                        defaultDurationMinutes = item.optInt("defaultDurationMinutes", 30),
+                        defaultIntensity = item.optString("defaultIntensity", "moderate"),
+                        outdoor = item.optBoolean("outdoor", true),
+                    )
+                )
+            }
+            return items
+        }
+
+        fun parseActivityPlan(raw: String, preferredLanguage: String): ActivityPlanParseResult {
+            val json = JSONObject(raw)
+            val timezone = json.optString("timezone").takeIf { it.isNotBlank() }
+            val zoneId = HiAirHumanDate.zoneId(timezone)
+            val forecastAvailable = if (json.has("forecastAvailable") && !json.isNull("forecastAvailable")) {
+                json.optBoolean("forecastAvailable")
+            } else {
+                (json.optJSONArray("windows")?.length() ?: 0) > 0
+            }
+            val windows = json.optJSONArray("windows") ?: JSONArray()
+            val windowLines = mutableListOf<ActivityWindowLine>()
+            if (forecastAvailable) {
+                for (i in 0 until windows.length()) {
+                    val item = windows.getJSONObject(i)
+                    val tier = item.optString("tier")
+                    val range = HiAirHumanDate.timeRangeIso(
+                        item.getString("start"),
+                        item.getString("end"),
+                        Locale.getDefault(),
+                        "",
+                        zoneId,
+                    )
+                    val tierLabel = localizedActivityTier(tier, preferredLanguage)
+                    val line = if (range.isBlank()) tierLabel else "$tierLabel: $range"
+                    windowLines.add(ActivityWindowLine(tier = tier, line = line))
+                }
+            }
+            val recommendedStart = json.optString("recommendedStart")
+                .takeIf { it.isNotBlank() && forecastAvailable }
+                ?.let { formatActivityTime(it, preferredLanguage, zoneId) }
+                .orEmpty()
+            val statusText = when {
+                !forecastAvailable -> l("planner.activity.forecast_unavailable", preferredLanguage)
+                windowLines.isEmpty() -> l("planner.activity.no_windows", preferredLanguage)
+                else -> l("planner.activity.loaded", preferredLanguage)
+                    .replaceFirst("%d", windowLines.size.toString())
+            }
+            return ActivityPlanParseResult(
+                statusText = statusText,
+                windows = windowLines,
+                recommendedStart = recommendedStart,
+                forecastAvailable = forecastAvailable,
+            )
+        }
+
+        fun fallbackActivityCatalogForUi(): List<ActivityCatalogEntry> = fallbackActivityCatalog()
+
+        private fun fallbackActivityCatalog(): List<ActivityCatalogEntry> = listOf(
+            ActivityCatalogEntry("running", 45, "high"),
+            ActivityCatalogEntry("walking", 30, "low"),
+            ActivityCatalogEntry("cycling", 60, "moderate"),
+            ActivityCatalogEntry("hiking", 90, "moderate"),
+            ActivityCatalogEntry("dog_walk", 30, "low"),
+            ActivityCatalogEntry("playground", 60, "low"),
+            ActivityCatalogEntry("outdoor_sport", 60, "high"),
+            ActivityCatalogEntry("beach", 120, "moderate"),
+            ActivityCatalogEntry("outdoor_work", 120, "moderate"),
+            ActivityCatalogEntry("ventilation", 60, "low", outdoor = false),
+        )
+
+        private fun localizedActivityTier(tier: String, preferredLanguage: String): String {
+            return when (tier.lowercase()) {
+                "best" -> l("planner.activity.tier.best", preferredLanguage)
+                "acceptable" -> l("planner.activity.tier.acceptable", preferredLanguage)
+                "avoid" -> l("planner.activity.tier.avoid", preferredLanguage)
+                else -> tier
+            }
+        }
+
+        private fun localizedActivityName(activityId: String, preferredLanguage: String): String {
+            val key = "planner.activity.type.$activityId"
+            val localized = l(key, preferredLanguage)
+            return if (localized == key) activityId else localized
+        }
+
+        fun activityDisplayLabels(
+            catalog: List<ActivityCatalogEntry>,
+            preferredLanguage: String,
+        ): List<String> = catalog.map { localizedActivityName(it.id, preferredLanguage) }
+
+        private fun formatActivityTime(raw: String, preferredLanguage: String, zoneId: ZoneId): String {
+            val locale = Locale.forLanguageTag(preferredLanguage)
+            HiAirHumanDate.formatIso(raw, locale, HiAirHumanDate.Style.TIME, zoneId)?.let { return it }
+            if (raw.length >= 2 && raw.substring(0, 2).all { it.isDigit() } && !raw.contains("T")) {
+                return raw.take(5)
+            }
+            return raw
+        }
+
         fun parsePlan(raw: String, preferredLanguage: String): PlannerState {
             val json = JSONObject(raw)
             val timezone = json.optString("timezone").takeIf { it.isNotBlank() }

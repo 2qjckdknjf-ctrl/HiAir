@@ -1,31 +1,30 @@
 # HiAir 1.2 — Best Time & Activity Planner
 
-**Status:** IN PROGRESS (backend core)  
-**Branch:** `feat/hiair-1.2-best-time-planner`  
-**Depends on:** HiAir 1.1 Forecast Truth integrity rules (never invent future environmental values)
+**Status:** CODE COMPLETE (mobile + backend) — waiting production/device QA  
+**Branch:** `feat/hiair-1.2-best-time-planner`
 
-## Goal
+## Shipped
 
-Answer: **“When is the best time for me to do this activity?”**
+### Backend
+- `GET /api/planner/activities`
+- `POST /api/planner/activity-plan`
+- Engine: Best / Acceptable / Avoid from real hourly forecast points
+- Tests: `test_activity_plan_engine.py`, `test_activity_plan_api.py`
 
-## Backend (this branch)
+### iOS / Android
+- Additive activity card on Daily Planner (no redesign)
+- Catalog + plan fetch, 402 premium handling
+- RU/EN/ES/IT/FR strings
+- Unit decode/parse tests
 
-- `GET /api/planner/activities` — activity catalog
-- `POST /api/planner/activity-plan` — Best / Acceptable / Avoid windows from real hourly forecast
-- Engine: `backend/app/services/activity_plan_engine.py`
-- Models: `backend/app/models/activity_plan.py`
-
-## Product rules
-
-1. Action Engine decides; AI only explains reason codes.
-2. No synthetic future hours — reuse Forecast Truth hourly points.
+## Product rules preserved
+1. Action Engine decides; AI only explains.
+2. No synthetic future hours.
 3. Missing air/UV → never claim `best` for outdoor exertion.
-4. Premium gate matches planner: `extended_forecast`.
+4. Premium gate matches extended forecast planner.
 
-## Still open
-
-- [ ] iOS activity picker UI
-- [ ] Android parity UI
+## Still open (external)
+- [ ] Production deploy of 1.1 + 1.2
+- [ ] Authenticated API smoke
+- [ ] Physical-device / TestFlight QA
 - [ ] Analytics events (plan created / followed)
-- [ ] Production smoke after 1.1 deploy
-- [ ] Localization of reason-code labels

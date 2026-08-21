@@ -15,6 +15,14 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var missingMetrics: [String] = []
     @Published var sources: [String] = []
 
+    @Published var activities: [ActivityCatalogItem] = []
+    @Published var selectedActivity = "walking"
+    @Published var activityPlanLoading = false
+    @Published var activityPlan: ActivityPlanResponse?
+    @Published var activityStatusText = ""
+    @Published var activityPremiumLocked = false
+    @Published var activityTimezoneIdentifier = ""
+
     private let apiClient = APIClient.live()
 
     func refresh(
@@ -27,6 +35,7 @@ final class DailyPlannerViewModel: ObservableObject {
         loading = true
         defer { loading = false }
         premiumLocked = false
+        await loadActivities(userId: userId, accessToken: accessToken)
         do {
             ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "planner"])
             let planner = try await apiClient.fetchAirDayPlan(
@@ -73,6 +82,13 @@ final class DailyPlannerViewModel: ObservableObject {
                     ]
                 )
             }
+            await refreshActivityPlan(
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken,
+                language: language,
+                onPremiumRequired: onPremiumRequired
+            )
         } catch let error as APIError {
             ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "planner"])
             let premiumCode: Int? = {
@@ -82,8 +98,10 @@ final class DailyPlannerViewModel: ObservableObject {
             }()
             if premiumCode == 402 {
                 premiumLocked = true
+                activityPremiumLocked = true
                 onPremiumRequired?()
                 statusText = HiAirL10n.t("planner.premium_required", lang: language)
+                activityStatusText = HiAirL10n.t("planner.premium_required", lang: language)
             } else {
                 statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             }
@@ -100,6 +118,136 @@ final class DailyPlannerViewModel: ObservableObject {
             forecastAvailable = false
         }
     }
+
+    func loadActivities(userId: String, accessToken: String) async {
+        do {
+            let catalog = try await apiClient.fetchActivityCatalog(
+                userId: userId,
+                accessToken: accessToken
+            )
+            activities = catalog.activities
+            if !activities.contains(where: { $0.activity == selectedActivity }),
+               let first = activities.first {
+                selectedActivity = first.activity
+            }
+        } catch {
+            if activities.isEmpty {
+                activities = Self.fallbackActivities
+            }
+        }
+    }
+
+    func refreshActivityPlan(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) async {
+        guard !profileId.isEmpty else { return }
+        activityPlanLoading = true
+        defer { activityPlanLoading = false }
+        activityPremiumLocked = false
+        do {
+            ProductAnalytics.track(
+                "activity_plan_fetch_started",
+                properties: ["activity": selectedActivity]
+            )
+            let payload = ActivityPlanRequest(
+                profileId: profileId,
+                activity: selectedActivity,
+                durationMinutes: nil,
+                intensity: nil,
+                earliestStart: nil,
+                latestStart: nil
+            )
+            let plan = try await apiClient.createActivityPlan(
+                payload: payload,
+                userId: userId,
+                accessToken: accessToken
+            )
+            activityPlan = plan
+            activityTimezoneIdentifier = plan.timezone
+            if !plan.isForecastAvailable {
+                activityStatusText = HiAirL10n.t("planner.activity.forecast_unavailable", lang: language)
+            } else if plan.dataQuality == "partial" {
+                activityStatusText = HiAirL10n.t("planner.forecast_partial", lang: language)
+            } else if plan.windows.isEmpty {
+                activityStatusText = HiAirL10n.t("planner.activity.no_windows", lang: language)
+            } else {
+                activityStatusText = ""
+            }
+            ProductAnalytics.track(
+                "activity_plan_loaded",
+                properties: [
+                    "activity": plan.activity,
+                    "windows": String(plan.windows.count),
+                    "quality": plan.dataQuality ?? "complete",
+                ]
+            )
+        } catch let error as APIError {
+            ProductAnalytics.track(
+                "activity_plan_fetch_failed",
+                properties: ["activity": selectedActivity]
+            )
+            let premiumCode: Int? = {
+                if case .server(let code) = error { return code }
+                if case .serverWithDetail(let code, _) = error { return code }
+                return nil
+            }()
+            if premiumCode == 402 {
+                activityPremiumLocked = true
+                premiumLocked = true
+                onPremiumRequired?()
+                activityStatusText = HiAirL10n.t("planner.premium_required", lang: language)
+            } else {
+                activityStatusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+            }
+            activityPlan = nil
+        } catch {
+            ProductAnalytics.track(
+                "activity_plan_fetch_failed",
+                properties: ["activity": selectedActivity]
+            )
+            activityStatusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+            activityPlan = nil
+        }
+    }
+
+    func selectActivity(
+        _ activity: String,
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) {
+        selectedActivity = activity
+        Task {
+            await refreshActivityPlan(
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken,
+                language: language,
+                onPremiumRequired: onPremiumRequired
+            )
+        }
+    }
+
+    private static let fallbackActivities: [ActivityCatalogItem] = [
+        ActivityCatalogItem(activity: "running", defaultDurationMinutes: 45, defaultIntensity: "high", outdoor: true),
+        ActivityCatalogItem(activity: "walking", defaultDurationMinutes: 30, defaultIntensity: "low", outdoor: true),
+        ActivityCatalogItem(activity: "cycling", defaultDurationMinutes: 60, defaultIntensity: "moderate", outdoor: true),
+        ActivityCatalogItem(activity: "hiking", defaultDurationMinutes: 90, defaultIntensity: "moderate", outdoor: true),
+        ActivityCatalogItem(activity: "dog_walk", defaultDurationMinutes: 30, defaultIntensity: "low", outdoor: true),
+        ActivityCatalogItem(activity: "playground", defaultDurationMinutes: 60, defaultIntensity: "low", outdoor: true),
+        ActivityCatalogItem(activity: "outdoor_sport", defaultDurationMinutes: 60, defaultIntensity: "high", outdoor: true),
+        ActivityCatalogItem(activity: "beach", defaultDurationMinutes: 120, defaultIntensity: "moderate", outdoor: true),
+        ActivityCatalogItem(activity: "outdoor_work", defaultDurationMinutes: 120, defaultIntensity: "moderate", outdoor: true),
+        ActivityCatalogItem(activity: "ventilation", defaultDurationMinutes: 60, defaultIntensity: "low", outdoor: false),
+    ]
+
+    static var fallbackActivitiesForUI: [ActivityCatalogItem] { fallbackActivities }
 }
 
 struct DailyPlannerView: View {
@@ -132,6 +280,10 @@ struct DailyPlannerView: View {
                     Text("\(session.l("planner.sources")): \(viewModel.sources.joined(separator: ", "))")
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
+                }
+
+                if !session.profileId.isEmpty {
+                    activityBestTimeCard
                 }
 
                 if viewModel.premiumLocked {
@@ -301,6 +453,166 @@ struct DailyPlannerView: View {
                 )
             }
         }
+    }
+
+    private var activityBestTimeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(session.l("planner.activity.title"))
+                .font(AuroraTokens.Typography.titleMD)
+                .foregroundStyle(HiAirV2Theme.primaryText)
+            Text(session.l("planner.activity.subtitle"))
+                .font(AuroraTokens.Typography.bodyMD)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
+
+            if viewModel.activityPremiumLocked {
+                Text(session.l("planner.premium_required"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                Button(session.l("insights.premium_locked.cta")) {
+                    session.showPaywall = true
+                }
+                .buttonStyle(HiAirGradientButtonStyle())
+            } else {
+                Picker(session.l("planner.activity.picker"), selection: $viewModel.selectedActivity) {
+                    ForEach(viewModel.activities.isEmpty ? DailyPlannerViewModel.fallbackActivitiesForUI : viewModel.activities) { item in
+                        Text(session.l("planner.activity.\(item.activity)")).tag(item.activity)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: viewModel.selectedActivity) { newValue in
+                    viewModel.selectActivity(
+                        newValue,
+                        profileId: session.profileId,
+                        userId: session.userId,
+                        accessToken: session.accessToken,
+                        language: session.preferredLanguage,
+                        onPremiumRequired: { session.showPaywall = true }
+                    )
+                }
+
+                if viewModel.activityPlanLoading {
+                    Text(session.l("planner.activity.loading"))
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                } else if !viewModel.activityStatusText.isEmpty {
+                    Text(viewModel.activityStatusText)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
+
+                if let recommended = viewModel.activityPlan?.recommendedStart,
+                   viewModel.activityPlan?.isForecastAvailable == true {
+                    Text(
+                        String(
+                            format: session.l("planner.activity.recommended"),
+                            humanActivityTime(recommended)
+                        )
+                    )
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.primaryText)
+                }
+
+                if let plan = viewModel.activityPlan, plan.isForecastAvailable, !plan.windows.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(sortedActivityWindows(plan.windows)) { window in
+                            HStack(alignment: .top, spacing: 8) {
+                                Circle()
+                                    .fill(tierColor(window.tier))
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 6)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(localizedTier(window.tier)): \(humanActivityWindowRange(window.start, window.end))")
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                        .foregroundStyle(HiAirV2Theme.primaryText)
+                                    if !window.reasonCodes.isEmpty {
+                                        Text(localizedReasonCodes(window.reasonCodes))
+                                            .font(AuroraTokens.Typography.caption)
+                                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .v2Card()
+    }
+
+    private func sortedActivityWindows(_ windows: [ActivityWindow]) -> [ActivityWindow] {
+        windows.sorted { lhs, rhs in
+            let order = tierSortOrder(lhs.tier) - tierSortOrder(rhs.tier)
+            if order != 0 { return order < 0 }
+            return lhs.start < rhs.start
+        }
+    }
+
+    private func tierSortOrder(_ tier: String) -> Int {
+        switch tier.lowercased() {
+        case "best": return 0
+        case "acceptable": return 1
+        case "avoid": return 2
+        default: return 3
+        }
+    }
+
+    private func tierColor(_ tier: String) -> Color {
+        switch tier.lowercased() {
+        case "best":
+            return RiskAccentColor.color(for: "low")
+        case "acceptable":
+            return RiskAccentColor.color(for: "moderate")
+        case "avoid":
+            return RiskAccentColor.color(for: "high")
+        default:
+            return HiAirV2Theme.tertiaryText
+        }
+    }
+
+    private func localizedTier(_ tier: String) -> String {
+        switch tier.lowercased() {
+        case "best":
+            return session.l("planner.activity.tier.best")
+        case "acceptable":
+            return session.l("planner.activity.tier.acceptable")
+        case "avoid":
+            return session.l("planner.activity.tier.avoid")
+        default:
+            return tier
+        }
+    }
+
+    private func localizedReasonCodes(_ codes: [String]) -> String {
+        codes.prefix(3).map { code in
+            let key = "planner.activity.reason.\(code)"
+            let localized = session.l(key)
+            return localized == key ? code : localized
+        }.joined(separator: " · ")
+    }
+
+    private func humanActivityTime(_ raw: String) -> String {
+        HiAirHumanDate.string(
+            fromISO: raw,
+            locale: Locale(identifier: session.preferredLanguage),
+            style: .time,
+            timeZone: HiAirHumanDate.timeZone(identifier: activityTimezone)
+        ) ?? session.l("common.unavailable")
+    }
+
+    private func humanActivityWindowRange(_ start: String, _ end: String) -> String {
+        HiAirHumanDate.timeRange(
+            fromISO: start,
+            toISO: end,
+            locale: Locale(identifier: session.preferredLanguage),
+            timeZone: HiAirHumanDate.timeZone(identifier: activityTimezone),
+            unavailable: session.l("common.unavailable")
+        )
+    }
+
+    private var activityTimezone: String {
+        let planTz = viewModel.activityTimezoneIdentifier
+        if !planTz.isEmpty { return planTz }
+        return viewModel.timezoneIdentifier
     }
 
     private var freshnessCaption: String {

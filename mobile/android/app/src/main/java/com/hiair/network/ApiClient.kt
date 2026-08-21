@@ -121,6 +121,36 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchActivityCatalog(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/planner/activities"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createActivityPlan(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+        activity: String,
+        durationMinutes: Int? = null,
+        intensity: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/planner/activity-plan"
+        val json = JSONObject().apply {
+            put("profileId", profileId)
+            put("activity", activity)
+            if (durationMinutes != null) {
+                put("durationMinutes", durationMinutes)
+            }
+            if (!intensity.isNullOrBlank()) {
+                put("intensity", intensity)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun fetchPersonalPatterns(
         userId: String,
         accessToken: String? = null,

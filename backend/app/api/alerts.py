@@ -3,7 +3,9 @@ from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
 from app.models.air import AlertEvaluateRequest, AlertEvaluateResponse
+from app.models.alert_decision import AlertDecisionRequest, AlertDecisionResponse
 import app.services.air_repository as air_repository
+import app.services.alert_decision_engine as alert_decision_engine
 import app.services.alert_orchestrator as alert_orchestrator
 import app.services.notification_dispatcher as notification_dispatcher
 import app.services.notification_repository as notification_repository
@@ -62,3 +64,17 @@ def evaluate_alert(
         )
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+
+@router.post("/decide", response_model=AlertDecisionResponse)
+def decide_alert(
+    payload: AlertDecisionRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> AlertDecisionResponse:
+    """Additive 1.4 decision gate (cooldown / quiet hours / dedupe / threshold).
+
+    Does not dispatch notifications — callers use this to decide whether to notify.
+    """
+    _ = user_id
+    decision = alert_decision_engine.decide_alert(payload.candidate)
+    return AlertDecisionResponse(decision=decision)

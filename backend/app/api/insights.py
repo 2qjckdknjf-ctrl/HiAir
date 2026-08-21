@@ -1,12 +1,18 @@
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
 import app.services.entitlement_service as entitlement_service
 from app.models.air import PersonalPatternInsight, PersonalPatternsResponse
+from app.models.personal_adaptation import PersonalAdaptationSnapshot
 import app.services.air_repository as air_repository
 import app.services.correlation_engine as correlation_engine
+import app.services.health_sync_repository as health_sync_repository
 import app.services.insights_repository as insights_repository
+import app.services.personal_adaptation_engine as personal_adaptation_engine
+import app.services.wearable_repository as wearable_repository
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -47,6 +53,54 @@ def get_personal_patterns(
             windowDays=window_days,
             generatedAt=correlation_engine.now_utc_iso(),
             items=response_items,
+        )
+    except PsycopgError as exc:
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+
+@router.get("/adaptation", response_model=PersonalAdaptationSnapshot)
+def get_personal_adaptation(
+    profile_id: str = Query(..., alias="profileId"),
+    user_id: str = Depends(get_current_user_id),
+) -> PersonalAdaptationSnapshot:
+    try:
+        entitlement_service.require_feature(user_id, "wearable_insights", "wearable_insights_enabled")
+        profile = air_repository.get_profile_context(profile_id)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        if profile.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Profile does not belong to user")
+
+        consent = wearable_repository.get_active_consent(user_id)
+        if consent is None or not consent.isActive:
+            return personal_adaptation_engine.build_adaptation_snapshot(
+                profile_id=profile_id,
+                baseline_inputs=personal_adaptation_engine.BaselineInputs(),
+                generated_at=personal_adaptation_engine.now_utc_iso(),
+            )
+
+        today = date.today()
+        start = today - timedelta(days=29)
+        metric_rows = health_sync_repository.list_metrics_window(
+            user_id=user_id,
+            start_date=start,
+            end_date=today,
+        )
+        sleep_rows = health_sync_repository.get_sleep_window(
+            user_id=user_id,
+            start_date=start,
+            end_date=today,
+        )
+        baseline_inputs = personal_adaptation_engine.build_baseline_inputs_from_metric_rows(
+            metric_rows=metric_rows,
+            sleep_rows=sleep_rows,
+            reference_date=today,
+        )
+        return personal_adaptation_engine.build_adaptation_snapshot(
+            profile_id=profile_id,
+            baseline_inputs=baseline_inputs,
+            protected_events=[],
+            generated_at=personal_adaptation_engine.now_utc_iso(),
         )
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc

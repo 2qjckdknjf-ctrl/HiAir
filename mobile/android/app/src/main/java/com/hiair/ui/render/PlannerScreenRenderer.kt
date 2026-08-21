@@ -2,9 +2,13 @@ package com.hiair.ui.render
 
 import android.view.Gravity
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.LinearLayout
+import android.widget.Spinner
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
+import com.hiair.ui.planner.DailyPlannerViewModel
 import com.hiair.ui.theme.V2Ui
 
 internal object PlannerScreenRenderer {
@@ -117,6 +121,8 @@ internal object PlannerScreenRenderer {
             }
         })
 
+        renderActivityPlanCard(ctx, bodyContainer)
+
         // Auto-load once per session when planner opens with no data yet.
         if (
             !rootShell.plannerViewModel.hasAttemptedAutoLoad &&
@@ -127,6 +133,158 @@ internal object PlannerScreenRenderer {
             rootShell.plannerViewModel.hasAttemptedAutoLoad = true
             loadPlanner()
         }
+    }
+
+    private fun renderActivityPlanCard(
+        ctx: RenderContext,
+        bodyContainer: LinearLayout,
+    ) {
+        val activity = ctx.activity
+        val rootShell = ctx.rootShell
+        val plannerViewModel = rootShell.plannerViewModel
+        val plannerState = plannerViewModel.state
+        val settings = rootShell.settingsViewModel.state
+        val catalog = plannerState.activityCatalog.ifEmpty {
+            DailyPlannerViewModel.fallbackActivityCatalogForUi()
+        }
+        val activityIds = catalog.map { it.id }
+        val activityLabels = DailyPlannerViewModel.activityDisplayLabels(catalog, settings.preferredLanguage)
+        val selectedIndex = activityIds.indexOf(plannerState.selectedActivityId).coerceAtLeast(0)
+
+        val statusView = V2Ui.styledSecondaryText(
+            activity,
+            plannerState.activityPlanStatusText.ifBlank { ctx.l("planner.activity.hint") },
+        )
+        val windowsView = V2Ui.styledBodyText(activity, buildActivityWindowText(ctx, plannerState))
+        val recommendedView = V2Ui.styledSecondaryText(activity, "")
+
+        val activityCard = HiAirComponents.cardContainer(activity).apply {
+            addView(
+                V2Ui.styledBodyText(activity, ctx.l("planner.activity.title")).apply {
+                    textSize = 16f
+                }
+            )
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.subtitle")).apply { textSize = 13f })
+            addView(V2Ui.spacer(activity, 8))
+            val spinner = Spinner(activity).apply {
+                adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, activityLabels)
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(
+                        parent: AdapterView<*>?,
+                        view: View?,
+                        position: Int,
+                        id: Long,
+                    ) {
+                        val nextActivityId = activityIds.getOrNull(position) ?: return
+                        if (nextActivityId == plannerViewModel.state.selectedActivityId) return
+                        plannerViewModel.selectActivity(nextActivityId)
+                        plannerViewModel.hasAttemptedActivityPlanLoad = false
+                        loadActivityPlan(ctx)
+                    }
+
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                }
+                setSelection(selectedIndex.coerceIn(0, activityLabels.lastIndex.coerceAtLeast(0)), false)
+            }
+            addView(spinner)
+            addView(V2Ui.spacer(activity, 8))
+            addView(statusView)
+            addView(V2Ui.spacer(activity, 6))
+            addView(windowsView)
+            addView(recommendedView)
+            if (plannerState.activityPremiumRequired) {
+                addView(V2Ui.spacer(activity, 8))
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.premium_required")))
+                addView(
+                    HiAirComponents.primaryButton(activity, ctx.l("insights.premium_locked.cta")).apply {
+                        setOnClickListener {
+                            rootShell.settingsViewModel.requestShowPaywall()
+                            ctx.rerender()
+                        }
+                    }
+                )
+            } else {
+                addView(V2Ui.spacer(activity, 8))
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("planner.activity.refresh")).apply {
+                        setOnClickListener {
+                            plannerViewModel.hasAttemptedActivityPlanLoad = false
+                            loadActivityPlan(ctx)
+                        }
+                    }
+                )
+            }
+        }
+        bodyContainer.addView(activityCard)
+
+        if (plannerState.activityRecommendedStart.isNotBlank()) {
+            recommendedView.text = ctx.l("planner.activity.recommended")
+                .replaceFirst("%@", plannerState.activityRecommendedStart)
+        }
+
+        if (
+            !plannerViewModel.hasAttemptedActivityCatalogLoad &&
+            !settings.userId.isBlank()
+        ) {
+            plannerViewModel.hasAttemptedActivityCatalogLoad = true
+            Thread {
+                plannerViewModel.loadActivityCatalog(
+                    userId = settings.userId,
+                    accessToken = settings.accessToken.ifBlank { null },
+                )
+                activity.runOnUiThread {
+                    plannerViewModel.hasAttemptedActivityPlanLoad = false
+                    loadActivityPlan(ctx)
+                    ctx.rerender()
+                }
+            }.start()
+        } else if (
+            !plannerViewModel.hasAttemptedActivityPlanLoad &&
+            !plannerState.activityPlanLoading &&
+            !plannerState.activityPremiumRequired &&
+            !settings.userId.isBlank()
+        ) {
+            plannerViewModel.hasAttemptedActivityPlanLoad = true
+            loadActivityPlan(ctx)
+        }
+    }
+
+    private fun loadActivityPlan(ctx: RenderContext) {
+        val activity = ctx.activity
+        val rootShell = ctx.rootShell
+        val settings = rootShell.settingsViewModel.state
+        Thread {
+            val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
+            val profileId = resolvedProfileId
+                ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
+            if (profileId.isBlank()) {
+                activity.runOnUiThread { ctx.rerender() }
+                return@Thread
+            }
+            rootShell.plannerViewModel.refreshActivityPlan(
+                userId = settings.userId,
+                accessToken = settings.accessToken.ifBlank { null },
+                profileId = profileId,
+                preferredLanguage = settings.preferredLanguage,
+            )
+            activity.runOnUiThread { ctx.rerender() }
+        }.start()
+    }
+
+    private fun buildActivityWindowText(
+        ctx: RenderContext,
+        state: com.hiair.ui.planner.PlannerState,
+    ): String {
+        if (state.activityPlanLoading) {
+            return ctx.l("common.loading")
+        }
+        if (!state.activityForecastAvailable && state.activityPlanStatusText.isNotBlank()) {
+            return "• ${state.activityPlanStatusText}"
+        }
+        if (state.activityWindows.isEmpty()) {
+            return "• ${state.activityPlanStatusText.ifBlank { ctx.l("planner.activity.hint") }}"
+        }
+        return state.activityWindows.joinToString("\n") { "• ${it.line}" }
     }
 
     private fun renderHeatStrip(activity: android.app.Activity, container: LinearLayout, hourly: List<String>) {

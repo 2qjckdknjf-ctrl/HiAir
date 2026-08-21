@@ -741,3 +741,69 @@ struct WearableDataDeleteResponse: Codable {
     let deletedHourly: Int
     let consentRevoked: Bool
 }
+
+// MARK: - HiAir 1.2 Activity Best-Time
+
+struct ActivityCatalogItem: Codable, Identifiable, Hashable {
+    let activity: String
+    let defaultDurationMinutes: Int
+    let defaultIntensity: String
+    let outdoor: Bool
+
+    var id: String { activity }
+}
+
+struct ActivityCatalogResponse: Codable {
+    let activities: [ActivityCatalogItem]
+}
+
+struct ActivityPlanRequest: Codable {
+    let profileId: String
+    let activity: String
+    let durationMinutes: Int?
+    let intensity: String?
+    let earliestStart: String?
+    let latestStart: String?
+}
+
+struct ActivityHourAssessment: Codable {
+    let hour: String
+    let tier: String
+    let score: Int
+    let reasonCodes: [String]
+}
+
+struct ActivityWindow: Codable, Identifiable, Hashable {
+    let tier: String
+    let start: String
+    let end: String
+    let score: Int
+    let reasonCodes: [String]
+    let confidence: Double
+
+    var id: String { "\(tier)-\(start)-\(end)" }
+}
+
+struct ActivityPlanResponse: Codable {
+    let profileId: String
+    let activity: String
+    let intensity: String
+    let durationMinutes: Int
+    let timezone: String
+    let forecastAvailable: Bool
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let missingMetrics: [String]?
+    let generatedAt: String?
+    let hourly: [ActivityHourAssessment]
+    let windows: [ActivityWindow]
+    let recommendedStart: String?
+    let personalLoadScore: Int?
+    let personalLoadLevel: String?
+    let personalLoadReasonCodes: [String]?
+
+    var isForecastAvailable: Bool {
+        forecastAvailable
+    }
+}
