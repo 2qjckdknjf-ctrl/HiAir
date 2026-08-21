@@ -16,7 +16,7 @@
 
 | Field | Draft value | ASC status |
 |-------|-------------|------------|
-| App name | HiAir | Owner: verify in ASC |
+| App name | HiAir | LIVE in Play Console in ASC |
 | Subtitle | Daily air quality wellness companion | Template ready |
 | Category | Health & Fitness | Owner: select |
 | Bundle ID | com.hiair.app | Configured |
@@ -34,16 +34,16 @@
 
 | Field | Draft value | Play status |
 |-------|-------------|-------------|
-| App name | HiAir | Owner: verify |
-| Short description | Plan daily activity around air quality and heat risk. | Draft |
+| App name | HiAir | LIVE in Play Console |
+| Short description | Air quality & heat day planner for safer outdoor time. | Ready in GOOGLE_PLAY_HANDOFF.md |
 | Full description | See `GOOGLE_PLAY_HANDOFF.md` | Draft |
 | Application ID | com.hiair | Configured |
-| versionCode | 2 | Ready |
+| versionCode | **188** (identity with iOS 1.0 / 188; previous internal 182) | Build locally / internal track |
 | Category | Health & Fitness | Owner: select |
-| Privacy policy URL | https://hiair.io/privacy/ | Ready |
-| Data safety | See `DATA_SAFETY.md` | Draft — owner submit |
-| Feature graphic | 1024×500 | **MISSING** |
-| Screenshots | Phone + optional 7" tablet | **MISSING** |
+| Privacy policy URL | https://hiair.io/privacy/ | SET in Console |
+| Data safety | See `DATA_SAFETY.md` + `PLAY_CONSOLE_QUESTIONNAIRES.md` | Draft — owner submit |
+| Feature graphic | 1024×500 | UPLOADED 2026-08-11 |
+| Screenshots | Phone (6) | UPLOADED 2026-08-11 — **recapture Deep Glass** |
 | Content rating | IARC questionnaire | Owner |
 
 ## Materials still needed from owner
@@ -60,3 +60,28 @@
 - `docs/release/store/GOOGLE_PLAY_HANDOFF.md`
 - `docs/release/store/PRIVACY_LABELS.md`
 - `docs/release/store/DATA_SAFETY.md`
+
+
+## Play progress 2026-08-11
+
+- Internal track Active with **182** (CI `android-release` success).
+- Store listing metadata + graphics uploaded via Play Developer API.
+- Privacy policy URL saved in App content.
+- Remaining questionnaires: content rating, target audience, data safety, advertising ID, health declaration.
+
+## Play identity pass 2026-08-21
+
+- Align Android **versionName 1.0 / versionCode 188** with iOS marketing 1.0 build 188.
+- Listing copy rewritten to match ASC Deep Glass ASO (en-US + ru).
+- Questionnaire answers: `docs/release/store/PLAY_CONSOLE_QUESTIONNAIRES.md`.
+- Do **not** production-publish until owner verifies.
+
+
+## ASC product page 2026-08-21
+
+- Version **1.0** / build **187** / state **PREPARE_FOR_SUBMISSION**
+- Subtitle en-US: Air quality & heat day planner; ru: Планировщик воздуха и жары
+- Keywords + description + promo text rewritten for ASO (en-US + ru)
+- Screenshots replaced with Deep Glass set (iPhone 6.7/6.5 + iPad 12.9) for en-US + ru
+- App Preview uploaded (IPHONE_67 + IPHONE_65) stereo MOV — COMPLETE
+- Evidence: `.evidence/appstore-187-testflight/asc-audit-2026-08-21/`
