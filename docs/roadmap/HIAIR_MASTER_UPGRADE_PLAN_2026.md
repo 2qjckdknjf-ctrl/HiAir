@@ -759,12 +759,12 @@ HiAir reaches the intended 10/10 product state when:
 
 # 13. Current Next Action
 
-**Active release:** HiAir 1.1 — Forecast Truth (code complete on branch; waiting for production deploy + physical-device QA)  
-**Active branch:** `feat/hiair-1.1-forecast-truth`  
-**Detailed implementation prompt:** `docs/roadmap/HIAIR_1_1_FORECAST_TRUTH_IMPLEMENTATION_PROMPT.md`  
-**QA status:** `docs/audit/HIAIR_1_1_FORECAST_TRUTH_QA.md`
-
-After 1.1 READY (or while waiting only on external QA gates), next product release is **HiAir 1.2 — Best Time & Activity Planner**.
+**Active release:** HiAir 1.2 — Best Time & Activity Planner (backend core started)  
+**1.1 branch:** `feat/hiair-1.1-forecast-truth` — code complete; waiting for production deploy + physical-device QA  
+**1.2 branch:** `feat/hiair-1.2-best-time-planner`  
+**1.1 prompt:** `docs/roadmap/HIAIR_1_1_FORECAST_TRUTH_IMPLEMENTATION_PROMPT.md`  
+**1.2 notes:** `docs/roadmap/HIAIR_1_2_BEST_TIME_ACTIVITY_PLANNER.md`  
+**1.1 QA:** `docs/audit/HIAIR_1_1_FORECAST_TRUTH_QA.md`
 
 No later feature should weaken or bypass the Forecast Truth integrity rules.
 
