@@ -1099,6 +1099,8 @@ final class APIClient {
         lon: Double = 2.17,
         hours: Int = 12
     ) async throws -> DailyPlannerResponse {
+        // Legacy `/api/planner/daily` helper — unused by Forecast Truth UI.
+        // Prefer `fetchAirDayPlan` (`/api/air/day-plan`) for real hourly windows.
         var components = URLComponents(
             url: baseURL.appending(path: "/api/planner/daily"),
             resolvingAgainstBaseURL: false

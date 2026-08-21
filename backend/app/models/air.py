@@ -98,6 +98,8 @@ class RiskAssessmentResult(BaseModel):
     recommendationFlags: list[str]
     reasonCodes: list[str]
     personalLoad: PersonalLoadAssessment | None = None
+    # Additive: outdoor-only windows stay in safeWindows; ventilation is separate.
+    ventilationWindows: list[SafeWindow] = Field(default_factory=list)
 
 
 class RecommendationCard(BaseModel):

@@ -199,6 +199,7 @@ struct AirRiskAssessment: Codable {
     let safeWindows: [AirSafeWindow]
     let recommendationFlags: [String]
     let reasonCodes: [String]
+    let ventilationWindows: [AirSafeWindow]?
 }
 
 struct AirRecommendationCard: Codable {

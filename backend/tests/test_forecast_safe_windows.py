@@ -139,6 +139,16 @@ def test_climates_produce_different_risk_periods() -> None:
 def test_evaluate_risk_does_not_invent_windows_without_hourly() -> None:
     result = evaluate_risk(_profile(), _hourly("Europe/Madrid", 41.39, 2.17, [22.0] * 3, [30] * 3)[0])
     assert result.safeWindows == []
+    assert result.ventilationWindows == []
+
+
+def test_evaluate_risk_keeps_ventilation_out_of_outdoor_safe_windows() -> None:
+    temps = [22.0] * 6
+    aqi = [30] * 6
+    hourly = _hourly("Europe/Madrid", 41.39, 2.17, temps, aqi)
+    result = evaluate_risk(_profile(), hourly[0], hourly_points=hourly)
+    assert all(window.type != SafeWindowType.VENTILATION for window in result.safeWindows)
+    assert all(window.type == SafeWindowType.VENTILATION for window in result.ventilationWindows)
 
 
 def test_missing_air_metrics_are_not_scored_as_low() -> None:

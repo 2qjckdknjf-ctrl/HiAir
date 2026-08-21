@@ -56,4 +56,34 @@ Additional pass after code-complete:
 - Legacy `/api/planner/daily` uses engine outdoor gate
 - Android planner auto-load + premium locked card; iOS 402 handles `serverWithDetail`
 
+### Closure pass (same day)
+
+- `current-risk.safeWindows` outdoor-only; `ventilationWindows` additive on risk payload
+- Planner UI appends concrete `missingMetrics` when `dataQuality=partial`
+- Dashboard (iOS/Android) still shows ventilation with typed labels from `ventilationWindows`
+- Planner shows provider `sources` (iOS + Android, localized)
+- Pre-1.1 audit doc marked as frozen baseline (not current branch behavior)
+
 Still blocked on production deploy + device QA for READY verdict.
+
+## DoD checklist (spec §27)
+
+Code-level (this branch):
+
+- [x] real hourly weather forecast used in planner
+- [x] real hourly air when available; missing explicit
+- [x] production synthetic future projection removed
+- [x] UV / PM10 / wind direct-provider or unavailable
+- [x] forecast provenance + freshness
+- [x] timezone location-correct + DST tests
+- [x] safe windows from actual forecast points
+- [x] Dashboard / Premium / HealthKit contracts preserved in code
+- [x] iOS/Android unit tests + backend forecast suite
+- [x] no fake/sample production forecast path
+- [x] source-of-truth docs updated
+
+External (still open):
+
+- [ ] production smoke on `api.hiair.io`
+- [ ] new TestFlight physical QA
+

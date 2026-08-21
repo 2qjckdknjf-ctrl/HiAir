@@ -94,6 +94,19 @@ final class DashboardViewModel: ObservableObject {
                     timeZone: zone
                 )
             }
+            let ventilationLabels = (result.risk.ventilationWindows ?? []).map { window in
+                Self.formatSafeWindow(
+                    type: window.type,
+                    start: window.start,
+                    end: window.end,
+                    language: language,
+                    locale: locale,
+                    timeZone: zone
+                )
+            }
+            if !ventilationLabels.isEmpty {
+                safeWindowLabels.append(contentsOf: ventilationLabels)
+            }
             if let firstWindow = result.risk.safeWindows.first {
                 nearestSafeWindow = Self.formatSafeWindow(
                     type: firstWindow.type,

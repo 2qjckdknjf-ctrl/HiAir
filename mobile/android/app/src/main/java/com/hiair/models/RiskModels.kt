@@ -110,9 +110,9 @@ data class AirRiskAssessment(
     val indoorVentilationRisk: String,
     val safeWindows: List<AirSafeWindow>,
     val recommendationFlags: List<String>,
-    val reasonCodes: List<String>
+    val reasonCodes: List<String>,
+    val ventilationWindows: List<AirSafeWindow>? = null,
 )
-
 data class AirRecommendationCard(
     val headline: String,
     val summary: String,

@@ -23,6 +23,8 @@ data class PlannerState(
     val forecastAvailable: Boolean = true,
     val dataQuality: String = "",
     val freshness: String = "",
+    val missingMetrics: List<String> = emptyList(),
+    val sources: List<String> = emptyList(),
 )
 
 class DailyPlannerViewModel(
@@ -106,6 +108,20 @@ class DailyPlannerViewModel(
             }
             val dataQuality = json.optString("dataQuality")
             val freshness = json.optString("freshness")
+            val missingMetrics = mutableListOf<String>()
+            json.optJSONArray("missingMetrics")?.let { array ->
+                for (i in 0 until array.length()) {
+                    val value = array.optString(i)
+                    if (value.isNotBlank()) missingMetrics.add(value)
+                }
+            }
+            val sources = mutableListOf<String>()
+            json.optJSONArray("sources")?.let { array ->
+                for (i in 0 until array.length()) {
+                    val value = array.optString(i)
+                    if (value.isNotBlank()) sources.add(value)
+                }
+            }
 
             val safeWindowItems = mutableListOf<String>()
             val safeWindows = json.optJSONArray("safeWindows") ?: JSONArray()
@@ -153,16 +169,27 @@ class DailyPlannerViewModel(
             }
             val statusText = when {
                 !forecastAvailable -> l("planner.forecast_unavailable", preferredLanguage)
-                dataQuality.equals("partial", ignoreCase = true) ->
-                    l("planner.forecast_partial", preferredLanguage)
+                dataQuality.equals("partial", ignoreCase = true) -> {
+                    val base = l("planner.forecast_partial", preferredLanguage)
+                    if (missingMetrics.isEmpty()) {
+                        base
+                    } else {
+                        "$base (${missingMetrics.take(4).joinToString(", ")})"
+                    }
+                }
                 else -> l("planner.loaded", preferredLanguage)
                     .replaceFirst("%d", hourly.length().toString())
             }
             val freshnessText = if (forecastAvailable) freshnessCaption(freshness, preferredLanguage) else ""
+            val sourcesText = if (forecastAvailable && sources.isNotEmpty()) {
+                "${l("planner.sources", preferredLanguage)}: ${sources.joinToString(", ")}"
+            } else {
+                ""
+            }
             return PlannerState(
                 loading = false,
                 statusText = statusText,
-                freshnessText = freshnessText,
+                freshnessText = listOf(freshnessText, sourcesText).filter { it.isNotBlank() }.joinToString("\n"),
                 safeWindows = safeWindowItems,
                 ventilationWindows = ventilationItems,
                 hourly = hourlyItems,
@@ -171,6 +198,8 @@ class DailyPlannerViewModel(
                 forecastAvailable = forecastAvailable,
                 dataQuality = dataQuality,
                 freshness = freshness,
+                missingMetrics = missingMetrics,
+                sources = sources,
             )
         }
 

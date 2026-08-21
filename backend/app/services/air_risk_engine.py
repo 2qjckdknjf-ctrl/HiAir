@@ -289,9 +289,18 @@ def evaluate_risk(
 
     overall_risk = _risk_from_order(overall_order)
 
-    windows = _build_safe_windows_from_hourly(profile, hourly_points or [])
+    all_windows = _build_safe_windows_from_hourly(profile, hourly_points or [])
+    outdoor_windows = [
+        window
+        for window in all_windows
+        if window.type
+        in (SafeWindowType.WALK, SafeWindowType.RUN, SafeWindowType.GENERAL_OUTDOOR)
+    ]
+    ventilation_windows = [
+        window for window in all_windows if window.type == SafeWindowType.VENTILATION
+    ]
     reason_codes = sorted(set(heat_reasons + air_reasons + personal_load_result.reason_codes))
-    if any(window.type == SafeWindowType.VENTILATION for window in windows):
+    if ventilation_windows:
         reason_codes.append("night_ventilation_better")
 
     recommendation_flags = _build_recommendation_flags(overall_risk, heat_risk, air_risk, profile)
@@ -312,10 +321,11 @@ def evaluate_risk(
         airRisk=air_risk,
         outdoorRisk=outdoor_risk,
         indoorVentilationRisk=indoor_ventilation_risk,
-        safeWindows=windows,
+        safeWindows=outdoor_windows,
         recommendationFlags=recommendation_flags,
         reasonCodes=sorted(set(reason_codes)),
         personalLoad=personal_load_assessment,
+        ventilationWindows=ventilation_windows,
     )
 
 

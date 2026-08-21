@@ -12,6 +12,8 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var freshness = ""
     @Published var dataQuality = ""
     @Published var forecastAvailable = true
+    @Published var missingMetrics: [String] = []
+    @Published var sources: [String] = []
 
     private let apiClient = APIClient.live()
 
@@ -41,11 +43,18 @@ final class DailyPlannerViewModel: ObservableObject {
             freshness = planner.freshness ?? ""
             dataQuality = planner.dataQuality ?? ""
             forecastAvailable = planner.isForecastAvailable
+            missingMetrics = planner.missingMetrics ?? []
+            sources = planner.sources ?? []
             if !planner.isForecastAvailable {
                 statusText = HiAirL10n.t("planner.forecast_unavailable", lang: language)
                 ProductAnalytics.track("planner_forecast_unavailable", properties: ["quality": dataQuality])
             } else if planner.dataQuality == "partial" {
-                statusText = HiAirL10n.t("planner.forecast_partial", lang: language)
+                var partial = HiAirL10n.t("planner.forecast_partial", lang: language)
+                if !missingMetrics.isEmpty {
+                    let listed = missingMetrics.prefix(4).joined(separator: ", ")
+                    partial += " (\(listed))"
+                }
+                statusText = partial
                 ProductAnalytics.track(
                     "planner_real_forecast_loaded",
                     properties: ["quality": "partial", "hours": String(planner.hourlyRisk.count)]
@@ -116,6 +125,11 @@ struct DailyPlannerView: View {
                 }
                 if !viewModel.freshness.isEmpty && viewModel.forecastAvailable {
                     Text(freshnessCaption)
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                }
+                if !viewModel.sources.isEmpty && viewModel.forecastAvailable {
+                    Text("\(session.l("planner.sources")): \(viewModel.sources.joined(separator: ", "))")
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
                 }

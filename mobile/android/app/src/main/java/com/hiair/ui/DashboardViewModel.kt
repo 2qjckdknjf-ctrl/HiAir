@@ -211,6 +211,25 @@ class DashboardViewModel(
                     }
                 }
             }
+            // Additive ventilation list — keep labeled separately from outdoor windows.
+            risk.optJSONArray("ventilationWindows")?.let { array ->
+                for (index in 0 until array.length()) {
+                    val window = array.optJSONObject(index) ?: continue
+                    val start = window.optString("start")
+                    val end = window.optString("end")
+                    if (start.isNotBlank() && end.isNotBlank()) {
+                        safeWindows.add(
+                            formatSafeWindow(
+                                type = window.optString("type", "ventilation"),
+                                start = start,
+                                end = end,
+                                preferredLanguage = preferredLanguage,
+                                zoneId = zoneId,
+                            )
+                        )
+                    }
+                }
+            }
 
             return DashboardState(
                 status = DashboardStatus.SUCCESS,
