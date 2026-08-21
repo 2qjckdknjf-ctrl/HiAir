@@ -18,7 +18,9 @@ Checked against Play policies current as of **2026-08-21**.
 - Advertising ID declaration: **No** (saved)
 - Financial features: **no financial features** (saved)
 - Target audience ages: **13–15, 16–17, 18+** (saved)
-- Remaining actions in Console: Content rating, Data safety, Health apps
+- Data safety overview (step 1–2) saved: collects=Yes, encrypted=Yes, account=password+OAuth, deletion URL=`https://hiair.io/privacy/`
+- Data safety CSV ready to import: `.evidence/android-play-188/data_safety_hiair_188.csv` (Console → Data safety → Import from CSV)
+- Remaining actions in Console: Content rating (IARC), Data safety data-types/usage (import CSV), Health apps
 
 ## Advertising ID
 
