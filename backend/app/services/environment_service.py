@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from typing import Any
 
 import httpx
 
@@ -26,7 +27,23 @@ def build_mock_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
     return build_sample_snapshot(lat, lon)
 
 
-def _fetch_openweather(lat: float, lon: float) -> tuple[float, float]:
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _iaqi(iaqi: dict[str, Any], key: str) -> float | None:
+    entry = iaqi.get(key)
+    if isinstance(entry, dict):
+        return _optional_float(entry.get("v"))
+    return None
+
+
+def _fetch_openweather(lat: float, lon: float) -> dict[str, Any]:
     if not settings.weather_api_key:
         raise ValueError("WEATHER_API_KEY is missing")
 
@@ -36,26 +53,42 @@ def _fetch_openweather(lat: float, lon: float) -> tuple[float, float]:
         response = client.get(url, params=params)
         response.raise_for_status()
         payload = response.json()
+    main = payload.get("main") or {}
+    wind = payload.get("wind") or {}
+    return {
+        "temperature_c": float(main["temp"]),
+        "humidity_percent": float(main["humidity"]),
+        "feels_like": _optional_float(main.get("feels_like")),
+        "wind_speed": _optional_float(wind.get("speed")),
+        "uv": None,
+    }
 
-    return float(payload["main"]["temp"]), float(payload["main"]["humidity"])
 
-
-def _fetch_openmeteo_weather(lat: float, lon: float) -> tuple[float, float]:
+def _fetch_openmeteo_weather(lat: float, lon: float) -> dict[str, Any]:
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": "temperature_2m,relative_humidity_2m",
+        "current": "temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,uv_index",
+        "wind_speed_unit": "ms",
+        "timezone": "auto",
     }
     with httpx.Client(timeout=10.0) as client:
         response = client.get(url, params=params)
         response.raise_for_status()
         payload = response.json()
-    current = payload.get("current", {})
-    return float(current.get("temperature_2m", 0.0)), float(current.get("relative_humidity_2m", 0.0))
+    current = payload.get("current") or {}
+    return {
+        "temperature_c": float(current.get("temperature_2m", 0.0)),
+        "humidity_percent": float(current.get("relative_humidity_2m", 0.0)),
+        "feels_like": _optional_float(current.get("apparent_temperature")),
+        "wind_speed": _optional_float(current.get("wind_speed_10m")),
+        "uv": _optional_float(current.get("uv_index")),
+        "timezone": payload.get("timezone"),
+    }
 
 
-def _fetch_waqi(lat: float, lon: float) -> tuple[int, float, float]:
+def _fetch_waqi(lat: float, lon: float) -> dict[str, Any]:
     if not settings.aqi_api_key:
         raise ValueError("AQI_API_KEY is missing")
 
@@ -66,62 +99,71 @@ def _fetch_waqi(lat: float, lon: float) -> tuple[int, float, float]:
         response.raise_for_status()
         payload = response.json()
 
-    data = payload.get("data", {})
-    aqi = int(data.get("aqi", 0))
-    iaqi = data.get("iaqi", {})
-    pm25 = float(iaqi.get("pm25", {}).get("v", 0.0))
-    ozone = float(iaqi.get("o3", {}).get("v", 0.0))
-    return aqi, pm25, ozone
+    data = payload.get("data") or {}
+    iaqi = data.get("iaqi") or {}
+    return {
+        "aqi": int(data.get("aqi", 0)),
+        "pm25": float(iaqi.get("pm25", {}).get("v", 0.0)) if isinstance(iaqi.get("pm25"), dict) else 0.0,
+        "ozone": float(iaqi.get("o3", {}).get("v", 0.0)) if isinstance(iaqi.get("o3"), dict) else 0.0,
+        "pm10": _iaqi(iaqi, "pm10"),
+    }
 
 
-def _fetch_openmeteo_aqi(lat: float, lon: float) -> tuple[int, float, float]:
+def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
     url = "https://air-quality-api.open-meteo.com/v1/air-quality"
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": "us_aqi,pm2_5,ozone",
+        "current": "us_aqi,pm2_5,pm10,ozone",
+        "timezone": "auto",
     }
     with httpx.Client(timeout=10.0) as client:
         response = client.get(url, params=params)
         response.raise_for_status()
         payload = response.json()
-    current = payload.get("current", {})
-    aqi = int(float(current.get("us_aqi", 0.0)))
-    pm25 = float(current.get("pm2_5", 0.0))
-    ozone = float(current.get("ozone", 0.0))
-    return aqi, pm25, ozone
+    current = payload.get("current") or {}
+    return {
+        "aqi": int(float(current.get("us_aqi", 0.0))),
+        "pm25": float(current.get("pm2_5", 0.0)),
+        "ozone": float(current.get("ozone", 0.0)),
+        "pm10": _optional_float(current.get("pm10")),
+    }
 
 
 def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
     weather_provider = settings.weather_api_provider.lower()
     aqi_provider = settings.aqi_api_provider.lower()
 
-    def _weather() -> tuple[float, float]:
+    def _weather() -> dict[str, Any]:
         if weather_provider == "openweathermap":
             return _fetch_openweather(lat, lon)
         if weather_provider == "openmeteo":
             return _fetch_openmeteo_weather(lat, lon)
         raise ValueError(f"Unsupported weather provider: {settings.weather_api_provider}")
 
-    def _aqi() -> tuple[int, float, float]:
+    def _aqi() -> dict[str, Any]:
         if aqi_provider == "waqi":
             return _fetch_waqi(lat, lon)
         if aqi_provider == "openmeteo":
             return _fetch_openmeteo_aqi(lat, lon)
         raise ValueError(f"Unsupported AQI provider: {settings.aqi_api_provider}")
 
-    # Weather and AQI are independent HTTP calls — fetch in parallel.
     with ThreadPoolExecutor(max_workers=2) as pool:
         weather_future = pool.submit(_weather)
         aqi_future = pool.submit(_aqi)
-        temperature_c, humidity_percent = weather_future.result()
-        aqi, pm25, ozone = aqi_future.result()
+        weather = weather_future.result()
+        air = aqi_future.result()
 
     return EnvironmentSnapshot(
-        temperature_c=temperature_c,
-        humidity_percent=humidity_percent,
-        aqi=aqi,
-        pm25=pm25,
-        ozone=ozone,
+        temperature_c=float(weather["temperature_c"]),
+        humidity_percent=float(weather["humidity_percent"]),
+        aqi=int(air["aqi"]),
+        pm25=float(air["pm25"]),
+        ozone=float(air["ozone"]),
         source="live",
+        pm10=air.get("pm10"),
+        uv=weather.get("uv"),
+        wind_speed=weather.get("wind_speed"),
+        feels_like=weather.get("feels_like"),
+        timezone=weather.get("timezone"),
     )

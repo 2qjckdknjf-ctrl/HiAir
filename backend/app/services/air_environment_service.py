@@ -11,21 +11,13 @@ SOURCE_CACHED = "cached"
 SOURCE_SAMPLE = "sample"
 
 
-def _estimate_feels_like(temperature: float, humidity: float) -> float:
-    humidity_delta = max(0.0, humidity - 40.0) * 0.05
-    return round(temperature + humidity_delta, 1)
-
-
 def _snapshot_to_environmental(
     snapshot: EnvironmentSnapshot,
     lat: float,
     lon: float,
     timezone_name: str,
 ) -> EnvironmentalInput:
-    feels_like = _estimate_feels_like(snapshot.temperature_c, snapshot.humidity_percent)
-    pm10 = round(snapshot.pm25 * 1.45, 1)
-    uv = round(max(0.0, (snapshot.temperature_c - 16) / 2.5), 1)
-    wind_speed = round(max(0.2, 1.0 + (snapshot.humidity_percent / 100 * 2.8)), 1)
+    feels_like = snapshot.feels_like if snapshot.feels_like is not None else snapshot.temperature_c
     return EnvironmentalInput(
         lat=lat,
         lon=lon,
@@ -34,13 +26,13 @@ def _snapshot_to_environmental(
         humidity=snapshot.humidity_percent,
         aqi=snapshot.aqi,
         pm25=snapshot.pm25,
-        pm10=pm10,
+        pm10=snapshot.pm10,
         ozone=snapshot.ozone,
-        uv=uv,
-        wind_speed=wind_speed,
+        uv=snapshot.uv,
+        wind_speed=snapshot.wind_speed,
         source=snapshot.source,
         timestamp=datetime.now(timezone.utc).isoformat(),
-        timezone=timezone_name,
+        timezone=snapshot.timezone or timezone_name,
     )
 
 
@@ -58,6 +50,11 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
                 pm25=cached.pm25,
                 ozone=cached.ozone,
                 source=SOURCE_SAMPLE,
+                pm10=cached.pm10,
+                uv=cached.uv,
+                wind_speed=cached.wind_speed,
+                feels_like=cached.feels_like,
+                timezone=cached.timezone,
             )
         return None
     return EnvironmentSnapshot(
@@ -67,6 +64,11 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
         pm25=cached.pm25,
         ozone=cached.ozone,
         source=SOURCE_CACHED,
+        pm10=cached.pm10,
+        uv=cached.uv,
+        wind_speed=cached.wind_speed,
+        feels_like=cached.feels_like,
+        timezone=cached.timezone,
     )
 
 
@@ -109,6 +111,11 @@ def resolve_environment_snapshot(
             pm25=live.pm25,
             ozone=live.ozone,
             source=SOURCE_LIVE,
+            pm10=live.pm10,
+            uv=live.uv,
+            wind_speed=live.wind_speed,
+            feels_like=live.feels_like,
+            timezone=live.timezone,
         )
     except Exception:
         pass

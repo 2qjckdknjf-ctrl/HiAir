@@ -68,6 +68,11 @@ def dashboard_overview(
         pm25=snapshot.pm25,
         ozone=snapshot.ozone,
         source=snapshot.source,
+        pm10=snapshot.pm10,
+        uv=snapshot.uv,
+        wind_speed=snapshot.wind_speed,
+        feels_like=snapshot.feels_like,
+        timezone=snapshot.timezone,
     )
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
     air_environment = to_air_environment(environment, lat, lon)

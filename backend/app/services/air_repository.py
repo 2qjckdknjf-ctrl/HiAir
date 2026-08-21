@@ -106,7 +106,11 @@ def get_latest_environment_snapshot(
                     pm25,
                     ozone,
                     source,
-                    timestamp_utc
+                    timestamp_utc,
+                    feels_like,
+                    pm10,
+                    uv,
+                    wind_speed
                 FROM environment_snapshots
                 WHERE geo_hash = %s
                   AND timestamp_utc >= %s
@@ -126,6 +130,10 @@ def get_latest_environment_snapshot(
         pm25=float(row["pm25"]),
         ozone=float(row["ozone"]),
         source=str(row["source"]),
+        pm10=None if row.get("pm10") is None else float(row["pm10"]),
+        uv=None if row.get("uv") is None else float(row["uv"]),
+        wind_speed=None if row.get("wind_speed") is None else float(row["wind_speed"]),
+        feels_like=None if row.get("feels_like") is None else float(row["feels_like"]),
     )
 
 
