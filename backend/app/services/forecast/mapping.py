@@ -16,7 +16,7 @@ def forecast_point_to_environmental(point: EnvironmentalForecastPoint) -> Enviro
         if point.apparent_temperature_c is not None
         else point.temperature_c
     )
-    humidity = point.relative_humidity_pct if point.relative_humidity_pct is not None else 0.0
+    humidity = point.relative_humidity_pct
     kind = point.provenance.kind.value if point.provenance else EnvironmentalDataKind.FORECAST.value
     source = "cached" if kind == EnvironmentalDataKind.CACHED.value else kind
     if point.provenance and point.provenance.kind == EnvironmentalDataKind.OBSERVED:

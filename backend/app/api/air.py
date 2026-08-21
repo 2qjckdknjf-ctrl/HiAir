@@ -169,10 +169,12 @@ def get_day_plan(
         environment = air_environment_service.load_environment(profile)
         forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
+        personal_load = wearable_service.build_personal_load_input(user_id, environment)
         return air_risk_engine.build_day_plan(
             profile,
             environment,
             hourly_points=hourly_points,
+            personal_load=personal_load,
             generated_at=forecast.generated_at if forecast is not None else None,
             freshness=forecast.freshness.value if forecast is not None else None,
             data_quality=forecast.quality.value if forecast is not None else "unavailable",

@@ -16,6 +16,7 @@ import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
+from app.models.air import SafeWindowType
 from app.services.forecast.mapping import forecast_to_hourly_inputs
 from app.services.forecast.service import get_forecast
 
@@ -94,11 +95,24 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         risk_assessment_id=None,
         health_context=health_context[:4],
     )
-    first_window = plan.safeWindows[0] if plan.safeWindows else None
+    first_window = None
+    window_label = "Best outdoor window"
+    for preferred in (SafeWindowType.WALK, SafeWindowType.GENERAL_OUTDOOR, SafeWindowType.RUN):
+        first_window = next((item for item in plan.safeWindows if item.type == preferred), None)
+        if first_window is not None:
+            break
+    if first_window is None:
+        first_window = next(
+            (item for item in plan.safeWindows if item.type != SafeWindowType.VENTILATION),
+            None,
+        )
+    if first_window is None and plan.safeWindows:
+        first_window = plan.safeWindows[0]
+        window_label = f"Best {first_window.type.value} window"
     window_text = f"{first_window.start}-{first_window.end}" if first_window else "later tonight"
     message = (
         f"Good morning. Today's risk is {risk.overallRisk.value}. "
-        f"Best outdoor window: {window_text}. {explanation}"
+        f"{window_label}: {window_text}. {explanation}"
     )
     return message, profile_id, risk.overallRisk.value
 

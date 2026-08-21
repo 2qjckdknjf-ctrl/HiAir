@@ -78,9 +78,13 @@ def _fetch_openmeteo_weather(lat: float, lon: float) -> dict[str, Any]:
         response.raise_for_status()
         payload = response.json()
     current = payload.get("current") or {}
+    temperature = _optional_float(current.get("temperature_2m"))
+    humidity = _optional_float(current.get("relative_humidity_2m"))
+    if temperature is None or humidity is None:
+        raise ValueError("Open-Meteo weather returned incomplete current conditions")
     return {
-        "temperature_c": float(current.get("temperature_2m", 0.0)),
-        "humidity_percent": float(current.get("relative_humidity_2m", 0.0)),
+        "temperature_c": temperature,
+        "humidity_percent": humidity,
         "feels_like": _optional_float(current.get("apparent_temperature")),
         "wind_speed": _optional_float(current.get("wind_speed_10m")),
         "uv": _optional_float(current.get("uv_index")),
@@ -101,10 +105,16 @@ def _fetch_waqi(lat: float, lon: float) -> dict[str, Any]:
 
     data = payload.get("data") or {}
     iaqi = data.get("iaqi") or {}
+    aqi_value = data.get("aqi")
+    aqi = int(aqi_value) if aqi_value is not None and str(aqi_value).strip() != "" else None
+    pm25 = _iaqi(iaqi, "pm25")
+    ozone = _iaqi(iaqi, "o3")
+    if aqi is None and pm25 is None and ozone is None:
+        raise ValueError("WAQI returned no air metrics")
     return {
-        "aqi": int(data.get("aqi", 0)),
-        "pm25": float(iaqi.get("pm25", {}).get("v", 0.0)) if isinstance(iaqi.get("pm25"), dict) else 0.0,
-        "ozone": float(iaqi.get("o3", {}).get("v", 0.0)) if isinstance(iaqi.get("o3"), dict) else 0.0,
+        "aqi": aqi,
+        "pm25": pm25,
+        "ozone": ozone,
         "pm10": _iaqi(iaqi, "pm10"),
     }
 
@@ -122,10 +132,15 @@ def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
         response.raise_for_status()
         payload = response.json()
     current = payload.get("current") or {}
+    aqi = _optional_float(current.get("us_aqi"))
+    pm25 = _optional_float(current.get("pm2_5"))
+    ozone = _optional_float(current.get("ozone"))
+    if aqi is None and pm25 is None and ozone is None:
+        raise ValueError("Open-Meteo AQI returned no air metrics")
     return {
-        "aqi": int(float(current.get("us_aqi", 0.0))),
-        "pm25": float(current.get("pm2_5", 0.0)),
-        "ozone": float(current.get("ozone", 0.0)),
+        "aqi": int(aqi) if aqi is not None else None,
+        "pm25": pm25,
+        "ozone": ozone,
         "pm10": _optional_float(current.get("pm10")),
     }
 
@@ -157,9 +172,9 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
     return EnvironmentSnapshot(
         temperature_c=float(weather["temperature_c"]),
         humidity_percent=float(weather["humidity_percent"]),
-        aqi=int(air["aqi"]),
-        pm25=float(air["pm25"]),
-        ozone=float(air["ozone"]),
+        aqi=air.get("aqi"),
+        pm25=air.get("pm25"),
+        ozone=air.get("ozone"),
         source="live",
         pm10=air.get("pm10"),
         uv=weather.get("uv"),

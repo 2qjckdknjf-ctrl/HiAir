@@ -62,7 +62,7 @@ class EnvironmentalInput(BaseModel):
     lon: float = Field(ge=-180, le=180)
     temperature: float
     feels_like: float
-    humidity: float = Field(ge=0, le=100)
+    humidity: float | None = Field(default=None, ge=0, le=100)
     aqi: int | None = Field(default=None, ge=0)
     pm25: float | None = Field(default=None, ge=0)
     pm10: float | None = Field(default=None, ge=0)
