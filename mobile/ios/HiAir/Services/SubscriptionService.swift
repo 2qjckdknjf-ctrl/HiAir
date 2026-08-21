@@ -1,5 +1,7 @@
+import CryptoKit
 import Foundation
 import StoreKit
+import UIKit
 
 extension Notification.Name {
     static let subscriptionEntitlementDidUpdate = Notification.Name("SubscriptionService.entitlementDidUpdate")
@@ -75,6 +77,26 @@ final class SubscriptionService: ObservableObject {
                 errorCode: ns.code
             )
             return (0, [], false, false, ns.domain, ns.code)
+        }
+    }
+
+    func showManageSubscriptions() async {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        if let scene {
+            do {
+                try await AppStore.showManageSubscriptions(in: scene)
+                return
+            } catch {
+                SubscriptionDiagnostics.log(
+                    "manage_subscriptions_failed",
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code
+                )
+            }
+        }
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            await UIApplication.shared.open(url)
         }
     }
 
@@ -233,7 +255,14 @@ final class SubscriptionService: ObservableObject {
         return HiAirL10n.t("paywall.products_unavailable", lang: lang)
     }
 
-    func purchase(_ product: Product, userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
+    typealias StoreKitPurchase = @MainActor (Product, Set<Product.PurchaseOption>) async throws -> Product.PurchaseResult
+
+    func purchase(
+        _ product: Product,
+        userId: String,
+        accessToken: String,
+        performPurchase: StoreKitPurchase? = nil
+    ) async throws -> SubscriptionStatusResponse {
         guard purchaseGuard.begin() else {
             SubscriptionDiagnostics.log("purchase_request_skipped", productId: product.id, resultType: "already_in_progress")
             throw SubscriptionServiceError.purchaseInProgress
@@ -258,7 +287,11 @@ final class SubscriptionService: ObservableObject {
         // Do not scan currentEntitlements before purchase — that path added multi-second
         // latency before the StoreKit sheet. Restore still uses syncVerifiedEntitlementsIfPresent.
 
-        let result = try await product.purchase()
+        let result = try await purchaseConfirmed(
+            product,
+            userId: userId,
+            performPurchase: performPurchase
+        )
         switch result {
         case .success(let verification):
             switch verification {
@@ -577,6 +610,94 @@ final class SubscriptionService: ObservableObject {
         }
     }
 
+    private func purchaseConfirmed(
+        _ product: Product,
+        userId: String,
+        performPurchase: StoreKitPurchase?
+    ) async throws -> Product.PurchaseResult {
+        let options = Self.purchaseOptions(for: userId)
+        if let performPurchase {
+            SubscriptionDiagnostics.log("purchase_via_swiftui_action", productId: product.id)
+            return try await performPurchase(product, options)
+        }
+        // Fallback for non-SwiftUI callers. iPadOS 18.2+/26 needs a UI anchor;
+        // scene-less purchase(options:) throws "Could not find a visible window".
+        if #available(iOS 18.2, *) {
+            if let viewController = Self.topViewController() {
+                SubscriptionDiagnostics.log("purchase_via_view_controller", productId: product.id)
+                return try await product.purchase(confirmIn: viewController, options: options)
+            }
+        }
+        if #available(iOS 17.0, *) {
+            if let scene = await Self.resolvePurchaseWindowScene() {
+                SubscriptionDiagnostics.log("purchase_via_window_scene", productId: product.id)
+                return try await product.purchase(confirmIn: scene, options: options)
+            }
+            SubscriptionDiagnostics.log("purchase_scene_unavailable", productId: product.id)
+            throw SubscriptionServiceError.purchaseSceneUnavailable
+        }
+        return try await product.purchase(options: options)
+    }
+
+    @available(iOS 17.0, *)
+    private static func resolvePurchaseWindowScene() async -> UIWindowScene? {
+        for attempt in 0..<8 {
+            if let scene = activeWindowScene() {
+                return scene
+            }
+            if attempt < 7 {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+        }
+        return activeWindowScene()
+    }
+
+    private static func activeWindowScene() -> UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let active = scenes.first(where: { $0.activationState == .foregroundActive }) {
+            return active
+        }
+        if let keyScene = scenes.flatMap(\.windows).first(where: \.isKeyWindow)?.windowScene {
+            return keyScene
+        }
+        return scenes.first
+    }
+
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window =
+            scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+            ?? scenes.flatMap(\.windows).first { !$0.isHidden }
+        var controller = window?.rootViewController
+        while let presented = controller?.presentedViewController {
+            controller = presented
+        }
+        return controller
+    }
+
+    nonisolated static func purchaseOptions(for userId: String) -> Set<Product.PurchaseOption> {
+        var options = Set<Product.PurchaseOption>()
+        if let token = appAccountToken(from: userId) {
+            options.insert(.appAccountToken(token))
+        }
+        return options
+    }
+
+    nonisolated static func appAccountToken(from userId: String) -> UUID? {
+        if let uuid = UUID(uuidString: userId) {
+            return uuid
+        }
+        let digest = SHA256.hash(data: Data(userId.utf8))
+        let bytes = Array(digest.prefix(16))
+        guard bytes.count == 16 else { return nil }
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    }
+
     /// 4xx (except timeout/rate-limit) → permanent reject; do not keep optimistic Premium.
     static func isTerminalSubscriptionRejection(_ error: APIError) -> Bool {
         switch error {
@@ -594,6 +715,7 @@ enum SubscriptionServiceError: LocalizedError {
     case unknown
     case purchaseInProgress
     case verificationFailed
+    case purchaseSceneUnavailable
 
     var errorDescription: String? {
         let lang = UserDefaults.standard.string(forKey: "session.preferredLanguage") ?? "ru"
@@ -602,7 +724,7 @@ enum SubscriptionServiceError: LocalizedError {
             return HiAirL10n.t("paywall.purchase_cancelled", lang: lang)
         case .pending:
             return HiAirL10n.t("paywall.purchase_pending", lang: lang)
-        case .unknown:
+        case .unknown, .purchaseSceneUnavailable:
             return HiAirL10n.t("paywall.generic_error", lang: lang)
         case .purchaseInProgress:
             return HiAirL10n.t("paywall.purchase_in_progress", lang: lang)

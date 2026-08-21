@@ -53,13 +53,24 @@ enum HiAirAccessibilityID {
         static let logout = "settings.logout"
         static let openPaywall = "settings.open_paywall"
         static let language = "settings.language"
+        static let restorePurchases = "settings.restore_purchases"
+        static let manageSubscription = "settings.manage_subscription"
+        static let supportEmail = "settings.support_email"
+        static let deleteAccount = "settings.delete_account"
     }
 
     enum Paywall {
         static let root = "paywall.root"
         static let close = "paywall.close"
         static let purchase = "paywall.purchase"
+        static let subscribeMonthly = "paywall.subscribe_monthly"
+        static let subscribeYearly = "paywall.subscribe_yearly"
+        static let lengthMonthly = "paywall.length_monthly"
+        static let lengthYearly = "paywall.length_yearly"
+        static let priceMonthly = "paywall.price_monthly"
+        static let priceYearly = "paywall.price_yearly"
         static let restore = "paywall.restore"
+        static let legalCopy = "paywall.legal_copy"
     }
 
     enum ProfileEnsure {
