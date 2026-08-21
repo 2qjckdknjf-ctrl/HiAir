@@ -11,6 +11,15 @@ Checked against Play policies current as of **2026-08-21**.
 - Ads: **No**
 - App access: saved (provide demo login in Console, never in git)
 
+## Console progress (2026-08-21)
+
+- Internal track live: **HiAir 1.0 (188)** (CI run `32485234454`)
+- en-US listing short/full description saved
+- Advertising ID declaration: **No** (saved)
+- Financial features: **no financial features** (saved)
+- Target audience ages: **13–15, 16–17, 18+** (saved)
+- Remaining actions in Console: Content rating, Data safety, Health apps
+
 ## Advertising ID
 
 - Does the app use the advertising ID? **No**
