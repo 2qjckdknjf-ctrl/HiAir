@@ -455,6 +455,10 @@ final class SettingsViewModel: ObservableObject {
             )
             savedPlaces.append(place)
             placesStatusText = l("settings.places.added")
+        } catch let APIError.serverWithDetail(statusCode: 402, detail: _) {
+            placesStatusText = l("settings.places.limit_reached")
+        } catch let APIError.server(statusCode: 402) {
+            placesStatusText = l("settings.places.limit_reached")
         } catch {
             placesStatusText = l("settings.places.add_failed")
         }

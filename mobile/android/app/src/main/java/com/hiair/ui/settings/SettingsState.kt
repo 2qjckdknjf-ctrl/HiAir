@@ -802,6 +802,15 @@ class SettingsViewModel(
                 savedPlaces = state.savedPlaces + created,
                 placesStatusText = l("places.added"),
             )
+        } catch (error: ApiHttpException) {
+            state = state.copy(
+                placesLoading = false,
+                placesStatusText = if (error.statusCode == 402) {
+                    l("places.limit_reached")
+                } else {
+                    l("places.add_failed")
+                },
+            )
         } catch (_: Exception) {
             state = state.copy(placesLoading = false, placesStatusText = l("places.add_failed"))
         }

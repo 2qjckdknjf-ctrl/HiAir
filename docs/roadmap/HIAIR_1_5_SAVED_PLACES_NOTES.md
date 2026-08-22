@@ -28,3 +28,4 @@
 ## Not yet
 - Travel mode
 - [x] Place limits by entitlement tier (free: 3, premium: 25)
+- [x] Mobile 402 limit message when adding places (iOS + Android)
