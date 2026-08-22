@@ -309,20 +309,38 @@ def find_recent_alert_by_dedupe_key(dedupe_key: str, within_hours: int = 6) -> b
     return row is not None
 
 
-def minutes_until_alert_cooldown_elapsed(profile_id: str, cooldown_minutes: int = 60) -> int:
-    """Minutes remaining before another alert may be sent for this profile."""
+def minutes_until_alert_cooldown_elapsed(
+    profile_id: str,
+    cooldown_minutes: int = 60,
+    *,
+    alert_type: str | None = None,
+) -> int:
+    """Minutes remaining before another alert of the same type may be sent."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT sent_at
-                FROM alert_events
-                WHERE user_profile_id = %s
-                ORDER BY sent_at DESC
-                LIMIT 1
-                """,
-                (profile_id,),
-            )
+            if alert_type:
+                cur.execute(
+                    """
+                    SELECT sent_at
+                    FROM alert_events
+                    WHERE user_profile_id = %s
+                      AND alert_type = %s
+                    ORDER BY sent_at DESC
+                    LIMIT 1
+                    """,
+                    (profile_id, alert_type),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT sent_at
+                    FROM alert_events
+                    WHERE user_profile_id = %s
+                    ORDER BY sent_at DESC
+                    LIMIT 1
+                    """,
+                    (profile_id,),
+                )
             row = cur.fetchone()
     if row is None:
         return 0

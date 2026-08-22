@@ -23,4 +23,4 @@ Suppress when:
 Otherwise send with the candidate reason code.
 
 ## Not yet
-- Richer per-alert-type cooldown tuning
+- [x] Per-alert-type cooldown tuning (`alert_cooldown.py`; scoped by `alert_type` in `alert_events`)

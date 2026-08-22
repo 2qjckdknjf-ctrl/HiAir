@@ -18,7 +18,7 @@ import pytest
 def _no_alert_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
-        lambda profile_id, cooldown_minutes=60: 0,
+        lambda profile_id, cooldown_minutes=60, *, alert_type=None: 0,
     )
 
 
@@ -175,7 +175,7 @@ def test_alert_suppresses_during_cooldown(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
-        lambda profile_id, cooldown_minutes=60: 25,
+        lambda profile_id, cooldown_minutes=60, *, alert_type=None: 25,
     )
     monkeypatch.setattr(
         "app.services.alert_orchestrator._is_quiet_hours",
@@ -262,3 +262,50 @@ def test_alert_legacy_medium_history_maps_to_medium_severity(monkeypatch) -> Non
     assert decision.shouldSend is False
     assert decision.reason == "no_material_change"
     assert decision.severity is None
+
+
+def test_evaluate_alert_passes_per_type_cooldown(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_minutes(profile_id, cooldown_minutes=60, *, alert_type=None):
+        captured["cooldown_minutes"] = cooldown_minutes
+        captured["alert_type"] = alert_type
+        return 0
+
+    def fake_settings(_: str) -> UserSettingsResponse:
+        return UserSettingsResponse(
+            user_id="user-1",
+            push_alerts_enabled=True,
+            alert_threshold="medium",
+            default_persona="adult",
+            quiet_hours_start=23,
+            quiet_hours_end=6,
+            profile_based_alerting=True,
+            preferred_language="en",
+        )
+
+    monkeypatch.setattr("app.services.alert_orchestrator.settings_repository.get_user_settings", fake_settings)
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.get_latest_risk_assessment",
+        lambda _: {"overall_risk": "moderate"},
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
+        lambda dedupe_key, within_hours=4: False,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
+        fake_minutes,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator._is_quiet_hours",
+        lambda start_hour, end_hour, now_hour: False,
+    )
+
+    evaluate_alert(
+        build_profile(),
+        build_risk(RiskLevel.HIGH),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+    )
+    assert captured["alert_type"] == "risk_increase"
+    assert captured["cooldown_minutes"] == 45

@@ -15,11 +15,10 @@ from app.models.alert_decision import (
 from app.services.localization import normalize_language, t
 from app.services.risk_level_contract import normalize_air_level_value
 import app.services.air_repository as air_repository
+import app.services.alert_cooldown as alert_cooldown
 import app.services.alert_decision_engine as alert_decision_engine
 import app.services.observability as observability
 import app.services.settings_repository as settings_repository
-
-ALERT_COOLDOWN_MINUTES = 60
 
 
 def _severity_from_risk_level(level: str) -> AlertSeverity:
@@ -106,6 +105,7 @@ def evaluate_alert(
         if alert_type == AlertType.RISK_INCREASE
         else DecisionReason.SIGNIFICANT_CHANGE
     )
+    cooldown_minutes = alert_cooldown.cooldown_minutes_for_alert_type(alert_type.value)
     gate = alert_decision_engine.decide_alert(
         AlertCandidate(
             alertType=alert_type.value,
@@ -117,7 +117,8 @@ def evaluate_alert(
             quietHoursEnd=user_settings.quiet_hours_end,
             cooldownMinutesRemaining=air_repository.minutes_until_alert_cooldown_elapsed(
                 profile.profile_id,
-                cooldown_minutes=ALERT_COOLDOWN_MINUTES,
+                cooldown_minutes=cooldown_minutes,
+                alert_type=alert_type.value,
             ),
             alreadySentFingerprint=already_sent,
             fingerprint=dedupe_key,
