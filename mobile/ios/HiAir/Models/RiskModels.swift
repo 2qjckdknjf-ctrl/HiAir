@@ -909,3 +909,27 @@ struct ProtectedDayEventRecord: Codable {
     let eventType: String
     let eventDate: String
 }
+
+struct WorkRestRecommendation: Codable {
+    let workMinutes: Int
+    let restMinutes: Int
+    let rationaleCodes: [String]
+}
+
+struct SiteRiskAssessment: Codable {
+    let siteId: String
+    let wbgtC: Double?
+    let heatIndexC: Double?
+    let workload: String
+    let riskLevel: String
+    let workRest: WorkRestRecommendation
+    let availableMetrics: [String]
+    let missingMetrics: [String]
+    let reasonCodes: [String]
+}
+
+struct SiteRiskResponse: Codable {
+    let assessedAt: String
+    let environmentalSource: String?
+    let assessment: SiteRiskAssessment
+}

@@ -2,6 +2,7 @@ package com.hiair.ui
 
 import com.hiair.ui.insights.AdaptationInsightsParser
 import com.hiair.ui.settings.SettingsViewModel
+import com.hiair.ui.work.WorkSiteRiskParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -118,5 +119,29 @@ class FeatureSurfacesParseTest {
         assertTrue(parsed.protectedDays.available)
         assertEquals(2, parsed.protectedDays.highRiskPeriodsAvoided)
         assertEquals(1, parsed.reasonCodes.size)
+    }
+
+    @Test
+    fun siteRiskResponseParsesProxyDisclaimer() {
+        val raw = """
+            {
+              "assessedAt": "2026-08-22T08:00:00Z",
+              "assessment": {
+                "siteId": "1:1",
+                "wbgtC": null,
+                "heatIndexC": 33.0,
+                "workload": "moderate",
+                "riskLevel": "high",
+                "workRest": {"workMinutes": 30, "restMinutes": 30, "rationaleCodes": []},
+                "availableMetrics": ["heat_index"],
+                "missingMetrics": ["wbgt"],
+                "reasonCodes": ["heat_index_proxy_only"]
+              }
+            }
+        """.trimIndent()
+        val parsed = WorkSiteRiskParser.parse(raw, "en")
+        assertEquals("high", parsed.riskLevel)
+        assertTrue(parsed.proxyOnly)
+        assertTrue(parsed.summaryLine.contains("high"))
     }
 }

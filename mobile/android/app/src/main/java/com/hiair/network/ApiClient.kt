@@ -187,6 +187,22 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
+    fun fetchSiteRisk(
+        userId: String,
+        accessToken: String? = null,
+        lat: Double,
+        lon: Double,
+        workload: String = "moderate",
+        acclimatized: Boolean = true,
+    ): String {
+        val endpoint = buildString {
+            append("$baseUrl/api/work/site-risk?lat=$lat&lon=$lon")
+            append("&workload=$workload")
+            append("&acclimatized=$acclimatized")
+        }
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchAirDayPlan(
         userId: String,
         accessToken: String? = null,

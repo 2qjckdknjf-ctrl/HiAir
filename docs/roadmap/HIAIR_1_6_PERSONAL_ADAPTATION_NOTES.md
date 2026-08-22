@@ -39,4 +39,5 @@
 
 ## Mobile follow-through (user-initiated)
 - Planner "Mark workout moved" records `workout_moved` via `POST /api/insights/protected-day-events` (iOS + Android)
+- Planner "Mark ventilation used" records `ventilation_window_used` when ventilation windows are shown
 - Android planner saved-place picker mirrors iOS

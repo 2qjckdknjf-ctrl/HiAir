@@ -47,6 +47,8 @@ data class PlannerState(
     val savedPlaces: List<SavedPlaceItem> = emptyList(),
     val activityPlanMarked: Boolean = false,
     val activityPlanMarkStatus: String = "",
+    val ventilationWindowMarked: Boolean = false,
+    val ventilationMarkStatus: String = "",
     val activityPlanLoading: Boolean = false,
     val activityPlanStatusText: String = "",
     val activityWindows: List<ActivityWindowLine> = emptyList(),
@@ -112,33 +114,76 @@ class DailyPlannerViewModel(
         profileId: String,
         preferredLanguage: String,
     ) {
+        recordProtectedDayEvent(
+            userId = userId,
+            accessToken = accessToken,
+            profileId = profileId,
+            preferredLanguage = preferredLanguage,
+            eventType = "workout_moved",
+            successKey = "planner.activity.mark_planned_done",
+            analyticsEvent = "activity_plan_marked_planned",
+        ) { marked, status, premiumRequired ->
+            state = state.copy(
+                activityPlanMarked = marked,
+                activityPlanMarkStatus = status,
+                activityPremiumRequired = premiumRequired,
+            )
+        }
+    }
+
+    fun markVentilationUsed(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        preferredLanguage: String,
+    ) {
+        recordProtectedDayEvent(
+            userId = userId,
+            accessToken = accessToken,
+            profileId = profileId,
+            preferredLanguage = preferredLanguage,
+            eventType = "ventilation_window_used",
+            successKey = "planner.ventilation.mark_done",
+            analyticsEvent = "ventilation_window_marked_used",
+        ) { marked, status, premiumRequired ->
+            state = state.copy(
+                ventilationWindowMarked = marked,
+                ventilationMarkStatus = status,
+                activityPremiumRequired = premiumRequired,
+            )
+        }
+    }
+
+    private fun recordProtectedDayEvent(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        preferredLanguage: String,
+        eventType: String,
+        successKey: String,
+        analyticsEvent: String,
+        onResult: (marked: Boolean, status: String, premiumRequired: Boolean) -> Unit,
+    ) {
         if (userId.isBlank() || profileId.isBlank()) return
         try {
             apiClient.createProtectedDayEvent(
                 userId = userId,
                 accessToken = accessToken,
                 profileId = profileId,
-                eventType = "workout_moved",
+                eventType = eventType,
             )
-            state = state.copy(
-                activityPlanMarked = true,
-                activityPlanMarkStatus = l("planner.activity.mark_planned_done", preferredLanguage),
-            )
-            ProductAnalytics.track("activity_plan_marked_planned")
+            ProductAnalytics.track(analyticsEvent)
+            onResult(true, l(successKey, preferredLanguage), false)
         } catch (error: ApiHttpException) {
-            val status = if (error.statusCode == 402) {
+            val premiumRequired = error.statusCode == 402
+            val status = if (premiumRequired) {
                 l("planner.activity.premium_required", preferredLanguage)
             } else {
                 l("planner.activity.mark_planned_failed", preferredLanguage)
             }
-            state = state.copy(
-                activityPlanMarkStatus = status,
-                activityPremiumRequired = error.statusCode == 402,
-            )
+            onResult(false, status, premiumRequired)
         } catch (_: Exception) {
-            state = state.copy(
-                activityPlanMarkStatus = l("planner.activity.mark_planned_failed", preferredLanguage),
-            )
+            onResult(false, l("planner.activity.mark_planned_failed", preferredLanguage), false)
         }
     }
 
@@ -235,7 +280,11 @@ class DailyPlannerViewModel(
     }
 
     fun refresh(userId: String, accessToken: String?, profileId: String, preferredLanguage: String) {
-        state = state.copy(loading = true)
+        state = state.copy(
+            loading = true,
+            ventilationWindowMarked = false,
+            ventilationMarkStatus = "",
+        )
         ProductAnalytics.track("forecast_fetch_started", mapOf("surface" to "planner"))
         try {
             val raw = apiClient.fetchAirDayPlan(

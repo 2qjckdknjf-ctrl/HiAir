@@ -251,4 +251,29 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertEqual(decoded.eventType, "workout_moved")
         XCTAssertEqual(decoded.profileId, "profile-1")
     }
+
+    func testSiteRiskResponseDecodes() throws {
+        let json = """
+        {
+          "assessedAt": "2026-08-22T08:00:00Z",
+          "environmentalSource": "live",
+          "assessment": {
+            "siteId": "41.3900:2.1700",
+            "wbgtC": null,
+            "heatIndexC": 33.0,
+            "workload": "moderate",
+            "riskLevel": "high",
+            "workRest": {"workMinutes": 30, "restMinutes": 30, "rationaleCodes": ["heat_index_proxy_only"]},
+            "availableMetrics": ["heat_index"],
+            "missingMetrics": ["wbgt"],
+            "reasonCodes": ["wbgt_unavailable", "heat_index_proxy_only"]
+          }
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(SiteRiskResponse.self, from: json)
+        XCTAssertEqual(decoded.assessment.riskLevel, "high")
+        XCTAssertNil(decoded.assessment.wbgtC)
+        XCTAssertTrue(decoded.assessment.reasonCodes.contains("heat_index_proxy_only"))
+    }
 }

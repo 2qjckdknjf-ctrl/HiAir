@@ -625,6 +625,54 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(placesCard)
 
+        val workWorkloadOptions = listOf("light", "moderate", "heavy", "very_heavy")
+        val workWorkloadLabels = workWorkloadOptions.map { ctx.l("settings.work.workload.$it") }
+        val workRiskText = V2Ui.styledBodyText(activity, rootShell.settingsViewModel.state.workSiteRiskText)
+        val workProxyDisclaimer = V2Ui.styledSecondaryText(activity, ctx.l("settings.work.proxy_disclaimer")).apply {
+            visibility = if (rootShell.settingsViewModel.state.workSiteRiskProxyOnly) View.VISIBLE else View.GONE
+        }
+        val workCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.work.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.work.subtitle")))
+            addView(
+                Spinner(activity).apply {
+                    adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, workWorkloadLabels)
+                    val selectedIndex = workWorkloadOptions.indexOf(rootShell.settingsViewModel.state.workWorkload).coerceAtLeast(0)
+                    setSelection(selectedIndex, false)
+                    onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                            rootShell.settingsViewModel.setWorkWorkload(workWorkloadOptions[position])
+                        }
+                        override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                    }
+                }
+            )
+            addView(
+                HiAirComponents.secondaryButton(
+                    activity,
+                    if (rootShell.settingsViewModel.state.workSiteRiskLoading) {
+                        ctx.l("common.loading")
+                    } else {
+                        ctx.l("settings.work.refresh")
+                    },
+                ).apply {
+                    setOnClickListener {
+                        Thread {
+                            rootShell.settingsViewModel.loadWorkSiteRisk()
+                            activity.runOnUiThread {
+                                workRiskText.text = rootShell.settingsViewModel.state.workSiteRiskText
+                                workProxyDisclaimer.visibility =
+                                    if (rootShell.settingsViewModel.state.workSiteRiskProxyOnly) View.VISIBLE else View.GONE
+                            }
+                        }.start()
+                    }
+                },
+            )
+            addView(workRiskText)
+            addView(workProxyDisclaimer)
+        }
+        bodyContainer.addView(workCard)
+
         val upgradePremiumButton = HiAirComponents.primaryButton(activity, ctx.l("settings.upgrade_premium")).apply {
             setOnClickListener {
                 rootShell.settingsViewModel.requestShowPaywall()

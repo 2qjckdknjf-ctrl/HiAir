@@ -59,6 +59,34 @@ internal object PlannerScreenRenderer {
         plannerCard.addView(heatStrip)
         plannerCard.addView(V2Ui.spacer(activity, 8))
         plannerCard.addView(keyEvents)
+        if (plannerState.forecastAvailable && plannerState.ventilationWindows.isNotEmpty()) {
+            plannerCard.addView(V2Ui.spacer(activity, 8))
+            if (!plannerState.ventilationWindowMarked) {
+                plannerCard.addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("planner.ventilation.mark_used")).apply {
+                        setOnClickListener {
+                            Thread {
+                                val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
+                                    ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
+                                if (resolvedProfileId.isNotBlank()) {
+                                    rootShell.plannerViewModel.markVentilationUsed(
+                                        userId = rootShell.settingsViewModel.state.userId,
+                                        accessToken = rootShell.settingsViewModel.state.accessToken.ifBlank { null },
+                                        profileId = resolvedProfileId,
+                                        preferredLanguage = rootShell.settingsViewModel.state.preferredLanguage,
+                                    )
+                                }
+                                activity.runOnUiThread { ctx.rerender() }
+                            }.start()
+                        }
+                    }
+                )
+            }
+            if (plannerState.ventilationMarkStatus.isNotBlank()) {
+                plannerCard.addView(V2Ui.spacer(activity, 4))
+                plannerCard.addView(V2Ui.styledSecondaryText(activity, plannerState.ventilationMarkStatus))
+            }
+        }
         bodyContainer.addView(plannerCard)
 
         if (plannerState.premiumRequired) {

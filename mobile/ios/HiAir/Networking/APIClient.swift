@@ -1055,6 +1055,38 @@ final class APIClient {
         return try JSONDecoder().decode(ProtectedDayEventRecord.self, from: data)
     }
 
+    func fetchSiteRisk(
+        lat: Double,
+        lon: Double,
+        workload: String = "moderate",
+        acclimatized: Bool = true,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> SiteRiskResponse {
+        var components = URLComponents(
+            url: baseURL.appending(path: "/api/work/site-risk"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "lon", value: String(lon)),
+            URLQueryItem(name: "workload", value: workload),
+            URLQueryItem(name: "acclimatized", value: acclimatized ? "true" : "false"),
+        ]
+        guard let url = components?.url else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(SiteRiskResponse.self, from: data)
+    }
+
     func fetchCurrentRisk(
         profileId: String,
         userId: String,

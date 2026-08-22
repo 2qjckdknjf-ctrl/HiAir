@@ -21,6 +21,8 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var savedPlaces: [SavedPlace] = []
     @Published var activityPlanMarked = false
     @Published var activityPlanMarkStatus = ""
+    @Published var ventilationWindowMarked = false
+    @Published var ventilationMarkStatus = ""
     @Published var activityPlanLoading = false
     @Published var activityPlan: ActivityPlanResponse?
     @Published var activityStatusText = ""
@@ -39,6 +41,8 @@ final class DailyPlannerViewModel: ObservableObject {
         loading = true
         defer { loading = false }
         premiumLocked = false
+        ventilationWindowMarked = false
+        ventilationMarkStatus = ""
         await loadActivities(userId: userId, accessToken: accessToken)
         do {
             ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "planner"])
@@ -242,21 +246,72 @@ final class DailyPlannerViewModel: ObservableObject {
         language: String,
         onPremiumRequired: (() -> Void)? = nil
     ) async {
+        await recordProtectedDayEvent(
+            profileId: profileId,
+            userId: userId,
+            accessToken: accessToken,
+            language: language,
+            eventType: "workout_moved",
+            successKey: "planner.activity.mark_planned_done",
+            analyticsEvent: "activity_plan_marked_planned",
+            onPremiumRequired: onPremiumRequired
+        ) { [weak self] status in
+            self?.activityPlanMarked = true
+            self?.activityPlanMarkStatus = status
+        } onFailure: { [weak self] status in
+            self?.activityPlanMarkStatus = status
+        }
+    }
+
+    func markVentilationUsed(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) async {
+        await recordProtectedDayEvent(
+            profileId: profileId,
+            userId: userId,
+            accessToken: accessToken,
+            language: language,
+            eventType: "ventilation_window_used",
+            successKey: "planner.ventilation.mark_done",
+            analyticsEvent: "ventilation_window_marked_used",
+            onPremiumRequired: onPremiumRequired
+        ) { [weak self] status in
+            self?.ventilationWindowMarked = true
+            self?.ventilationMarkStatus = status
+        } onFailure: { [weak self] status in
+            self?.ventilationMarkStatus = status
+        }
+    }
+
+    private func recordProtectedDayEvent(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        eventType: String,
+        successKey: String,
+        analyticsEvent: String,
+        onPremiumRequired: (() -> Void)?,
+        onSuccess: @escaping (String) -> Void,
+        onFailure: @escaping (String) -> Void
+    ) async {
         guard !profileId.isEmpty else { return }
-        activityPlanMarkStatus = ""
         do {
             _ = try await apiClient.createProtectedDayEvent(
                 payload: ProtectedDayEventCreateRequest(
                     profileId: profileId,
-                    eventType: "workout_moved",
+                    eventType: eventType,
                     eventDate: nil
                 ),
                 userId: userId,
                 accessToken: accessToken
             )
-            activityPlanMarked = true
-            activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_done", lang: language)
-            ProductAnalytics.track("activity_plan_marked_planned")
+            onSuccess(HiAirL10n.t(successKey, lang: language))
+            ProductAnalytics.track(analyticsEvent)
         } catch let error as APIError {
             let premiumCode: Int? = {
                 if case .server(let code) = error { return code }
@@ -266,12 +321,12 @@ final class DailyPlannerViewModel: ObservableObject {
             if premiumCode == 402 {
                 activityPremiumLocked = true
                 onPremiumRequired?()
-                activityPlanMarkStatus = HiAirL10n.t("planner.premium_required", lang: language)
+                onFailure(HiAirL10n.t("planner.premium_required", lang: language))
             } else {
-                activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_failed", lang: language)
+                onFailure(HiAirL10n.t("planner.activity.mark_planned_failed", lang: language))
             }
         } catch {
-            activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_failed", lang: language)
+            onFailure(HiAirL10n.t("planner.activity.mark_planned_failed", lang: language))
         }
     }
 
@@ -419,6 +474,27 @@ struct DailyPlannerView: View {
                                 Text("• \(session.l("planner.ventilation_windows")): \(humanWindowRange(firstVent.start, firstVent.end))")
                                     .font(AuroraTokens.Typography.bodyMD)
                                     .foregroundStyle(HiAirV2Theme.secondaryText)
+                            }
+                            if !viewModel.ventilationWindows.isEmpty {
+                                if !viewModel.ventilationWindowMarked {
+                                    Button(session.l("planner.ventilation.mark_used")) {
+                                        Task {
+                                            await viewModel.markVentilationUsed(
+                                                profileId: session.profileId,
+                                                userId: session.userId,
+                                                accessToken: session.accessToken,
+                                                language: session.preferredLanguage,
+                                                onPremiumRequired: { session.showPaywall = true }
+                                            )
+                                        }
+                                    }
+                                    .buttonStyle(HiAirSecondaryButtonStyle())
+                                }
+                                if !viewModel.ventilationMarkStatus.isEmpty {
+                                    Text(viewModel.ventilationMarkStatus)
+                                        .font(AuroraTokens.Typography.caption)
+                                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                                }
                             }
                         }
                     }

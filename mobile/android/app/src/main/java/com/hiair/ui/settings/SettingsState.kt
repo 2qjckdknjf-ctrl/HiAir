@@ -13,6 +13,7 @@ import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import com.hiair.ui.work.WorkSiteRiskParser
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -80,6 +81,10 @@ data class SettingsState(
     val savedPlaces: List<SavedPlaceItem> = emptyList(),
     val placesStatusText: String = "-",
     val placesLoading: Boolean = false,
+    val workWorkload: String = "moderate",
+    val workSiteRiskText: String = "",
+    val workSiteRiskProxyOnly: Boolean = false,
+    val workSiteRiskLoading: Boolean = false,
 )
 
 class SettingsViewModel(
@@ -636,6 +641,44 @@ class SettingsViewModel(
             )
         } catch (_: Exception) {
             state = state.copy(placesLoading = false, placesStatusText = l("places.load_failed"))
+        }
+    }
+
+    fun setWorkWorkload(workload: String) {
+        state = state.copy(workWorkload = workload)
+    }
+
+    fun loadWorkSiteRisk() {
+        if (state.userId.isBlank()) {
+            state = state.copy(workSiteRiskText = l("settings.work.no_location"))
+            return
+        }
+        if (!hasValidLocation()) {
+            state = state.copy(workSiteRiskText = l("settings.work.no_location"))
+            return
+        }
+        state = state.copy(workSiteRiskLoading = true, workSiteRiskText = "")
+        try {
+            val raw = apiClient.fetchSiteRisk(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                lat = state.latitude,
+                lon = state.longitude,
+                workload = state.workWorkload,
+                acclimatized = true,
+            )
+            val parsed = WorkSiteRiskParser.parse(raw, state.preferredLanguage)
+            state = state.copy(
+                workSiteRiskLoading = false,
+                workSiteRiskText = parsed.summaryLine,
+                workSiteRiskProxyOnly = parsed.proxyOnly,
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                workSiteRiskLoading = false,
+                workSiteRiskText = l("settings.work.load_failed"),
+                workSiteRiskProxyOnly = false,
+            )
         }
     }
 

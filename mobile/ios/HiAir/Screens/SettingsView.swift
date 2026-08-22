@@ -99,6 +99,10 @@ final class SettingsViewModel: ObservableObject {
     @Published var placesStatusText = ""
     @Published var profileHomeLat: Double?
     @Published var profileHomeLon: Double?
+    @Published var workWorkload = "moderate"
+    @Published var workSiteRiskText = ""
+    @Published var workSiteRiskProxyOnly = false
+    @Published var workSiteRiskLoading = false
     @Published var statusText = "-"
     @Published var loading = false
 
@@ -318,6 +322,42 @@ final class SettingsViewModel: ObservableObject {
             placesStatusText = ""
         } catch {
             placesStatusText = l("settings.places.load_failed")
+        }
+    }
+
+    func loadWorkSiteRisk() async {
+        guard !userId.isEmpty,
+              let lat = profileHomeLat,
+              let lon = profileHomeLon else {
+            workSiteRiskText = l("settings.work.no_location")
+            return
+        }
+        workSiteRiskLoading = true
+        defer { workSiteRiskLoading = false }
+        do {
+            let response = try await apiClient.fetchSiteRisk(
+                lat: lat,
+                lon: lon,
+                workload: workWorkload,
+                acclimatized: true,
+                userId: userId,
+                accessToken: accessToken
+            )
+            let assessment = response.assessment
+            workSiteRiskProxyOnly = assessment.reasonCodes.contains("heat_index_proxy_only")
+            let workRest = String(
+                format: l("settings.work.work_rest"),
+                assessment.workRest.workMinutes,
+                assessment.workRest.restMinutes
+            )
+            workSiteRiskText = String(
+                format: l("settings.work.summary"),
+                assessment.riskLevel,
+                workRest
+            )
+        } catch {
+            workSiteRiskText = l("settings.work.load_failed")
+            workSiteRiskProxyOnly = false
         }
     }
 
@@ -1135,6 +1175,37 @@ struct SettingsView: View {
                 .onAppear {
                     Task { await viewModel.loadSavedPlaces() }
                 }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.work.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("settings.work.subtitle"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Picker(session.l("settings.work.workload"), selection: $viewModel.workWorkload) {
+                        Text(session.l("settings.work.workload.light")).tag("light")
+                        Text(session.l("settings.work.workload.moderate")).tag("moderate")
+                        Text(session.l("settings.work.workload.heavy")).tag("heavy")
+                        Text(session.l("settings.work.workload.very_heavy")).tag("very_heavy")
+                    }
+                    .pickerStyle(.menu)
+                    Button(viewModel.workSiteRiskLoading ? session.l("common.loading") : session.l("settings.work.refresh")) {
+                        Task { await viewModel.loadWorkSiteRisk() }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    if !viewModel.workSiteRiskText.isEmpty {
+                        Text(viewModel.workSiteRiskText)
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                    }
+                    if viewModel.workSiteRiskProxyOnly {
+                        Text(session.l("settings.work.proxy_disclaimer"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                }
+                .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.wearables.title"))

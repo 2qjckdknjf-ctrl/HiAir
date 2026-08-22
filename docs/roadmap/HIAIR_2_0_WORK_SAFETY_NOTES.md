@@ -1,6 +1,6 @@
 # HiAir 2.0 — Work / B2B Safety CORE
 
-**Status:** IN PROGRESS (backend scaffold)  
+**Status:** IN PROGRESS (backend + Settings UI)  
 **Branch:** `feat/hiair-1.2-best-time-planner`  
 **Depends on:** HiAir 1.1 Forecast Truth (honest environmental metrics)
 
@@ -16,6 +16,11 @@ Occupational heat safety layer for worksites and B2B integrations — clearly se
 - Workloads: `light`, `moderate`, `heavy`, `very_heavy`
 - Work/rest tables: NIOSH-*inspired* heuristic v0 (scaffold only)
 
+## Mobile (additive)
+
+- iOS/Android Settings: occupational site-risk card (separate from consumer Dashboard heat)
+- Workload picker + work/rest summary; explicit proxy disclaimer when `heat_index_proxy_only`
+
 ## Product rules
 
 1. **Consumer Heat Index ≠ occupational WBGT.** Never label apparent temperature / feels-like as WBGT.
@@ -30,5 +35,4 @@ Occupational heat safety layer for worksites and B2B integrations — clearly se
 - [ ] Site registry and multi-site dashboards
 - [ ] Crew scheduling integrations
 - [ ] B2B admin API keys and org tenancy
-- [ ] iOS / Android work-mode UI (separate from consumer heat cards)
 - [ ] Production smoke on `api.hiair.io`
