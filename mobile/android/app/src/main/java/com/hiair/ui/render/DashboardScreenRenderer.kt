@@ -178,6 +178,7 @@ internal object DashboardScreenRenderer {
 
         airMetricsCard(ctx, state)?.let { bodyContainer.addView(it) }
         hazardsCard(ctx, state)?.let { bodyContainer.addView(it) }
+        protectedDayCard(ctx, state)?.let { bodyContainer.addView(it) }
         if (state.wearableConnected) {
             bodyContainer.addView(
                 HealthTodayMetricsRenderer.render(
@@ -281,6 +282,62 @@ internal object DashboardScreenRenderer {
             }
             if (overall.equals("unavailable", ignoreCase = true) && state.hazardLines.none { it.available }) {
                 addView(V2Ui.styledSecondaryText(activity, unavailable))
+            }
+        }
+    }
+
+    private fun protectedDayCard(ctx: RenderContext, state: DashboardState): View? {
+        if (!DashboardViewModel.isElevatedRisk(state.riskLevel)) return null
+        val activity = ctx.activity
+        val rootShell = ctx.rootShell
+        val settings = rootShell.settingsViewModel.state
+        return V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.protected.title")).apply { textSize = 16f })
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("dashboard.protected.subtitle")).apply { textSize = 12f })
+            if (!state.exposureReducedMarked) {
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("dashboard.protected.exposure")).apply {
+                        setOnClickListener {
+                            Thread {
+                                val profileId = rootShell.settingsViewModel.ensureProfile()
+                                    ?: rootShell.symptomLogViewModel.state.profileId
+                                if (!profileId.isNullOrBlank()) {
+                                    rootShell.dashboardViewModel.markExposureReduced(
+                                        userId = settings.userId,
+                                        accessToken = settings.accessToken.ifBlank { null },
+                                        profileId = profileId,
+                                        preferredLanguage = settings.preferredLanguage,
+                                    )
+                                }
+                                activity.runOnUiThread { ctx.rerender() }
+                            }.start()
+                        }
+                    },
+                )
+            }
+            if (state.safeWindows.isNotEmpty() && !state.highRiskAvoidedMarked) {
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("dashboard.protected.risk_avoided")).apply {
+                        setOnClickListener {
+                            Thread {
+                                val profileId = rootShell.settingsViewModel.ensureProfile()
+                                    ?: rootShell.symptomLogViewModel.state.profileId
+                                if (!profileId.isNullOrBlank()) {
+                                    rootShell.dashboardViewModel.markHighRiskAvoided(
+                                        userId = settings.userId,
+                                        accessToken = settings.accessToken.ifBlank { null },
+                                        profileId = profileId,
+                                        preferredLanguage = settings.preferredLanguage,
+                                    )
+                                }
+                                activity.runOnUiThread { ctx.rerender() }
+                            }.start()
+                        }
+                    },
+                )
+            }
+            if (state.protectedDayStatus.isNotBlank()) {
+                addView(V2Ui.styledSecondaryText(activity, state.protectedDayStatus))
             }
         }
     }

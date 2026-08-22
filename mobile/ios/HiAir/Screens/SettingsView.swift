@@ -103,6 +103,9 @@ final class SettingsViewModel: ObservableObject {
     @Published var workSiteRiskText = ""
     @Published var workSiteRiskProxyOnly = false
     @Published var workSiteRiskLoading = false
+    @Published var familyMembers: [FamilyMemberLink] = []
+    @Published var familyStatusText = ""
+    @Published var availableProfiles: [UserProfile] = []
     @Published var statusText = "-"
     @Published var loading = false
 
@@ -200,6 +203,7 @@ final class SettingsViewModel: ObservableObject {
         defer { loading = false }
         do {
             let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
+            availableProfiles = profiles
             if let profile = profiles.first {
                 profileId = profile.id
                 selectedPersona = profile.personaType
@@ -210,6 +214,7 @@ final class SettingsViewModel: ObservableObject {
                 }
             }
             await loadSavedPlaces()
+            await loadFamilyMembers()
             let response = try await apiClient.fetchUserSettings(userId: userId, accessToken: accessToken)
             pushAlertsEnabled = response.pushAlertsEnabled
             riskThreshold = response.alertThreshold
@@ -322,6 +327,48 @@ final class SettingsViewModel: ObservableObject {
             placesStatusText = ""
         } catch {
             placesStatusText = l("settings.places.load_failed")
+        }
+    }
+
+    func loadFamilyMembers() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let response = try await apiClient.listFamilyMembers(userId: userId, accessToken: accessToken)
+            familyMembers = response.members
+            familyStatusText = ""
+        } catch {
+            familyStatusText = l("settings.family.load_failed")
+        }
+    }
+
+    func addFamilyMember(profileId: String, relation: String, label: String?) async {
+        guard !userId.isEmpty, !profileId.isEmpty else { return }
+        familyStatusText = ""
+        do {
+            let member = try await apiClient.createFamilyMember(
+                payload: FamilyMemberCreateRequest(
+                    memberProfileId: profileId,
+                    relation: relation,
+                    label: label?.isEmpty == true ? nil : label
+                ),
+                userId: userId,
+                accessToken: accessToken
+            )
+            familyMembers.append(member)
+            familyStatusText = l("settings.family.added")
+        } catch {
+            familyStatusText = l("settings.family.add_failed")
+        }
+    }
+
+    func deleteFamilyMember(_ linkId: String) async {
+        guard !userId.isEmpty else { return }
+        do {
+            try await apiClient.deleteFamilyMember(memberLinkId: linkId, userId: userId, accessToken: accessToken)
+            familyMembers.removeAll { $0.id == linkId }
+            familyStatusText = l("settings.family.deleted")
+        } catch {
+            familyStatusText = l("settings.family.delete_failed")
         }
     }
 
@@ -1206,6 +1253,68 @@ struct SettingsView: View {
                     }
                 }
                 .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.family.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("settings.family.subtitle"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if viewModel.familyMembers.isEmpty {
+                        Text(session.l("settings.family.empty"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    } else {
+                        ForEach(viewModel.familyMembers) { member in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(member.label ?? member.memberProfileId)
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                    Text(session.l("settings.family.relation.\(member.relation)"))
+                                        .font(AuroraTokens.Typography.caption)
+                                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                }
+                                Spacer()
+                                Button(session.l("settings.family.delete")) {
+                                    Task { await viewModel.deleteFamilyMember(member.id) }
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                            }
+                        }
+                    }
+                    ForEach(
+                        viewModel.availableProfiles.filter { profile in
+                            profile.id != viewModel.profileId
+                                && !viewModel.familyMembers.contains(where: { $0.memberProfileId == profile.id })
+                        }
+                    ) { profile in
+                        HStack {
+                            Text(profile.personaType)
+                                .font(AuroraTokens.Typography.bodyMD)
+                            Spacer()
+                            Button(session.l("settings.family.add")) {
+                                Task {
+                                    await viewModel.addFamilyMember(
+                                        profileId: profile.id,
+                                        relation: "child",
+                                        label: profile.personaType
+                                    )
+                                }
+                            }
+                            .buttonStyle(HiAirSecondaryButtonStyle())
+                        }
+                    }
+                    if !viewModel.familyStatusText.isEmpty {
+                        Text(viewModel.familyStatusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+                .v2Card()
+                .onAppear {
+                    Task { await viewModel.loadFamilyMembers() }
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.wearables.title"))

@@ -1087,6 +1087,51 @@ final class APIClient {
         return try JSONDecoder().decode(SiteRiskResponse.self, from: data)
     }
 
+    func listFamilyMembers(userId: String, accessToken: String? = nil) async throws -> FamilyMemberListResponse {
+        let url = baseURL.appending(path: "/api/family/members")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(FamilyMemberListResponse.self, from: data)
+    }
+
+    func createFamilyMember(
+        payload: FamilyMemberCreateRequest,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> FamilyMemberLink {
+        let url = baseURL.appending(path: "/api/family/members")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(payload)
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(FamilyMemberLink.self, from: data)
+    }
+
+    func deleteFamilyMember(
+        memberLinkId: String,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws {
+        let url = baseURL.appending(path: "/api/family/members/\(memberLinkId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+    }
+
     func fetchCurrentRisk(
         profileId: String,
         userId: String,

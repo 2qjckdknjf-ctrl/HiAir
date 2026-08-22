@@ -14,6 +14,8 @@
 - Family caregiver stub: `/api/family/members`
 - Tests: `test_places_api.py`, `test_family_api.py`
 - iOS/Android Settings CRUD; iOS planner place picker
+- Family links UI (Settings): list/add/delete members; profile ownership validated server-side
+- Android planner saved-place picker
 
 ## Scope (v0)
 - Per-user saved locations with typed labels (`home`, `work`, `school`, `parents`, `vacation`, `other`)

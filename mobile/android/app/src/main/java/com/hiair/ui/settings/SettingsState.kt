@@ -13,6 +13,8 @@ import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import com.hiair.ui.family.FamilyMemberItem
+import com.hiair.ui.family.FamilyMembersParser
 import com.hiair.ui.work.WorkSiteRiskParser
 import org.json.JSONArray
 import org.json.JSONObject
@@ -85,6 +87,9 @@ data class SettingsState(
     val workSiteRiskText: String = "",
     val workSiteRiskProxyOnly: Boolean = false,
     val workSiteRiskLoading: Boolean = false,
+    val familyMembers: List<FamilyMemberItem> = emptyList(),
+    val familyStatusText: String = "",
+    val availableProfileIds: List<Pair<String, String>> = emptyList(),
 )
 
 class SettingsViewModel(
@@ -679,6 +684,74 @@ class SettingsViewModel(
                 workSiteRiskText = l("settings.work.load_failed"),
                 workSiteRiskProxyOnly = false,
             )
+        }
+    }
+
+    fun refreshAvailableProfiles() {
+        if (state.userId.isBlank()) return
+        try {
+            val array = JSONArray(apiClient.listProfiles(state.userId, state.accessToken.ifBlank { null }))
+            val profiles = buildList {
+                for (index in 0 until array.length()) {
+                    val profile = array.getJSONObject(index)
+                    val id = profile.optString("id")
+                    val persona = profile.optString("persona_type", "adult")
+                    if (id.isNotBlank()) add(id to persona)
+                }
+            }
+            state = state.copy(availableProfileIds = profiles)
+        } catch (_: Exception) {
+            // Optional enrichment for family UI.
+        }
+    }
+
+    fun loadFamilyMembers() {
+        if (state.userId.isBlank()) return
+        try {
+            val raw = apiClient.listFamilyMembers(state.userId, state.accessToken.ifBlank { null })
+            state = state.copy(
+                familyMembers = FamilyMembersParser.parseList(raw),
+                familyStatusText = "",
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyStatusText = l("settings.family.load_failed"))
+        }
+    }
+
+    fun addFamilyMember(profileId: String, relation: String, label: String?) {
+        if (state.userId.isBlank() || profileId.isBlank()) return
+        try {
+            val raw = apiClient.createFamilyMember(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                memberProfileId = profileId,
+                relation = relation,
+                label = label,
+            )
+            val created = FamilyMembersParser.parseMember(raw)
+            state = state.copy(
+                familyMembers = state.familyMembers + created,
+                familyStatusText = l("settings.family.added"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyStatusText = l("settings.family.add_failed"))
+        }
+    }
+
+    fun deleteFamilyMember(linkId: String) {
+        if (state.userId.isBlank() || linkId.isBlank()) return
+        try {
+            apiClient.deleteFamilyMember(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                memberLinkId = linkId,
+            )
+            state = state.copy(
+                familyMembers = state.familyMembers.filterNot { it.id == linkId },
+                familyStatusText = l("settings.family.deleted"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyStatusText = l("settings.family.delete_failed"))
         }
     }
 

@@ -673,6 +673,105 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(workCard)
 
+        val familyStatusView = TextView(activity).apply {
+            text = rootShell.settingsViewModel.state.familyStatusText
+            textSize = 14f
+            setTextColor(Tokens.Text.secondary)
+        }
+        val familyListContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        fun renderFamilyList() {
+            familyListContainer.removeAllViews()
+            val members = rootShell.settingsViewModel.state.familyMembers
+            val linkedIds = members.map { it.memberProfileId }.toSet()
+            val profileId = rootShell.settingsViewModel.state.profileId
+            if (members.isEmpty()) {
+                familyListContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.family.empty")))
+            } else {
+                members.forEach { member ->
+                    val row = LinearLayout(activity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    val title = member.label ?: member.memberProfileId
+                    val subtitle = ctx.l("settings.family.relation.${member.relation}")
+                    row.addView(
+                        LinearLayout(activity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            addView(V2Ui.styledBodyText(activity, title).apply { textSize = 14f })
+                            addView(V2Ui.styledSecondaryText(activity, subtitle).apply { textSize = 12f })
+                            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        },
+                    )
+                    row.addView(
+                        HiAirComponents.secondaryButton(activity, ctx.l("settings.family.delete")).apply {
+                            setOnClickListener {
+                                Thread {
+                                    rootShell.settingsViewModel.deleteFamilyMember(member.id)
+                                    activity.runOnUiThread {
+                                        familyStatusView.text = rootShell.settingsViewModel.state.familyStatusText
+                                        renderFamilyList()
+                                    }
+                                }.start()
+                            }
+                        },
+                    )
+                    familyListContainer.addView(row)
+                }
+            }
+            val available = rootShell.settingsViewModel.state.availableProfileIds.filter { (id, _) ->
+                id != profileId && id !in linkedIds
+            }
+            available.forEach { (profileId, persona) ->
+                val row = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                row.addView(
+                    V2Ui.styledBodyText(activity, persona).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        textSize = 14f
+                    },
+                )
+                row.addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("settings.family.add")).apply {
+                        setOnClickListener {
+                            Thread {
+                                rootShell.settingsViewModel.addFamilyMember(
+                                    profileId = profileId,
+                                    relation = "child",
+                                    label = persona,
+                                )
+                                activity.runOnUiThread {
+                                    familyStatusView.text = rootShell.settingsViewModel.state.familyStatusText
+                                    renderFamilyList()
+                                }
+                            }.start()
+                        }
+                    },
+                )
+                familyListContainer.addView(row)
+            }
+        }
+        if (isLoggedIn) {
+            Thread {
+                rootShell.settingsViewModel.refreshAvailableProfiles()
+                rootShell.settingsViewModel.loadFamilyMembers()
+                activity.runOnUiThread {
+                    familyStatusView.text = rootShell.settingsViewModel.state.familyStatusText
+                    renderFamilyList()
+                }
+            }.start()
+        }
+        val familyCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.family.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.family.subtitle")))
+            addView(familyListContainer)
+            addView(familyStatusView)
+        }
+        bodyContainer.addView(familyCard)
+
         val upgradePremiumButton = HiAirComponents.primaryButton(activity, ctx.l("settings.upgrade_premium")).apply {
             setOnClickListener {
                 rootShell.settingsViewModel.requestShowPaywall()

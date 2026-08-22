@@ -19,6 +19,9 @@ final class DashboardViewModel: ObservableObject {
     @Published var loadFailed = false
     @Published var freshness: String = ""
     @Published var dataQuality: String = ""
+    @Published var exposureReducedMarked = false
+    @Published var highRiskAvoidedMarked = false
+    @Published var protectedDayStatus = ""
 
     private let apiClient = APIClient.live()
     private let healthService = HealthKitService.shared
@@ -31,6 +34,9 @@ final class DashboardViewModel: ObservableObject {
     ) async {
         loading = true
         loadFailed = false
+        exposureReducedMarked = false
+        highRiskAvoidedMarked = false
+        protectedDayStatus = ""
         defer {
             loading = false
             hasLoadedOnce = true
@@ -159,6 +165,70 @@ final class DashboardViewModel: ObservableObject {
             wearableToday = nil
             healthSummary = nil
             morningReport = nil
+        }
+    }
+
+    static func isElevatedRisk(_ level: String) -> Bool {
+        let normalized = level.lowercased().replacingOccurrences(of: " ", with: "_")
+        return normalized == "high" || normalized == "very_high"
+    }
+
+    func markExposureReduced(profileId: String, userId: String, accessToken: String, language: String) async {
+        await recordProtectedDayEvent(
+            profileId: profileId,
+            userId: userId,
+            accessToken: accessToken,
+            language: language,
+            eventType: "poor_air_exposure_reduced",
+            successKey: "dashboard.protected.exposure_done"
+        ) { [weak self] status in
+            self?.exposureReducedMarked = true
+            self?.protectedDayStatus = status
+        } onFailure: { [weak self] status in
+            self?.protectedDayStatus = status
+        }
+    }
+
+    func markHighRiskAvoided(profileId: String, userId: String, accessToken: String, language: String) async {
+        await recordProtectedDayEvent(
+            profileId: profileId,
+            userId: userId,
+            accessToken: accessToken,
+            language: language,
+            eventType: "high_risk_period_avoided",
+            successKey: "dashboard.protected.risk_avoided_done"
+        ) { [weak self] status in
+            self?.highRiskAvoidedMarked = true
+            self?.protectedDayStatus = status
+        } onFailure: { [weak self] status in
+            self?.protectedDayStatus = status
+        }
+    }
+
+    private func recordProtectedDayEvent(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        eventType: String,
+        successKey: String,
+        onSuccess: @escaping (String) -> Void,
+        onFailure: @escaping (String) -> Void
+    ) async {
+        guard !profileId.isEmpty else { return }
+        do {
+            _ = try await apiClient.createProtectedDayEvent(
+                payload: ProtectedDayEventCreateRequest(
+                    profileId: profileId,
+                    eventType: eventType,
+                    eventDate: nil
+                ),
+                userId: userId,
+                accessToken: accessToken
+            )
+            onSuccess(HiAirL10n.t(successKey, lang: language))
+        } catch {
+            onFailure(HiAirL10n.t("planner.activity.mark_planned_failed", lang: language))
         }
     }
 
@@ -370,6 +440,7 @@ struct DashboardView: View {
                         riskHeroSection(width: width)
                         todaysAirSection
                         hazardsSection
+                        protectedDaySection
                         healthMetricsSection
                         wearableLoadSection
                         quickActionsSection
@@ -791,6 +862,52 @@ struct DashboardView: View {
     private func hazardLevelLabel(_ level: String) -> String {
         let normalized = level.lowercased().replacingOccurrences(of: " ", with: "_")
         return session.l("hazard.level.\(normalized)")
+    }
+
+    @ViewBuilder
+    private var protectedDaySection: some View {
+        if DashboardViewModel.isElevatedRisk(viewModel.riskLevel), !session.profileId.isEmpty {
+            VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+                Text(session.l("dashboard.protected.title"))
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Text(session.l("dashboard.protected.subtitle"))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+                if !viewModel.exposureReducedMarked {
+                    Button(session.l("dashboard.protected.exposure")) {
+                        Task {
+                            await viewModel.markExposureReduced(
+                                profileId: session.profileId,
+                                userId: session.userId,
+                                accessToken: session.accessToken,
+                                language: session.preferredLanguage
+                            )
+                        }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                }
+                if !viewModel.safeWindowLabels.isEmpty, !viewModel.highRiskAvoidedMarked {
+                    Button(session.l("dashboard.protected.risk_avoided")) {
+                        Task {
+                            await viewModel.markHighRiskAvoided(
+                                profileId: session.profileId,
+                                userId: session.userId,
+                                accessToken: session.accessToken,
+                                language: session.preferredLanguage
+                            )
+                        }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                }
+                if !viewModel.protectedDayStatus.isEmpty {
+                    Text(viewModel.protectedDayStatus)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                }
+            }
+            .v2Card()
+        }
     }
 
     @ViewBuilder

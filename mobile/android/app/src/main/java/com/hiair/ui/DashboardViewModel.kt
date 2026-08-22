@@ -61,6 +61,9 @@ data class DashboardState(
     val hazardsOverallLevel: String? = null,
     val hazardsOverallScore: Int? = null,
     val hazardLines: List<HazardLine> = emptyList(),
+    val exposureReducedMarked: Boolean = false,
+    val highRiskAvoidedMarked: Boolean = false,
+    val protectedDayStatus: String = "",
 )
 
 class DashboardViewModel(
@@ -103,7 +106,12 @@ class DashboardViewModel(
             state = DashboardState(status = DashboardStatus.EMPTY)
             return
         }
-        state = state.copy(status = DashboardStatus.LOADING)
+        state = state.copy(
+            status = DashboardStatus.LOADING,
+            exposureReducedMarked = false,
+            highRiskAvoidedMarked = false,
+            protectedDayStatus = "",
+        )
         ProductAnalytics.track("dashboard_loading")
         ProductAnalytics.track("forecast_fetch_started", mapOf("surface" to "dashboard"))
         try {
@@ -355,6 +363,54 @@ class DashboardViewModel(
                 "very_high", "very high" -> 90
                 else -> 45
             }
+        }
+
+        fun isElevatedRisk(level: String?): Boolean {
+            val normalized = level?.lowercase()?.replace(' ', '_') ?: return false
+            return normalized == "high" || normalized == "very_high"
+        }
+    }
+
+    fun markExposureReduced(userId: String, accessToken: String?, profileId: String, preferredLanguage: String) {
+        recordProtectedDayEvent(
+            userId, accessToken, profileId, preferredLanguage,
+            "poor_air_exposure_reduced",
+            "dashboard.protected.exposure_done",
+        ) { marked, status ->
+            state = state.copy(exposureReducedMarked = marked, protectedDayStatus = status)
+        }
+    }
+
+    fun markHighRiskAvoided(userId: String, accessToken: String?, profileId: String, preferredLanguage: String) {
+        recordProtectedDayEvent(
+            userId, accessToken, profileId, preferredLanguage,
+            "high_risk_period_avoided",
+            "dashboard.protected.risk_avoided_done",
+        ) { marked, status ->
+            state = state.copy(highRiskAvoidedMarked = marked, protectedDayStatus = status)
+        }
+    }
+
+    private fun recordProtectedDayEvent(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        preferredLanguage: String,
+        eventType: String,
+        successKey: String,
+        onResult: (marked: Boolean, status: String) -> Unit,
+    ) {
+        if (userId.isBlank() || profileId.isBlank()) return
+        try {
+            apiClient.createProtectedDayEvent(
+                userId = userId,
+                accessToken = accessToken,
+                profileId = profileId,
+                eventType = eventType,
+            )
+            onResult(true, AndroidL10n.t(successKey, preferredLanguage))
+        } catch (_: Exception) {
+            onResult(false, AndroidL10n.t("planner.activity.mark_planned_failed", preferredLanguage))
         }
     }
 }

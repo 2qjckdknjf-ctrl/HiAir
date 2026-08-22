@@ -8,6 +8,7 @@ from app.models.family import (
     FamilyMemberLink,
     FamilyMemberListResponse,
 )
+import app.services.air_repository as air_repository
 import app.services.family_repository as family_repository
 
 router = APIRouter(prefix="/family", tags=["family"])
@@ -25,6 +26,11 @@ def create_family_member(
     payload: FamilyMemberCreateRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> FamilyMemberLink:
+    profile = air_repository.get_profile_context(payload.memberProfileId)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if profile.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Profile does not belong to user")
     return family_repository.create_member(owner_user_id=user_id, payload=payload)
 
 

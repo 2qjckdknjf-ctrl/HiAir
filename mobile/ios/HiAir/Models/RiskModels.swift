@@ -491,7 +491,7 @@ struct AuthResponse: Codable {
     }
 }
 
-struct UserProfile: Codable {
+struct UserProfile: Codable, Identifiable {
     let id: String
     let userId: String
     let personaType: String
@@ -932,4 +932,23 @@ struct SiteRiskResponse: Codable {
     let assessedAt: String
     let environmentalSource: String?
     let assessment: SiteRiskAssessment
+}
+
+struct FamilyMemberLink: Codable, Identifiable, Hashable {
+    let id: String
+    let ownerUserId: String
+    let memberProfileId: String
+    let relation: String
+    let label: String?
+    let createdAt: String?
+}
+
+struct FamilyMemberCreateRequest: Codable {
+    let memberProfileId: String
+    let relation: String
+    let label: String?
+}
+
+struct FamilyMemberListResponse: Codable {
+    let members: [FamilyMemberLink]
 }

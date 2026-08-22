@@ -276,4 +276,27 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertNil(decoded.assessment.wbgtC)
         XCTAssertTrue(decoded.assessment.reasonCodes.contains("heat_index_proxy_only"))
     }
+
+    func testFamilyMemberListDecodes() throws {
+        let json = """
+        {
+          "members": [
+            {
+              "id": "link-1",
+              "ownerUserId": "user-1",
+              "memberProfileId": "profile-child",
+              "relation": "child",
+              "label": "Mia"
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(FamilyMemberListResponse.self, from: json)
+        XCTAssertEqual(decoded.members.count, 1)
+        XCTAssertEqual(decoded.members[0].id, "link-1")
+        XCTAssertEqual(decoded.members[0].memberProfileId, "profile-child")
+        XCTAssertEqual(decoded.members[0].relation, "child")
+        XCTAssertEqual(decoded.members[0].label, "Mia")
+    }
 }

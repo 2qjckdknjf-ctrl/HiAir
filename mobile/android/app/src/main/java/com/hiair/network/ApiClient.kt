@@ -203,6 +203,38 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun listFamilyMembers(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/family/members"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createFamilyMember(
+        userId: String,
+        accessToken: String? = null,
+        memberProfileId: String,
+        relation: String,
+        label: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/family/members"
+        val json = JSONObject().apply {
+            put("memberProfileId", memberProfileId)
+            put("relation", relation)
+            if (!label.isNullOrBlank()) {
+                put("label", label)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun deleteFamilyMember(
+        userId: String,
+        accessToken: String? = null,
+        memberLinkId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/family/members/$memberLinkId"
+        return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchAirDayPlan(
         userId: String,
         accessToken: String? = null,

@@ -1,5 +1,6 @@
 package com.hiair.ui
 
+import com.hiair.ui.family.FamilyMembersParser
 import com.hiair.ui.insights.AdaptationInsightsParser
 import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.work.WorkSiteRiskParser
@@ -143,5 +144,36 @@ class FeatureSurfacesParseTest {
         assertEquals("high", parsed.riskLevel)
         assertTrue(parsed.proxyOnly)
         assertTrue(parsed.summaryLine.contains("high"))
+    }
+
+    @Test
+    fun familyMembersListParsesMemberFields() {
+        val raw = """
+            {
+              "members": [
+                {
+                  "id": "link-1",
+                  "ownerUserId": "user-1",
+                  "memberProfileId": "profile-child",
+                  "relation": "child",
+                  "label": "Mia"
+                }
+              ]
+            }
+        """.trimIndent()
+        val members = FamilyMembersParser.parseList(raw)
+        assertEquals(1, members.size)
+        assertEquals("link-1", members[0].id)
+        assertEquals("profile-child", members[0].memberProfileId)
+        assertEquals("child", members[0].relation)
+        assertEquals("Mia", members[0].label)
+    }
+
+    @Test
+    fun dashboardElevatedRiskOnlyForHighLevels() {
+        assertTrue(DashboardViewModel.isElevatedRisk("high"))
+        assertTrue(DashboardViewModel.isElevatedRisk("very_high"))
+        assertFalse(DashboardViewModel.isElevatedRisk("moderate"))
+        assertFalse(DashboardViewModel.isElevatedRisk(null))
     }
 }
