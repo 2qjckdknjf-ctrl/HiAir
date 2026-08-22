@@ -136,9 +136,11 @@ def test_delete_account_triggers_own_data_delete(monkeypatch) -> None:
 
         return AccountDeletionOutcome(
             completed=True,
+            operation_id="op-test",
             stages=[
+                StageResult(DeletionStage.APPLE_REVOKE, StageStatus.NOT_APPLICABLE),
                 StageResult(DeletionStage.PUBLIC_DATA, StageStatus.COMPLETED),
-                StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.SKIPPED),
+                StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.NOT_APPLICABLE),
             ],
         )
 

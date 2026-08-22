@@ -13,12 +13,12 @@ class PrivacyExportResponse(BaseModel):
 class DeleteAccountRequest(BaseModel):
     confirmation: str
     apple_authorization_code: str | None = None
-    require_apple_revoke: bool = False
 
 
 class DeleteAccountResponse(BaseModel):
     deleted: bool
-    stages: dict[str, Literal["completed", "failed", "skipped", "not_applicable"]] = Field(
+    operation_id: str | None = None
+    stages: dict[str, Literal["pending", "completed", "failed", "not_applicable"]] = Field(
         default_factory=dict
     )
     recovery_hint: str | None = None

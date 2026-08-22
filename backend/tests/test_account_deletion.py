@@ -1,288 +1,213 @@
-"""Unit and integration-style tests for account deletion orchestration."""
+"""Integration tests for account deletion operations."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import httpx
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
-from app.services.account_deletion import (
-    AccountDeletionError,
-    AccountDeletionOutcome,
-    DeletionStage,
-    StageResult,
-    StageStatus,
-    delete_account,
-)
+from app.services.account_deletion import AccountDeletionError, delete_account
 
 
-def _completed_outcome(**stage_overrides: StageStatus) -> AccountDeletionOutcome:
-    stages = [
-        StageResult(DeletionStage.PUBLIC_DATA, stage_overrides.get("public", StageStatus.COMPLETED)),
-        StageResult(DeletionStage.SUPABASE_AUTH, stage_overrides.get("auth", StageStatus.SKIPPED)),
-        StageResult(DeletionStage.APPLE_REVOKE, stage_overrides.get("apple", StageStatus.NOT_APPLICABLE)),
-    ]
-    return AccountDeletionOutcome(completed=True, stages=stages)
+@pytest.fixture(autouse=True)
+def _ensure_operations_table() -> None:
+    from scripts import init_db as init_db_module
+
+    init_db_module.main()
+    from app.services.db import get_connection
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM account_deletion_stage_events")
+            cur.execute("DELETE FROM account_deletion_operations")
+        conn.commit()
 
 
-def test_delete_account_full_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_account_fails_closed_when_supabase_required_but_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.supabase_account_admin import SupabaseAdminConfigError
+
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: True)
+
+    def _require() -> None:
+        raise SupabaseAdminConfigError("missing supabase admin")
+
+    monkeypatch.setattr("app.services.account_deletion.require_supabase_admin_config", _require)
+
+    with pytest.raises(AccountDeletionError) as exc:
+        delete_account(user_id="00000000-0000-0000-0000-000000000101")
+    assert exc.value.http_status == 503
+
+
+def test_delete_account_requires_apple_code_for_apple_users(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: False)
+    monkeypatch.setattr(
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "apple",
+    )
+    monkeypatch.setattr(
+        "app.services.account_deletion.require_apple_sign_in_config",
+        lambda: None,
+    )
+
+    with pytest.raises(AccountDeletionError) as exc:
+        delete_account(user_id="00000000-0000-0000-0000-000000000102")
+    assert exc.value.http_status == 422
+    assert exc.value.outcome.stage_map()["apple_revoke"] == "failed"
+
+
+def test_delete_account_completes_for_non_apple_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: False)
+    monkeypatch.setattr(
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "email",
+    )
     monkeypatch.setattr(
         "app.services.account_deletion.privacy_repository.delete_user_data",
         lambda **_: True,
     )
+
+    outcome = delete_account(user_id="00000000-0000-0000-0000-000000000103")
+    assert outcome.completed is True
+    assert outcome.stage_map()["apple_revoke"] == "not_applicable"
+    assert outcome.stage_map()["public_data"] == "completed"
+
+
+def test_delete_account_revokes_apple_before_public_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    order: list[str] = []
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: False)
     monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: True,
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "apple",
+    )
+    monkeypatch.setattr("app.services.account_deletion.require_apple_sign_in_config", lambda: None)
+    monkeypatch.setattr(
+        "app.services.account_deletion._revoke_apple_token",
+        lambda _: order.append("apple"),
+    )
+    monkeypatch.setattr(
+        "app.services.account_deletion.privacy_repository.delete_user_data",
+        lambda **_: order.append("public") or True,
     )
 
-    class _Response:
-        status_code = 204
-
-    with patch("app.services.account_deletion.httpx.Client") as client_cls:
-        client = client_cls.return_value.__enter__.return_value
-        client.delete.return_value = _Response()
-        outcome = delete_account(user_id="user-1")
-
+    outcome = delete_account(
+        user_id="00000000-0000-0000-0000-000000000104",
+        apple_authorization_code="auth-code",
+    )
     assert outcome.completed is True
+    assert order == ["apple", "public"]
+
+
+def test_delete_account_is_idempotent_when_already_completed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: False)
+    monkeypatch.setattr(
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "email",
+    )
+    monkeypatch.setattr(
+        "app.services.account_deletion.privacy_repository.delete_user_data",
+        lambda **_: True,
+    )
+
+    first = delete_account(user_id="00000000-0000-0000-0000-000000000105")
+    second = delete_account(user_id="00000000-0000-0000-0000-000000000105")
+    assert first.completed is True
+    assert second.completed is True
+    assert first.operation_id == second.operation_id
+
+
+def test_delete_account_retries_public_data_after_crash(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"count": 0}
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: False)
+    monkeypatch.setattr(
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "email",
+    )
+
+    def _delete_user_data(**_: object) -> bool:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("simulated crash during public_data")
+        return True
+
+    monkeypatch.setattr(
+        "app.services.account_deletion.privacy_repository.delete_user_data",
+        _delete_user_data,
+    )
+
+    with pytest.raises(AccountDeletionError) as first_exc:
+        delete_account(user_id="00000000-0000-0000-0000-000000000106")
+    assert first_exc.value.outcome.stage_map()["public_data"] == "failed"
+    assert calls["count"] == 1
+
+    outcome = delete_account(user_id="00000000-0000-0000-0000-000000000106")
+    assert outcome.completed is True
+    assert outcome.stage_map()["public_data"] == "completed"
+    assert calls["count"] == 2
+
+
+def test_delete_account_retries_supabase_auth_without_repeating_public_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: True)
+    monkeypatch.setattr("app.services.account_deletion.require_supabase_admin_config", lambda: None)
+    monkeypatch.setattr(
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "email",
+    )
+    monkeypatch.setattr(
+        "app.services.account_deletion.privacy_repository.delete_user_data",
+        lambda **_: order.append("public") or True,
+    )
+
+    def _delete_auth(user_id: str) -> bool:
+        order.append("supabase")
+        if order.count("supabase") == 1:
+            raise RuntimeError("simulated supabase outage")
+        return True
+
+    monkeypatch.setattr("app.services.account_deletion.delete_auth_user", _delete_auth)
+
+    with pytest.raises(AccountDeletionError):
+        delete_account(user_id="00000000-0000-0000-0000-000000000107")
+    assert order == ["public", "supabase"]
+
+    outcome = delete_account(user_id="00000000-0000-0000-0000-000000000107")
+    assert outcome.completed is True
+    assert order == ["public", "supabase", "supabase"]
+    assert outcome.stage_map()["apple_revoke"] == "not_applicable"
     assert outcome.stage_map()["public_data"] == "completed"
     assert outcome.stage_map()["supabase_auth"] == "completed"
 
 
-def test_delete_account_idempotent_when_already_deleted(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_account_does_not_repeat_apple_revoke_on_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    apple_calls = {"count": 0}
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: False)
     monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        lambda **_: False,
+        "app.services.account_deletion.detect_auth_provider",
+        lambda _: "apple",
     )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: True,
-    )
+    monkeypatch.setattr("app.services.account_deletion.require_apple_sign_in_config", lambda: None)
 
-    class _Response:
-        status_code = 404
+    def _revoke(_: str) -> None:
+        apple_calls["count"] += 1
 
-    with patch("app.services.account_deletion.httpx.Client") as client_cls:
-        client = client_cls.return_value.__enter__.return_value
-        client.delete.return_value = _Response()
-        outcome = delete_account(user_id="user-1")
-
-    assert outcome.completed is True
-    assert outcome.stage_map()["public_data"] == "not_applicable"
-    assert outcome.stage_map()["supabase_auth"] == "not_applicable"
-
-
-def test_delete_account_fails_when_public_data_delete_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    from psycopg import Error as PsycopgError
-
-    def _raise(**_: object) -> bool:
-        raise PsycopgError("db down")
-
-    monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        _raise,
-    )
-
-    with pytest.raises(AccountDeletionError) as exc:
-        delete_account(user_id="user-1")
-
-    assert exc.value.http_status == 503
-    assert exc.value.outcome.stage_map()["public_data"] == "failed"
-
-
-def test_delete_account_fails_when_supabase_admin_delete_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.services.account_deletion._revoke_apple_token", _revoke)
     monkeypatch.setattr(
         "app.services.account_deletion.privacy_repository.delete_user_data",
         lambda **_: True,
     )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: True,
+
+    first = delete_account(
+        user_id="00000000-0000-0000-0000-000000000108",
+        apple_authorization_code="auth-code",
     )
-
-    class _Response:
-        status_code = 500
-
-    with patch("app.services.account_deletion.httpx.Client") as client_cls:
-        client = client_cls.return_value.__enter__.return_value
-        client.delete.return_value = _Response()
-        with pytest.raises(AccountDeletionError) as exc:
-            delete_account(user_id="user-1")
-
-    assert exc.value.http_status == 503
-    assert exc.value.outcome.stage_map()["supabase_auth"] == "failed"
-
-
-def test_delete_account_requires_apple_code_when_flag_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        lambda **_: True,
+    second = delete_account(
+        user_id="00000000-0000-0000-0000-000000000108",
+        apple_authorization_code="auth-code",
     )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: False,
-    )
-
-    with pytest.raises(AccountDeletionError) as exc:
-        delete_account(user_id="user-1", require_apple_revoke=True)
-
-    assert exc.value.outcome.stage_map()["apple_revoke"] == "failed"
-
-
-def test_delete_account_revokes_apple_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        lambda **_: True,
-    )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: False,
-    )
-    monkeypatch.setattr(
-        "app.services.account_deletion._apple_client_secret",
-        lambda: "client-secret",
-    )
-
-    token_response = SimpleNamespace(status_code=200, json=lambda: {"refresh_token": "rt-1"})
-    revoke_response = SimpleNamespace(status_code=200)
-
-    with patch("app.services.account_deletion.httpx.Client") as client_cls:
-        client = client_cls.return_value.__enter__.return_value
-        client.post.side_effect = [token_response, revoke_response]
-        outcome = delete_account(user_id="user-1", apple_authorization_code="auth-code")
-
-    assert outcome.completed is True
-    assert outcome.stage_map()["apple_revoke"] == "completed"
-
-
-def test_delete_account_apple_revoke_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        lambda **_: True,
-    )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: False,
-    )
-    monkeypatch.setattr(
-        "app.services.account_deletion._apple_client_secret",
-        lambda: "client-secret",
-    )
-
-    token_response = SimpleNamespace(status_code=200, json=lambda: {"refresh_token": "rt-1"})
-    revoke_response = SimpleNamespace(status_code=400)
-    monkeypatch.setattr("app.services.account_deletion._MAX_HTTP_RETRIES", 1)
-
-    with patch("app.services.account_deletion.httpx.Client") as client_cls:
-        client = client_cls.return_value.__enter__.return_value
-        client.post.side_effect = [token_response, revoke_response]
-        with pytest.raises(AccountDeletionError) as exc:
-            delete_account(user_id="user-1", apple_authorization_code="auth-code")
-
-    assert exc.value.outcome.stage_map()["apple_revoke"] == "failed"
-
-
-def test_delete_account_apple_revoke_skips_without_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        lambda **_: True,
-    )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: False,
-    )
-    monkeypatch.setattr("app.services.account_deletion._apple_client_secret", lambda: "")
-
-    with pytest.raises(AccountDeletionError) as exc:
-        delete_account(user_id="user-1", apple_authorization_code="auth-code")
-
-    assert exc.value.outcome.stage_map()["apple_revoke"] == "failed"
-
-
-def test_delete_account_retries_supabase_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.account_deletion.privacy_repository.delete_user_data",
-        lambda **_: True,
-    )
-    monkeypatch.setattr(
-        "app.services.account_deletion._supabase_admin_configured",
-        lambda: True,
-    )
-    monkeypatch.setattr("app.services.account_deletion.time.sleep", lambda _: None)
-
-    class _Response:
-        status_code = 204
-
-    with patch("app.services.account_deletion.httpx.Client") as client_cls:
-        client = client_cls.return_value.__enter__.return_value
-        client.delete.side_effect = [httpx.TimeoutException("timeout"), _Response()]
-        outcome = delete_account(user_id="user-1")
-
-    assert outcome.completed is True
-    assert client.delete.call_count == 2
-
-
-def test_delete_account_api_returns_stage_payload(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
-    monkeypatch.setattr("app.api.deps.decode_access_token", lambda _: "user-1")
-    monkeypatch.setattr(
-        "app.api.privacy.account_deletion_service.delete_account",
-        lambda **_: _completed_outcome(),
-    )
-
-    client = TestClient(app)
-    response = client.post(
-        "/api/privacy/delete-account",
-        headers={"Authorization": "Bearer token"},
-        json={"confirmation": "DELETE"},
-    )
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["deleted"] is True
-    assert body["stages"]["public_data"] == "completed"
-
-
-def test_delete_account_api_returns_503_on_partial_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
-    monkeypatch.setattr("app.api.deps.decode_access_token", lambda _: "user-1")
-
-    def _raise(**_: object) -> AccountDeletionOutcome:
-        raise AccountDeletionError(
-            AccountDeletionOutcome(
-                completed=False,
-                stages=[
-                    StageResult(DeletionStage.PUBLIC_DATA, StageStatus.COMPLETED),
-                    StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.FAILED, "http_500"),
-                ],
-                recovery_hint="retry",
-            ),
-            http_status=503,
-        )
-
-    monkeypatch.setattr("app.api.privacy.account_deletion_service.delete_account", _raise)
-
-    client = TestClient(app)
-    response = client.post(
-        "/api/privacy/delete-account",
-        headers={"Authorization": "Bearer token"},
-        json={"confirmation": "DELETE"},
-    )
-    assert response.status_code == 503, response.text
-    detail = response.json()["detail"]
-    assert detail["stages"]["supabase_auth"] == "failed"
-
-
-def test_delete_account_api_rejects_invalid_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.api.deps.user_repository.user_exists", lambda _: True)
-    monkeypatch.setattr("app.api.deps.decode_access_token", lambda _: "user-1")
-
-    client = TestClient(app)
-    response = client.post(
-        "/api/privacy/delete-account",
-        headers={"Authorization": "Bearer token"},
-        json={"confirmation": "delete"},
-    )
-    assert response.status_code == 422
+    assert first.completed is True
+    assert second.completed is True
+    assert apple_calls["count"] == 1

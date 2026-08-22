@@ -40,7 +40,6 @@ def delete_my_account(
         outcome = account_deletion_service.delete_account(
             user_id=user_id,
             apple_authorization_code=payload.apple_authorization_code,
-            require_apple_revoke=payload.require_apple_revoke,
         )
     except AccountDeletionError as exc:
         raise HTTPException(
@@ -56,6 +55,7 @@ def delete_my_account(
 
     return DeleteAccountResponse(
         deleted=outcome.completed,
+        operation_id=outcome.operation_id or None,
         stages=outcome.stage_map(),
         recovery_hint=outcome.recovery_hint,
     )

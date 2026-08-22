@@ -583,10 +583,8 @@ def delete_user_data(user_id: str) -> bool:
             try:
                 cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
                 deleted_any = deleted_any or cur.rowcount > 0
-            except Exception as exc:
-                # In Supabase-first mode auth.users is source-of-truth; local users row is optional.
-                if "does not exist" not in str(exc).lower():
-                    deleted_any = deleted_any or True
+            except UndefinedTable:
+                pass
     return deleted_any
 
 

@@ -1,14 +1,13 @@
-"""Fail-closed account deletion orchestration for App Store Guideline 5.1.1(v)."""
+"""Fail-closed account deletion with durable operations and ordered stages."""
 
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from enum import StrEnum
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -16,28 +15,46 @@ import jwt
 from psycopg import Error as PsycopgError
 
 from app.core.settings import settings
+from app.services.apple_sign_in_credentials import (
+    AppleSignInConfigError,
+    require_apple_sign_in_config,
+    temporary_apple_p8_path,
+)
 from app.services.db import get_connection
 import app.services.privacy_repository as privacy_repository
+from app.services.supabase_account_admin import (
+    SupabaseAdminConfigError,
+    delete_auth_user,
+    detect_auth_provider,
+    require_supabase_admin_config,
+    uses_supabase_auth,
+)
 
 logger = logging.getLogger(__name__)
 
-_BACKEND_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_APPLE_P8 = _BACKEND_ROOT / ".secrets" / "AuthKey_8BXW8SG2B4.p8"
+_OPERATION_LOCK_KEY = 9_314_159_265
 _HTTP_TIMEOUT_SECONDS = 20.0
 _MAX_HTTP_RETRIES = 2
 
 
 class DeletionStage(StrEnum):
+    APPLE_REVOKE = "apple_revoke"
     PUBLIC_DATA = "public_data"
     SUPABASE_AUTH = "supabase_auth"
-    APPLE_REVOKE = "apple_revoke"
 
 
 class StageStatus(StrEnum):
+    PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
-    SKIPPED = "skipped"
     NOT_APPLICABLE = "not_applicable"
+
+
+class OperationStatus(StrEnum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 @dataclass(frozen=True)
@@ -50,6 +67,7 @@ class StageResult:
 @dataclass
 class AccountDeletionOutcome:
     completed: bool
+    operation_id: str
     stages: list[StageResult] = field(default_factory=list)
     recovery_hint: str | None = None
 
@@ -64,340 +82,511 @@ class AccountDeletionError(Exception):
         self.http_status = http_status
 
 
+@dataclass
+class _OperationRow:
+    operation_id: str
+    user_id_hash: str
+    auth_provider: str
+    status: str
+    apple_revoke_status: str
+    public_data_status: str
+    supabase_auth_status: str
+
+
 def delete_account(
     *,
     user_id: str,
     apple_authorization_code: str | None = None,
-    require_apple_revoke: bool = False,
 ) -> AccountDeletionOutcome:
-    """Delete all user-owned data and auth identity with explicit stage outcomes."""
     uid = (user_id or "").strip()
     if not uid:
-        outcome = AccountDeletionOutcome(
-            completed=False,
-            stages=[
-                StageResult(
-                    stage=DeletionStage.PUBLIC_DATA,
-                    status=StageStatus.FAILED,
-                    detail="missing_user_id",
-                )
-            ],
-            recovery_hint="Authenticated user id is required.",
+        raise AccountDeletionError(
+            AccountDeletionOutcome(
+                completed=False,
+                operation_id="",
+                stages=[
+                    StageResult(DeletionStage.PUBLIC_DATA, StageStatus.FAILED, "missing_user_id")
+                ],
+                recovery_hint="Authenticated user id is required.",
+            ),
+            http_status=401,
         )
-        raise AccountDeletionError(outcome, http_status=401)
 
+    user_hash = _hash_user_id(uid)
     stages: list[StageResult] = []
-    public_deleted = _delete_public_data(uid, stages)
-    auth_deleted = _delete_supabase_auth_user(uid, stages)
-    apple_revoked = _revoke_apple_token_if_needed(
-        apple_authorization_code,
-        require_apple_revoke=require_apple_revoke,
-        stages=stages,
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(%s)", (_OPERATION_LOCK_KEY,))
+            try:
+                operation = _load_or_create_operation(cur, user_hash=user_hash, user_id=uid)
+                if operation.status == OperationStatus.COMPLETED.value:
+                    stages = _stage_results_from_operation(operation)
+                    return AccountDeletionOutcome(
+                        completed=True,
+                        operation_id=operation.operation_id,
+                        stages=stages,
+                    )
+
+                _mark_operation_in_progress(cur, operation.operation_id)
+                conn.commit()
+                auth_provider = operation.auth_provider or detect_auth_provider(uid)
+                _update_operation_provider(cur, operation.operation_id, auth_provider)
+                conn.commit()
+
+                try:
+                    _validate_runtime_configuration(auth_provider)
+                except (SupabaseAdminConfigError, AppleSignInConfigError) as exc:
+                    _fail_operation(cur, operation.operation_id, str(exc))
+                    stages = _failed_stage_results(str(exc))
+                    outcome = AccountDeletionOutcome(
+                        completed=False,
+                        operation_id=operation.operation_id,
+                        stages=stages,
+                        recovery_hint=str(exc),
+                    )
+                    _raise_deletion_error(conn, outcome, http_status=503, cause=exc)
+
+                operation = _reload_operation(cur, operation.operation_id)
+
+                if auth_provider == "apple":
+                    operation = _run_apple_revoke_stage(
+                        cur,
+                        operation,
+                        apple_authorization_code=apple_authorization_code,
+                    )
+                elif operation.apple_revoke_status == StageStatus.PENDING.value:
+                    operation = _set_stage_status(
+                        cur,
+                        operation,
+                        stage_column="apple_revoke_status",
+                        stage_name=DeletionStage.APPLE_REVOKE.value,
+                        status=StageStatus.NOT_APPLICABLE.value,
+                        detail="non_apple_provider",
+                    )
+                conn.commit()
+
+                if operation.apple_revoke_status == StageStatus.FAILED.value:
+                    outcome = _operation_outcome(operation, completed=False)
+                    _raise_deletion_error(conn, outcome, http_status=422)
+
+                if operation.public_data_status in {
+                    StageStatus.PENDING.value,
+                    StageStatus.FAILED.value,
+                }:
+                    operation = _run_public_data_stage(cur, operation, uid)
+                conn.commit()
+
+                if operation.public_data_status == StageStatus.FAILED.value:
+                    outcome = _operation_outcome(operation, completed=False)
+                    _raise_deletion_error(conn, outcome, http_status=503)
+
+                if uses_supabase_auth():
+                    if operation.supabase_auth_status in {
+                        StageStatus.PENDING.value,
+                        StageStatus.FAILED.value,
+                    }:
+                        operation = _run_supabase_auth_stage(cur, operation, uid)
+                elif operation.supabase_auth_status == StageStatus.PENDING.value:
+                    operation = _set_stage_status(
+                        cur,
+                        operation,
+                        stage_column="supabase_auth_status",
+                        stage_name=DeletionStage.SUPABASE_AUTH.value,
+                        status=StageStatus.NOT_APPLICABLE.value,
+                        detail="legacy_auth_mode",
+                    )
+                conn.commit()
+
+                completed = _operation_is_complete(operation)
+                if completed:
+                    _complete_operation(cur, operation.operation_id)
+                elif operation.supabase_auth_status == StageStatus.FAILED.value:
+                    _fail_operation(cur, operation.operation_id, "supabase_auth_failed")
+                conn.commit()
+
+                outcome = _operation_outcome(operation, completed=completed)
+                if not completed:
+                    _raise_deletion_error(
+                        conn,
+                        outcome,
+                        http_status=_http_status_for_operation(operation),
+                    )
+                return outcome
+            finally:
+                cur.execute("SELECT pg_advisory_unlock(%s)", (_OPERATION_LOCK_KEY,))
+
+
+def _hash_user_id(user_id: str) -> str:
+    return hashlib.sha256(user_id.encode("utf-8")).hexdigest()
+
+
+def _raise_deletion_error(
+    conn,
+    outcome: AccountDeletionOutcome,
+    *,
+    http_status: int,
+    cause: BaseException | None = None,
+) -> None:
+    conn.commit()
+    if cause is not None:
+        raise AccountDeletionError(outcome, http_status=http_status) from cause
+    raise AccountDeletionError(outcome, http_status=http_status)
+
+
+def _validate_runtime_configuration(auth_provider: str) -> None:
+    if uses_supabase_auth():
+        require_supabase_admin_config()
+    if auth_provider == "apple":
+        require_apple_sign_in_config()
+
+
+def _load_or_create_operation(cur, *, user_hash: str, user_id: str) -> _OperationRow:
+    cur.execute(
+        """
+        SELECT operation_id::text, user_id_hash, auth_provider, status,
+               apple_revoke_status, public_data_status, supabase_auth_status
+        FROM account_deletion_operations
+        WHERE user_id_hash = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (user_hash,),
+    )
+    row = cur.fetchone()
+    if row:
+        operation = _operation_from_row(row)
+        if operation.status == OperationStatus.COMPLETED.value:
+            return operation
+        if operation.status in {
+            OperationStatus.PENDING.value,
+            OperationStatus.IN_PROGRESS.value,
+            OperationStatus.FAILED.value,
+        }:
+            return operation
+
+    operation_id = str(uuid.uuid4())
+    auth_provider = detect_auth_provider(user_id)
+    cur.execute(
+        """
+        INSERT INTO account_deletion_operations (
+            operation_id, user_id_hash, auth_provider, status
+        ) VALUES (%s::uuid, %s, %s, %s)
+        """,
+        (operation_id, user_hash, auth_provider, OperationStatus.PENDING.value),
+    )
+    _record_stage_event(
+        cur,
+        operation_id=operation_id,
+        stage="operation",
+        status=OperationStatus.PENDING.value,
+        detail="created",
+    )
+    return _reload_operation(cur, operation_id)
+
+
+def _reload_operation(cur, operation_id: str) -> _OperationRow:
+    cur.execute(
+        """
+        SELECT operation_id::text, user_id_hash, auth_provider, status,
+               apple_revoke_status, public_data_status, supabase_auth_status
+        FROM account_deletion_operations
+        WHERE operation_id = %s::uuid
+        """,
+        (operation_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        raise RuntimeError("account deletion operation missing after create")
+    return _operation_from_row(row)
+
+
+def _coerce_text(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
+
+
+def _operation_from_row(row: dict[str, Any]) -> _OperationRow:
+    return _OperationRow(
+        operation_id=_coerce_text(row["operation_id"]),
+        user_id_hash=_coerce_text(row["user_id_hash"]),
+        auth_provider=_coerce_text(row["auth_provider"]),
+        status=_coerce_text(row["status"]),
+        apple_revoke_status=_coerce_text(row["apple_revoke_status"]),
+        public_data_status=_coerce_text(row["public_data_status"]),
+        supabase_auth_status=_coerce_text(row["supabase_auth_status"]),
     )
 
-    completed = _evaluate_completion(
-        public_deleted=public_deleted,
-        auth_deleted=auth_deleted,
-        apple_revoked=apple_revoked,
-        stages=stages,
-        require_apple_revoke=require_apple_revoke,
+
+def _mark_operation_in_progress(cur, operation_id: str) -> None:
+    cur.execute(
+        """
+        UPDATE account_deletion_operations
+        SET status = %s,
+            attempt_count = attempt_count + 1,
+            updated_at = NOW()
+        WHERE operation_id = %s::uuid
+        """,
+        (OperationStatus.IN_PROGRESS.value, operation_id),
     )
-    outcome = AccountDeletionOutcome(
-        completed=completed,
-        stages=stages,
-        recovery_hint=_recovery_hint(stages, completed),
-    )
-    _persist_audit(uid, outcome)
-    if not completed:
-        raise AccountDeletionError(outcome, http_status=_failure_status(stages, public_deleted, auth_deleted))
-    return outcome
 
 
-def _delete_public_data(user_id: str, stages: list[StageResult]) -> bool:
+def _update_operation_provider(cur, operation_id: str, auth_provider: str) -> None:
+    cur.execute(
+        """
+        UPDATE account_deletion_operations
+        SET auth_provider = %s, updated_at = NOW()
+        WHERE operation_id = %s::uuid
+        """,
+        (auth_provider, operation_id),
+    )
+
+
+def _set_stage_status(
+    cur,
+    operation: _OperationRow,
+    *,
+    stage_column: str,
+    stage_name: str,
+    status: str,
+    detail: str | None = None,
+) -> _OperationRow:
+    cur.execute(
+        f"""
+        UPDATE account_deletion_operations
+        SET {stage_column} = %s,
+            updated_at = NOW(),
+            last_error = CASE WHEN %s = 'failed' THEN %s ELSE last_error END
+        WHERE operation_id = %s::uuid
+        """,
+        (status, status, detail, operation.operation_id),
+    )
+    _record_stage_event(
+        cur,
+        operation_id=operation.operation_id,
+        stage=stage_name,
+        status=status,
+        detail=detail,
+    )
+    return _reload_operation(cur, operation.operation_id)
+
+
+def _record_stage_event(
+    cur,
+    *,
+    operation_id: str,
+    stage: str,
+    status: str,
+    detail: str | None,
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO account_deletion_stage_events (operation_id, stage, status, detail)
+        VALUES (%s::uuid, %s, %s, %s)
+        """,
+        (operation_id, stage, status, detail),
+    )
+
+
+def _run_apple_revoke_stage(
+    cur,
+    operation: _OperationRow,
+    *,
+    apple_authorization_code: str | None,
+) -> _OperationRow:
+    if operation.apple_revoke_status == StageStatus.COMPLETED.value:
+        return operation
+    code = (apple_authorization_code or "").strip()
+    if not code:
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="apple_revoke_status",
+            stage_name=DeletionStage.APPLE_REVOKE.value,
+            status=StageStatus.FAILED.value,
+            detail="missing_authorization_code",
+        )
+    try:
+        _revoke_apple_token(code)
+    except AppleSignInConfigError as exc:
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="apple_revoke_status",
+            stage_name=DeletionStage.APPLE_REVOKE.value,
+            status=StageStatus.FAILED.value,
+            detail=str(exc),
+        )
+    except httpx.HTTPError:
+        logger.exception("account_deletion_apple_revoke_failed")
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="apple_revoke_status",
+            stage_name=DeletionStage.APPLE_REVOKE.value,
+            status=StageStatus.FAILED.value,
+            detail="network_error",
+        )
+
+    return _set_stage_status(
+        cur,
+        operation,
+        stage_column="apple_revoke_status",
+        stage_name=DeletionStage.APPLE_REVOKE.value,
+        status=StageStatus.COMPLETED.value,
+    )
+
+
+def _run_public_data_stage(cur, operation: _OperationRow, user_id: str) -> _OperationRow:
     try:
         deleted = privacy_repository.delete_user_data(user_id=user_id)
     except PsycopgError:
         logger.exception("account_deletion_public_data_failed user_present=1")
-        stages.append(
-            StageResult(
-                stage=DeletionStage.PUBLIC_DATA,
-                status=StageStatus.FAILED,
-                detail="database_error",
-            )
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="public_data_status",
+            stage_name=DeletionStage.PUBLIC_DATA.value,
+            status=StageStatus.FAILED.value,
+            detail="database_error",
         )
-        return False
+    except Exception:
+        logger.exception("account_deletion_public_data_failed")
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="public_data_status",
+            stage_name=DeletionStage.PUBLIC_DATA.value,
+            status=StageStatus.FAILED.value,
+            detail="unexpected_error",
+        )
 
-    status = StageStatus.COMPLETED if deleted else StageStatus.NOT_APPLICABLE
-    stages.append(
-        StageResult(
-            stage=DeletionStage.PUBLIC_DATA,
-            status=status,
-            detail=None if deleted else "already_deleted",
-        )
+    status = StageStatus.COMPLETED.value if deleted else StageStatus.NOT_APPLICABLE.value
+    detail = None if deleted else "already_deleted"
+    return _set_stage_status(
+        cur,
+        operation,
+        stage_column="public_data_status",
+        stage_name=DeletionStage.PUBLIC_DATA.value,
+        status=status,
+        detail=detail,
     )
-    return deleted
 
 
-def _delete_supabase_auth_user(user_id: str, stages: list[StageResult]) -> bool:
-    if not _supabase_admin_configured():
-        stages.append(
-            StageResult(
-                stage=DeletionStage.SUPABASE_AUTH,
-                status=StageStatus.SKIPPED,
-                detail="not_configured",
-            )
+def _run_supabase_auth_stage(cur, operation: _OperationRow, user_id: str) -> _OperationRow:
+    try:
+        deleted = delete_auth_user(user_id)
+    except SupabaseAdminConfigError as exc:
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="supabase_auth_status",
+            stage_name=DeletionStage.SUPABASE_AUTH.value,
+            status=StageStatus.FAILED.value,
+            detail=str(exc),
         )
-        return True
-
-    headers = {
-        "apikey": settings.supabase_service_role_key.strip(),
-        "Authorization": f"Bearer {settings.supabase_service_role_key.strip()}",
-    }
-    url = f"{settings.supabase_url.rstrip('/')}/auth/v1/admin/users/{user_id}"
-    for attempt in range(1, _MAX_HTTP_RETRIES + 1):
-        try:
-            with httpx.Client(timeout=_HTTP_TIMEOUT_SECONDS) as client:
-                response = client.delete(url, headers=headers)
-        except httpx.HTTPError:
-            logger.exception("account_deletion_supabase_auth_failed attempt=%s", attempt)
-            if attempt >= _MAX_HTTP_RETRIES:
-                stages.append(
-                    StageResult(
-                        stage=DeletionStage.SUPABASE_AUTH,
-                        status=StageStatus.FAILED,
-                        detail="network_error",
-                    )
-                )
-                return False
-            time.sleep(attempt)
-            continue
-
-        if response.status_code in (200, 204):
-            stages.append(
-                StageResult(
-                    stage=DeletionStage.SUPABASE_AUTH,
-                    status=StageStatus.COMPLETED,
-                )
-            )
-            return True
-        if response.status_code == 404:
-            stages.append(
-                StageResult(
-                    stage=DeletionStage.SUPABASE_AUTH,
-                    status=StageStatus.NOT_APPLICABLE,
-                    detail="already_deleted",
-                )
-            )
-            return True
-
-        logger.info(
-            "account_deletion_supabase_auth_failed status=%s attempt=%s",
-            response.status_code,
-            attempt,
+    except httpx.HTTPError:
+        logger.exception("account_deletion_supabase_auth_failed")
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="supabase_auth_status",
+            stage_name=DeletionStage.SUPABASE_AUTH.value,
+            status=StageStatus.FAILED.value,
+            detail="network_error",
         )
-        if attempt >= _MAX_HTTP_RETRIES:
-            stages.append(
-                StageResult(
-                    stage=DeletionStage.SUPABASE_AUTH,
-                    status=StageStatus.FAILED,
-                    detail=f"http_{response.status_code}",
-                )
-            )
-            return False
-        time.sleep(attempt)
-    return False
-
-
-def _revoke_apple_token_if_needed(
-    authorization_code: str | None,
-    *,
-    require_apple_revoke: bool,
-    stages: list[StageResult],
-) -> bool:
-    code = (authorization_code or "").strip()
-    if not code:
-        if require_apple_revoke:
-            stages.append(
-                StageResult(
-                    stage=DeletionStage.APPLE_REVOKE,
-                    status=StageStatus.FAILED,
-                    detail="missing_authorization_code",
-                )
-            )
-            return False
-        stages.append(
-            StageResult(
-                stage=DeletionStage.APPLE_REVOKE,
-                status=StageStatus.NOT_APPLICABLE,
-                detail="no_code_provided",
-            )
+    except Exception:
+        logger.exception("account_deletion_supabase_auth_failed")
+        return _set_stage_status(
+            cur,
+            operation,
+            stage_column="supabase_auth_status",
+            stage_name=DeletionStage.SUPABASE_AUTH.value,
+            status=StageStatus.FAILED.value,
+            detail="unexpected_error",
         )
-        return True
 
-    client_secret = _apple_client_secret()
-    if not client_secret:
-        stages.append(
-            StageResult(
-                stage=DeletionStage.APPLE_REVOKE,
-                status=StageStatus.FAILED,
-                detail="missing_client_secret",
-            )
+    status = StageStatus.COMPLETED.value if deleted else StageStatus.NOT_APPLICABLE.value
+    detail = None if deleted else "already_deleted"
+    return _set_stage_status(
+        cur,
+        operation,
+        stage_column="supabase_auth_status",
+        stage_name=DeletionStage.SUPABASE_AUTH.value,
+        status=status,
+        detail=detail,
+    )
+
+
+def _revoke_apple_token(authorization_code: str) -> None:
+    team_id = settings.apple_team_id.strip()
+    key_id = settings.apple_sign_in_key_id.strip()
+    services_id = settings.apple_services_id.strip() or "com.hiair.app.auth"
+    if not team_id or not key_id:
+        raise AppleSignInConfigError(
+            "APPLE_TEAM_ID and APPLE_SIGN_IN_KEY_ID are required for Apple token revocation."
         )
-        return False
 
-    client_id = settings.apple_services_id.strip() or "com.hiair.app.auth"
-    for attempt in range(1, _MAX_HTTP_RETRIES + 1):
-        try:
+    with temporary_apple_p8_path() as p8_path:
+        client_secret = _build_apple_client_secret(
+            team_id=team_id,
+            key_id=key_id,
+            services_id=services_id,
+            p8_path=p8_path,
+        )
+        for attempt in range(1, _MAX_HTTP_RETRIES + 1):
             with httpx.Client(timeout=_HTTP_TIMEOUT_SECONDS) as client:
                 token_response = client.post(
                     "https://appleid.apple.com/auth/token",
                     data={
                         "grant_type": "authorization_code",
-                        "code": code,
-                        "client_id": client_id,
+                        "code": authorization_code,
+                        "client_id": services_id,
                         "client_secret": client_secret,
                     },
                 )
                 if token_response.status_code != 200:
-                    logger.info(
-                        "account_deletion_apple_exchange_failed status=%s attempt=%s",
-                        token_response.status_code,
-                        attempt,
-                    )
                     if attempt >= _MAX_HTTP_RETRIES:
-                        stages.append(
-                            StageResult(
-                                stage=DeletionStage.APPLE_REVOKE,
-                                status=StageStatus.FAILED,
-                                detail=f"exchange_http_{token_response.status_code}",
-                            )
+                        raise httpx.HTTPStatusError(
+                            "apple token exchange failed",
+                            request=token_response.request,
+                            response=token_response,
                         )
-                        return False
                     time.sleep(attempt)
                     continue
-
                 payload = token_response.json()
                 token = str(payload.get("refresh_token") or payload.get("access_token") or "").strip()
                 hint = "refresh_token" if payload.get("refresh_token") else "access_token"
                 if not token:
-                    stages.append(
-                        StageResult(
-                            stage=DeletionStage.APPLE_REVOKE,
-                            status=StageStatus.FAILED,
-                            detail="missing_token",
-                        )
-                    )
-                    return False
-
+                    raise AppleSignInConfigError("Apple token exchange returned no revocable token.")
                 revoke = client.post(
                     "https://appleid.apple.com/auth/revoke",
                     data={
-                        "client_id": client_id,
+                        "client_id": services_id,
                         "client_secret": client_secret,
                         "token": token,
                         "token_type_hint": hint,
                     },
                 )
-        except httpx.HTTPError:
-            logger.exception("account_deletion_apple_revoke_failed attempt=%s", attempt)
-            if attempt >= _MAX_HTTP_RETRIES:
-                stages.append(
-                    StageResult(
-                        stage=DeletionStage.APPLE_REVOKE,
-                        status=StageStatus.FAILED,
-                        detail="network_error",
+                if revoke.status_code in (200, 204):
+                    return
+                if attempt >= _MAX_HTTP_RETRIES:
+                    raise httpx.HTTPStatusError(
+                        "apple token revoke failed",
+                        request=revoke.request,
+                        response=revoke,
                     )
-                )
-                return False
-            time.sleep(attempt)
-            continue
-
-        if revoke.status_code in (200, 204):
-            stages.append(
-                StageResult(
-                    stage=DeletionStage.APPLE_REVOKE,
-                    status=StageStatus.COMPLETED,
-                )
-            )
-            return True
-
-        logger.info(
-            "account_deletion_apple_revoke_failed status=%s attempt=%s",
-            revoke.status_code,
-            attempt,
-        )
-        if attempt >= _MAX_HTTP_RETRIES:
-            stages.append(
-                StageResult(
-                    stage=DeletionStage.APPLE_REVOKE,
-                    status=StageStatus.FAILED,
-                    detail=f"revoke_http_{revoke.status_code}",
-                )
-            )
-            return False
-        time.sleep(attempt)
-    return False
+                time.sleep(attempt)
 
 
-def _evaluate_completion(
+def _build_apple_client_secret(
     *,
-    public_deleted: bool,
-    auth_deleted: bool,
-    apple_revoked: bool,
-    stages: list[StageResult],
-    require_apple_revoke: bool,
-) -> bool:
-    failed = [stage for stage in stages if stage.status == StageStatus.FAILED]
-    if failed:
-        return False
-
-    public_ok = public_deleted or any(
-        stage.stage == DeletionStage.PUBLIC_DATA and stage.status == StageStatus.NOT_APPLICABLE
-        for stage in stages
-    )
-    auth_ok = auth_deleted or any(
-        stage.stage == DeletionStage.SUPABASE_AUTH
-        and stage.status in {StageStatus.COMPLETED, StageStatus.NOT_APPLICABLE, StageStatus.SKIPPED}
-        for stage in stages
-    )
-    apple_ok = apple_revoked or not require_apple_revoke
-    return public_ok and auth_ok and apple_ok
-
-
-def _failure_status(stages: list[StageResult], public_deleted: bool, auth_deleted: bool) -> int:
-    if not public_deleted and not auth_deleted:
-        if any(stage.status == StageStatus.NOT_APPLICABLE for stage in stages):
-            return 404
-        return 404
-    return 503
-
-
-def _recovery_hint(stages: list[StageResult], completed: bool) -> str | None:
-    if completed:
-        return None
-    failed = [stage for stage in stages if stage.status == StageStatus.FAILED]
-    if not failed:
-        return "Account deletion incomplete; retry the request."
-    details = ", ".join(f"{stage.stage.value}:{stage.detail or stage.status.value}" for stage in failed)
-    return (
-        "Account deletion incomplete. Retry after resolving failed stages. "
-        f"Failed stages: {details}."
-    )
-
-
-def _supabase_admin_configured() -> bool:
-    service = settings.supabase_service_role_key.strip()
-    return bool(settings.supabase_url.strip() and service and service.startswith("eyJ"))
-
-
-def _apple_client_secret() -> str:
-    team_id = settings.apple_team_id.strip() or "43A4KW5BKB"
-    key_id = settings.apple_sign_in_key_id.strip() or "8BXW8SG2B4"
-    services_id = settings.apple_services_id.strip() or "com.hiair.app.auth"
-    configured_path = settings.apple_sign_in_p8_path.strip()
-    p8_path = Path(configured_path) if configured_path else _DEFAULT_APPLE_P8
-    if not p8_path.is_file():
-        return ""
+    team_id: str,
+    key_id: str,
+    services_id: str,
+    p8_path: Any,
+) -> str:
     now = int(time.time())
     payload = {
         "iss": team_id,
@@ -414,49 +603,100 @@ def _apple_client_secret() -> str:
     )
 
 
-def _persist_audit(user_id: str, outcome: AccountDeletionOutcome) -> None:
-    user_hash = hashlib.sha256(user_id.encode("utf-8")).hexdigest()
-    stage_payload: dict[str, Any] = outcome.stage_map()
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                if not _public_table_exists(cur, "account_deletion_audit"):
-                    return
-                cur.execute(
-                    """
-                    INSERT INTO account_deletion_audit (
-                        user_id_hash,
-                        stage_status,
-                        completed,
-                        attempt_count
-                    )
-                    VALUES (%s, %s::jsonb, %s, 1)
-                    ON CONFLICT (user_id_hash) DO UPDATE
-                    SET last_attempt_at = NOW(),
-                        stage_status = EXCLUDED.stage_status,
-                        completed = EXCLUDED.completed,
-                        attempt_count = account_deletion_audit.attempt_count + 1
-                    """,
-                    (user_hash, json.dumps(stage_payload), outcome.completed),
-                )
-            conn.commit()
-    except PsycopgError:
-        logger.exception("account_deletion_audit_persist_failed")
-
-
-def _public_table_exists(cur, table_name: str) -> bool:
+def _complete_operation(cur, operation_id: str) -> None:
     cur.execute(
         """
-        SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-              AND table_name = %s
-        )
+        UPDATE account_deletion_operations
+        SET status = %s,
+            completed_at = NOW(),
+            updated_at = NOW(),
+            last_error = NULL
+        WHERE operation_id = %s::uuid
         """,
-        (table_name,),
+        (OperationStatus.COMPLETED.value, operation_id),
     )
-    row = cur.fetchone()
-    if not row:
+    _record_stage_event(
+        cur,
+        operation_id=operation_id,
+        stage="operation",
+        status=OperationStatus.COMPLETED.value,
+        detail=None,
+    )
+
+
+def _fail_operation(cur, operation_id: str, error: str) -> None:
+    cur.execute(
+        """
+        UPDATE account_deletion_operations
+        SET status = %s,
+            last_error = %s,
+            updated_at = NOW()
+        WHERE operation_id = %s::uuid
+        """,
+        (OperationStatus.FAILED.value, error, operation_id),
+    )
+
+
+def _operation_is_complete(operation: _OperationRow) -> bool:
+    stage_values = (
+        operation.apple_revoke_status,
+        operation.public_data_status,
+        operation.supabase_auth_status,
+    )
+    if any(status == StageStatus.FAILED.value for status in stage_values):
         return False
-    return bool(next(iter(row.values())))
+    if any(status == StageStatus.PENDING.value for status in stage_values):
+        return False
+    return all(
+        status in {StageStatus.COMPLETED.value, StageStatus.NOT_APPLICABLE.value}
+        for status in stage_values
+    )
+
+
+def _stage_results_from_operation(operation: _OperationRow) -> list[StageResult]:
+    return [
+        StageResult(DeletionStage.APPLE_REVOKE, StageStatus(operation.apple_revoke_status)),
+        StageResult(DeletionStage.PUBLIC_DATA, StageStatus(operation.public_data_status)),
+        StageResult(DeletionStage.SUPABASE_AUTH, StageStatus(operation.supabase_auth_status)),
+    ]
+
+
+def _operation_outcome(operation: _OperationRow, *, completed: bool) -> AccountDeletionOutcome:
+    stages = _stage_results_from_operation(operation)
+    return AccountDeletionOutcome(
+        completed=completed,
+        operation_id=operation.operation_id,
+        stages=stages,
+        recovery_hint=_recovery_hint(stages, completed),
+    )
+
+
+def _failed_stage_results(detail: str) -> list[StageResult]:
+    return [
+        StageResult(DeletionStage.APPLE_REVOKE, StageStatus.FAILED, detail),
+        StageResult(DeletionStage.PUBLIC_DATA, StageStatus.PENDING),
+        StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.PENDING),
+    ]
+
+
+def _recovery_hint(stages: list[StageResult], completed: bool) -> str | None:
+    if completed:
+        return None
+    failed = [stage for stage in stages if stage.status == StageStatus.FAILED]
+    if not failed:
+        return "Account deletion incomplete; retry while authenticated."
+    details = ", ".join(f"{stage.stage.value}:{stage.detail or stage.status.value}" for stage in failed)
+    return (
+        "Account deletion incomplete. Retry while still authenticated for Apple revoke, "
+        f"then complete remaining stages. Failed: {details}."
+    )
+
+
+def _http_status_for_operation(operation: _OperationRow) -> int:
+    if operation.apple_revoke_status == StageStatus.FAILED.value:
+        return 422
+    if operation.public_data_status == StageStatus.FAILED.value:
+        return 503
+    if operation.supabase_auth_status == StageStatus.FAILED.value:
+        return 503
+    return 503

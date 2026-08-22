@@ -224,7 +224,20 @@ def test_recommendations_daily(monkeypatch) -> None:
 def test_privacy_endpoints(monkeypatch) -> None:
     _enable_auth(monkeypatch)
     monkeypatch.setattr("app.api.privacy.privacy_repository.export_user_data", lambda user_id: {"items": []})
-    monkeypatch.setattr("app.api.privacy.privacy_repository.delete_user_data", lambda user_id: True)
+    from app.services.account_deletion import AccountDeletionOutcome, DeletionStage, StageResult, StageStatus
+
+    monkeypatch.setattr(
+        "app.api.privacy.account_deletion_service.delete_account",
+        lambda **_: AccountDeletionOutcome(
+            completed=True,
+            operation_id="op-test",
+            stages=[
+                StageResult(DeletionStage.APPLE_REVOKE, StageStatus.NOT_APPLICABLE),
+                StageResult(DeletionStage.PUBLIC_DATA, StageStatus.COMPLETED),
+                StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.NOT_APPLICABLE),
+            ],
+        ),
+    )
     client = TestClient(app)
     export_response = client.get("/api/privacy/export", headers=_auth_headers())
     delete_response = client.post(
