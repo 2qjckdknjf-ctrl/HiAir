@@ -21,6 +21,9 @@ internal object FirstRunOnboardingRenderer {
     var currentStep: Int = STEP_VALUE
         private set
 
+    private var authEmailInput: android.widget.EditText? = null
+    private var authPasswordInput: android.widget.EditText? = null
+
     fun resetStepForSession(isLoggedIn: Boolean) {
         currentStep = if (isLoggedIn) STEP_VALUE else STEP_AUTH
     }
@@ -79,24 +82,14 @@ internal object FirstRunOnboardingRenderer {
         card.addView(V2Ui.spacer(activity, 8))
         val emailInput = HiAirComponents.inputField(activity, ctx.l("settings.email"))
         val passwordInput = HiAirComponents.inputField(activity, ctx.l("settings.password"))
+        authEmailInput = emailInput
+        authPasswordInput = passwordInput
         card.addView(emailInput)
         card.addView(passwordInput)
         card.addView(
             HiAirComponents.primaryButton(activity, ctx.l("settings.log_in")).apply {
                 setOnClickListener {
-                    ctx.rootShell.settingsViewModel.setEmail(emailInput.text.toString())
-                    ctx.rootShell.settingsViewModel.setPassword(passwordInput.text.toString())
-                    Thread {
-                        ctx.rootShell.settingsViewModel.login {
-                            activity.runOnUiThread {
-                                ctx.persistSession()
-                                if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
-                                    currentStep = STEP_VALUE
-                                }
-                                ctx.rerender()
-                            }
-                        }
-                    }.start()
+                    submitAuthLogin(ctx)
                 }
             },
         )
@@ -250,7 +243,7 @@ internal object FirstRunOnboardingRenderer {
         onComplete: () -> Unit,
     ) {
         when (currentStep) {
-            STEP_AUTH -> Unit
+            STEP_AUTH -> submitAuthLogin(ctx)
             STEP_VALUE -> {
                 currentStep = STEP_LOCATION
                 ctx.rerender()
@@ -294,5 +287,22 @@ internal object FirstRunOnboardingRenderer {
 
     private fun firstContentStep(isLoggedIn: Boolean): Int {
         return if (isLoggedIn) STEP_VALUE else STEP_AUTH
+    }
+
+    private fun submitAuthLogin(ctx: RenderContext) {
+        val activity = ctx.activity
+        ctx.rootShell.settingsViewModel.setEmail(authEmailInput?.text?.toString().orEmpty())
+        ctx.rootShell.settingsViewModel.setPassword(authPasswordInput?.text?.toString().orEmpty())
+        Thread {
+            ctx.rootShell.settingsViewModel.login {
+                activity.runOnUiThread {
+                    ctx.persistSession()
+                    if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
+                        currentStep = STEP_VALUE
+                    }
+                    ctx.rerender()
+                }
+            }
+        }.start()
     }
 }

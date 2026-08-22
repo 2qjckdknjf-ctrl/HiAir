@@ -26,6 +26,10 @@ enum UITestBootstrap {
             .replacingOccurrences(of: languageArgumentPrefix, with: "")
     }
 
+    static var isStoreShots: Bool {
+        isUITesting && ProcessInfo.processInfo.environment["UITEST_STORE_SHOTS"] == "1"
+    }
+
     static var disableAutoProfileBootstrap: Bool {
         isUITesting && ProcessInfo.processInfo.environment["UITEST_DISABLE_AUTO_PROFILE"] == "1"
     }

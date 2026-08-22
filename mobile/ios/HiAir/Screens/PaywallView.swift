@@ -162,7 +162,7 @@ private struct PaywallContent: View {
     private func policyButton(_ title: String, url: URL) -> some View {
         Button(title) { safariURL = url }
             .font(HiAirTypography.bodyMD)
-            .foregroundStyle(HiAirColors.Spectrum.cyan)
+            .foregroundStyle(HiAirColors.Brand.orbCyan)
     }
 
     private func subscriptionFactRow(product: Product?, fallbackTitle: String, length: String) -> some View {
