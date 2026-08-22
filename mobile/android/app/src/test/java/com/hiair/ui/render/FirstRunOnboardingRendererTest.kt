@@ -15,4 +15,11 @@ class FirstRunOnboardingRendererTest {
         FirstRunOnboardingRenderer.resetStepForSession(isLoggedIn = true)
         assertEquals(1, FirstRunOnboardingRenderer.currentStep)
     }
+
+    @Test
+    fun authStep_exposesSinglePrimaryCta() {
+        FirstRunOnboardingRenderer.resetStepForSession(isLoggedIn = false)
+        assertEquals(1, FirstRunOnboardingRenderer.primaryAuthButtonCountForStep(0))
+        assertEquals(0, FirstRunOnboardingRenderer.primaryAuthButtonCountForStep(1))
+    }
 }

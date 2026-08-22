@@ -109,6 +109,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var availableProfiles: [UserProfile] = []
     @Published var statusText = "-"
     @Published var loading = false
+    @Published var accountDeletionDetail = ""
 
     private let apiClient: APIClient
 
@@ -299,21 +300,48 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    func deleteAccount() async -> Bool {
+    func performAccountDeletion(appleCoordinator: AppleSignInCoordinator) async -> Bool {
         guard !userId.isEmpty else {
             statusText = l("settings.user_id_required")
             return false
         }
         loading = true
         defer { loading = false }
+        accountDeletionDetail = ""
         do {
-            try await apiClient.deleteAccount(userId: userId, accessToken: accessToken)
+            let requirements = try await apiClient.fetchDeleteAccountRequirements(
+                userId: userId,
+                accessToken: accessToken
+            )
+            var appleCode: String?
+            if requirements.requiresAppleAuthorizationCode {
+                do {
+                    appleCode = try await appleCoordinator.authorizationCodeForAccountDeletion()
+                } catch let error as AppleSignInError where error == .cancelled {
+                    statusText = l("settings.account_delete_cancelled")
+                    return false
+                }
+            }
+            let result = try await apiClient.deleteAccount(
+                userId: userId,
+                accessToken: accessToken,
+                appleAuthorizationCode: appleCode
+            )
+            guard result.deleted else {
+                accountDeletionDetail = AccountDeletionStageLabel.summary(result.stages)
+                statusText = result.recoveryHint ?? l("settings.account_delete_failed")
+                return false
+            }
             statusText = l("settings.account_deleted")
             ProductAnalytics.track("privacy_delete")
             userId = ""
             accessToken = ""
             privacyExportSummary = "-"
             return true
+        } catch let error as AccountDeletionAPIError {
+            accountDeletionDetail = AccountDeletionStageLabel.summary(error.stages)
+            statusText = error.recoveryHint ?? error.message
+            return false
         } catch {
             statusText = l("settings.account_delete_failed")
             return false
@@ -914,6 +942,8 @@ struct SettingsView: View {
     @State private var showingGuide = false
     @State private var showingAIGuide = false
     @State private var showWearableConsent = false
+    @State private var showDeleteAccountConfirm = false
+    private let appleDeletionCoordinator = AppleSignInCoordinator()
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
@@ -1417,16 +1447,17 @@ struct SettingsView: View {
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                     }
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.delete_account")) {
-                        Task {
-                            let deleted = await viewModel.deleteAccount()
-                            if deleted {
-                                session.logout()
-                            }
-                        }
+                        showDeleteAccountConfirm = true
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading)
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.deleteAccount)
+                    if !viewModel.accountDeletionDetail.isEmpty {
+                        Text(viewModel.accountDeletionDetail)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
                     Button(session.l("settings.log_out")) {
                         session.logout()
                         viewModel.userId = ""
@@ -1517,6 +1548,25 @@ struct SettingsView: View {
         .sheet(isPresented: $showingAIGuide) {
             HiAirAIGuideView()
                 .environmentObject(session)
+        }
+        .confirmationDialog(
+            session.l("settings.delete_account_confirm_title"),
+            isPresented: $showDeleteAccountConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(session.l("settings.delete_account_confirm_action"), role: .destructive) {
+                Task {
+                    let deleted = await viewModel.performAccountDeletion(
+                        appleCoordinator: appleDeletionCoordinator
+                    )
+                    if deleted {
+                        session.logout()
+                    }
+                }
+            }
+            Button(session.l("settings.cancel"), role: .cancel) {}
+        } message: {
+            Text(session.l("settings.delete_account_confirm_body"))
         }
     }
 

@@ -1399,18 +1399,42 @@ final class APIClient {
         return payload
     }
 
-    func deleteAccount(userId: String, accessToken: String? = nil) async throws {
+    func deleteAccount(
+        userId: String,
+        accessToken: String? = nil,
+        appleAuthorizationCode: String? = nil
+    ) async throws -> DeleteAccountResponsePayload {
         let url = baseURL.appending(path: "/api/privacy/delete-account")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
-        request.httpBody = try JSONEncoder().encode(["confirmation": "DELETE"])
-
-        let (_, httpResponse) = try await sendRequestWithAutoRefresh(request)
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.server(statusCode: httpResponse.statusCode)
+        var body: [String: String] = ["confirmation": "DELETE"]
+        if let appleAuthorizationCode, !appleAuthorizationCode.isEmpty {
+            body["apple_authorization_code"] = appleAuthorizationCode
         }
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw AccountDeletionAPIError.parse(statusCode: httpResponse.statusCode, data: data)
+        }
+        return try JSONDecoder().decode(DeleteAccountResponsePayload.self, from: data)
+    }
+
+    func fetchDeleteAccountRequirements(
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> DeleteAccountRequirementsResponse {
+        let url = baseURL.appending(path: "/api/privacy/delete-account/requirements")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw AccountDeletionAPIError.parse(statusCode: httpResponse.statusCode, data: data)
+        }
+        return try JSONDecoder().decode(DeleteAccountRequirementsResponse.self, from: data)
     }
 
     func updateUserSettings(
@@ -1962,12 +1986,15 @@ final class APIClient {
 
 enum AppleSignInError: LocalizedError {
     case missingIdentityToken
+    case missingAuthorizationCode
     case cancelled
 
     var errorDescription: String? {
         switch self {
         case .missingIdentityToken:
             return "Apple Sign In did not return an identity token."
+        case .missingAuthorizationCode:
+            return "Apple Sign In did not return an authorization code."
         case .cancelled:
             return "Apple Sign In was cancelled."
         }
@@ -1993,6 +2020,17 @@ final class AppleSignInCoordinator: NSObject {
             controller.presentationContextProvider = self
             controller.performRequests()
         }
+    }
+
+    func authorizationCodeForAccountDeletion() async throws -> String {
+        let (credential, _) = try await signIn()
+        guard let codeData = credential.authorizationCode,
+              let code = String(data: codeData, encoding: .utf8),
+              !code.isEmpty
+        else {
+            throw AppleSignInError.missingAuthorizationCode
+        }
+        return code
     }
 
     private static func randomNonceString(length: Int = 32) -> String {

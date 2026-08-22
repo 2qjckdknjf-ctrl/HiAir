@@ -3,33 +3,86 @@ import SwiftUI
 import UIKit
 #endif
 
+enum HiAirFontStyle {
+    case displayXL
+    case displayLG
+    case titleLG
+    case titleMD
+    case bodyLG
+    case bodyMD
+    case caption
+
+    var baseSize: CGFloat {
+        switch self {
+        case .displayXL: return 64
+        case .displayLG: return 32
+        case .titleLG: return 22
+        case .titleMD: return 18
+        case .bodyLG: return 17
+        case .bodyMD: return 15
+        case .caption: return 13
+        }
+    }
+
+    var weight: Font.Weight {
+        switch self {
+        case .displayXL: return .bold
+        case .displayLG: return .bold
+        case .titleLG: return .semibold
+        case .titleMD: return .semibold
+        case .bodyLG: return .medium
+        case .bodyMD: return .medium
+        case .caption: return .semibold
+        }
+    }
+
+    var design: Font.Design {
+        switch self {
+        case .displayXL: return .rounded
+        default: return .default
+        }
+    }
+
+    var textStyle: Font.TextStyle {
+        switch self {
+        case .displayXL: return .largeTitle
+        case .displayLG: return .title
+        case .titleLG: return .title2
+        case .titleMD: return .headline
+        case .bodyLG: return .body
+        case .bodyMD: return .subheadline
+        case .caption: return .caption
+        }
+    }
+}
+
 enum HiAirTypography {
-    static let displayXL = scaledFont(size: 64, weight: .bold, design: .rounded, relativeTo: .largeTitle)
-    static let displayLG = scaledFont(size: 32, weight: .bold, relativeTo: .title)
-    static let titleLG = scaledFont(size: 22, weight: .semibold, relativeTo: .title2)
-    static let titleMD = scaledFont(size: 18, weight: .semibold, relativeTo: .headline)
-    static let bodyLG = scaledFont(size: 17, weight: .medium, relativeTo: .body)
-    static let bodyMD = scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
-    static let caption = scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+    static func font(_ style: HiAirFontStyle, sizeCategory: ContentSizeCategory) -> Font {
+        #if canImport(UIKit)
+        let scaledSize = scaledFontSize(
+            baseSize: style.baseSize,
+            textStyle: style.uiKitTextStyle,
+            sizeCategory: sizeCategory
+        )
+        return Font.system(size: scaledSize, weight: style.weight, design: style.design)
+        #else
+        return Font.system(size: style.baseSize, weight: style.weight, design: style.design)
+        #endif
+    }
 
     static func scaled(
         _ size: CGFloat,
         weight: Font.Weight = .regular,
         design: Font.Design = .default,
-        relativeTo textStyle: Font.TextStyle = .body
-    ) -> Font {
-        scaledFont(size: size, weight: weight, design: design, relativeTo: textStyle)
-    }
-
-    private static func scaledFont(
-        size: CGFloat,
-        weight: Font.Weight = .regular,
-        design: Font.Design = .default,
-        relativeTo textStyle: Font.TextStyle = .body
+        relativeTo textStyle: Font.TextStyle = .body,
+        sizeCategory: ContentSizeCategory
     ) -> Font {
         #if canImport(UIKit)
-        let metrics = UIFontMetrics(forTextStyle: textStyle.uiKitTextStyle)
-        let scaledSize = metrics.scaledValue(for: size)
+        let scaledSize = scaledFontSize(
+            baseSize: size,
+            textStyle: textStyle.uiKitTextStyle,
+            sizeCategory: sizeCategory
+        )
         return Font.system(size: scaledSize, weight: weight, design: design)
         #else
         return Font.system(size: size, weight: weight, design: design)
@@ -37,6 +90,49 @@ enum HiAirTypography {
     }
 }
 
+private struct HiAirFontModifier: ViewModifier {
+    @Environment(\.sizeCategory) private var sizeCategory
+    let style: HiAirFontStyle
+
+    func body(content: Content) -> some View {
+        content.font(HiAirTypography.font(style, sizeCategory: sizeCategory))
+    }
+}
+
+extension View {
+    func hiAirFont(_ style: HiAirFontStyle) -> some View {
+        modifier(HiAirFontModifier(style: style))
+    }
+}
+
+extension HiAirTypography {
+    static var displayXL: Font { font(.displayXL, sizeCategory: .medium) }
+    static var displayLG: Font { font(.displayLG, sizeCategory: .medium) }
+    static var titleLG: Font { font(.titleLG, sizeCategory: .medium) }
+    static var titleMD: Font { font(.titleMD, sizeCategory: .medium) }
+    static var bodyLG: Font { font(.bodyLG, sizeCategory: .medium) }
+    static var bodyMD: Font { font(.bodyMD, sizeCategory: .medium) }
+    static var caption: Font { font(.caption, sizeCategory: .medium) }
+
+    #if DEBUG
+    static func scaledPointSize(
+        for style: HiAirFontStyle,
+        sizeCategory: ContentSizeCategory
+    ) -> CGFloat {
+        #if canImport(UIKit)
+        return scaledFontSize(
+            baseSize: style.baseSize,
+            textStyle: style.uiKitTextStyle,
+            sizeCategory: sizeCategory
+        )
+        #else
+        return style.baseSize
+        #endif
+    }
+    #endif
+}
+
+#if canImport(UIKit)
 private extension Font.TextStyle {
     var uiKitTextStyle: UIFont.TextStyle {
         switch self {
@@ -55,3 +151,38 @@ private extension Font.TextStyle {
         }
     }
 }
+
+private extension HiAirFontStyle {
+    var uiKitTextStyle: UIFont.TextStyle { textStyle.uiKitTextStyle }
+}
+
+private extension ContentSizeCategory {
+    var uiKitCategory: UIContentSizeCategory {
+        switch self {
+        case .extraSmall: return .extraSmall
+        case .small: return .small
+        case .medium: return .medium
+        case .large: return .large
+        case .extraLarge: return .extraLarge
+        case .extraExtraLarge: return .extraExtraLarge
+        case .extraExtraExtraLarge: return .extraExtraExtraLarge
+        case .accessibilityMedium: return .accessibilityMedium
+        case .accessibilityLarge: return .accessibilityLarge
+        case .accessibilityExtraLarge: return .accessibilityExtraLarge
+        case .accessibilityExtraExtraLarge: return .accessibilityExtraExtraLarge
+        case .accessibilityExtraExtraExtraLarge: return .accessibilityExtraExtraExtraLarge
+        @unknown default: return .medium
+        }
+    }
+}
+
+private func scaledFontSize(
+    baseSize: CGFloat,
+    textStyle: UIFont.TextStyle,
+    sizeCategory: ContentSizeCategory
+) -> CGFloat {
+    let metrics = UIFontMetrics(forTextStyle: textStyle)
+    let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory.uiKitCategory)
+    return metrics.scaledValue(for: baseSize, compatibleWith: traits)
+}
+#endif

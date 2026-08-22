@@ -326,20 +326,27 @@ internal object SettingsScreenRenderer {
         }
         val deleteAccountButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
             setOnClickListener {
-                statusText.text = ctx.l("common.loading")
-                Thread {
-                    val deleted = rootShell.settingsViewModel.deleteAccount()
-                    val updated = rootShell.settingsViewModel.state
-                    activity.runOnUiThread {
-                        if (deleted) {
-                            clearSession()
-                            emailInput.setText("")
-                            passwordInput.setText("")
-                        }
-                        privacyExportSummary.text = updated.privacyExportSummary
-                        statusText.text = updated.statusText
+                androidx.appcompat.app.AlertDialog.Builder(activity)
+                    .setTitle(ctx.l("settings.delete_account_confirm_title"))
+                    .setMessage(ctx.l("settings.delete_account_confirm_body"))
+                    .setPositiveButton(ctx.l("settings.delete_account_confirm_action")) { _, _ ->
+                        statusText.text = ctx.l("common.loading")
+                        Thread {
+                            val deleted = rootShell.settingsViewModel.deleteAccount()
+                            val updated = rootShell.settingsViewModel.state
+                            activity.runOnUiThread {
+                                if (deleted) {
+                                    clearSession()
+                                    emailInput.setText("")
+                                    passwordInput.setText("")
+                                }
+                                privacyExportSummary.text = updated.privacyExportSummary
+                                statusText.text = updated.statusText
+                            }
+                        }.start()
                     }
-                }.start()
+                    .setNegativeButton(ctx.l("settings.cancel"), null)
+                    .show()
             }
         }
         val loadAiSummaryButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.load_ai_summary")).apply {

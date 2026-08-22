@@ -381,12 +381,25 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
-    fun deleteAccount(userId: String, accessToken: String? = null): String {
+    fun fetchDeleteAccountRequirements(userId: String, accessToken: String? = null): JSONObject {
+        val endpoint = "$baseUrl/api/privacy/delete-account/requirements"
+        val raw = requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+        return JSONObject(raw)
+    }
+
+    fun deleteAccount(
+        userId: String,
+        accessToken: String? = null,
+        appleAuthorizationCode: String? = null,
+    ): JSONObject {
         val endpoint = "$baseUrl/api/privacy/delete-account"
         val json = JSONObject().apply {
             put("confirmation", "DELETE")
+            if (!appleAuthorizationCode.isNullOrBlank()) {
+                put("apple_authorization_code", appleAuthorizationCode)
+            }
         }.toString()
-        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+        return JSONObject(requestStrict("POST", endpoint, json, authHeaders(userId, accessToken)))
     }
 
     fun createQuickSymptom(

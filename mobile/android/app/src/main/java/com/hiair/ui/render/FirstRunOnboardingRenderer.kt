@@ -23,6 +23,11 @@ internal object FirstRunOnboardingRenderer {
 
     private var authEmailInput: android.widget.EditText? = null
     private var authPasswordInput: android.widget.EditText? = null
+    private var authSubmitting: Boolean = false
+
+    fun primaryAuthButtonCountForStep(step: Int): Int {
+        return if (step == STEP_AUTH) 1 else 0
+    }
 
     fun resetStepForSession(isLoggedIn: Boolean) {
         currentStep = if (isLoggedIn) STEP_VALUE else STEP_AUTH
@@ -86,13 +91,6 @@ internal object FirstRunOnboardingRenderer {
         authPasswordInput = passwordInput
         card.addView(emailInput)
         card.addView(passwordInput)
-        card.addView(
-            HiAirComponents.primaryButton(activity, ctx.l("settings.log_in")).apply {
-                setOnClickListener {
-                    submitAuthLogin(ctx)
-                }
-            },
-        )
         card.addView(
             HiAirComponents.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
                 setOnClickListener {
@@ -217,7 +215,9 @@ internal object FirstRunOnboardingRenderer {
 
         row.addView(
             HiAirComponents.primaryButton(activity, primaryButtonTitle(ctx)).apply {
+                isEnabled = !authSubmitting
                 setOnClickListener {
+                    if (authSubmitting) return@setOnClickListener
                     handlePrimaryAction(ctx, isLoggedIn, onboardingStore, onComplete)
                 }
             },
@@ -291,11 +291,20 @@ internal object FirstRunOnboardingRenderer {
 
     private fun submitAuthLogin(ctx: RenderContext) {
         val activity = ctx.activity
-        ctx.rootShell.settingsViewModel.setEmail(authEmailInput?.text?.toString().orEmpty())
-        ctx.rootShell.settingsViewModel.setPassword(authPasswordInput?.text?.toString().orEmpty())
+        val email = authEmailInput?.text?.toString()?.trim().orEmpty()
+        val password = authPasswordInput?.text?.toString().orEmpty()
+        if (email.isBlank() || password.isBlank()) {
+            return
+        }
+        if (authSubmitting) return
+        authSubmitting = true
+        ctx.rerender()
+        ctx.rootShell.settingsViewModel.setEmail(email)
+        ctx.rootShell.settingsViewModel.setPassword(password)
         Thread {
             ctx.rootShell.settingsViewModel.login {
                 activity.runOnUiThread {
+                    authSubmitting = false
                     ctx.persistSession()
                     if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
                         currentStep = STEP_VALUE

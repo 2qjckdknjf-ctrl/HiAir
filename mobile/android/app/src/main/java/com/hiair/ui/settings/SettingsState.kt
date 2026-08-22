@@ -75,6 +75,7 @@ data class SettingsState(
     val aiLastUpdatedLabel: String = "-",
     val aiBreakdownText: String = "-",
     val privacyExportSummary: String = "-",
+    val accountDeletionDetail: String = "",
     val wearableStatus: String = "-",
     val loading: Boolean = false,
     val statusText: String = "-",
@@ -613,9 +614,27 @@ class SettingsViewModel(
             state = state.copy(statusText = l("settings.user_id_required"))
             return false
         }
-        state = state.copy(loading = true)
+        state = state.copy(loading = true, accountDeletionDetail = "")
         return try {
-            apiClient.deleteAccount(state.userId, state.accessToken)
+            val requirements = apiClient.fetchDeleteAccountRequirements(state.userId, state.accessToken)
+            val requiresApple = requirements.optBoolean("requires_apple_authorization_code", false)
+            if (requiresApple) {
+                state = state.copy(
+                    loading = false,
+                    statusText = l("settings.account_delete_apple_required"),
+                    accountDeletionDetail = requirements.optString("recovery_hint", ""),
+                )
+                return false
+            }
+            val response = apiClient.deleteAccount(state.userId, state.accessToken)
+            if (!response.optBoolean("deleted", false)) {
+                state = state.copy(
+                    loading = false,
+                    statusText = response.optString("recovery_hint", l("settings.account_delete_failed")),
+                    accountDeletionDetail = response.optJSONObject("stages")?.toString().orEmpty(),
+                )
+                return false
+            }
             state = state.copy(
                 loading = false,
                 email = "",
@@ -624,10 +643,18 @@ class SettingsViewModel(
                 accessToken = "",
                 refreshToken = "",
                 privacyExportSummary = "-",
-                statusText = l("settings.account_deleted")
+                statusText = l("settings.account_deleted"),
+                accountDeletionDetail = "",
             )
             ProductAnalytics.track("privacy_delete")
             true
+        } catch (error: ApiHttpException) {
+            state = state.copy(
+                loading = false,
+                statusText = l("settings.account_delete_failed"),
+                accountDeletionDetail = error.message.orEmpty(),
+            )
+            false
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))
             false
