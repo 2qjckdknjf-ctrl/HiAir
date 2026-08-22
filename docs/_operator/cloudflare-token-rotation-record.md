@@ -28,6 +28,15 @@ Target secret: GitHub Environment `production` / `CLOUDFLARE_API_TOKEN` only
 | Functional checks | `GET /accounts` 200; `GET …/workers/scripts/hiair-api` 200 |
 | Local secret file | Written `backend/.secrets/cloudflare_api_token` (chmod 600, gitignored) — value never logged |
 | GitHub secret update | `production/CLOUDFLARE_API_TOKEN` updated 2026-07-20T18:17:12Z |
+
+## 2026-08-22 rotation (feat/hiair-1.2-best-time-planner deploy)
+
+| Item | Result |
+|------|--------|
+| Symptom | `Backend Deploy Production` failed at **Verify Cloudflare deploy token** (403 / code 1000) |
+| Recovery | `refresh_wrangler_oauth.py --write-secret-file` + `gh secret set CLOUDFLARE_API_TOKEN --env production` |
+| Deploy run | `32564334495` — PASS (post-deploy smoke + `deploy_git_sha=1e1230d5…`) |
+| Follow-up | Create long-lived **Custom API Token** per runbook — OAuth access tokens expire (~1h) |
 | Preflight | `cloudflare-deploy-preflight: PASS` (oauth functional check) |
 | Helper added | `scripts/ops/refresh_wrangler_oauth.py` + rotate script auto-refresh fallback |
 

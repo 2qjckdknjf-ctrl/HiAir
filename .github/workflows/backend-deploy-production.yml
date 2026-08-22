@@ -257,3 +257,4 @@ jobs:
         if: steps.cloudflare.outputs.enabled == '1'
         run: |
           python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${GITHUB_SHA}"
+          python3 scripts/release/smoke_feature_surfaces_prod.py

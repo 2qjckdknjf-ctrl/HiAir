@@ -763,8 +763,8 @@ HiAir reaches the intended 10/10 product state when:
 
 | Release | Status |
 |---------|--------|
-| 1.1 Forecast Truth | CODE COMPLETE — waiting production deploy + device QA |
-| 1.2 Best Time Activity Planner | CODE COMPLETE (backend + iOS/Android additive UI) — waiting production/device QA |
+| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `1e1230d5`) — device QA pending |
+| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `1e1230d5`) — device QA pending |
 | 1.3 Multi-Hazard | Backend + Dashboard UI IN PROGRESS (`GET /api/air/hazards`) |
 | 1.4 Alert Decision Engine | Gate wired into orchestrator IN PROGRESS (`POST /api/alerts/decide`) |
 | 1.5 Saved Places | Backend + family Postgres + risk overview UI IN PROGRESS |

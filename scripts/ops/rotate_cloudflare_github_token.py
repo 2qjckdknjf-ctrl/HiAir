@@ -102,11 +102,9 @@ def main() -> int:
         return 0
 
     sys.path.insert(0, str(ROOT / "scripts/release"))
-    from sync_github_env_secrets import _github_token, _set_env_secret  # type: ignore
+    from sync_github_env_secrets import _set_env_secret  # type: ignore
 
-    gh = _github_token()
-    # Only rotate CLOUDFLARE_API_TOKEN — do not touch other production secrets.
-    _set_env_secret(gh, "production", "CLOUDFLARE_API_TOKEN", token)
+    _set_env_secret("production", "CLOUDFLARE_API_TOKEN", token)
     print("github_secret: set production/CLOUDFLARE_API_TOKEN OK")
     print(f"account_id_expected: {ACCOUNT_ID} (unchanged in GitHub)")
     return 0
