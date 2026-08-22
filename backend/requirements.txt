@@ -5,8 +5,8 @@ psycopg[binary]
 httpx
 email-validator
 pyjwt[crypto]
-app-store-server-library
-cryptography
+app-store-server-library>=1.5.0,<2
+cryptography>=42,<45
 pytest
 pytest-cov
 ruff

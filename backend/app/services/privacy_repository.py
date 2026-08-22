@@ -548,6 +548,9 @@ def delete_user_data(user_id: str) -> bool:
                 "user_subscriptions",
                 "briefing_schedule",
                 "auth_refresh_tokens",
+                "saved_places",
+                "protected_day_events",
+                "family_member_links",
             ):
                 if table_name in {
                     "health_insights",

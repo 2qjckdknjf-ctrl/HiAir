@@ -5,6 +5,8 @@ from psycopg import Error as PsycopgError
 
 from app.api.deps import get_current_user_id
 from app.models.privacy import DeleteAccountRequest, DeleteAccountResponse, PrivacyExportResponse
+from app.services.account_deletion import AccountDeletionError
+import app.services.account_deletion as account_deletion_service
 import app.services.privacy_repository as privacy_repository
 
 router = APIRouter(prefix="/privacy", tags=["privacy"])
@@ -35,10 +37,25 @@ def delete_my_account(
         raise HTTPException(status_code=422, detail="confirmation must be exactly DELETE")
 
     try:
-        deleted = privacy_repository.delete_user_data(user_id=user_id)
+        outcome = account_deletion_service.delete_account(
+            user_id=user_id,
+            apple_authorization_code=payload.apple_authorization_code,
+            require_apple_revoke=payload.require_apple_revoke,
+        )
+    except AccountDeletionError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={
+                "message": exc.outcome.recovery_hint or "Account deletion incomplete",
+                "stages": exc.outcome.stage_map(),
+                "recovery_hint": exc.outcome.recovery_hint,
+            },
+        ) from exc
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
-    if not deleted:
-        raise HTTPException(status_code=404, detail="User not found")
-    return DeleteAccountResponse(deleted=True)
+    return DeleteAccountResponse(
+        deleted=outcome.completed,
+        stages=outcome.stage_map(),
+        recovery_hint=outcome.recovery_hint,
+    )
