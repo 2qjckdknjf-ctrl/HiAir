@@ -1,10 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from psycopg import Error as PsycopgError
-
-from app.api.deps import get_current_user_id
 import app.api.air as air_api
-import app.services.entitlement_service as entitlement_service
-
+from app.api.deps import get_current_user_id
 from app.models.activity_plan import (
     ActivityCatalogResponse,
     ActivityPlanRequest,
@@ -12,15 +7,20 @@ from app.models.activity_plan import (
 )
 from app.models.air import SafeWindowType, UserProfileContext
 from app.models.planner import DailyPlannerResponse, HourlyRiskItem, SafeWindow
+from app.services import (
+    activity_plan_engine,
+    air_environment_service,
+    air_risk_engine,
+    entitlement_service,
+    places_repository,
+    wearable_service,
+)
 from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE
-import app.services.activity_plan_engine as activity_plan_engine
-import app.services.air_environment_service as air_environment_service
-import app.services.air_risk_engine as air_risk_engine
-import app.services.places_repository as places_repository
-import app.services.wearable_service as wearable_service
 from app.services.forecast.mapping import forecast_to_hourly_inputs
 from app.services.forecast.service import get_forecast
+from fastapi import APIRouter, Depends, HTTPException, Query
+from psycopg import Error as PsycopgError
 
 router = APIRouter(prefix="/planner", tags=["planner"])
 
@@ -122,13 +122,22 @@ def create_activity_plan(
         profile = air_api._resolve_profile_for_user(payload.profileId, user_id)
         lat = profile.home_lat
         lon = profile.home_lon
+        environment_profile = profile
         if payload.placeId:
             place = places_repository.get_place(user_id=user_id, place_id=payload.placeId)
             if place is None:
                 raise HTTPException(status_code=404, detail="Saved place not found")
             lat = place.lat
             lon = place.lon
-        environment = air_environment_service.load_environment(profile)
+            environment_profile = profile.model_copy(
+                update={
+                    "home_lat": place.lat,
+                    "home_lon": place.lon,
+                    "timezone": place.timezone or profile.timezone,
+                    "location_name": place.name,
+                }
+            )
+        environment = air_environment_service.load_environment(environment_profile)
         forecast = air_api._load_forecast_or_none(lat, lon)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         personal_load = wearable_service.build_personal_load_input(user_id, environment)
