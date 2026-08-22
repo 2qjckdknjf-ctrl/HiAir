@@ -55,6 +55,7 @@
 		950FC2F499655961DDEFA56A /* HiAirPremium.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 58B07551915E7C0571623EC9 /* HiAirPremium.storekit */; };
 		9FE7D02DC3FF7325D197975D /* TimeOfDayBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B75F7FAF52543E6F33F582 /* TimeOfDayBackground.swift */; };
 		A0CA86795A1CC3231558309F /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED16BD25D90EB9CF5D8303 /* InsightsView.swift */; };
+		A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */; };
 		A926FA88A521C2D6C60E7C1C /* HiAirRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */; };
 		A9F0AF0840E59506B4791F07 /* HiAirScreenMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A454EB07D85907CF969834B /* HiAirScreenMetrics.swift */; };
 		AAEBA1D053A217B36A8011EC /* hiair-ai-guide-avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = 0A2CAE228241EA1938B7BC3D /* hiair-ai-guide-avatar.png */; };
@@ -73,12 +74,14 @@
 		E181DAAD698B8A895596F5C9 /* HiAirHumanDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B225391F981853BB27DC62E7 /* HiAirHumanDate.swift */; };
 		E28D30B53EBF55C4AD19399C /* HiAirShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */; };
 		E3FD1B7D4C89BE80F522389A /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */; };
+		E7ED5E21F3AE2BC0F37ECEF1 /* IPadSandboxPurchaseUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */; };
 		E8574E435130C15C6FC138B9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */; };
 		E8BD8007A0F000FF990B49F1 /* ForecastDTOTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */; };
 		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
 		F1FD4A15DAFF7E0E44495F4F /* WearableStatusPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */; };
+		F45FDF7A57BEBC388CDD6343 /* HiAirPremium.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 58B07551915E7C0571623EC9 /* HiAirPremium.storekit */; };
 		F7796D20327E2DEB59780003 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */; };
 		F8E4E8CD814CCB27DA50948D /* HiAirColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606F94F2339205445B9E3E37 /* HiAirColors.swift */; };
 		F9902B01523BE5FF472F880D /* HiAirGradients.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */; };
@@ -124,6 +127,7 @@
 		3A8542A065CABD03BC96EB1E /* HiAirUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSessionTests.swift; sourceTree = "<group>"; };
 		473FF9ADA6A471A1B256FE84 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPadSandboxPurchaseUITests.swift; sourceTree = "<group>"; };
 		4A454EB07D85907CF969834B /* HiAirScreenMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirScreenMetrics.swift; sourceTree = "<group>"; };
 		51E66A00598B11116F22A217 /* RiskAccentColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskAccentColor.swift; sourceTree = "<group>"; };
 		58B07551915E7C0571623EC9 /* HiAirPremium.storekit */ = {isa = PBXFileReference; path = HiAirPremium.storekit; sourceTree = "<group>"; };
@@ -162,6 +166,7 @@
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
 		BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
+		C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreScreenshotTests.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPlistPackagingTests.swift; sourceTree = "<group>"; };
@@ -222,7 +227,9 @@
 		25D14A7F0BCE12AA63B4542C /* HiAirUITests */ = {
 			isa = PBXGroup;
 			children = (
+				49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */,
 				CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */,
+				C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */,
 				9877705B2259F97CBA762758 /* UITestSupport.swift */,
 				5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */,
 			);
@@ -423,6 +430,7 @@
 			buildConfigurationList = D09ACE6D3B2782A100F6DCB8 /* Build configuration list for PBXNativeTarget "HiAirUITests" */;
 			buildPhases = (
 				346F4DB889C66988B0DFDFF9 /* Sources */,
+				1BCA8B653A353D3017150EC1 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -445,6 +453,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					D1796A2DC5E6652352CAA189 = {
+						DevelopmentTeam = 43A4KW5BKB;
+						ProvisioningStyle = Automatic;
+					};
 					DB78423E5A04CC3DD24EC47D = {
 						DevelopmentTeam = 43A4KW5BKB;
 						ProvisioningStyle = Automatic;
@@ -478,6 +490,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1BCA8B653A353D3017150EC1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F45FDF7A57BEBC388CDD6343 /* HiAirPremium.storekit in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A5E8F81E1C6A8ACBEC5C18CC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -497,7 +517,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7ED5E21F3AE2BC0F37ECEF1 /* IPadSandboxPurchaseUITests.swift in Sources */,
 				3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */,
+				A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */,
 				C30E487232AD1079B0F38B2B /* UITestSupport.swift in Sources */,
 				D7E1D5F55E8D6B828BBA6EA9 /* WearableConsentUITests.swift in Sources */,
 			);
@@ -619,7 +641,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HiAir connects to Apple Health to read wellness summaries for personal activity and recovery insights. HiAir does not write health data to Apple Health.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your current area and personalize local guidance.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your current area — for example, to show today's outdoor risk and safer walk windows near you.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -654,6 +676,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				OTHER_LDFLAGS = "$(inherited) -framework StoreKitTest";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiair.app.uitests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -666,6 +689,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = YES;
+				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -686,8 +713,8 @@
 			buildSettings = {
 				API_BASE_URL = "http://127.0.0.1:8000";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = NO;
-				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = NO;
+				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = YES;
+				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = YES;
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
@@ -701,7 +728,7 @@
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HiAir connects to Apple Health to read wellness summaries for personal activity and recovery insights. HiAir does not write health data to Apple Health.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your current area and personalize local guidance.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "HiAir uses your location to estimate heat and air-quality risk for your current area — for example, to show today's outdoor risk and safer walk windows near you.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -727,6 +754,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGNING_ALLOWED[sdk=iphoneos*]" = YES;
+				"CODE_SIGNING_REQUIRED[sdk=iphoneos*]" = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -755,6 +786,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				OTHER_LDFLAGS = "$(inherited) -framework StoreKitTest";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiair.app.uitests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;

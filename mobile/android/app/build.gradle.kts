@@ -35,12 +35,12 @@ val hasReleaseSigning = hasEnvSigning || hasPropertiesSigning
 
 android {
     namespace = "com.hiair"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hiair"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 189
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.0.0"
     }
