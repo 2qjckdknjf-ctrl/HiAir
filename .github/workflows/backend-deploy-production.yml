@@ -29,7 +29,29 @@ permissions:
   checks: read
 
 jobs:
+  resolve-release-sha:
+    runs-on: ubuntu-latest
+    outputs:
+      resolved_release_sha: ${{ steps.resolve.outputs.resolved_release_sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve immutable production deploy SHA
+        id: resolve
+        run: |
+          set -euo pipefail
+          RESOLVED="$(python3 scripts/release/resolve_production_deploy_sha.py \
+            --event-name "${GITHUB_EVENT_NAME}" \
+            --github-ref "${GITHUB_REF}" \
+            --github-sha "${GITHUB_SHA}" \
+            --input-sha "${{ inputs.release_sha }}")"
+          echo "resolved_release_sha=${RESOLVED}" >> "${GITHUB_OUTPUT}"
+
   release-preflight:
+    needs: resolve-release-sha
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -57,27 +79,8 @@ jobs:
       - name: Checkout deploy SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_sha || github.sha }}
+          ref: ${{ needs.resolve-release-sha.outputs.resolved_release_sha }}
           fetch-depth: 0
-
-      - name: Validate deploy ref policy
-        run: |
-          set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" != "refs/heads/main" ]]; then
-            echo "Production deploy is only allowed from main push events."
-            exit 1
-          fi
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            case "${GITHUB_REF}" in
-              refs/heads/main|refs/heads/release/*|refs/heads/cursor/store-ready-hardening-*)
-                ;;
-              *)
-                echo "Manual production deploy blocked for ref ${GITHUB_REF}."
-                echo "Allowed: main, release/*, cursor/store-ready-hardening-*"
-                exit 1
-                ;;
-            esac
-          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -103,7 +106,9 @@ jobs:
 
   deploy-production:
     runs-on: ubuntu-latest
-    needs: release-preflight
+    needs:
+      - resolve-release-sha
+      - release-preflight
     environment: production
     env:
       APP_ENV: production
@@ -121,7 +126,7 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APPLE_SIGN_IN_KEY_ID: ${{ secrets.APPLE_SIGN_IN_KEY_ID }}
       APPLE_SERVICES_ID: ${{ secrets.APPLE_SERVICES_ID }}
-      APPLE_SIGN_IN_P8_PATH: ${{ secrets.APPLE_SIGN_IN_P8_PATH }}
+      APPLE_SIGN_IN_P8_CONTENT: ${{ secrets.APPLE_SIGN_IN_P8_CONTENT }}
       GOOGLE_PLAY_VERIFIER_MODE: ${{ secrets.GOOGLE_PLAY_VERIFIER_MODE }}
       GOOGLE_PLAY_PACKAGE_NAME: ${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
       GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -153,7 +158,7 @@ jobs:
       - name: Checkout deploy SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_sha || github.sha }}
+          ref: ${{ needs.resolve-release-sha.outputs.resolved_release_sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -199,6 +204,8 @@ jobs:
 
       - name: Write Cloudflare deploy env file
         if: steps.cloudflare.outputs.enabled == '1'
+        env:
+          RESOLVED_RELEASE_SHA: ${{ needs.resolve-release-sha.outputs.resolved_release_sha }}
         run: |
           python3 <<'PY'
           import os
@@ -240,7 +247,7 @@ jobs:
               "APPLE_TEAM_ID",
               "APPLE_SIGN_IN_KEY_ID",
               "APPLE_SERVICES_ID",
-              "APPLE_SIGN_IN_P8_PATH",
+              "APPLE_SIGN_IN_P8_CONTENT",
               "GOOGLE_PLAY_PACKAGE_NAME",
               "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
               "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
@@ -267,7 +274,7 @@ jobs:
                   value = defaults[key]
               if value:
                   lines.append(f"{key}={value}")
-          deploy_sha = (os.environ.get("GITHUB_SHA", "") or "").strip()
+          deploy_sha = (os.environ.get("RESOLVED_RELEASE_SHA", "") or "").strip()
           if deploy_sha:
               lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")
           env_map = dict(line.split("=", 1) for line in lines)
@@ -344,6 +351,8 @@ jobs:
 
       - name: Post-deploy API smoke
         if: steps.cloudflare.outputs.enabled == '1'
+        env:
+          RESOLVED_RELEASE_SHA: ${{ needs.resolve-release-sha.outputs.resolved_release_sha }}
         run: |
-          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${GITHUB_SHA}"
+          python3 scripts/release/post_deploy_api_smoke.py --require-live-ai --expect-sha "${RESOLVED_RELEASE_SHA}"
           python3 scripts/release/smoke_feature_surfaces_prod.py

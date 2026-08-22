@@ -78,6 +78,11 @@ allowed = {
   "APPLE_APP_APPLE_ID",
   "GOOGLE_PLAY_PACKAGE_NAME",
   "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+  "APPLE_TEAM_ID",
+  "APPLE_SIGN_IN_KEY_ID",
+  "APPLE_SERVICES_ID",
+  "APPLE_SIGN_IN_P8_CONTENT",
+  "APPLE_SIGN_IN_P8_PATH",
   "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
   "DEPLOY_GIT_SHA",
   "WEATHER_API_PROVIDER",
@@ -134,6 +139,21 @@ if app_env in ("production", "prod", "staging"):
         values["HIAIR_AUTH_PROVIDER"] = "supabase"
     if not subscription_provider or subscription_provider == "stub":
         raise SystemExit("ERROR: production deploy requires SUBSCRIPTION_PROVIDER != stub")
+    apple_team = values.get("APPLE_TEAM_ID", "").strip()
+    apple_key_id = values.get("APPLE_SIGN_IN_KEY_ID", "").strip()
+    apple_services_id = values.get("APPLE_SERVICES_ID", "").strip()
+    apple_p8_content = values.get("APPLE_SIGN_IN_P8_CONTENT", "").strip()
+    apple_p8_path = values.get("APPLE_SIGN_IN_P8_PATH", "").strip()
+    if not apple_team or not apple_key_id or not apple_services_id:
+        raise SystemExit(
+            "ERROR: production deploy requires APPLE_TEAM_ID, APPLE_SIGN_IN_KEY_ID, "
+            "and APPLE_SERVICES_ID for Sign in with Apple account deletion"
+        )
+    if not apple_p8_content and not apple_p8_path:
+        raise SystemExit(
+            "ERROR: production deploy requires APPLE_SIGN_IN_P8_CONTENT "
+            "(preferred) or APPLE_SIGN_IN_P8_PATH"
+        )
     # Fail-closed: never serve synthetic sample/mock environment data in protected deploys.
     values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
 else:
