@@ -124,7 +124,7 @@ def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": "us_aqi,pm2_5,pm10,ozone",
+        "current": "us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide",
         "timezone": "auto",
     }
     with httpx.Client(timeout=10.0) as client:
@@ -142,6 +142,7 @@ def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
         "pm25": pm25,
         "ozone": ozone,
         "pm10": _optional_float(current.get("pm10")),
+        "no2": _optional_float(current.get("nitrogen_dioxide")),
     }
 
 
@@ -177,6 +178,7 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         ozone=air.get("ozone"),
         source="live",
         pm10=air.get("pm10"),
+        no2=air.get("no2"),
         uv=weather.get("uv"),
         wind_speed=weather.get("wind_speed"),
         feels_like=weather.get("feels_like"),

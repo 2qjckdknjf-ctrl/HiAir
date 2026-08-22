@@ -85,6 +85,7 @@ def _air_metrics_present(environment: EnvironmentalInput) -> bool:
         or environment.pm25 is not None
         or environment.pm10 is not None
         or environment.ozone is not None
+        or environment.no2 is not None
     )
 
 
@@ -120,6 +121,9 @@ def score_air(environment: EnvironmentalInput, profile: UserProfileContext) -> H
     if environment.ozone is not None and environment.ozone >= 100:
         points += 1
         reasons.append("ozone_elevated")
+    if environment.no2 is not None and environment.no2 >= 80:
+        points += 1
+        reasons.append("no2_elevated")
 
     points += max(0, profile.respiratory_sensitivity_level - 2)
     if profile.profile_type in (ProfileType.ASTHMA_SENSITIVE, ProfileType.ALLERGY_SENSITIVE):

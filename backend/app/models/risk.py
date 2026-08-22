@@ -27,6 +27,7 @@ class EnvironmentSnapshot(BaseModel):
     aqi: int | None = Field(default=None, ge=0)
     pm25: float | None = Field(default=None, ge=0)
     ozone: float | None = Field(default=None, ge=0)
+    no2: float | None = None
     source: str = "mock"
     pm10: float | None = None
     uv: float | None = None

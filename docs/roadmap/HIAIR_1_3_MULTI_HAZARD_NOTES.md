@@ -32,6 +32,6 @@ Expand from heat + air quality into a modular personal environmental safety laye
 - [x] Dust module from direct provider PM10 (`score_dust` when `pm10` present)
 - [ ] Pollen / smoke dedicated provider feeds
 - [ ] Regional hazard configuration (USA, Southern Europe, GCC, Egypt)
-- [ ] NO2 and official alert feeds where data quality allows
+- [x] NO2 from Open-Meteo `nitrogen_dioxide` in live env + air hazard scoring (migration `024_environment_no2.sql`)
 - [x] Production smoke on `api.hiair.io` (via `smoke_feature_surfaces_prod.py`)
 - [ ] Merge Personal Environmental Risk with existing risk engine output

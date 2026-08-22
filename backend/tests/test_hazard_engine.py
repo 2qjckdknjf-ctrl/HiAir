@@ -64,6 +64,12 @@ def test_score_air_unavailable_without_air_metrics() -> None:
     assert result.unavailableReason == "air_metrics_unavailable"
 
 
+def test_score_air_includes_no2_when_present() -> None:
+    result = score_air(_environment(no2=95.0), _profile())
+    assert result.available is True
+    assert "no2_elevated" in result.reasonCodes
+
+
 def test_score_air_high_for_poor_aqi_and_asthma_profile() -> None:
     result = score_air(
         _environment(aqi=150, pm25=40.0),

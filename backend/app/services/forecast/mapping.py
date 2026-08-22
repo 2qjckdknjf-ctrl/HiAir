@@ -34,6 +34,7 @@ def forecast_point_to_environmental(point: EnvironmentalForecastPoint) -> Enviro
         pm25=point.pm25_ugm3,
         pm10=point.pm10_ugm3,
         ozone=point.ozone_ugm3,
+        no2=point.no2_ugm3,
         uv=point.uv_index,
         wind_speed=point.wind_speed_mps,
         source=source,

@@ -111,7 +111,8 @@ def get_latest_environment_snapshot(
                     feels_like,
                     pm10,
                     uv,
-                    wind_speed
+                    wind_speed,
+                    no2
                 FROM environment_snapshots
                 WHERE geo_hash = %s
                   AND timestamp_utc >= %s
@@ -132,6 +133,7 @@ def get_latest_environment_snapshot(
         ozone=None if row["ozone"] is None else float(row["ozone"]),
         source=str(row["source"]),
         pm10=None if row.get("pm10") is None else float(row["pm10"]),
+        no2=None if row.get("no2") is None else float(row["no2"]),
         uv=None if row.get("uv") is None else float(row["uv"]),
         wind_speed=None if row.get("wind_speed") is None else float(row["wind_speed"]),
         feels_like=None if row.get("feels_like") is None else float(row["feels_like"]),
@@ -161,9 +163,10 @@ def save_environment_snapshot(environment: EnvironmentalInput) -> str:
                     feels_like,
                     pm10,
                     uv,
-                    wind_speed
+                    wind_speed,
+                    no2
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     snapshot_id,
@@ -182,6 +185,7 @@ def save_environment_snapshot(environment: EnvironmentalInput) -> str:
                     environment.pm10,
                     environment.uv,
                     environment.wind_speed,
+                    environment.no2,
                 ),
             )
     return snapshot_id

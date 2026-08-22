@@ -67,6 +67,7 @@ class EnvironmentalInput(BaseModel):
     pm25: float | None = Field(default=None, ge=0)
     pm10: float | None = Field(default=None, ge=0)
     ozone: float | None = Field(default=None, ge=0)
+    no2: float | None = Field(default=None, ge=0)
     uv: float | None = Field(default=None, ge=0)
     wind_speed: float | None = Field(default=None, ge=0)
     source: str
