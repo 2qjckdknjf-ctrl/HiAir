@@ -1,6 +1,6 @@
 # HiAir 1.2 — Best Time & Activity Planner
 
-**Status:** DEPLOYED on `api.hiair.io` (`1e1230d5`) — device QA pending  
+**Status:** DEPLOYED on `api.hiair.io` (`5447279e`) — device QA pending  
 **Branch:** `feat/hiair-1.2-best-time-planner`
 
 ## Shipped
@@ -24,7 +24,7 @@
 4. Premium gate matches extended forecast planner.
 
 ## Still open (external)
-- [x] Production deploy of 1.1 + 1.2 (`api.hiair.io`, run `32564334495`)
-- [ ] Authenticated API smoke
+- [x] Production deploy of 1.1 + 1.2 (`api.hiair.io`)
+- [x] Authenticated API smoke (`smoke_feature_surfaces_prod.py` incl. activity-plan 402)
 - [ ] Physical-device / TestFlight QA
-- [ ] Analytics events (plan created / followed)
+- [x] Analytics events (`activity_plan_created`, `activity_plan_followed`, `protected_day_event_recorded`)

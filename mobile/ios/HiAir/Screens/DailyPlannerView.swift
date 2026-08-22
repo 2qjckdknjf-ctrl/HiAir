@@ -210,6 +210,15 @@ final class DailyPlannerViewModel: ObservableObject {
                     "quality": plan.dataQuality ?? "complete",
                 ]
             )
+            if plan.isForecastAvailable, !plan.windows.isEmpty {
+                ProductAnalytics.track(
+                    "activity_plan_created",
+                    properties: [
+                        "activity": plan.activity,
+                        "windows": String(plan.windows.count),
+                    ]
+                )
+            }
         } catch let error as APIError {
             ProductAnalytics.track(
                 "activity_plan_fetch_failed",
@@ -312,6 +321,13 @@ final class DailyPlannerViewModel: ObservableObject {
             )
             onSuccess(HiAirL10n.t(successKey, lang: language))
             ProductAnalytics.track(analyticsEvent)
+            ProductAnalytics.track(
+                "protected_day_event_recorded",
+                properties: ["event_type": eventType]
+            )
+            if eventType == "workout_moved" {
+                ProductAnalytics.track("activity_plan_followed", properties: ["event_type": eventType])
+            }
         } catch let error as APIError {
             let premiumCode: Int? = {
                 if case .server(let code) = error { return code }

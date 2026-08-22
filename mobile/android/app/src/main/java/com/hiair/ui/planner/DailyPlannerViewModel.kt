@@ -173,6 +173,10 @@ class DailyPlannerViewModel(
                 eventType = eventType,
             )
             ProductAnalytics.track(analyticsEvent)
+            ProductAnalytics.track("protected_day_event_recorded", mapOf("event_type" to eventType))
+            if (eventType == "workout_moved") {
+                ProductAnalytics.track("activity_plan_followed", mapOf("event_type" to eventType))
+            }
             onResult(true, l(successKey, preferredLanguage), false)
         } catch (error: ApiHttpException) {
             val premiumRequired = error.statusCode == 402
@@ -251,6 +255,15 @@ class DailyPlannerViewModel(
                     "forecast" to parsed.forecastAvailable.toString(),
                 ),
             )
+            if (parsed.forecastAvailable && parsed.windows.isNotEmpty()) {
+                ProductAnalytics.track(
+                    "activity_plan_created",
+                    mapOf(
+                        "activity" to activityId,
+                        "windows" to parsed.windows.size.toString(),
+                    ),
+                )
+            }
         } catch (error: ApiHttpException) {
             ProductAnalytics.track("activity_plan_fetch_failed", mapOf("activity" to activityId))
             val premiumRequired = error.statusCode == 402

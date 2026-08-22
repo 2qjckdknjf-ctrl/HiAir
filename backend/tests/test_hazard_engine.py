@@ -87,14 +87,27 @@ def test_score_uv_high_for_peak_index() -> None:
     assert "uv_very_high" in result.reasonCodes
 
 
-def test_pollen_smoke_dust_always_provider_not_configured() -> None:
+def test_pollen_and_smoke_unavailable_without_provider() -> None:
     env = _environment()
     profile = _profile()
-    for scorer in (score_pollen, score_smoke, score_dust):
+    for scorer in (score_pollen, score_smoke):
         result = scorer(env, profile)
         assert result.available is False
         assert result.level == HazardLevel.UNAVAILABLE
         assert result.unavailableReason == "provider_not_configured"
+
+
+def test_score_dust_from_pm10() -> None:
+    result = score_dust(_environment(pm10=85.0), _profile())
+    assert result.available is True
+    assert result.level == HazardLevel.HIGH
+    assert "pm10_coarse_particulate" in result.reasonCodes
+
+
+def test_score_dust_unavailable_without_pm10() -> None:
+    result = score_dust(_environment(pm10=None), _profile())
+    assert result.available is False
+    assert result.unavailableReason == "pm10_unavailable"
 
 
 def test_assess_multi_hazard_returns_all_six_modules() -> None:
@@ -108,7 +121,7 @@ def test_assess_multi_hazard_returns_all_six_modules() -> None:
         HazardType.SMOKE,
         HazardType.DUST,
     }
-    assert assessment.availableCount == 3
+    assert assessment.availableCount == 4
     assert assessment.overallLevel in (HazardLevel.MODERATE, HazardLevel.HIGH)
 
 

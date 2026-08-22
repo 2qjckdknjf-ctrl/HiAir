@@ -147,6 +147,67 @@ def main() -> int:
         return 1
     print("planner-activities: OK")
 
+    status, body = _request(
+        "POST",
+        f"{base}/api/planner/activity-plan",
+        headers=auth,
+        body={
+            "profileId": profile_id,
+            "activity": "running",
+            "durationMinutes": 45,
+        },
+    )
+    if status == 402:
+        print("activity-plan: OK premium gate (402)")
+    elif status != 200:
+        print(f"activity-plan: FAIL status={status} body={body}")
+        return 1
+    else:
+        print("activity-plan: OK")
+
+    status, body = _request(
+        "POST",
+        f"{base}/api/insights/protected-day-events",
+        headers=auth,
+        body={"profileId": profile_id, "eventType": "workout_moved"},
+    )
+    if status == 402:
+        print("protected-day-events: OK premium gate (402)")
+    elif status != 200:
+        print(f"protected-day-events: FAIL status={status} body={body}")
+        return 1
+    else:
+        print("protected-day-events: OK")
+
+    status, body = _request(
+        "POST",
+        f"{base}/api/alerts/decide",
+        headers=auth,
+        body={
+            "candidate": {
+                "alertType": "air_worsening",
+                "severity": "medium",
+                "reasonCode": "threshold_crossed",
+                "profileId": profile_id,
+                "localHour": 10,
+                "quietHoursStart": 22,
+                "quietHoursEnd": 7,
+                "cooldownMinutesRemaining": 0,
+                "fingerprint": "smoke:test",
+                "actionable": True,
+                "personalThresholdMet": True,
+            }
+        },
+    )
+    if status != 200 or not isinstance(body, dict):
+        print(f"alerts-decide: FAIL status={status} body={body}")
+        return 1
+    decision = body.get("decision") if isinstance(body.get("decision"), dict) else {}
+    if decision.get("action") not in ("send", "suppress"):
+        print(f"alerts-decide: FAIL unexpected decision={decision!r}")
+        return 1
+    print(f"alerts-decide: OK action={decision.get('action')}")
+
     print("feature_surfaces_production_smoke: PASS")
     return 0
 

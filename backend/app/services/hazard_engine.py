@@ -187,8 +187,37 @@ def score_smoke(_environment: EnvironmentalInput, _profile: UserProfileContext) 
     return _unavailable(HazardType.SMOKE)
 
 
-def score_dust(_environment: EnvironmentalInput, _profile: UserProfileContext) -> HazardScore:
-    return _unavailable(HazardType.DUST)
+def score_dust(environment: EnvironmentalInput, profile: UserProfileContext) -> HazardScore:
+    if environment.pm10 is None:
+        return _unavailable(HazardType.DUST, "pm10_unavailable")
+
+    reasons: list[str] = ["pm10_coarse_particulate"]
+    pm10 = environment.pm10
+    if pm10 >= 100:
+        level = HazardLevel.VERY_HIGH
+        reasons.append("pm10_very_high")
+    elif pm10 >= 70:
+        level = HazardLevel.HIGH
+        reasons.append("pm10_high")
+    elif pm10 >= 40:
+        level = HazardLevel.MODERATE
+        reasons.append("pm10_elevated")
+    else:
+        level = HazardLevel.LOW
+        reasons.append("pm10_low")
+
+    if profile.profile_type in (ProfileType.ASTHMA_SENSITIVE, ProfileType.ALLERGY_SENSITIVE):
+        reasons.append("profile_respiratory_sensitivity")
+        if HAZARD_LEVEL_ORDER[level] < HAZARD_LEVEL_ORDER[HazardLevel.MODERATE]:
+            level = HazardLevel.MODERATE
+
+    return HazardScore(
+        hazard=HazardType.DUST,
+        level=level,
+        score=RISK_LEVEL_TO_SCORE[level.value],
+        available=True,
+        reasonCodes=reasons,
+    )
 
 
 def assess_multi_hazard(
