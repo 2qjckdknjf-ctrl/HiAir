@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_current_user_id
 from app.models.places import SavedPlace, SavedPlaceCreateRequest, SavedPlaceListResponse
+import app.services.entitlement_service as entitlement_service
 import app.services.places_repository as places_repository
 
 router = APIRouter(prefix="/places", tags=["places"])
@@ -18,6 +19,7 @@ def create_saved_place(
     payload: SavedPlaceCreateRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> SavedPlace:
+    entitlement_service.assert_saved_places_limit(user_id)
     try:
         return places_repository.create_place(user_id=user_id, payload=payload)
     except ValueError as exc:

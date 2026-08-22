@@ -90,6 +90,22 @@ def create_place(*, user_id: str, payload: SavedPlaceCreateRequest) -> SavedPlac
         return _create_memory(user_id=user_id, payload=payload)
 
 
+def count_places(*, user_id: str) -> int:
+    if _FORCE_MEMORY:
+        return len(_STORE.get(user_id, {}))
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*)::int AS cnt FROM saved_places WHERE user_id = %s",
+                    (user_id,),
+                )
+                row = cur.fetchone()
+                return int(row["cnt"]) if row else 0
+    except (UndefinedTable, OperationalError):
+        return len(_STORE.get(user_id, {}))
+
+
 def list_places(*, user_id: str) -> list[SavedPlace]:
     if _FORCE_MEMORY:
         return _list_memory(user_id=user_id)

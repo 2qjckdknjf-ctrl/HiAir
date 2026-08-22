@@ -26,5 +26,5 @@
 - Auth via `get_current_user_id`; list/create/delete isolated per user
 
 ## Not yet
-- Place limits by entitlement tier
 - Travel mode
+- [x] Place limits by entitlement tier (free: 3, premium: 25)

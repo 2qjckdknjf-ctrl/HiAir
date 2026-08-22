@@ -1,10 +1,13 @@
 """API tests for HiAir 1.5 saved places routes."""
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 import app.api.deps as deps
 from app.main import app
 import app.services.places_repository as places_repository
+from app.services.entitlement_service import FREE_MAX_SAVED_PLACES
 
 client = TestClient(app)
 
@@ -140,5 +143,54 @@ def test_create_rejects_null_island_coordinates() -> None:
             },
         )
         assert response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_free_saved_places_limit_returns_402() -> None:
+    app.dependency_overrides[deps.get_current_user_id] = lambda: "user-limit"
+    try:
+        with patch(
+            "app.services.entitlement_service.get_current_entitlement",
+            return_value=type(
+                "Ent",
+                (),
+                {
+                    "is_premium": False,
+                    "max_profiles": 1,
+                    "extended_forecast_enabled": False,
+                    "custom_alerts_enabled": False,
+                    "export_reports_enabled": False,
+                    "advanced_insights_enabled": False,
+                    "wearable_insights_enabled": False,
+                    "priority_notifications_enabled": False,
+                },
+            )(),
+        ):
+            for index in range(FREE_MAX_SAVED_PLACES):
+                response = client.post(
+                    "/api/places",
+                    headers=_auth(),
+                    json={
+                        "name": f"Place {index}",
+                        "placeType": "other",
+                        "lat": 41.39 + index * 0.01,
+                        "lon": 2.17,
+                    },
+                )
+                assert response.status_code == 200, response.text
+
+            blocked = client.post(
+                "/api/places",
+                headers=_auth(),
+                json={
+                    "name": "Overflow",
+                    "placeType": "other",
+                    "lat": 42.0,
+                    "lon": 2.17,
+                },
+            )
+            assert blocked.status_code == 402
+            assert "Saved place limit reached" in blocked.json()["detail"]
     finally:
         app.dependency_overrides.clear()
