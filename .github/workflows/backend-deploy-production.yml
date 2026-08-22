@@ -1,8 +1,13 @@
 name: Backend Deploy Production
 
-# Verification gate + Cloudflare API deploy + live API smoke.
+# Release-preflight (pytest + clean DB init) must pass before any production deploy.
 on:
   workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Immutable release SHA to deploy (defaults to selected ref HEAD)"
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -18,9 +23,87 @@ concurrency:
   group: backend-production-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  statuses: read
+  checks: read
+
 jobs:
+  release-preflight:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hiair
+          POSTGRES_USER: hiair
+          POSTGRES_PASSWORD: hiair
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U hiair -d hiair"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: postgresql://hiair:hiair@localhost:5432/hiair
+      JWT_SECRET: ci-test-jwt-secret-32-bytes-min-abcdef
+      NOTIFICATION_ADMIN_TOKEN: ci-admin-token-123456
+      SUBSCRIPTION_PROVIDER: stub
+      SUBSCRIPTION_WEBHOOK_SECRET: ci-webhook-secret-123456
+      HIAIR_SMOKE_LEGACY_AUTH: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout deploy SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate deploy ref policy
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Production deploy is only allowed from main push events."
+            exit 1
+          fi
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            case "${GITHUB_REF}" in
+              refs/heads/main|refs/heads/release/*|refs/heads/cursor/store-ready-hardening-*)
+                ;;
+              *)
+                echo "Manual production deploy blocked for ref ${GITHUB_REF}."
+                echo "Allowed: main, release/*, cursor/store-ready-hardening-*"
+                exit 1
+                ;;
+            esac
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run backend quality gate
+        working-directory: backend
+        run: python scripts/run_backend_gate.py --skip-smoke
+
+      - name: Verify clean database initialization
+        working-directory: backend
+        run: |
+          python scripts/init_db.py
+          python scripts/retention_cleanup.py --dry-run
+          python scripts/smoke_db_flow.py
+
   deploy-production:
     runs-on: ubuntu-latest
+    needs: release-preflight
     environment: production
     env:
       APP_ENV: production
@@ -35,6 +118,10 @@ jobs:
       APPLE_STORE_ENVIRONMENT: ${{ secrets.APPLE_STORE_ENVIRONMENT }}
       APPLE_APP_APPLE_ID: ${{ secrets.APPLE_APP_APPLE_ID }}
       APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_SIGN_IN_KEY_ID: ${{ secrets.APPLE_SIGN_IN_KEY_ID }}
+      APPLE_SERVICES_ID: ${{ secrets.APPLE_SERVICES_ID }}
+      APPLE_SIGN_IN_P8_PATH: ${{ secrets.APPLE_SIGN_IN_P8_PATH }}
       GOOGLE_PLAY_VERIFIER_MODE: ${{ secrets.GOOGLE_PLAY_VERIFIER_MODE }}
       GOOGLE_PLAY_PACKAGE_NAME: ${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
       GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -63,8 +150,10 @@ jobs:
       RETENTION_SUBSCRIPTION_WEBHOOK_EVENTS_DAYS: "180"
       RETENTION_SECRET_ROTATION_EVENTS_DAYS: "365"
     steps:
-      - name: Checkout
+      - name: Checkout deploy SHA
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -148,6 +237,10 @@ jobs:
               "APPLE_BUNDLE_ID",
               "APPLE_STORE_ENVIRONMENT",
               "APPLE_APP_APPLE_ID",
+              "APPLE_TEAM_ID",
+              "APPLE_SIGN_IN_KEY_ID",
+              "APPLE_SERVICES_ID",
+              "APPLE_SIGN_IN_P8_PATH",
               "GOOGLE_PLAY_PACKAGE_NAME",
               "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
               "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
@@ -164,6 +257,7 @@ jobs:
               "HIAIR_AUTH_PROVIDER": "supabase",
               "HIAIR_AUTH_EMAIL_BRIDGE_ENABLED": "true",
               "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK": "false",
+              "APPLE_SERVICES_ID": "com.hiair.app.auth",
           }
           out = Path("/tmp/hiair-api-secrets.env")
           lines = []
@@ -173,7 +267,7 @@ jobs:
                   value = defaults[key]
               if value:
                   lines.append(f"{key}={value}")
-          deploy_sha = os.environ.get("GITHUB_SHA", "").strip()
+          deploy_sha = (os.environ.get("GITHUB_SHA", "") or "").strip()
           if deploy_sha:
               lines.append(f"DEPLOY_GIT_SHA={deploy_sha}")
           env_map = dict(line.split("=", 1) for line in lines)
@@ -198,11 +292,6 @@ jobs:
               raise SystemExit(
                   "ERROR: production deploy requires GOOGLE_PLAY_SERVICE_ACCOUNT_JSON "
                   "when GOOGLE_PLAY_VERIFIER_MODE=live"
-              )
-          if google_mode == "disabled":
-              print(
-                  "WARNING: GOOGLE_PLAY_VERIFIER_MODE=disabled — Android billing unavailable "
-                  "(not STORE SANDBOX READY)"
               )
           if auth_provider and auth_provider != "supabase":
               raise SystemExit("ERROR: production deploy requires HIAIR_AUTH_PROVIDER=supabase")
