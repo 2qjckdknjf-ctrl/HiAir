@@ -5,6 +5,8 @@ import com.hiair.network.ApiClient
 import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
 import com.hiair.ui.design.HiAirHumanDate
+import com.hiair.ui.settings.SavedPlaceItem
+import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.i18n.AndroidL10n
 import java.time.ZoneId
 import java.util.Locale
@@ -42,6 +44,9 @@ data class PlannerState(
     val activityCatalog: List<ActivityCatalogEntry> = emptyList(),
     val selectedActivityId: String = DEFAULT_ACTIVITY_ID,
     val selectedPlaceId: String = "",
+    val savedPlaces: List<SavedPlaceItem> = emptyList(),
+    val activityPlanMarked: Boolean = false,
+    val activityPlanMarkStatus: String = "",
     val activityPlanLoading: Boolean = false,
     val activityPlanStatusText: String = "",
     val activityWindows: List<ActivityWindowLine> = emptyList(),
@@ -76,6 +81,67 @@ class DailyPlannerViewModel(
         )
     }
 
+    fun selectPlace(placeId: String) {
+        if (placeId == state.selectedPlaceId) return
+        state = state.copy(
+            selectedPlaceId = placeId,
+            activityPlanMarked = false,
+            activityPlanMarkStatus = "",
+            activityWindows = emptyList(),
+            activityRecommendedStart = "",
+        )
+    }
+
+    fun loadSavedPlaces(userId: String, accessToken: String?) {
+        if (userId.isBlank()) return
+        try {
+            val raw = apiClient.listPlaces(userId, accessToken)
+            val places = SettingsViewModel.parsePlacesList(raw)
+            val selected = state.selectedPlaceId.takeIf { id ->
+                id.isBlank() || places.any { it.id == id }
+            } ?: ""
+            state = state.copy(savedPlaces = places, selectedPlaceId = selected)
+        } catch (_: Exception) {
+            // Places are optional for planner.
+        }
+    }
+
+    fun markActivityPlanned(
+        userId: String,
+        accessToken: String?,
+        profileId: String,
+        preferredLanguage: String,
+    ) {
+        if (userId.isBlank() || profileId.isBlank()) return
+        try {
+            apiClient.createProtectedDayEvent(
+                userId = userId,
+                accessToken = accessToken,
+                profileId = profileId,
+                eventType = "workout_moved",
+            )
+            state = state.copy(
+                activityPlanMarked = true,
+                activityPlanMarkStatus = l("planner.activity.mark_planned_done", preferredLanguage),
+            )
+            ProductAnalytics.track("activity_plan_marked_planned")
+        } catch (error: ApiHttpException) {
+            val status = if (error.statusCode == 402) {
+                l("planner.activity.premium_required", preferredLanguage)
+            } else {
+                l("planner.activity.mark_planned_failed", preferredLanguage)
+            }
+            state = state.copy(
+                activityPlanMarkStatus = status,
+                activityPremiumRequired = error.statusCode == 402,
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                activityPlanMarkStatus = l("planner.activity.mark_planned_failed", preferredLanguage),
+            )
+        }
+    }
+
     fun loadActivityCatalog(userId: String, accessToken: String?) {
         try {
             val raw = apiClient.fetchActivityCatalog(
@@ -108,7 +174,7 @@ class DailyPlannerViewModel(
     ) {
         val activityId = state.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID }
         val catalogEntry = state.activityCatalog.firstOrNull { it.id == activityId }
-        state = state.copy(activityPlanLoading = true, activityPlanStatusText = "")
+        state = state.copy(activityPlanLoading = true, activityPlanStatusText = "", activityPlanMarked = false, activityPlanMarkStatus = "")
         ProductAnalytics.track(
             "activity_plan_fetch_started",
             mapOf("activity" to activityId),

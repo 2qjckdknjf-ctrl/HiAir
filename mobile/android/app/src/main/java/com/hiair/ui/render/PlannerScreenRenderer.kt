@@ -187,11 +187,70 @@ internal object PlannerScreenRenderer {
                 setSelection(selectedIndex.coerceIn(0, activityLabels.lastIndex.coerceAtLeast(0)), false)
             }
             addView(spinner)
+            if (plannerState.savedPlaces.isNotEmpty()) {
+                addView(V2Ui.spacer(activity, 8))
+                val placeIds = listOf("") + plannerState.savedPlaces.map { it.id }
+                val placeLabels = listOf(ctx.l("planner.activity.place_home")) +
+                    plannerState.savedPlaces.map { it.name }
+                val placeSelectedIndex = placeIds.indexOf(plannerState.selectedPlaceId).coerceAtLeast(0)
+                val placeSpinner = Spinner(activity).apply {
+                    adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, placeLabels)
+                    onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(
+                            parent: AdapterView<*>?,
+                            view: View?,
+                            position: Int,
+                            id: Long,
+                        ) {
+                            val nextPlaceId = placeIds.getOrNull(position) ?: ""
+                            if (nextPlaceId == plannerViewModel.state.selectedPlaceId) return
+                            plannerViewModel.selectPlace(nextPlaceId)
+                            plannerViewModel.hasAttemptedActivityPlanLoad = false
+                            loadActivityPlan(ctx)
+                        }
+
+                        override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                    }
+                    setSelection(placeSelectedIndex.coerceIn(0, placeLabels.lastIndex.coerceAtLeast(0)), false)
+                }
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.place")).apply { textSize = 13f })
+                addView(placeSpinner)
+            }
             addView(V2Ui.spacer(activity, 8))
             addView(statusView)
             addView(V2Ui.spacer(activity, 6))
             addView(windowsView)
             addView(recommendedView)
+            if (
+                plannerState.activityForecastAvailable &&
+                plannerState.activityWindows.isNotEmpty() &&
+                !plannerState.activityPlanMarked
+            ) {
+                addView(V2Ui.spacer(activity, 8))
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("planner.activity.mark_planned")).apply {
+                        setOnClickListener {
+                            Thread {
+                                val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
+                                    ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
+                                if (resolvedProfileId.isNotBlank()) {
+                                    plannerViewModel.markActivityPlanned(
+                                        userId = settings.userId,
+                                        accessToken = settings.accessToken.ifBlank { null },
+                                        profileId = resolvedProfileId,
+                                        preferredLanguage = settings.preferredLanguage,
+                                    )
+                                }
+                                activity.runOnUiThread { ctx.rerender() }
+                            }.start()
+                        }
+                    }
+                )
+            }
+            if (plannerState.activityPlanMarkStatus.isNotBlank()) {
+                addView(V2Ui.spacer(activity, 6))
+                addView(V2Ui.styledSecondaryText(activity, plannerState.activityPlanMarkStatus))
+            }
             if (plannerState.activityPremiumRequired) {
                 addView(V2Ui.spacer(activity, 8))
                 addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.premium_required")))
@@ -229,6 +288,10 @@ internal object PlannerScreenRenderer {
             plannerViewModel.hasAttemptedActivityCatalogLoad = true
             Thread {
                 plannerViewModel.loadActivityCatalog(
+                    userId = settings.userId,
+                    accessToken = settings.accessToken.ifBlank { null },
+                )
+                plannerViewModel.loadSavedPlaces(
                     userId = settings.userId,
                     accessToken = settings.accessToken.ifBlank { null },
                 )

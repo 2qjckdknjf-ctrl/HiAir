@@ -236,4 +236,19 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertTrue(decoded.protectedDays.available)
         XCTAssertEqual(decoded.protectedDays.workoutsMoved, 1)
     }
+
+    func testProtectedDayEventRecordDecodes() throws {
+        let json = """
+        {
+          "id": "evt-1",
+          "profileId": "profile-1",
+          "eventType": "workout_moved",
+          "eventDate": "2026-08-22"
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(ProtectedDayEventRecord.self, from: json)
+        XCTAssertEqual(decoded.eventType, "workout_moved")
+        XCTAssertEqual(decoded.profileId, "profile-1")
+    }
 }

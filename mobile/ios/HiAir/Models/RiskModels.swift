@@ -896,3 +896,16 @@ struct PersonalAdaptationSnapshot: Codable {
     let protectedDays: ProtectedDaysSummary
     let reasonCodes: [String]
 }
+
+struct ProtectedDayEventCreateRequest: Codable {
+    let profileId: String
+    let eventType: String
+    let eventDate: String?
+}
+
+struct ProtectedDayEventRecord: Codable {
+    let id: String
+    let profileId: String
+    let eventType: String
+    let eventDate: String
+}

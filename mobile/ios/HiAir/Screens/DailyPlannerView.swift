@@ -19,6 +19,8 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var selectedActivity = "walking"
     @Published var selectedPlaceId: String? = nil
     @Published var savedPlaces: [SavedPlace] = []
+    @Published var activityPlanMarked = false
+    @Published var activityPlanMarkStatus = ""
     @Published var activityPlanLoading = false
     @Published var activityPlan: ActivityPlanResponse?
     @Published var activityStatusText = ""
@@ -164,6 +166,8 @@ final class DailyPlannerViewModel: ObservableObject {
         activityPlanLoading = true
         defer { activityPlanLoading = false }
         activityPremiumLocked = false
+        activityPlanMarked = false
+        activityPlanMarkStatus = ""
         do {
             ProductAnalytics.track(
                 "activity_plan_fetch_started",
@@ -228,6 +232,46 @@ final class DailyPlannerViewModel: ObservableObject {
             )
             activityStatusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
             activityPlan = nil
+        }
+    }
+
+    func markActivityPlanned(
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) async {
+        guard !profileId.isEmpty else { return }
+        activityPlanMarkStatus = ""
+        do {
+            _ = try await apiClient.createProtectedDayEvent(
+                payload: ProtectedDayEventCreateRequest(
+                    profileId: profileId,
+                    eventType: "workout_moved",
+                    eventDate: nil
+                ),
+                userId: userId,
+                accessToken: accessToken
+            )
+            activityPlanMarked = true
+            activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_done", lang: language)
+            ProductAnalytics.track("activity_plan_marked_planned")
+        } catch let error as APIError {
+            let premiumCode: Int? = {
+                if case .server(let code) = error { return code }
+                if case .serverWithDetail(let code, _) = error { return code }
+                return nil
+            }()
+            if premiumCode == 402 {
+                activityPremiumLocked = true
+                onPremiumRequired?()
+                activityPlanMarkStatus = HiAirL10n.t("planner.premium_required", lang: language)
+            } else {
+                activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_failed", lang: language)
+            }
+        } catch {
+            activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_failed", lang: language)
         }
     }
 
@@ -554,6 +598,26 @@ struct DailyPlannerView: View {
                 }
 
                 if let plan = viewModel.activityPlan, plan.isForecastAvailable, !plan.windows.isEmpty {
+                    if !viewModel.activityPlanMarked {
+                        Button(session.l("planner.activity.mark_planned")) {
+                            Task {
+                                await viewModel.markActivityPlanned(
+                                    profileId: session.profileId,
+                                    userId: session.userId,
+                                    accessToken: session.accessToken,
+                                    language: session.preferredLanguage,
+                                    onPremiumRequired: { session.showPaywall = true }
+                                )
+                            }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                    }
+                    if !viewModel.activityPlanMarkStatus.isEmpty {
+                        Text(viewModel.activityPlanMarkStatus)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(sortedActivityWindows(plan.windows)) { window in
                             HStack(alignment: .top, spacing: 8) {

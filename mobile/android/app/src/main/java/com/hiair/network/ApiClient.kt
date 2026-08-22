@@ -169,6 +169,24 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun createProtectedDayEvent(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+        eventType: String,
+        eventDate: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/insights/protected-day-events"
+        val json = JSONObject().apply {
+            put("profileId", profileId)
+            put("eventType", eventType)
+            if (!eventDate.isNullOrBlank()) {
+                put("eventDate", eventDate)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
     fun fetchAirDayPlan(
         userId: String,
         accessToken: String? = null,

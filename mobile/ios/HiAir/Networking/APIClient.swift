@@ -1036,6 +1036,25 @@ final class APIClient {
         return try JSONDecoder().decode(PersonalAdaptationSnapshot.self, from: data)
     }
 
+    func createProtectedDayEvent(
+        payload: ProtectedDayEventCreateRequest,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> ProtectedDayEventRecord {
+        let url = baseURL.appending(path: "/api/insights/protected-day-events")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(payload)
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(ProtectedDayEventRecord.self, from: data)
+    }
+
     func fetchCurrentRisk(
         profileId: String,
         userId: String,

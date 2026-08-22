@@ -33,6 +33,10 @@
 - With consent but no synced aggregates → empty baselines, `no_wearable_aggregates`
 
 ## Not yet
-- Auto-record protected-day events from planner/recommendation follow-through
+- Auto-record additional protected-day events from ventilation follow-through
 - Wire baselines into alert thresholds and activity planner weighting
 - Production smoke on `api.hiair.io`
+
+## Mobile follow-through (user-initiated)
+- Planner "Mark workout moved" records `workout_moved` via `POST /api/insights/protected-day-events` (iOS + Android)
+- Android planner saved-place picker mirrors iOS

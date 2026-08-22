@@ -21,7 +21,5 @@
 - Auth via `get_current_user_id`; list/create/delete isolated per user
 
 ## Not yet
-- Apply migration on production Supabase
-- Android planner place spinner UI polish
 - Place limits by entitlement tier
 - Family risk aggregation UI
