@@ -19,7 +19,8 @@ final class WearableConsentUITests: XCTestCase {
             ]
         )
 
-        app.tabBars.buttons.element(boundBy: 4).tap()
+        tapHiAirTab(app, identifier: "tab.settings")
+        scrollToIdentifier(app, "settings.wearables.title")
         let wearablesTitle = waitForIdentifier(app, "settings.wearables.title", timeout: 10)
         XCTAssertTrue(wearablesTitle.exists)
 
@@ -55,7 +56,8 @@ final class WearableConsentUITests: XCTestCase {
                 "UITEST_SEED_STALE_CONNECTED": "1",
             ]
         )
-        app.tabBars.buttons.element(boundBy: 4).tap()
+        tapHiAirTab(app, identifier: "tab.settings")
+        scrollToIdentifier(app, "settings.wearables.title")
         let status = waitForIdentifier(app, "settings.wearables.status", timeout: 10)
         let label = status.label.lowercased()
         XCTAssertFalse(label.contains("connected"))
@@ -75,7 +77,8 @@ final class WearableConsentUITests: XCTestCase {
                 "UITEST_SEED_WEARABLE_DURABLE_INACTIVE": "1",
             ]
         )
-        app.tabBars.buttons.element(boundBy: 4).tap()
+        tapHiAirTab(app, identifier: "tab.settings")
+        scrollToIdentifier(app, "settings.wearables.title")
         let status = waitForIdentifier(app, "settings.wearables.status", timeout: 10)
         attachScreenshot(app, name: "tf171-wearables-durable-inactive-ru")
         attachA11yDump(app, name: "tf171-wearables-durable-inactive-ru")
@@ -114,7 +117,8 @@ final class WearableConsentUITests: XCTestCase {
                 "UITEST_SEED_WEARABLE_DURABLE_INACTIVE": "1",
             ]
         )
-        app.tabBars.buttons.element(boundBy: 4).tap()
+        tapHiAirTab(app, identifier: "tab.settings")
+        scrollToIdentifier(app, "settings.wearables.title")
         let status = waitForIdentifier(app, "settings.wearables.status", timeout: 10)
         attachScreenshot(app, name: "tf171-wearables-durable-inactive-en")
         attachA11yDump(app, name: "tf171-wearables-durable-inactive-en")

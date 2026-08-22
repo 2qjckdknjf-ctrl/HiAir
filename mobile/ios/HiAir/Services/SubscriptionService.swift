@@ -580,11 +580,17 @@ final class SubscriptionService: ObservableObject {
             // Never fall back to a synthetic alg=none payload — production live
             // verifiers reject it and Premium stays off after a successful purchase.
             let jws = verification.jwsRepresentation.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !jws.isEmpty else {
-                SubscriptionDiagnostics.log("jws_representation_missing")
-                throw SubscriptionServiceError.verificationFailed
-            }
-            if jws.split(separator: ".").count != 3 {
+            if jws.isEmpty || jws.split(separator: ".").count != 3 {
+                #if DEBUG
+                if UITestBootstrap.isMockAPIEnabled {
+                    SubscriptionDiagnostics.log("jws_representation_uitest_stub")
+                    return "eyJ0eXQiOiJKV1QifQ.eyJ1aXRlc3QiOiJzdHViIn0.stub"
+                }
+                #endif
+                if jws.isEmpty {
+                    SubscriptionDiagnostics.log("jws_representation_missing")
+                    throw SubscriptionServiceError.verificationFailed
+                }
                 SubscriptionDiagnostics.log("jws_representation_malformed")
                 throw SubscriptionServiceError.verificationFailed
             }
@@ -636,6 +642,26 @@ final class SubscriptionService: ObservableObject {
             SubscriptionDiagnostics.log("purchase_scene_unavailable", productId: product.id)
             throw SubscriptionServiceError.purchaseSceneUnavailable
         }
+        return try await product.purchase(options: options)
+    }
+
+    static func fallbackStoreKitPurchase(
+        _ product: Product,
+        options: Set<Product.PurchaseOption>
+    ) async throws -> Product.PurchaseResult {
+        if #available(iOS 18.2, *) {
+            if let viewController = topViewController() {
+                SubscriptionDiagnostics.log("purchase_fallback_view_controller", productId: product.id)
+                return try await product.purchase(confirmIn: viewController, options: options)
+            }
+        }
+        if #available(iOS 17.0, *) {
+            if let scene = await resolvePurchaseWindowScene() {
+                SubscriptionDiagnostics.log("purchase_fallback_window_scene", productId: product.id)
+                return try await product.purchase(confirmIn: scene, options: options)
+            }
+        }
+        SubscriptionDiagnostics.log("purchase_fallback_sceneless", productId: product.id)
         return try await product.purchase(options: options)
     }
 

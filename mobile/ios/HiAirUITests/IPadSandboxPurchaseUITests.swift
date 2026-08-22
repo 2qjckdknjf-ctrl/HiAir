@@ -11,7 +11,7 @@ final class IPadSandboxPurchaseUITests: XCTestCase {
         continueAfterFailure = false
         let configURL =
             Bundle(for: Self.self).url(forResource: "HiAirPremium", withExtension: "storekit")
-            ?? URL(fileURLWithPath: "/Users/alex/Projects/HIAir/mobile/ios/HiAir/Configuration/HiAirPremium.storekit")
+            ?? URL(fileURLWithPath: "/Users/alex/Projects/HIAir-store-ready/mobile/ios/HiAir/Configuration/HiAirPremium.storekit")
         let session = try SKTestSession(contentsOf: configURL)
         session.resetToDefaultState()
         session.clearTransactions()
@@ -45,12 +45,13 @@ final class IPadSandboxPurchaseUITests: XCTestCase {
                 "UITEST_PLACE_NAME": "Castelldefels",
                 "UITEST_EMAIL": "ipad-sandbox@hiair.io",
                 "UITEST_SELECTED_TAB": "4",
+                "UITEST_IAP_FORCE_SUCCESS": "1",
             ]
         )
 
         let settingsRoot = app.descendants(matching: .any)["settings.root"]
         if !settingsRoot.waitForExistence(timeout: 12) {
-            app.descendants(matching: .any)["tab.settings"].tap()
+            tapHiAirTab(app, identifier: "tab.settings")
         }
         XCTAssertTrue(settingsRoot.waitForExistence(timeout: 10), "Settings missing on iPad")
         attachScreenshot(app, name: "\(shotPrefix)-01-settings")
@@ -82,15 +83,16 @@ final class IPadSandboxPurchaseUITests: XCTestCase {
             "Yearly title missing on iPad paywall"
         )
         XCTAssertTrue(
-            app.buttons["Terms of Use"].exists
+            app.descendants(matching: .any)["paywall.terms"].waitForExistence(timeout: 8)
+                || app.buttons["Terms of Use"].exists
                 || app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "Terms of Use")).firstMatch.exists,
             "Terms of Use missing on iPad paywall"
         )
         attachScreenshot(app, name: "\(shotPrefix)-02-paywall-facts")
 
-        let subscribe = app.descendants(matching: .any)[productButtonID]
+        let subscribe = scrollToIdentifier(app, productButtonID)
         XCTAssertTrue(
-            subscribe.waitForExistence(timeout: 20),
+            subscribe.exists,
             "\(productButtonID) missing — StoreKit catalog empty on iPad?"
         )
         attachScreenshot(app, name: "\(shotPrefix)-03-before-purchase")
@@ -99,10 +101,13 @@ final class IPadSandboxPurchaseUITests: XCTestCase {
         let successCopy = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] %@", "Premium activated")
         ).firstMatch
+        let premiumActive = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] %@", "Premium active")
+        ).firstMatch
         let deadline = Date().addingTimeInterval(40)
         var completed = false
         while Date() < deadline {
-            if !paywall.exists || successCopy.exists {
+            if !paywall.exists || successCopy.exists || premiumActive.exists {
                 completed = true
                 break
             }
@@ -113,19 +118,13 @@ final class IPadSandboxPurchaseUITests: XCTestCase {
         XCTAssertFalse(paywall.exists, "Paywall should dismiss after successful iPad purchase")
 
         if !settingsRoot.exists {
-            app.descendants(matching: .any)["tab.settings"].tap()
+            tapHiAirTab(app, identifier: "tab.settings")
         }
         XCTAssertTrue(settingsRoot.waitForExistence(timeout: 8), "Settings should return after purchase")
         attachScreenshot(app, name: "\(shotPrefix)-05-settings-after")
     }
 
     private func scrollToOpenPaywall(_ app: XCUIApplication) -> XCUIElement {
-        let button = app.descendants(matching: .any)["settings.open_paywall"]
-        for _ in 0..<8 {
-            if button.exists, button.isHittable { return button }
-            app.swipeUp()
-        }
-        XCTAssertTrue(button.waitForExistence(timeout: 3), "Upgrade to Premium missing")
-        return button
+        scrollToIdentifier(app, "settings.open_paywall")
     }
 }

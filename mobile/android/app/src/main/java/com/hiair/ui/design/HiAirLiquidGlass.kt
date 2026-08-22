@@ -39,7 +39,7 @@ object HiAirLiquidGlass {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radius
             setColor(withAlpha(tinted, fillAlpha))
-            setStroke(V2Ui.dp(context, 1), 0x38FFFFFF)
+            setStroke(V2Ui.dp(context, 1), 0x5521D7FF)
         }
     }
 
@@ -59,7 +59,7 @@ object HiAirLiquidGlass {
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN ->
-                    v.animate().scaleX(0.97f).scaleY(0.97f).setDuration(120).start()
+                v.animate().scaleX(0.978f).scaleY(0.978f).setDuration(130).start()
                 android.view.MotionEvent.ACTION_UP,
                 android.view.MotionEvent.ACTION_CANCEL ->
                     v.animate().scaleX(1f).scaleY(1f).setDuration(180).start()

@@ -163,17 +163,17 @@ final class TabNavigationUITests: XCTestCase {
         ])
         attachScreenshot(app, name: "10-tabs-dashboard")
 
-        app.tabBars.buttons.element(boundBy: 1).tap()
+        tapHiAirTab(app, identifier: "tab.planner")
         attachScreenshot(app, name: "11-tabs-planner")
-        app.tabBars.buttons.element(boundBy: 2).tap()
+        tapHiAirTab(app, identifier: "tab.insights")
         attachScreenshot(app, name: "12-tabs-insights")
-        app.tabBars.buttons.element(boundBy: 3).tap()
+        tapHiAirTab(app, identifier: "tab.symptoms")
         attachScreenshot(app, name: "13-tabs-symptoms")
-        app.tabBars.buttons.element(boundBy: 4).tap()
+        tapHiAirTab(app, identifier: "tab.settings")
         attachScreenshot(app, name: "14-tabs-settings")
 
-        let logout = app.descendants(matching: .any)["settings.logout"]
-        XCTAssertTrue(logout.waitForExistence(timeout: 6), "Settings logout control should be reachable")
+        let logout = scrollToIdentifier(app, "settings.logout")
+        XCTAssertTrue(logout.exists, "Settings logout control should be reachable")
         attachA11yDump(app, name: "14-tabs-settings")
     }
 
@@ -189,8 +189,8 @@ final class TabNavigationUITests: XCTestCase {
             "UITEST_PROFILE_ID": "profile-seed",
             "UITEST_CLEAR_PROFILE": "0",
         ])
-        app.tabBars.buttons.element(boundBy: 4).tap()
-        let openPaywall = waitForIdentifier(app, "settings.open_paywall", timeout: 8)
+        tapHiAirTab(app, identifier: "tab.settings")
+        let openPaywall = scrollToIdentifier(app, "settings.open_paywall")
         openPaywall.tap()
         let closeQuery = app.descendants(matching: .any).matching(identifier: "paywall.close")
         let close = closeQuery.element(boundBy: 0)
@@ -206,8 +206,8 @@ final class TabNavigationUITests: XCTestCase {
             "UITEST_PROFILE_ID": "profile-seed",
             "UITEST_CLEAR_PROFILE": "0",
         ])
-        app.tabBars.buttons.element(boundBy: 4).tap()
-        let logout = waitForIdentifier(app, "settings.logout", timeout: 8)
+        tapHiAirTab(app, identifier: "tab.settings")
+        let logout = scrollToIdentifier(app, "settings.logout")
         logout.tap()
         let auth = waitForIdentifier(app, "auth.root", timeout: 8)
         attachScreenshot(app, name: "40-logout-auth")

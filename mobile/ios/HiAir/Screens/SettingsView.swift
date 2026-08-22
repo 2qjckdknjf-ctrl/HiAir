@@ -1486,10 +1486,11 @@ struct SettingsView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .padding(.bottom, HiAirScreenMetrics.floatingTabBarClearance)
             }
         }
         .hiAirPageBackground()
+        .accessibilityIdentifier(HiAirAccessibilityID.Settings.root)
         .onAppear {
             if viewModel.userId.isEmpty {
                 viewModel.userId = session.userId
@@ -1946,7 +1947,7 @@ private struct HiAirAIGuideView: View {
                                             .frame(width: 28, height: 28)
                                             .overlay(
                                                 Image(systemName: "person.fill")
-                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .font(.caption.weight(.semibold))
                                                     .foregroundStyle(HiAirV2Theme.primaryText)
                                             )
                                     } else {

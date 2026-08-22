@@ -607,7 +607,7 @@ struct DashboardView: View {
                 session.selectedTab = 4
             } label: {
                 Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.title2)
                     .foregroundStyle(HiAirV2Theme.primaryText)
             }
             .accessibilityLabel(session.l("dashboard.profile_button"))
@@ -1042,7 +1042,7 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(riskColor)
                     Text(title)
                         .font(HiAirTypography.caption)
@@ -1069,7 +1069,7 @@ struct DashboardView: View {
                 .frame(width: 28, height: 28)
                 .overlay(
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(riskColor)
                 )
             Text(text)

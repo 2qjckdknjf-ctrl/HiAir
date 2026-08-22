@@ -2,7 +2,6 @@
 
 **Worktree:** `/Users/alex/Projects/HIAir-store-ready`  
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**Current HEAD:** see `git rev-parse HEAD` (not final RC until hardening closes)  
 **Status ladder:** **`NO-GO / HARDENING IN PROGRESS`**
 
 ---
@@ -11,81 +10,77 @@
 
 | Verdict | Reason |
 |---------|--------|
-| **NO-GO / HARDENING IN PROGRESS** | P0 backend account deletion, migrations, and deploy policy are now fail-closed with tests. iOS/Android simulator gates pass locally. Deep Glass V4 selective integration, full accessibility matrix, iPad screenshot matrix, signed store artifacts, physical IAP, and production deploy remain open. |
+| **NO-GO / HARDENING IN PROGRESS** | P0 regressions (account deletion E2E, unknown provider, deploy SHA) closed with tests. Deep Glass V4 selectively integrated on iOS/Android tokens. Full iOS/Android simulator gates pass. Remaining: full screenshot matrix (iPad 13", a11y scales, Android), signed store artifacts, physical Sandbox IAP, production deploy, broader docs truth-alignment. |
 
 ---
 
-## P0 closure (this session)
+## P0 closure
 
-| ID | Area | Status | Evidence |
-|----|------|--------|----------|
-| P0 Account Deletion | Durable operations, server-side Apple revoke, P8 content secret, per-stage commits, crash/retry tests | **CLOSED locally** | `pytest tests/test_account_deletion.py` + full suite |
-| P0 Migrations | Portable DDL for 014/018; Supabase layer in 028; schema contract test | **CLOSED locally** | `test_schema_contract.py` + `init_db` on clean PostgreSQL |
-| P0 Deploy policy | Immutable `resolved_release_sha`, main-only dispatch, shared checkout | **CLOSED locally** | `test_production_deploy_policy.py` + workflow YAML (not deployed) |
+| ID | Area | Status |
+|----|------|--------|
+| P0.1 Account deletion Apple E2E | **CLOSED locally** — iOS reauth + `apple_authorization_code`, Android confirmation, `operation_id` recovery, requirements endpoint |
+| P0.2 Unknown provider bypass | **CLOSED locally** — redetect + immutable confirmed provider regression test |
+| P0.3 Deploy SHA policy | **CLOSED locally** — `RESOLVED_RELEASE_SHA` authoritative; mismatch fails deploy |
+| P0 Migrations | **CLOSED locally** (prior commit) |
+| P0 Artifact manifest | **IN PROGRESS** — false manifest removed; `generate_rc_artifact_manifest.sh` added; rebuild after RC commit |
 
 ---
 
-## Local gates (verified)
+## Local gates (re-run 2026-08-22 evening)
 
 | Gate | Result |
 |------|--------|
-| Backend `pytest` (full) | **PASS** — ~74–75% coverage |
-| `init_db` + schema contract | **PASS** |
-| iOS simulator `build` | **PASS** |
-| iOS `HiAirTests` (189 tests) | **PASS** |
-| iOS `HiAirUITests` (15 tests) | **PASS** |
-| Android `testDebugUnitTest` + `lintDebug` | **PASS** |
-| Android `assembleRelease` + `bundleRelease` (API 36) | **PASS** |
+| Backend `pytest` (full, `.venv`) | **PASS** — 74% coverage |
+| Android unit + lint + release AAB (API 36) | **PASS** |
+| iOS `HiAirTests` + `HiAirUITests` (iPhone 17 Pro sim) | **PASS** |
+| iPad `IPadSandboxPurchaseUITests` (iPad Air 11" M4 sim) | **PASS** — paywall UI + fullScreenCover + subscribe path (`UITEST_IAP_FORCE_SUCCESS` harness; ASC Sandbox on physical device remains external) |
 
 ---
 
-## Still open (blocks CODE-READY)
+## Deep Glass V4
+
+| Item | Status |
+|------|--------|
+| Canonical doc | `docs/design/DEEP_GLASS_V4_CANONICAL.md` |
+| iOS tokens + floating tab bar + glass surfaces | **Integrated** |
+| Android design tokens | **Synced** |
+| Full screen-by-screen contrast audit | **PARTIAL** |
+
+---
+
+## Still open
 
 | Area | Status |
 |------|--------|
-| Deep Glass V4 selective integration | **NOT DONE** |
-| iOS accessibility/contrast audit (Settings, DatePicker, Insights, iPad) | **PARTIAL** (Dynamic Type scaling added; screen-by-screen audit incomplete) |
-| Full screenshot matrix (iPhone Pro, iPad 13", Android phone/tablet, a11y text) | **IN PROGRESS** |
-| PurchaseAction / iPad StoreKit | **IMPLEMENTED — NOT VERIFIED** on physical iPad / Sandbox purchase |
-| Signed iOS archive / Play upload | **EXTERNAL** (no signing credentials in worktree) |
-| Production deploy | **EXTERNAL** (explicitly forbidden this sprint) |
-| Docs truth-alignment (`05_RELEASE_READINESS`, handoffs, `08_KNOWN_GAPS`) | **PARTIAL** (this report + manifest) |
+| Full screenshot matrix (iPad 13", a11y3/5, Android phone/tablet) | **IN PROGRESS** — iPhone captures in `docs/brand/store-assets/asc-screenshots/captured-iphone/` |
+| Signed iOS archive / Play upload | **EXTERNAL** |
+| Physical Sandbox IAP | **EXTERNAL** |
+| Production deploy | **EXTERNAL** (forbidden this sprint) |
+| Docs truth-alignment (`README`, `05_RELEASE_READINESS`, handoffs) | **PARTIAL** |
 
 ---
 
-## Build numbers (honest)
+## Build numbers
 
-| Platform | RC value | Store evidence |
-|----------|----------|----------------|
-| iOS `CFBundleVersion` | **213** | Not uploaded from this worktree; ASC internal lineage through **212** @ `f80219bc` |
-| Android `versionCode` | **189** | Play internal max evidence **188** — **189 is next free** |
-
----
-
-## Artifacts
-
-Manifest: [`docs/release/artifacts/rc-2026-08-22/MANIFEST.md`](../release/artifacts/rc-2026-08-22/MANIFEST.md)
-
-- Android release AAB (unsigned if no keystore): `mobile/android/app/build/outputs/bundle/release/app-release.aab`
-- iOS simulator `.app`: Xcode DerivedData Debug-iphonesimulator build
-- **Not produced:** signed `.ipa`, ASC/Play upload packages
+| Platform | RC value |
+|----------|----------|
+| iOS `CFBundleVersion` | **213** |
+| Android `versionCode` | **189** (targetSdk **36**) |
 
 ---
 
-## Commits (store-ready branch)
+## Screenshot policy
 
-Atomic commits after user rejection of premature CODE-READY:
-
-1. `fix(backend): fail-closed durable account deletion operations`
-2. `fix(backend): split portable migrations from Supabase auth layer`
-3. `fix(ci): enforce immutable production deploy SHA policy`
-4. `fix(mobile): onboarding auth CTA, Dynamic Type, and paywall build fixes`
+See [`docs/release/SCREENSHOT_POLICY.md`](../release/SCREENSHOT_POLICY.md).
 
 ---
 
-## External-only (unchanged)
+## Artifact manifest process
 
-- ASC / Play console uploads and metadata submission
-- Physical-device IAP (Sandbox Apple Account)
-- Production deploy to `api.hiair.io`
-- Apple/Google signing credentials for store-ready binaries
+```bash
+# After clean commit:
+RC_SOURCE_SHA=$(git rev-parse HEAD) \
+  scripts/release/generate_rc_artifact_manifest.sh
+```
+
+Distinguishes `RC_SOURCE_SHA` vs `MANIFEST_COMMIT_SHA`; iOS `.app` zipped before SHA-256.

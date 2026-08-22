@@ -2858,7 +2858,7 @@ enum HiAirL10n {
             "paywall.retry": "Retry",
             "paywall.restore": "Restore purchases",
             "paywall.disclaimer": "HiAir provides wellness guidance, not medical advice.",
-            "paywall.terms": "Terms",
+            "paywall.terms": "Terms of Use",
             "paywall.privacy": "Privacy",
             "paywall.success": "Premium activated.",
             "paywall.verify_pending": "Purchase received. Confirming Premium on the server…",

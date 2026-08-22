@@ -41,6 +41,9 @@ enum HiAirScreenMetrics {
         case .tablet: return HiAirSpacing.xl
         }
     }
+
+    /// Extra scroll clearance when `HiAirFloatingTabBar` replaces the system tab bar.
+    static let floatingTabBarClearance: CGFloat = 88
 }
 
 struct HiAirAdaptiveLayout<Content: View>: View {

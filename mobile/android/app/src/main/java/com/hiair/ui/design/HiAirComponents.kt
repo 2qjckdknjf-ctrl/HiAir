@@ -1,6 +1,7 @@
 package com.hiair.ui.design
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -173,9 +174,13 @@ object HiAirComponents {
             minHeight = V2Ui.dp(context, 48)
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(HiAirColors.Cta.gradientStart, HiAirColors.Cta.gradientEnd),
+                intArrayOf(
+                    HiAirColors.Cta.gradientStart,
+                    HiAirColors.Cta.gradientMid,
+                    HiAirColors.Cta.gradientEnd,
+                ),
             ).apply {
-                cornerRadius = V2Ui.dp(context, HiAirRadius.md).toFloat()
+                cornerRadius = V2Ui.dp(context, HiAirRadius.cta).toFloat()
             }
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -274,6 +279,44 @@ object HiAirComponents {
                 height = LinearLayout.LayoutParams.WRAP_CONTENT
                 topMargin = V2Ui.dp(context, HiAirSpacing.lg)
                 gravity = Gravity.CENTER_HORIZONTAL
+            }
+        }
+    }
+
+    fun hidePageTitle(titleView: TextView) {
+        titleView.visibility = View.GONE
+        titleView.text = ""
+    }
+
+    fun screenWordmark(context: Context, suffix: String): LinearLayout {
+        val brand = TextView(context).apply {
+            text = "HiAir"
+            textSize = 26f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(HiAirColors.Spectrum.cyan)
+        }
+        val suffixView = TextView(context).apply {
+            text = suffix
+            textSize = 26f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(HiAirColors.Text.primary)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                leftMargin = V2Ui.dp(context, 6)
+            }
+        }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(brand)
+            addView(suffixView)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                bottomMargin = V2Ui.dp(context, HiAirSpacing.sm)
             }
         }
     }
@@ -521,6 +564,90 @@ object HiAirComponents {
     fun riskAccentHex(level: String): String = colorHex(HiAirRiskStyle.colorForLevel(level))
 
     fun colorHex(colorInt: Int): String = String.format("#%08X", colorInt)
+
+    class FloatingTabItem(
+        val root: LinearLayout,
+        val iconWrap: LinearLayout,
+        val icon: ImageView,
+        val label: TextView,
+    )
+
+    fun floatingTabItem(
+        context: Context,
+        iconRes: Int,
+        label: String,
+        onTap: () -> Unit,
+    ): FloatingTabItem {
+        val iconView = ImageView(context).apply {
+            setImageResource(iconRes)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            layoutParams = LinearLayout.LayoutParams(
+                V2Ui.dp(context, 22),
+                V2Ui.dp(context, 22),
+            )
+        }
+        val iconWrap = LinearLayout(context).apply {
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                V2Ui.dp(context, 48),
+                V2Ui.dp(context, 32),
+            )
+            addView(iconView)
+        }
+        val labelView = TextView(context).apply {
+            text = label
+            textSize = 10f
+            gravity = Gravity.CENTER
+            maxLines = 1
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = V2Ui.dp(context, 4)
+            }
+        }
+        val root = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            isClickable = true
+            isFocusable = true
+            minimumHeight = V2Ui.dp(context, 44)
+            setPadding(0, V2Ui.dp(context, 4), 0, V2Ui.dp(context, 2))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            addView(iconWrap)
+            addView(labelView)
+            setOnClickListener { onTap() }
+        }
+        val item = FloatingTabItem(root, iconWrap, iconView, labelView)
+        applyFloatingTabSelected(context, item, selected = false)
+        return item
+    }
+
+    fun applyFloatingTabSelected(
+        context: Context,
+        item: FloatingTabItem,
+        selected: Boolean,
+    ) {
+        val accent = HiAirColors.Cta.gradientStart
+        val muted = HiAirColors.Text.tertiary
+        val color = if (selected) accent else muted
+        item.icon.imageTintList = ColorStateList.valueOf(color)
+        item.label.setTextColor(color)
+        item.label.typeface = Typeface.create(
+            item.label.typeface,
+            if (selected) Typeface.BOLD else Typeface.NORMAL,
+        )
+        item.iconWrap.background = if (selected) {
+            GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = V2Ui.dp(context, 12).toFloat()
+                setColor(withAlpha(accent, 0x29))
+                setStroke(V2Ui.dp(context, 1), withAlpha(accent, 0xBF))
+            }
+        } else {
+            null
+        }
+    }
 
     private fun withAlpha(color: Int, alpha: Int): Int {
         return (color and 0x00FFFFFF) or (alpha shl 24)

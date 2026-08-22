@@ -93,4 +93,33 @@ extension XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "Missing accessibility id: \(identifier)")
         return element
     }
+
+    func tapHiAirTab(_ app: XCUIApplication, identifier: String, timeout: TimeInterval = UITestLaunch.defaultTimeout) {
+        let tab = app.descendants(matching: .any)[identifier]
+        XCTAssertTrue(tab.waitForExistence(timeout: timeout), "Missing tab: \(identifier)")
+        tab.tap()
+    }
+
+    @discardableResult
+    func scrollToIdentifier(
+        _ app: XCUIApplication,
+        _ identifier: String,
+        timeout: TimeInterval = 12
+    ) -> XCUIElement {
+        let element = app.descendants(matching: .any)[identifier]
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.isHittable {
+                return element
+            }
+            app.swipeUp(velocity: .fast)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertTrue(element.waitForExistence(timeout: 1), "Missing accessibility id after scroll: \(identifier)")
+        if !element.isHittable {
+            app.swipeDown(velocity: .slow)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        return element
+    }
 }

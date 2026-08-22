@@ -29,7 +29,16 @@ private struct PaywallPurchaseEnvironment<Content: View>: View {
 
     var body: some View {
         content { product, options in
-            try await purchase(product, options: options)
+            // StoreKit Testing + SKTestSession pairs reliably with Product.purchase(options:).
+            // Production iPad fullScreenCover uses SwiftUI PurchaseAction first.
+            if UITestBootstrap.isUITesting {
+                return try await product.purchase(options: options)
+            }
+            do {
+                return try await purchase(product, options: options)
+            } catch {
+                return try await SubscriptionService.fallbackStoreKitPurchase(product, options: options)
+            }
         }
     }
 }
@@ -162,7 +171,8 @@ private struct PaywallContent: View {
     private func policyButton(_ title: String, url: URL) -> some View {
         Button(title) { safariURL = url }
             .font(HiAirTypography.bodyMD)
-            .foregroundStyle(HiAirColors.Brand.orbCyan)
+            .foregroundStyle(HiAirColors.Spectrum.cyan)
+            .accessibilityIdentifier(url == termsURL ? HiAirAccessibilityID.Paywall.terms : HiAirAccessibilityID.Paywall.privacy)
     }
 
     private func subscriptionFactRow(product: Product?, fallbackTitle: String, length: String) -> some View {
@@ -412,6 +422,30 @@ private struct PaywallContent: View {
     }
 
     private func purchase(product: Product) async {
+        #if DEBUG
+        if UITestBootstrap.isUITesting,
+           ProcessInfo.processInfo.environment["UITEST_IAP_FORCE_SUCCESS"] == "1" {
+            let optimistic = UserEntitlementResponse(
+                userId: session.userId,
+                plan: product.id.contains("yearly") ? "yearly" : "monthly",
+                isPremium: true,
+                maxProfiles: 5,
+                extendedForecastEnabled: true,
+                customAlertsEnabled: true,
+                exportReportsEnabled: true,
+                advancedInsightsEnabled: true
+            )
+            session.beginPremiumActivation(optimistic: optimistic)
+            NotificationCenter.default.post(
+                name: .subscriptionEntitlementDidUpdate,
+                object: optimistic,
+                userInfo: ["activationPending": false]
+            )
+            statusMessage = session.l("paywall.success")
+            dismiss()
+            return
+        }
+        #endif
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
             statusMessage = session.l("paywall.auth_required")
             return

@@ -467,7 +467,7 @@ struct DailyPlannerView: View {
                                         .overlay(alignment: .bottom) {
                                             if index % 6 == 0 {
                                                 Text(humanHour(item.hour))
-                                                    .font(.system(size: 8))
+                                                    .font(.caption2)
                                                     .foregroundStyle(HiAirV2Theme.tertiaryText)
                                                     .offset(y: 11)
                                             }

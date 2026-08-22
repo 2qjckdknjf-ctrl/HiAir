@@ -67,19 +67,19 @@ final class StoreScreenshotTests: XCTestCase {
         sleepBriefly(2.0)
         try savePNG(app, to: outURL.appendingPathComponent("02-dashboard.png"))
 
-        tapTabBar(app, index: 1)
+        tapTabBar(app, identifier: "tab.planner")
         sleepBriefly(1.5)
         try savePNG(app, to: outURL.appendingPathComponent("03-planner.png"))
 
-        tapTabBar(app, index: 2)
+        tapTabBar(app, identifier: "tab.insights")
         sleepBriefly(1.5)
         try savePNG(app, to: outURL.appendingPathComponent("04-insights.png"))
 
-        tapTabBar(app, index: 3)
+        tapTabBar(app, identifier: "tab.symptoms")
         sleepBriefly(1.5)
         try savePNG(app, to: outURL.appendingPathComponent("05-symptoms.png"))
 
-        tapTabBar(app, index: 4)
+        tapTabBar(app, identifier: "tab.settings")
         sleepBriefly(1.5)
         try savePNG(app, to: outURL.appendingPathComponent("06-settings.png"))
 
@@ -102,9 +102,9 @@ final class StoreScreenshotTests: XCTestCase {
         }
     }
 
-    private func tapTabBar(_ app: XCUIApplication, index: Int) {
-        let tab = app.tabBars.buttons.element(boundBy: index)
-        XCTAssertTrue(tab.waitForExistence(timeout: 8), "Missing tab bar button at index \(index)")
+    private func tapTabBar(_ app: XCUIApplication, identifier: String) {
+        let tab = app.descendants(matching: .any)[identifier]
+        XCTAssertTrue(tab.waitForExistence(timeout: 8), "Missing tab \(identifier)")
         tab.tap()
     }
 
