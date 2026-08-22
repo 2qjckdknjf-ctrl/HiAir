@@ -1,6 +1,7 @@
 package com.hiair.ui
 
 import com.hiair.ui.family.FamilyMembersParser
+import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.insights.AdaptationInsightsParser
 import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.work.WorkSiteRiskParser
@@ -175,5 +176,34 @@ class FeatureSurfacesParseTest {
         assertTrue(DashboardViewModel.isElevatedRisk("very_high"))
         assertFalse(DashboardViewModel.isElevatedRisk("moderate"))
         assertFalse(DashboardViewModel.isElevatedRisk(null))
+    }
+
+    @Test
+    fun familyRiskOverviewParsesMemberRiskLines() {
+        val raw = """
+            {
+              "ownerUserId": "user-1",
+              "assessedAt": "2026-08-22T08:00:00Z",
+              "highestRiskLevel": "high",
+              "members": [
+                {
+                  "memberLinkId": "link-1",
+                  "memberProfileId": "profile-child",
+                  "relation": "child",
+                  "label": "Mia",
+                  "riskLevel": "high",
+                  "riskScore": 70,
+                  "available": true,
+                  "unavailableReason": null
+                }
+              ]
+            }
+        """.trimIndent()
+        val members = FamilyRiskParser.parseOverview(raw)
+        assertEquals(1, members.size)
+        assertEquals("high", members[0].riskLevel)
+        assertEquals(70, members[0].riskScore)
+        val label = FamilyRiskParser.riskLabel(members[0], "en")
+        assertTrue(label.contains("70"))
     }
 }

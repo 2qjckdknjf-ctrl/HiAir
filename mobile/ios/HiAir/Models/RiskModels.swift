@@ -952,3 +952,22 @@ struct FamilyMemberCreateRequest: Codable {
 struct FamilyMemberListResponse: Codable {
     let members: [FamilyMemberLink]
 }
+
+struct FamilyMemberRiskLine: Codable, Identifiable, Hashable {
+    var id: String { memberLinkId }
+    let memberLinkId: String
+    let memberProfileId: String
+    let relation: String
+    let label: String?
+    let riskLevel: String
+    let riskScore: Int
+    let available: Bool
+    let unavailableReason: String?
+}
+
+struct FamilyRiskOverviewResponse: Codable {
+    let ownerUserId: String
+    let assessedAt: String
+    let members: [FamilyMemberRiskLine]
+    let highestRiskLevel: String?
+}

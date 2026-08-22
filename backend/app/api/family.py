@@ -7,9 +7,11 @@ from app.models.family import (
     FamilyMemberCreateRequest,
     FamilyMemberLink,
     FamilyMemberListResponse,
+    FamilyRiskOverviewResponse,
 )
 import app.services.air_repository as air_repository
 import app.services.family_repository as family_repository
+import app.services.family_risk_service as family_risk_service
 
 router = APIRouter(prefix="/family", tags=["family"])
 
@@ -43,3 +45,10 @@ def delete_family_member(
     if not deleted:
         raise HTTPException(status_code=404, detail="Family member link not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/risk-overview", response_model=FamilyRiskOverviewResponse)
+def get_family_risk_overview(
+    user_id: str = Depends(get_current_user_id),
+) -> FamilyRiskOverviewResponse:
+    return family_risk_service.build_family_risk_overview(owner_user_id=user_id)

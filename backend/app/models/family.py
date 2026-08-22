@@ -30,3 +30,21 @@ class FamilyMemberCreateRequest(BaseModel):
 
 class FamilyMemberListResponse(BaseModel):
     members: list[FamilyMemberLink] = Field(default_factory=list)
+
+
+class FamilyMemberRiskLine(BaseModel):
+    memberLinkId: str
+    memberProfileId: str
+    relation: FamilyRelation
+    label: str | None = None
+    riskLevel: str
+    riskScore: int = Field(ge=0, le=100)
+    available: bool = True
+    unavailableReason: str | None = None
+
+
+class FamilyRiskOverviewResponse(BaseModel):
+    ownerUserId: str
+    assessedAt: str
+    members: list[FamilyMemberRiskLine] = Field(default_factory=list)
+    highestRiskLevel: str | None = None

@@ -17,6 +17,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
+import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.theme.V2Ui
 import java.util.Locale
 
@@ -696,11 +697,18 @@ internal object SettingsScreenRenderer {
                     }
                     val title = member.label ?: member.memberProfileId
                     val subtitle = ctx.l("settings.family.relation.${member.relation}")
+                    val riskLabel = FamilyRiskParser.riskLabel(
+                        rootShell.settingsViewModel.state.familyRiskByLinkId[member.id],
+                        rootShell.settingsViewModel.state.preferredLanguage,
+                    )
                     row.addView(
                         LinearLayout(activity).apply {
                             orientation = LinearLayout.VERTICAL
                             addView(V2Ui.styledBodyText(activity, title).apply { textSize = 14f })
                             addView(V2Ui.styledSecondaryText(activity, subtitle).apply { textSize = 12f })
+                            if (riskLabel.isNotBlank()) {
+                                addView(V2Ui.styledSecondaryText(activity, riskLabel).apply { textSize = 12f })
+                            }
                             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                         },
                     )

@@ -11,10 +11,12 @@
   - `POST /api/places`
   - `DELETE /api/places/{placeId}`
 - Activity plan optional `placeId` for forecast location override
-- Family caregiver stub: `/api/family/members`
-- Tests: `test_places_api.py`, `test_family_api.py`
+- Family caregiver stub: `/api/family/members` + `GET /api/family/risk-overview`
+- Persistence: `023_family_member_links.sql` (applied on prod Supabase)
+- Tests: `test_places_api.py`, `test_family_api.py`, `test_family_risk_overview_api.py`
 - iOS/Android Settings CRUD; iOS planner place picker
 - Family links UI (Settings): list/add/delete members; profile ownership validated server-side
+- Family risk line per linked member in Settings (real `air_risk_engine`, no synthesis)
 - Android planner saved-place picker
 
 ## Scope (v0)
@@ -24,4 +26,4 @@
 
 ## Not yet
 - Place limits by entitlement tier
-- Family risk aggregation UI
+- Travel mode

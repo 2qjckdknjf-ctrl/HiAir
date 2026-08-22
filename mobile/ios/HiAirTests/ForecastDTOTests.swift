@@ -299,4 +299,31 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertEqual(decoded.members[0].relation, "child")
         XCTAssertEqual(decoded.members[0].label, "Mia")
     }
+
+    func testFamilyRiskOverviewDecodes() throws {
+        let json = """
+        {
+          "ownerUserId": "user-1",
+          "assessedAt": "2026-08-22T08:00:00Z",
+          "highestRiskLevel": "high",
+          "members": [
+            {
+              "memberLinkId": "link-1",
+              "memberProfileId": "profile-child",
+              "relation": "child",
+              "label": "Mia",
+              "riskLevel": "high",
+              "riskScore": 70,
+              "available": true,
+              "unavailableReason": null
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(FamilyRiskOverviewResponse.self, from: json)
+        XCTAssertEqual(decoded.highestRiskLevel, "high")
+        XCTAssertEqual(decoded.members.count, 1)
+        XCTAssertEqual(decoded.members[0].riskScore, 70)
+    }
 }

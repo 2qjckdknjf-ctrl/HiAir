@@ -104,6 +104,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var workSiteRiskProxyOnly = false
     @Published var workSiteRiskLoading = false
     @Published var familyMembers: [FamilyMemberLink] = []
+    @Published var familyRiskByLinkId: [String: FamilyMemberRiskLine] = [:]
     @Published var familyStatusText = ""
     @Published var availableProfiles: [UserProfile] = []
     @Published var statusText = "-"
@@ -336,9 +337,38 @@ final class SettingsViewModel: ObservableObject {
             let response = try await apiClient.listFamilyMembers(userId: userId, accessToken: accessToken)
             familyMembers = response.members
             familyStatusText = ""
+            await loadFamilyRiskOverview()
         } catch {
             familyStatusText = l("settings.family.load_failed")
         }
+    }
+
+    func loadFamilyRiskOverview() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let overview = try await apiClient.fetchFamilyRiskOverview(userId: userId, accessToken: accessToken)
+            familyRiskByLinkId = Dictionary(uniqueKeysWithValues: overview.members.map { ($0.memberLinkId, $0) })
+        } catch {
+            familyRiskByLinkId = [:]
+        }
+    }
+
+    func familyRiskLabel(for memberId: String, language: String) -> String {
+        guard let line = familyRiskByLinkId[memberId] else { return "" }
+        if !line.available {
+            return HiAirL10n.t("settings.family.risk_unavailable", lang: language)
+        }
+        let levelKey: String? = switch line.riskLevel.lowercased() {
+        case "low": "hazards.level.low"
+        case "moderate", "medium": "hazards.level.moderate"
+        case "high": "hazards.level.high"
+        case "very_high", "very high": "hazards.level.very_high"
+        default: nil
+        }
+        let level = levelKey.map { HiAirL10n.t($0, lang: language) } ?? line.riskLevel
+        return HiAirL10n.t("settings.family.risk_line", lang: language)
+            .replacingOccurrences(of: "%@", with: level)
+            .replacingOccurrences(of: "%d", with: String(line.riskScore))
     }
 
     func addFamilyMember(profileId: String, relation: String, label: String?) async {
@@ -1274,6 +1304,12 @@ struct SettingsView: View {
                                     Text(session.l("settings.family.relation.\(member.relation)"))
                                         .font(AuroraTokens.Typography.caption)
                                         .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                    let riskLabel = viewModel.familyRiskLabel(for: member.id, language: session.preferredLanguage)
+                                    if !riskLabel.isEmpty {
+                                        Text(riskLabel)
+                                            .font(AuroraTokens.Typography.caption)
+                                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                                    }
                                 }
                                 Spacer()
                                 Button(session.l("settings.family.delete")) {

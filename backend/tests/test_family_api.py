@@ -32,10 +32,12 @@ def _profile(user_id: str = "user-1", profile_id: str = "profile-child-1") -> Us
 
 def setup_function() -> None:
     family_repository.reset_store()
+    family_repository.force_memory_store(True)
 
 
 def teardown_function() -> None:
     family_repository.reset_store()
+    family_repository.force_memory_store(False)
     app.dependency_overrides.clear()
 
 

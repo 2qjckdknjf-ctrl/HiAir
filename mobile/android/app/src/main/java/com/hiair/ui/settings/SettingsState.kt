@@ -15,6 +15,8 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import com.hiair.ui.family.FamilyMemberItem
 import com.hiair.ui.family.FamilyMembersParser
+import com.hiair.ui.family.FamilyMemberRiskItem
+import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.work.WorkSiteRiskParser
 import org.json.JSONArray
 import org.json.JSONObject
@@ -88,6 +90,7 @@ data class SettingsState(
     val workSiteRiskProxyOnly: Boolean = false,
     val workSiteRiskLoading: Boolean = false,
     val familyMembers: List<FamilyMemberItem> = emptyList(),
+    val familyRiskByLinkId: Map<String, FamilyMemberRiskItem> = emptyMap(),
     val familyStatusText: String = "",
     val availableProfileIds: List<Pair<String, String>> = emptyList(),
 )
@@ -713,8 +716,22 @@ class SettingsViewModel(
                 familyMembers = FamilyMembersParser.parseList(raw),
                 familyStatusText = "",
             )
+            loadFamilyRiskOverview()
         } catch (_: Exception) {
             state = state.copy(familyStatusText = l("settings.family.load_failed"))
+        }
+    }
+
+    fun loadFamilyRiskOverview() {
+        if (state.userId.isBlank()) return
+        try {
+            val raw = apiClient.fetchFamilyRiskOverview(state.userId, state.accessToken.ifBlank { null })
+            val risks = FamilyRiskParser.parseOverview(raw)
+            state = state.copy(
+                familyRiskByLinkId = risks.associateBy { it.memberLinkId },
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyRiskByLinkId = emptyMap())
         }
     }
 

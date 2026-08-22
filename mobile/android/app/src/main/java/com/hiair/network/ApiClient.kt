@@ -235,6 +235,11 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchFamilyRiskOverview(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/family/risk-overview"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchAirDayPlan(
         userId: String,
         accessToken: String? = null,
