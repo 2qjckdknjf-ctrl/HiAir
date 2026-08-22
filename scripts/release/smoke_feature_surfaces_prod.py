@@ -111,6 +111,19 @@ def main() -> int:
             return 1
         print(f"{name}: OK")
 
+    day_plan_query = urllib.parse.urlencode({"profileId": profile_id})
+    status, body = _request("GET", f"{base}/api/air/day-plan?{day_plan_query}", headers=auth)
+    if status == 402:
+        print("day-plan: OK premium gate (402)")
+    elif status == 500:
+        print(f"day-plan: FAIL unexpected 500 body={body}")
+        return 1
+    elif status != 200:
+        print(f"day-plan: FAIL status={status} body={body}")
+        return 1
+    else:
+        print("day-plan: OK (premium user or gate open)")
+
     print("feature_surfaces_production_smoke: PASS")
     return 0
 

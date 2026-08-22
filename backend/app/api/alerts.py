@@ -7,6 +7,7 @@ from app.models.alert_decision import AlertDecisionRequest, AlertDecisionRespons
 import app.services.air_repository as air_repository
 import app.services.alert_decision_engine as alert_decision_engine
 import app.services.alert_orchestrator as alert_orchestrator
+import app.services.observability as observability
 import app.services.notification_dispatcher as notification_dispatcher
 import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
@@ -77,4 +78,8 @@ def decide_alert(
     """
     _ = user_id
     decision = alert_decision_engine.decide_alert(payload.candidate)
+    observability.record_alert_decision(
+        suppressed=not decision.shouldNotify,
+        reason_codes=decision.reasonCodes if not decision.shouldNotify else None,
+    )
     return AlertDecisionResponse(decision=decision)

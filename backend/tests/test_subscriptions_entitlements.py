@@ -279,6 +279,27 @@ def test_privacy_export_free_user_returns_200_not_402(monkeypatch) -> None:
     assert response.status_code != 402
 
 
+def test_day_plan_free_user_returns_402(monkeypatch) -> None:
+    import app.api.air as air_api
+
+    monkeypatch.setattr(deps, "decode_access_token", lambda token: "user-free")
+    monkeypatch.setattr(deps.user_repository, "user_exists", lambda user_id: True)
+    monkeypatch.setattr(
+        air_api.entitlement_service,
+        "require_feature",
+        lambda user_id, feature, attr: (_ for _ in ()).throw(
+            __import__("fastapi").HTTPException(status_code=402, detail="Premium subscription required")
+        ),
+    )
+    client = TestClient(app)
+    response = client.get(
+        "/api/air/day-plan",
+        params={"profileId": "profile-1"},
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 402
+
+
 def test_planner_free_user_returns_402(monkeypatch) -> None:
     import app.api.planner as planner_api
 

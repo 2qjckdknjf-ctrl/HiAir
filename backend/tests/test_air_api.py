@@ -123,6 +123,11 @@ def test_air_day_plan_returns_payload(monkeypatch) -> None:
     monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, **kwargs: _sample_environment())
     monkeypatch.setattr(air_api, "_load_forecast_or_none", lambda *args, **kwargs: None)
     monkeypatch.setattr(
+        air_api.wearable_service,
+        "build_personal_load_input",
+        lambda user_id, environment=None: None,
+    )
+    monkeypatch.setattr(
         air_api.air_risk_engine,
         "build_day_plan",
         lambda profile, environment, **kwargs: DayPlanResponse(
@@ -151,6 +156,11 @@ def test_air_recommendations_returns_payload(monkeypatch) -> None:
     )
     monkeypatch.setattr(air_api.air_environment_service, "load_environment", lambda profile, **kwargs: _sample_environment())
     monkeypatch.setattr(air_api, "_load_forecast_or_none", lambda lat, lon, force_refresh=False: None)
+    monkeypatch.setattr(
+        air_api.wearable_service,
+        "build_personal_load_input",
+        lambda user_id, environment=None: None,
+    )
     monkeypatch.setattr(
         air_api.air_risk_engine,
         "evaluate_risk",

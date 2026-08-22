@@ -57,3 +57,17 @@ def test_suppress_non_actionable() -> None:
     decision = decide_alert(_candidate(actionable=False))
     assert decision.action == AlertDecisionAction.SUPPRESS
     assert AlertDecisionReason.NO_ACTIONABLE_CHANGE.value in decision.reasonCodes
+
+
+def test_record_alert_decision_telemetry() -> None:
+    from app.services import observability
+
+    before = observability.snapshot_metrics()
+    observability.record_alert_decision(
+        suppressed=True,
+        reason_codes=[AlertDecisionReason.QUIET_HOURS.value],
+    )
+    after = observability.snapshot_metrics()
+    assert after["alert_decisions_total"] == before["alert_decisions_total"] + 1
+    assert after["alert_decisions_suppressed"] == before["alert_decisions_suppressed"] + 1
+    assert after["alert_decision_suppress_reasons"][AlertDecisionReason.QUIET_HOURS.value] >= 1

@@ -1,6 +1,6 @@
 # HiAir 2.0 — Work / B2B Safety CORE
 
-**Status:** IN PROGRESS (backend + Settings UI)  
+**Status:** IN PROGRESS (backend + Settings UI; prod `GET /api/work/site-risk` on `408ec1c3`)  
 **Branch:** `feat/hiair-1.2-best-time-planner`  
 **Depends on:** HiAir 1.1 Forecast Truth (honest environmental metrics)
 

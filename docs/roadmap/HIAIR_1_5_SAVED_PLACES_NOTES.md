@@ -1,6 +1,6 @@
 # HiAir 1.5 — Saved Places
 
-**Status:** IN PROGRESS (backend + Settings UI + planner placeId)  
+**Status:** IN PROGRESS (backend + Settings UI + planner placeId; prod smoke PASS on `408ec1c3`)  
 **Branch:** `feat/hiair-1.2-best-time-planner` (stacked)
 
 ## Shipped

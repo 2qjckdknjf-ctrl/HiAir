@@ -1,6 +1,6 @@
 # HiAir 1.4 — Alert Decision Engine
 
-**Status:** IN PROGRESS (core decision gate wired into orchestrator)  
+**Status:** IN PROGRESS (core decision gate + suppress telemetry on `408ec1c3`)  
 **Branch:** `feat/hiair-1.2-best-time-planner` (stacked)
 
 ## Shipped
@@ -8,7 +8,8 @@
 - Engine: `backend/app/services/alert_decision_engine.py`
 - Additive API: `POST /api/alerts/decide`
 - Tests: `backend/tests/test_alert_decision_engine.py`
-- `alert_orchestrator.evaluate_alert` now runs the decision gate before send (quiet hours / dedupe / actionable)
+- `alert_orchestrator.evaluate_alert` now runs the decision gate before send (quiet hours / dedupe / actionable / personal `alert_threshold`)
+- In-memory suppress telemetry via `observability.record_alert_decision` (exposed in `/api/observability/metrics`)
 
 ## Decision rules
 Suppress when:
@@ -21,6 +22,4 @@ Suppress when:
 Otherwise send with the candidate reason code.
 
 ## Not yet
-- Personal threshold preference UI
-- Telemetry for suppress rates
 - Richer cooldown minutes from delivery audit log

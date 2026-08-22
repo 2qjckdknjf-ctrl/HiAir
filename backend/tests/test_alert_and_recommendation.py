@@ -142,6 +142,42 @@ def test_recommendation_supports_moderate_level() -> None:
     assert "safer" in card.headline.lower() or "conditions" in card.summary.lower()
 
 
+def test_alert_respects_personal_threshold(monkeypatch) -> None:
+    def fake_settings(_: str) -> UserSettingsResponse:
+        return UserSettingsResponse(
+            user_id="user-1",
+            push_alerts_enabled=True,
+            alert_threshold="very_high",
+            default_persona="adult",
+            quiet_hours_start=23,
+            quiet_hours_end=6,
+            profile_based_alerting=True,
+            preferred_language="en",
+        )
+
+    monkeypatch.setattr("app.services.alert_orchestrator.settings_repository.get_user_settings", fake_settings)
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.get_latest_risk_assessment",
+        lambda _: {"overall_risk": "low"},
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
+        lambda dedupe_key, within_hours=4: False,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator._is_quiet_hours",
+        lambda start_hour, end_hour, now_hour: False,
+    )
+
+    decision = evaluate_alert(
+        build_profile(),
+        build_risk(RiskLevel.HIGH),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+    )
+    assert decision.shouldSend is False
+    assert decision.reason == "below_personal_threshold"
+
+
 def test_alert_legacy_medium_history_maps_to_medium_severity(monkeypatch) -> None:
     def fake_settings(_: str) -> UserSettingsResponse:
         return UserSettingsResponse(

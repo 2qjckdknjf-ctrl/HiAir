@@ -1,6 +1,6 @@
 # HiAir 1.6 — Personal Adaptation & Protected Days
 
-**Status:** IN PROGRESS (backend + Insights UI + event persistence)  
+**Status:** IN PROGRESS (backend + Insights UI + event persistence; prod APIs live on `408ec1c3`)  
 **Branch:** `feat/hiair-1.2-best-time-planner` (stacked)
 
 ## Shipped

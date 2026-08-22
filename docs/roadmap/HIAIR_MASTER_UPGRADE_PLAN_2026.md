@@ -763,11 +763,11 @@ HiAir reaches the intended 10/10 product state when:
 
 | Release | Status |
 |---------|--------|
-| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `1e1230d5`) — device QA pending |
-| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `1e1230d5`) — device QA pending |
-| 1.3 Multi-Hazard | Backend + Dashboard UI IN PROGRESS (`GET /api/air/hazards`) |
-| 1.4 Alert Decision Engine | Gate wired into orchestrator IN PROGRESS (`POST /api/alerts/decide`) |
-| 1.5 Saved Places | Backend + family Postgres + risk overview UI IN PROGRESS |
+| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `408ec1c3`) — device QA pending |
+| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `408ec1c3`) — device QA pending |
+| 1.3 Multi-Hazard | Backend + Dashboard UI IN PROGRESS; prod smoke PASS (`GET /api/air/hazards`) |
+| 1.4 Alert Decision Engine | Gate + suppress telemetry IN PROGRESS (`POST /api/alerts/decide`) |
+| 1.5 Saved Places | Backend + family Postgres + risk overview UI IN PROGRESS; prod smoke PASS |
 | 1.6 Personal Adaptation | Backend + Insights + dashboard protected-day marks IN PROGRESS |
 | 2.0 Work / B2B Safety | Backend + Settings UI IN PROGRESS (`GET /api/work/site-risk`; Heat Index ≠ WBGT) |
 

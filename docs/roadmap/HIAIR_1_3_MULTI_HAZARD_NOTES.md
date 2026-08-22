@@ -1,6 +1,6 @@
 # HiAir 1.3 — Multi-Hazard Intelligence
 
-**Status:** IN PROGRESS (backend + additive mobile UI)  
+**Status:** IN PROGRESS (backend + additive mobile UI; prod smoke PASS on `408ec1c3`)  
 **Branch:** `feat/hiair-1.2-best-time-planner`  
 **Depends on:** HiAir 1.1 Forecast Truth (never invent environmental metrics)
 

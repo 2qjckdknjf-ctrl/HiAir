@@ -16,6 +16,7 @@ from app.services.localization import normalize_language, t
 from app.services.risk_level_contract import normalize_air_level_value
 import app.services.air_repository as air_repository
 import app.services.alert_decision_engine as alert_decision_engine
+import app.services.observability as observability
 import app.services.settings_repository as settings_repository
 
 
@@ -27,6 +28,25 @@ def _severity_from_risk_level(level: str) -> AlertSeverity:
     if level == "moderate":
         return AlertSeverity.MEDIUM
     return AlertSeverity.LOW
+
+
+_THRESHOLD_MIN_ORDER = {
+    "medium": 1,
+    "high": 2,
+    "very_high": 3,
+}
+
+
+def _personal_threshold_met(alert_threshold: str, current_level: str) -> bool:
+    threshold = normalize_air_level_value(alert_threshold)
+    min_order = _THRESHOLD_MIN_ORDER.get(threshold, 2)
+    level_order = {
+        "low": 0,
+        "moderate": 1,
+        "high": 2,
+        "very_high": 3,
+    }.get(normalize_air_level_value(current_level), 0)
+    return level_order >= min_order
 
 
 def _is_quiet_hours(start_hour: int, end_hour: int, now_hour: int) -> bool:
@@ -97,8 +117,12 @@ def evaluate_alert(
             alreadySentFingerprint=already_sent,
             fingerprint=dedupe_key,
             actionable=current_level in ("high", "very_high") or alert_type == AlertType.RISK_INCREASE,
-            personalThresholdMet=True,
+            personalThresholdMet=_personal_threshold_met(user_settings.alert_threshold, current_level),
         )
+    )
+    observability.record_alert_decision(
+        suppressed=not gate.shouldNotify,
+        reason_codes=gate.reasonCodes if not gate.shouldNotify else None,
     )
     if not gate.shouldNotify:
         suppress_reason = gate.reasonCodes[0] if gate.reasonCodes else "suppressed"
