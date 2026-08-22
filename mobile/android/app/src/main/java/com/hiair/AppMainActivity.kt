@@ -47,6 +47,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var insightsButton: Button
     private lateinit var symptomsButton: Button
     private lateinit var settingsButton: Button
+    private lateinit var navRow: LinearLayout
     private lateinit var supabaseAuth: SupabaseAuthService
     private lateinit var healthConnectService: HealthConnectService
     private lateinit var wearableHealthController: WearableHealthController
@@ -135,12 +136,11 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         }
         root.addView(titleView)
 
-        val navRow = LinearLayout(this).apply {
+        navRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
             setPadding(p, p, p, p)
             background = HiAirComponents.liquidGlassNavBackground(this@AppMainActivity)
-            HiAirLiquidGlass.applyNavigationBlur(this)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -278,6 +278,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         overlayContainer.removeAllViews()
         syncNavLabels()
         syncNavSelection()
+        updateChromeVisibility()
         if (rootShell.settingsViewModel.state.showPaywall) {
             screenRenderer.renderPaywall(paywallController)
             return
@@ -295,6 +296,21 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             AppScreen.SYMPTOMS -> screenRenderer.renderSymptoms()
             AppScreen.SETTINGS -> screenRenderer.renderSettings()
         }
+    }
+
+    private fun isAuthenticated(): Boolean {
+        val state = rootShell.settingsViewModel.state
+        return state.userId.isNotBlank() && state.accessToken.isNotBlank()
+    }
+
+    private fun shouldShowMainNavigation(): Boolean {
+        return isAuthenticated() && onboardingStore.isCompleted()
+    }
+
+    private fun updateChromeVisibility() {
+        val showNav = shouldShowMainNavigation() && !rootShell.settingsViewModel.state.showPaywall
+        navRow.visibility = if (showNav) android.view.View.VISIBLE else android.view.View.GONE
+        titleView.visibility = if (showNav) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     private fun syncNavLabels() {

@@ -41,7 +41,7 @@ android {
         applicationId = "com.hiair"
         minSdk = 26
         targetSdk = 35
-        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 181
+        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 189
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.0.0"
     }
 

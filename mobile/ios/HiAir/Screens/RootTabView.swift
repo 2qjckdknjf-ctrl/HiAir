@@ -76,7 +76,7 @@ struct RootTabView: View {
                 .environmentObject(session)
                 .environmentObject(subscriptionService)
         }
-        .sheet(isPresented: $session.showPaywall) {
+        .fullScreenCover(isPresented: $session.showPaywall) {
             PaywallView()
                 .environmentObject(session)
                 .environmentObject(subscriptionService)
