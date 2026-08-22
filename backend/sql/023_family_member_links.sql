@@ -1,4 +1,5 @@
 -- HiAir 1.5 family member profile links (caregiver monitoring)
+-- Table DDL is CI-compatible; RLS policies live in 025_supabase_table_rls.sql.
 
 CREATE TABLE IF NOT EXISTS family_member_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -15,20 +16,3 @@ CREATE TABLE IF NOT EXISTS family_member_links (
 
 CREATE INDEX IF NOT EXISTS idx_family_member_links_user_created
     ON family_member_links (user_id, created_at DESC);
-
-ALTER TABLE family_member_links ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS family_member_links_owner_select ON family_member_links;
-CREATE POLICY family_member_links_owner_select ON family_member_links
-    FOR SELECT
-    USING (auth.uid()::text = user_id);
-
-DROP POLICY IF EXISTS family_member_links_owner_insert ON family_member_links;
-CREATE POLICY family_member_links_owner_insert ON family_member_links
-    FOR INSERT
-    WITH CHECK (auth.uid()::text = user_id);
-
-DROP POLICY IF EXISTS family_member_links_owner_delete ON family_member_links;
-CREATE POLICY family_member_links_owner_delete ON family_member_links
-    FOR DELETE
-    USING (auth.uid()::text = user_id);

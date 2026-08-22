@@ -1,4 +1,5 @@
 -- HiAir 1.6 protected-day structured events (wellness-only, no causation)
+-- Table DDL is CI-compatible; RLS policies live in 025_supabase_table_rls.sql.
 
 CREATE TABLE IF NOT EXISTS protected_day_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,15 +19,3 @@ CREATE TABLE IF NOT EXISTS protected_day_events (
 
 CREATE INDEX IF NOT EXISTS idx_protected_day_events_profile_date
     ON protected_day_events (profile_id, event_date DESC);
-
-ALTER TABLE protected_day_events ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS protected_day_events_owner_select ON protected_day_events;
-CREATE POLICY protected_day_events_owner_select ON protected_day_events
-    FOR SELECT
-    USING (auth.uid()::text = user_id);
-
-DROP POLICY IF EXISTS protected_day_events_owner_insert ON protected_day_events;
-CREATE POLICY protected_day_events_owner_insert ON protected_day_events
-    FOR INSERT
-    WITH CHECK (auth.uid()::text = user_id);
