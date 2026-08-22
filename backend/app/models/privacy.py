@@ -22,3 +22,14 @@ class DeleteAccountResponse(BaseModel):
         default_factory=dict
     )
     recovery_hint: str | None = None
+
+
+class DeleteAccountRequirementsResponse(BaseModel):
+    requires_apple_authorization_code: bool
+    auth_provider: str
+    operation_id: str | None = None
+    in_progress: bool = False
+    stages: dict[str, Literal["pending", "completed", "failed", "not_applicable"]] = Field(
+        default_factory=dict
+    )
+    recovery_hint: str | None = None

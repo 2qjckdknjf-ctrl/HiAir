@@ -163,9 +163,23 @@ else:
 values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", values.get("GOOGLE_PLAY_VERIFIER_MODE", "stub"))
 values.setdefault("HIAIR_AUTH_PROVIDER", values.get("HIAIR_AUTH_PROVIDER", "supabase"))
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
-deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
-if deploy_sha:
-    values["DEPLOY_GIT_SHA"] = deploy_sha
+resolved_release_sha = os.environ.get("RESOLVED_RELEASE_SHA", "").strip()
+deploy_git_sha = os.environ.get("DEPLOY_GIT_SHA", "").strip()
+github_sha = os.environ.get("GITHUB_SHA", "").strip()
+if resolved_release_sha:
+    if deploy_git_sha and deploy_git_sha != resolved_release_sha:
+        raise SystemExit("ERROR: DEPLOY_GIT_SHA must match RESOLVED_RELEASE_SHA.")
+    if github_sha and github_sha != resolved_release_sha:
+        raise SystemExit("ERROR: GITHUB_SHA must not override RESOLVED_RELEASE_SHA.")
+    final_deploy_sha = resolved_release_sha
+elif deploy_git_sha:
+    if github_sha and github_sha != deploy_git_sha:
+        raise SystemExit("ERROR: GITHUB_SHA must match DEPLOY_GIT_SHA when both are set.")
+    final_deploy_sha = deploy_git_sha
+else:
+    final_deploy_sha = github_sha
+if final_deploy_sha:
+    values["DEPLOY_GIT_SHA"] = final_deploy_sha
 required = ("DATABASE_URL", "JWT_SECRET", "DEPLOY_GIT_SHA", "SUPABASE_URL")
 missing = [key for key in required if not values.get(key)]
 if missing:

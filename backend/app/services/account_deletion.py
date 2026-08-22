@@ -26,6 +26,7 @@ from app.services.supabase_account_admin import (
     SupabaseAdminConfigError,
     delete_auth_user,
     detect_auth_provider,
+    fetch_auth_user,
     require_supabase_admin_config,
     uses_supabase_auth,
 )
@@ -35,6 +36,8 @@ logger = logging.getLogger(__name__)
 _OPERATION_LOCK_KEY = 9_314_159_265
 _HTTP_TIMEOUT_SECONDS = 20.0
 _MAX_HTTP_RETRIES = 2
+_CONFIRMED_AUTH_PROVIDERS = frozenset({"apple", "google", "email"})
+_UNCONFIRMED_AUTH_PROVIDER = "unknown"
 
 
 class DeletionStage(StrEnum):
@@ -93,6 +96,49 @@ class _OperationRow:
     supabase_auth_status: str
 
 
+def deletion_requirements(*, user_id: str) -> dict[str, object]:
+    uid = (user_id or "").strip()
+    if not uid:
+        raise AccountDeletionError(
+            AccountDeletionOutcome(
+                completed=False,
+                operation_id="",
+                stages=[],
+                recovery_hint="Authenticated user id is required.",
+            ),
+            http_status=401,
+        )
+
+    user_hash = _hash_user_id(uid)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            operation = _load_or_create_operation(cur, user_hash=user_hash, user_id=uid)
+            conn.commit()
+            auth_provider = _resolve_auth_provider(
+                cur,
+                operation,
+                uid,
+                allow_unconfirmed=True,
+            )
+            conn.commit()
+            operation = _reload_operation(cur, operation.operation_id)
+
+    stages = _stage_results_from_operation(operation)
+    in_progress = operation.status in {
+        OperationStatus.PENDING.value,
+        OperationStatus.IN_PROGRESS.value,
+        OperationStatus.FAILED.value,
+    }
+    return {
+        "requires_apple_authorization_code": auth_provider == "apple",
+        "auth_provider": auth_provider,
+        "operation_id": operation.operation_id,
+        "in_progress": in_progress and not _operation_is_complete(operation),
+        "stages": {result.stage.value: result.status.value for result in stages},
+        "recovery_hint": _recovery_hint(stages, completed=operation.status == OperationStatus.COMPLETED.value),
+    }
+
+
 def delete_account(
     *,
     user_id: str,
@@ -130,19 +176,18 @@ def delete_account(
 
                 _mark_operation_in_progress(cur, operation.operation_id)
                 conn.commit()
-                auth_provider = operation.auth_provider or detect_auth_provider(uid)
-                _update_operation_provider(cur, operation.operation_id, auth_provider)
+                auth_provider = _resolve_auth_provider(cur, operation, uid)
                 conn.commit()
 
                 try:
                     _validate_runtime_configuration(auth_provider)
                 except (SupabaseAdminConfigError, AppleSignInConfigError) as exc:
                     _fail_operation(cur, operation.operation_id, str(exc))
-                    stages = _failed_stage_results(str(exc))
+                    operation = _reload_operation(cur, operation.operation_id)
                     outcome = AccountDeletionOutcome(
                         completed=False,
                         operation_id=operation.operation_id,
-                        stages=stages,
+                        stages=_stage_results_from_operation(operation),
                         recovery_hint=str(exc),
                     )
                     _raise_deletion_error(conn, outcome, http_status=503, cause=exc)
@@ -153,6 +198,7 @@ def delete_account(
                     operation = _run_apple_revoke_stage(
                         cur,
                         operation,
+                        user_id=uid,
                         apple_authorization_code=apple_authorization_code,
                     )
                 elif operation.apple_revoke_status == StageStatus.PENDING.value:
@@ -239,6 +285,55 @@ def _validate_runtime_configuration(auth_provider: str) -> None:
         require_supabase_admin_config()
     if auth_provider == "apple":
         require_apple_sign_in_config()
+
+
+def _is_confirmed_provider(provider: str) -> bool:
+    return provider.strip().lower() in _CONFIRMED_AUTH_PROVIDERS
+
+
+def _resolve_auth_provider(
+    cur,
+    operation: _OperationRow,
+    user_id: str,
+    *,
+    allow_unconfirmed: bool = False,
+) -> str:
+    stored = operation.auth_provider.strip().lower()
+    if _is_confirmed_provider(stored):
+        return stored
+
+    detected = detect_auth_provider(user_id).strip().lower()
+    if not _is_confirmed_provider(detected):
+        if allow_unconfirmed:
+            return _UNCONFIRMED_AUTH_PROVIDER
+        raise AccountDeletionError(
+            AccountDeletionOutcome(
+                completed=False,
+                operation_id=operation.operation_id,
+                stages=_stage_results_from_operation(operation),
+                recovery_hint=(
+                    "Unable to determine account auth provider. "
+                    "Retry after authentication service configuration is restored."
+                ),
+            ),
+            http_status=503,
+        )
+
+    if stored == "apple" and detected != "apple":
+        raise AccountDeletionError(
+            AccountDeletionOutcome(
+                completed=False,
+                operation_id=operation.operation_id,
+                stages=_stage_results_from_operation(operation),
+                recovery_hint="Apple-linked accounts cannot be downgraded to a non-Apple provider.",
+            ),
+            http_status=409,
+        )
+
+    if stored != detected:
+        _update_operation_provider(cur, operation.operation_id, detected)
+        operation = _reload_operation(cur, operation.operation_id)
+    return detected
 
 
 def _load_or_create_operation(cur, *, user_hash: str, user_id: str) -> _OperationRow:
@@ -393,6 +488,7 @@ def _run_apple_revoke_stage(
     cur,
     operation: _OperationRow,
     *,
+    user_id: str,
     apple_authorization_code: str | None,
 ) -> _OperationRow:
     if operation.apple_revoke_status == StageStatus.COMPLETED.value:
@@ -408,7 +504,7 @@ def _run_apple_revoke_stage(
             detail="missing_authorization_code",
         )
     try:
-        _revoke_apple_token(code)
+        _revoke_apple_token(code, expected_user_id=user_id)
     except AppleSignInConfigError as exc:
         return _set_stage_status(
             cur,
@@ -519,7 +615,7 @@ def _run_supabase_auth_stage(cur, operation: _OperationRow, user_id: str) -> _Op
     )
 
 
-def _revoke_apple_token(authorization_code: str) -> None:
+def _revoke_apple_token(authorization_code: str, *, expected_user_id: str) -> None:
     team_id = settings.apple_team_id.strip()
     key_id = settings.apple_sign_in_key_id.strip()
     services_id = settings.apple_services_id.strip() or "com.hiair.app.auth"
@@ -556,6 +652,14 @@ def _revoke_apple_token(authorization_code: str) -> None:
                     time.sleep(attempt)
                     continue
                 payload = token_response.json()
+                id_token = str(payload.get("id_token") or "").strip()
+                if not id_token:
+                    raise AppleSignInConfigError("Apple token exchange returned no id_token.")
+                apple_sub = _decode_apple_id_token_sub(id_token)
+                if not _apple_identity_matches(expected_user_id, apple_sub):
+                    raise AppleSignInConfigError(
+                        "Apple authorization does not match the authenticated account."
+                    )
                 token = str(payload.get("refresh_token") or payload.get("access_token") or "").strip()
                 hint = "refresh_token" if payload.get("refresh_token") else "access_token"
                 if not token:
@@ -601,6 +705,39 @@ def _build_apple_client_secret(
         algorithm="ES256",
         headers={"kid": key_id},
     )
+
+
+def _decode_apple_id_token_sub(id_token: str) -> str:
+    try:
+        claims = jwt.decode(id_token, options={"verify_signature": False})
+    except jwt.PyJWTError as exc:
+        raise AppleSignInConfigError("Apple id_token could not be decoded.") from exc
+    sub = str(claims.get("sub") or "").strip()
+    if not sub:
+        raise AppleSignInConfigError("Apple id_token is missing sub.")
+    return sub
+
+
+def _apple_identity_matches(user_id: str, apple_sub: str) -> bool:
+    user = fetch_auth_user(user_id)
+    if not user:
+        return False
+    identities = user.get("identities")
+    if not isinstance(identities, list):
+        return False
+    for identity in identities:
+        if not isinstance(identity, dict):
+            continue
+        if str(identity.get("provider") or "").strip().lower() != "apple":
+            continue
+        identity_id = str(identity.get("identity_id") or "").strip()
+        identity_data = identity.get("identity_data")
+        data_sub = ""
+        if isinstance(identity_data, dict):
+            data_sub = str(identity_data.get("sub") or "").strip()
+        if apple_sub and apple_sub in {identity_id, data_sub}:
+            return True
+    return False
 
 
 def _complete_operation(cur, operation_id: str) -> None:
@@ -669,14 +806,6 @@ def _operation_outcome(operation: _OperationRow, *, completed: bool) -> AccountD
         stages=stages,
         recovery_hint=_recovery_hint(stages, completed),
     )
-
-
-def _failed_stage_results(detail: str) -> list[StageResult]:
-    return [
-        StageResult(DeletionStage.APPLE_REVOKE, StageStatus.FAILED, detail),
-        StageResult(DeletionStage.PUBLIC_DATA, StageStatus.PENDING),
-        StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.PENDING),
-    ]
 
 
 def _recovery_hint(stages: list[StageResult], completed: bool) -> str | None:

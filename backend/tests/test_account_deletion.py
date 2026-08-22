@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app.services.account_deletion import AccountDeletionError, delete_account
+from app.services.supabase_account_admin import SupabaseAdminConfigError
 
 
 @pytest.fixture(autouse=True)
@@ -84,7 +85,7 @@ def test_delete_account_revokes_apple_before_public_data(monkeypatch: pytest.Mon
     monkeypatch.setattr("app.services.account_deletion.require_apple_sign_in_config", lambda: None)
     monkeypatch.setattr(
         "app.services.account_deletion._revoke_apple_token",
-        lambda _: order.append("apple"),
+        lambda _code, **_: order.append("apple"),
     )
     monkeypatch.setattr(
         "app.services.account_deletion.privacy_repository.delete_user_data",
@@ -191,7 +192,7 @@ def test_delete_account_does_not_repeat_apple_revoke_on_retry(monkeypatch: pytes
     )
     monkeypatch.setattr("app.services.account_deletion.require_apple_sign_in_config", lambda: None)
 
-    def _revoke(_: str) -> None:
+    def _revoke(_: str, **__: object) -> None:
         apple_calls["count"] += 1
 
     monkeypatch.setattr("app.services.account_deletion._revoke_apple_token", _revoke)
@@ -211,3 +212,36 @@ def test_delete_account_does_not_repeat_apple_revoke_on_retry(monkeypatch: pytes
     assert first.completed is True
     assert second.completed is True
     assert apple_calls["count"] == 1
+
+
+def test_unknown_provider_is_redetected_after_supabase_config_restored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: unknown provider must not skip Apple revoke on retry."""
+    config_ok = {"value": False}
+
+    def _detect(_: str) -> str:
+        return "apple" if config_ok["value"] else "unknown"
+
+    monkeypatch.setattr("app.services.account_deletion.detect_auth_provider", _detect)
+    monkeypatch.setattr("app.services.account_deletion.uses_supabase_auth", lambda: True)
+
+    def _require() -> None:
+        if not config_ok["value"]:
+            raise SupabaseAdminConfigError("missing supabase admin")
+
+    monkeypatch.setattr("app.services.account_deletion.require_supabase_admin_config", _require)
+
+    with pytest.raises(AccountDeletionError) as first_exc:
+        delete_account(user_id="00000000-0000-0000-0000-000000000109")
+    assert first_exc.value.http_status == 503
+    assert first_exc.value.outcome.stage_map().get("apple_revoke") != "failed"
+
+    config_ok["value"] = True
+    monkeypatch.setattr("app.services.account_deletion.require_apple_sign_in_config", lambda: None)
+
+    with pytest.raises(AccountDeletionError) as second_exc:
+        delete_account(user_id="00000000-0000-0000-0000-000000000109")
+    assert second_exc.value.http_status == 422
+    assert second_exc.value.outcome.stage_map()["apple_revoke"] == "failed"
+    assert second_exc.value.outcome.stage_map()["apple_revoke"] != "not_applicable"
