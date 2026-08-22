@@ -111,6 +111,18 @@ def main() -> int:
             return 1
         print(f"{name}: OK")
 
+    risk_query = urllib.parse.urlencode({"profileId": profile_id})
+    status, body = _request("GET", f"{base}/api/air/current-risk?{risk_query}", headers=auth)
+    if status != 200 or not isinstance(body, dict):
+        print(f"current-risk: FAIL status={status} body={body}")
+        return 1
+    environmental = body.get("environmental")
+    if not isinstance(environmental, dict) or "no2" not in environmental:
+        print(f"current-risk: FAIL environmental missing no2 key body={environmental!r}")
+        return 1
+    no2_value = environmental.get("no2")
+    print(f"current-risk: OK no2={'set' if no2_value is not None else 'null'}")
+
     day_plan_query = urllib.parse.urlencode({"profileId": profile_id})
     status, body = _request("GET", f"{base}/api/air/day-plan?{day_plan_query}", headers=auth)
     if status == 402:

@@ -107,6 +107,46 @@ class ForecastTruthParseTest {
     }
 
     @Test
+    fun currentRiskParsesNo2WhenPresent() {
+        val raw = """
+            {
+              "profileId": "profile-1",
+              "assessedAt": "2026-07-15T08:00:00+02:00",
+              "freshness": "live",
+              "environmental": {
+                "lat": 41.39,
+                "lon": 2.17,
+                "temperature": 24.0,
+                "feels_like": 25.0,
+                "humidity": 50.0,
+                "aqi": 40,
+                "pm25": 8.0,
+                "ozone": 30.0,
+                "no2": 55.0,
+                "source": "live",
+                "timestamp": "2026-07-15T08:00:00+02:00",
+                "timezone": "Europe/Madrid"
+              },
+              "risk": {
+                "overallRisk": "low",
+                "heatRisk": "low",
+                "airRisk": "low",
+                "outdoorRisk": "low",
+                "indoorVentilationRisk": "low",
+                "safeWindows": [],
+                "recommendationFlags": [],
+                "reasonCodes": []
+              },
+              "recommendation": {"headline": "Go", "summary": "ok", "actions": ["walk"]},
+              "explanation": "ok",
+              "explanationSource": "engine"
+            }
+        """.trimIndent()
+        val state = DashboardViewModel.parseCurrentRisk(raw, "en")
+        assertEquals(55.0, state.no2)
+    }
+
+    @Test
     fun dayPlanParsesVentilationWindows() {
         val raw = """
             {

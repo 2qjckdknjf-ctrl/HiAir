@@ -798,6 +798,14 @@ struct DashboardView: View {
                         icon: "sun.max.fill",
                         tooltip: "dashboard.tooltip.ozone"
                     )
+                    if let no2 = env.no2 {
+                        airMetricTile(
+                            title: session.l("dashboard.metric.no2"),
+                            value: metricText(String(format: "%.1f", no2)),
+                            icon: "car.side.fill",
+                            tooltip: "dashboard.tooltip.no2"
+                        )
+                    }
                     airMetricTile(
                         title: session.l("dashboard.metric.heat_index"),
                         value: String(format: "%.0f°", env.feelsLike),

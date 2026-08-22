@@ -68,7 +68,32 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertNil(decoded.pm10)
         XCTAssertNil(decoded.uv)
         XCTAssertNil(decoded.windSpeed)
+        XCTAssertNil(decoded.no2)
         XCTAssertEqual(decoded.aqi, 40)
+    }
+
+    func testEnvironmentalInputDecodesNo2WhenPresent() throws {
+        let json = """
+        {
+          "lat": 41.39,
+          "lon": 2.17,
+          "temperature": 24.0,
+          "feels_like": 25.0,
+          "humidity": 50.0,
+          "aqi": 40,
+          "pm25": 8.0,
+          "pm10": 12.0,
+          "ozone": 30.0,
+          "no2": 42.5,
+          "uv": 4.0,
+          "wind_speed": 2.0,
+          "source": "live",
+          "timestamp": "2026-07-15T08:00:00+02:00",
+          "timezone": "Europe/Madrid"
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AirEnvironmentalInput.self, from: json)
+        XCTAssertEqual(decoded.no2, 42.5)
     }
 
     func testWindowFormattingUsesForecastTimezoneNotDevice() {

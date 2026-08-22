@@ -402,6 +402,9 @@ internal object DashboardScreenRenderer {
         rows.add(
             ctx.l("dashboard.metric_ozone") to (state.ozone?.let { "${round1(it)} µg/m³" } ?: unavailable)
         )
+        state.no2?.let {
+            rows.add(ctx.l("dashboard.metric_no2") to "${round1(it)} µg/m³")
+        }
         state.temperatureC?.let { rows.add(ctx.l("dashboard.metric_temp") to "${round1(it)}°C") }
         state.feelsLikeC?.let { rows.add(ctx.l("dashboard.metric_feels") to "${round1(it)}°C") }
         state.humidityPercent?.let { rows.add(ctx.l("dashboard.metric_humidity") to "${round1(it)}%") }

@@ -218,6 +218,7 @@ struct AirEnvironmentalInput: Codable {
     let pm25: Double?
     let pm10: Double?
     let ozone: Double?
+    let no2: Double?
     let uv: Double?
     let windSpeed: Double?
     let source: String
@@ -234,6 +235,7 @@ struct AirEnvironmentalInput: Codable {
         case pm25
         case pm10
         case ozone
+        case no2
         case uv
         case windSpeed = "wind_speed"
         case source
