@@ -11,6 +11,15 @@ from app.models.air import (
 from app.models.settings import UserSettingsResponse
 from app.services.air_recommendation_engine import generate_recommendation
 from app.services.alert_orchestrator import evaluate_alert
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_alert_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
+        lambda profile_id, cooldown_minutes=60: 0,
+    )
 
 
 def build_profile(profile_type: ProfileType = ProfileType.ADULT_DEFAULT) -> UserProfileContext:
@@ -140,6 +149,46 @@ def test_recommendation_supports_moderate_level() -> None:
         language="en",
     )
     assert "safer" in card.headline.lower() or "conditions" in card.summary.lower()
+
+
+def test_alert_suppresses_during_cooldown(monkeypatch) -> None:
+    def fake_settings(_: str) -> UserSettingsResponse:
+        return UserSettingsResponse(
+            user_id="user-1",
+            push_alerts_enabled=True,
+            alert_threshold="medium",
+            default_persona="adult",
+            quiet_hours_start=23,
+            quiet_hours_end=6,
+            profile_based_alerting=True,
+            preferred_language="en",
+        )
+
+    monkeypatch.setattr("app.services.alert_orchestrator.settings_repository.get_user_settings", fake_settings)
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.get_latest_risk_assessment",
+        lambda _: {"overall_risk": "low"},
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
+        lambda dedupe_key, within_hours=4: False,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
+        lambda profile_id, cooldown_minutes=60: 25,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator._is_quiet_hours",
+        lambda start_hour, end_hour, now_hour: False,
+    )
+
+    decision = evaluate_alert(
+        build_profile(),
+        build_risk(RiskLevel.HIGH),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+    )
+    assert decision.shouldSend is False
+    assert decision.reason == "cooldown_active"
 
 
 def test_alert_respects_personal_threshold(monkeypatch) -> None:

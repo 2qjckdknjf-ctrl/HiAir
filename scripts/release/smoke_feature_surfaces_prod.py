@@ -124,6 +124,29 @@ def main() -> int:
     else:
         print("day-plan: OK (premium user or gate open)")
 
+    adaptation_query = urllib.parse.urlencode({"profileId": profile_id})
+    status, body = _request("GET", f"{base}/api/insights/adaptation?{adaptation_query}", headers=auth)
+    if status == 402:
+        print("adaptation: OK premium gate (402)")
+    elif status != 200:
+        print(f"adaptation: FAIL status={status} body={body}")
+        return 1
+    else:
+        print("adaptation: OK")
+
+    site_query = urllib.parse.urlencode({"lat": 41.39, "lon": 2.17, "workload": "moderate"})
+    status, body = _request("GET", f"{base}/api/work/site-risk?{site_query}", headers=auth)
+    if status != 200:
+        print(f"work-site-risk: FAIL status={status} body={body}")
+        return 1
+    print("work-site-risk: OK")
+
+    status, body = _request("GET", f"{base}/api/planner/activities", headers=auth)
+    if status != 200:
+        print(f"planner-activities: FAIL status={status} body={body}")
+        return 1
+    print("planner-activities: OK")
+
     print("feature_surfaces_production_smoke: PASS")
     return 0
 

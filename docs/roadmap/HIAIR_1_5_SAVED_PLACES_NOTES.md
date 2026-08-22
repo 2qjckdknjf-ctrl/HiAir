@@ -17,6 +17,7 @@
 - iOS/Android Settings CRUD; iOS planner place picker
 - Family links UI (Settings): list/add/delete members; profile ownership validated server-side
 - Family risk line per linked member in Settings (real `air_risk_engine`, no synthesis)
+- Family risk overview card on Dashboard when members are linked (iOS + Android)
 - Android planner saved-place picker
 
 ## Scope (v0)

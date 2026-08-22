@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from math import ceil
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
@@ -302,6 +303,31 @@ def find_recent_alert_by_dedupe_key(dedupe_key: str, within_hours: int = 6) -> b
             )
             row = cur.fetchone()
     return row is not None
+
+
+def minutes_until_alert_cooldown_elapsed(profile_id: str, cooldown_minutes: int = 60) -> int:
+    """Minutes remaining before another alert may be sent for this profile."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT sent_at
+                FROM alert_events
+                WHERE user_profile_id = %s
+                ORDER BY sent_at DESC
+                LIMIT 1
+                """,
+                (profile_id,),
+            )
+            row = cur.fetchone()
+    if row is None:
+        return 0
+    sent_at = row["sent_at"]
+    if sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=timezone.utc)
+    elapsed_minutes = (datetime.now(timezone.utc) - sent_at).total_seconds() / 60.0
+    remaining = cooldown_minutes - elapsed_minutes
+    return max(0, int(ceil(remaining)))
 
 
 def save_alert_event(

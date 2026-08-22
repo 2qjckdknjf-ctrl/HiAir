@@ -11,6 +11,7 @@ import com.hiair.location.LocationBootstrapHost
 import com.hiair.ui.DashboardState
 import com.hiair.ui.DashboardStatus
 import com.hiair.ui.DashboardViewModel
+import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirRiskStyle
 import com.hiair.ui.design.Tokens
@@ -178,6 +179,7 @@ internal object DashboardScreenRenderer {
 
         airMetricsCard(ctx, state)?.let { bodyContainer.addView(it) }
         hazardsCard(ctx, state)?.let { bodyContainer.addView(it) }
+        familyRiskCard(ctx, state)?.let { bodyContainer.addView(it) }
         protectedDayCard(ctx, state)?.let { bodyContainer.addView(it) }
         if (state.wearableConnected) {
             bodyContainer.addView(
@@ -282,6 +284,28 @@ internal object DashboardScreenRenderer {
             }
             if (overall.equals("unavailable", ignoreCase = true) && state.hazardLines.none { it.available }) {
                 addView(V2Ui.styledSecondaryText(activity, unavailable))
+            }
+        }
+    }
+
+    private fun familyRiskCard(ctx: RenderContext, state: DashboardState): View? {
+        if (state.familyRiskLines.isEmpty()) return null
+        val activity = ctx.activity
+        return V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.family.title")).apply { textSize = 16f })
+            state.familyHighestRisk?.let { highest ->
+                addView(
+                    V2Ui.styledSecondaryText(
+                        activity,
+                        "${ctx.l("dashboard.family.highest")} ${hazardLevelLabel(ctx, highest)}",
+                    ).apply { textSize = 12f },
+                )
+            }
+            addView(V2Ui.spacer(activity, 4))
+            state.familyRiskLines.forEach { member ->
+                val name = member.label?.takeIf { it.isNotBlank() } ?: member.relation
+                val risk = FamilyRiskParser.riskLabel(member, ctx.rootShell.settingsViewModel.state.preferredLanguage)
+                addView(V2Ui.styledSecondaryText(activity, "$name · $risk").apply { textSize = 13f })
             }
         }
     }

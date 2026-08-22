@@ -19,6 +19,8 @@ import app.services.alert_decision_engine as alert_decision_engine
 import app.services.observability as observability
 import app.services.settings_repository as settings_repository
 
+ALERT_COOLDOWN_MINUTES = 60
+
 
 def _severity_from_risk_level(level: str) -> AlertSeverity:
     if level == "very_high":
@@ -113,7 +115,10 @@ def evaluate_alert(
             localHour=now_hour,
             quietHoursStart=user_settings.quiet_hours_start,
             quietHoursEnd=user_settings.quiet_hours_end,
-            cooldownMinutesRemaining=0,
+            cooldownMinutesRemaining=air_repository.minutes_until_alert_cooldown_elapsed(
+                profile.profile_id,
+                cooldown_minutes=ALERT_COOLDOWN_MINUTES,
+            ),
             alreadySentFingerprint=already_sent,
             fingerprint=dedupe_key,
             actionable=current_level in ("high", "very_high") or alert_type == AlertType.RISK_INCREASE,

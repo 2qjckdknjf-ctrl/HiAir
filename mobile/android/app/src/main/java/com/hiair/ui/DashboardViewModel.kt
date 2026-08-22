@@ -4,6 +4,8 @@ import com.hiair.analytics.ProductAnalytics
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
 import com.hiair.ui.design.HiAirHumanDate
+import com.hiair.ui.family.FamilyMemberRiskItem
+import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.i18n.AndroidL10n
 import java.io.IOException
 import java.net.ConnectException
@@ -61,6 +63,8 @@ data class DashboardState(
     val hazardsOverallLevel: String? = null,
     val hazardsOverallScore: Int? = null,
     val hazardLines: List<HazardLine> = emptyList(),
+    val familyRiskLines: List<FamilyMemberRiskItem> = emptyList(),
+    val familyHighestRisk: String? = null,
     val exposureReducedMarked: Boolean = false,
     val highRiskAvoidedMarked: Boolean = false,
     val protectedDayStatus: String = "",
@@ -136,11 +140,15 @@ class DashboardViewModel(
                 ),
             )
             onRiskReady?.invoke()
-            state = withHazards(
-                withWearable(parsed, userId, accessToken),
+            state = withFamilyRisk(
+                withHazards(
+                    withWearable(parsed, userId, accessToken),
+                    userId,
+                    accessToken,
+                    profileId,
+                ),
                 userId,
                 accessToken,
-                profileId,
             )
         } catch (error: Exception) {
             val offline = isOffline(error)
@@ -172,6 +180,24 @@ class DashboardViewModel(
                 hazardsOverallLevel = parsed.overallLevel,
                 hazardsOverallScore = parsed.overallScore,
                 hazardLines = parsed.lines,
+            )
+        } catch (_: Exception) {
+            base
+        }
+    }
+
+    private fun withFamilyRisk(
+        base: DashboardState,
+        userId: String,
+        accessToken: String?,
+    ): DashboardState {
+        return try {
+            val raw = apiClient.fetchFamilyRiskOverview(userId, accessToken)
+            val members = FamilyRiskParser.parseOverview(raw)
+            val highest = JSONObject(raw).optString("highestRiskLevel").takeIf { it.isNotBlank() }
+            base.copy(
+                familyRiskLines = members,
+                familyHighestRisk = highest,
             )
         } catch (_: Exception) {
             base

@@ -32,5 +32,5 @@ Expand from heat + air quality into a modular personal environmental safety laye
 - [ ] Pollen / smoke / dust provider integrations
 - [ ] Regional hazard configuration (USA, Southern Europe, GCC, Egypt)
 - [ ] NO2 and official alert feeds where data quality allows
-- [ ] Production smoke on `api.hiair.io`
+- [x] Production smoke on `api.hiair.io` (via `smoke_feature_surfaces_prod.py`)
 - [ ] Merge Personal Environmental Risk with existing risk engine output

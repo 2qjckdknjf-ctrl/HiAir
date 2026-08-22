@@ -35,4 +35,4 @@ Occupational heat safety layer for worksites and B2B integrations — clearly se
 - [ ] Site registry and multi-site dashboards
 - [ ] Crew scheduling integrations
 - [ ] B2B admin API keys and org tenancy
-- [ ] Production smoke on `api.hiair.io`
+- [x] Production smoke on `api.hiair.io` (`GET /api/work/site-risk` in feature smoke)

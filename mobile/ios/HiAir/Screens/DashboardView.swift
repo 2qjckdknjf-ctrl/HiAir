@@ -12,6 +12,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var safeWindowLabels: [String] = []
     @Published var environmental: AirEnvironmentalInput?
     @Published var hazardsResponse: HazardsResponse?
+    @Published var familyRiskOverview: FamilyRiskOverviewResponse?
     @Published var wearableToday: WearableTodayResponse?
     @Published var healthSummary: HealthSummaryResponseDTO?
     @Published var morningReport: AIReportResponseDTO?
@@ -37,6 +38,7 @@ final class DashboardViewModel: ObservableObject {
         exposureReducedMarked = false
         highRiskAvoidedMarked = false
         protectedDayStatus = ""
+        familyRiskOverview = nil
         defer {
             loading = false
             hasLoadedOnce = true
@@ -50,6 +52,7 @@ final class DashboardViewModel: ObservableObject {
             safeWindowLabels = []
             environmental = nil
             hazardsResponse = nil
+            familyRiskOverview = nil
             freshness = ""
             dataQuality = ""
             wearableToday = nil
@@ -67,6 +70,10 @@ final class DashboardViewModel: ObservableObject {
             )
             async let hazardsTask = apiClient.fetchHazards(
                 profileId: profileId,
+                userId: userId,
+                accessToken: accessToken
+            )
+            async let familyRiskTask = apiClient.fetchFamilyRiskOverview(
                 userId: userId,
                 accessToken: accessToken
             )
@@ -146,6 +153,7 @@ final class DashboardViewModel: ObservableObject {
 
             // Phase 2: optional enrichments (must not delay first useful UI).
             hazardsResponse = try? await hazardsTask
+            familyRiskOverview = try? await familyRiskTask
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
             morningReport = try? await morningTask
@@ -160,6 +168,7 @@ final class DashboardViewModel: ObservableObject {
             safeWindowLabels = []
             environmental = nil
             hazardsResponse = nil
+            familyRiskOverview = nil
             freshness = ""
             dataQuality = ""
             wearableToday = nil
@@ -440,6 +449,7 @@ struct DashboardView: View {
                         riskHeroSection(width: width)
                         todaysAirSection
                         hazardsSection
+                        familyRiskSection
                         protectedDaySection
                         healthMetricsSection
                         wearableLoadSection
@@ -862,6 +872,37 @@ struct DashboardView: View {
     private func hazardLevelLabel(_ level: String) -> String {
         let normalized = level.lowercased().replacingOccurrences(of: " ", with: "_")
         return session.l("hazard.level.\(normalized)")
+    }
+
+    @ViewBuilder
+    private var familyRiskSection: some View {
+        if let overview = viewModel.familyRiskOverview, !overview.members.isEmpty {
+            VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+                Text(session.l("dashboard.family.title"))
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                if let highest = overview.highestRiskLevel, !highest.isEmpty {
+                    Text("\(session.l("dashboard.family.highest")) \(hazardLevelLabel(highest))")
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                }
+                ForEach(overview.members, id: \.memberLinkId) { member in
+                    let name = member.label?.isEmpty == false ? member.label! : member.relation
+                    Text(familyMemberRiskLine(member, displayName: name))
+                        .font(HiAirTypography.bodyMD)
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                }
+            }
+            .v2Card()
+        }
+    }
+
+    private func familyMemberRiskLine(_ member: FamilyMemberRiskLine, displayName: String) -> String {
+        if !member.available {
+            return "\(displayName) · \(session.l("settings.family.risk_unavailable"))"
+        }
+        let level = hazardLevelLabel(member.riskLevel)
+        return "\(displayName) · \(level) (\(member.riskScore))"
     }
 
     @ViewBuilder
