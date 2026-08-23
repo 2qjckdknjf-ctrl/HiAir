@@ -36,6 +36,18 @@ echo "[api] installing worker dependencies"
   npm install --no-fund --no-audit
 )
 
+echo "[api] resolving authoritative DEPLOY_GIT_SHA"
+RESOLVED_RELEASE_SHA="${RESOLVED_RELEASE_SHA:-}"
+DEPLOY_GIT_SHA_INPUT="${DEPLOY_GIT_SHA:-}"
+GITHUB_SHA_INPUT="${GITHUB_SHA:-$(git -C "${ROOT_DIR}" rev-parse HEAD 2>/dev/null || true)}"
+DEPLOY_GIT_SHA="$(
+  python3 "${ROOT_DIR}/scripts/release/resolve_deploy_git_sha.py" \
+    --resolved-release-sha "${RESOLVED_RELEASE_SHA}" \
+    --deploy-git-sha "${DEPLOY_GIT_SHA_INPUT}" \
+    --github-sha "${GITHUB_SHA_INPUT}"
+)" || exit 1
+export DEPLOY_GIT_SHA
+
 echo "[api] syncing wrangler secrets from ${ENV_FILE}"
 TMP_SECRETS="$(mktemp)"
 python3 <<PY >"${TMP_SECRETS}"
@@ -163,23 +175,10 @@ else:
 values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", values.get("GOOGLE_PLAY_VERIFIER_MODE", "stub"))
 values.setdefault("HIAIR_AUTH_PROVIDER", values.get("HIAIR_AUTH_PROVIDER", "supabase"))
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
-resolved_release_sha = os.environ.get("RESOLVED_RELEASE_SHA", "").strip()
 deploy_git_sha = os.environ.get("DEPLOY_GIT_SHA", "").strip()
-github_sha = os.environ.get("GITHUB_SHA", "").strip()
-if resolved_release_sha:
-    if deploy_git_sha and deploy_git_sha != resolved_release_sha:
-        raise SystemExit("ERROR: DEPLOY_GIT_SHA must match RESOLVED_RELEASE_SHA.")
-    if github_sha and github_sha != resolved_release_sha:
-        raise SystemExit("ERROR: GITHUB_SHA must not override RESOLVED_RELEASE_SHA.")
-    final_deploy_sha = resolved_release_sha
-elif deploy_git_sha:
-    if github_sha and github_sha != deploy_git_sha:
-        raise SystemExit("ERROR: GITHUB_SHA must match DEPLOY_GIT_SHA when both are set.")
-    final_deploy_sha = deploy_git_sha
-else:
-    final_deploy_sha = github_sha
-if final_deploy_sha:
-    values["DEPLOY_GIT_SHA"] = final_deploy_sha
+if not deploy_git_sha:
+    raise SystemExit("ERROR: DEPLOY_GIT_SHA must be resolved before secret sync.")
+values["DEPLOY_GIT_SHA"] = deploy_git_sha
 required = ("DATABASE_URL", "JWT_SECRET", "DEPLOY_GIT_SHA", "SUPABASE_URL")
 missing = [key for key in required if not values.get(key)]
 if missing:

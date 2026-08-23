@@ -45,4 +45,13 @@ final class AccountDeletionModelsTests: XCTestCase {
         XCTAssertEqual(error.stages["apple_revoke"], "failed")
         XCTAssertEqual(error.recoveryHint, "Retry")
     }
+
+    func testStageSummaryIncludesOperationId() {
+        let summary = AccountDeletionStageLabel.summary(
+            ["apple_revoke": "failed"],
+            operationId: "op-42"
+        )
+        XCTAssertTrue(summary.contains("operation_id: op-42"))
+        XCTAssertTrue(summary.contains("apple_revoke: failed"))
+    }
 }

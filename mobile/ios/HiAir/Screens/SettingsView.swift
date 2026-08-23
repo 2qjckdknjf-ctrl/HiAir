@@ -313,6 +313,12 @@ final class SettingsViewModel: ObservableObject {
                 userId: userId,
                 accessToken: accessToken
             )
+            if requirements.inProgress {
+                accountDeletionDetail = AccountDeletionStageLabel.summary(
+                    requirements.stages,
+                    operationId: requirements.operationId
+                )
+            }
             var appleCode: String?
             if requirements.requiresAppleAuthorizationCode {
                 do {
@@ -328,7 +334,10 @@ final class SettingsViewModel: ObservableObject {
                 appleAuthorizationCode: appleCode
             )
             guard result.deleted else {
-                accountDeletionDetail = AccountDeletionStageLabel.summary(result.stages)
+                accountDeletionDetail = AccountDeletionStageLabel.summary(
+                    result.stages,
+                    operationId: result.operationId
+                )
                 statusText = result.recoveryHint ?? l("settings.account_delete_failed")
                 return false
             }
@@ -339,7 +348,10 @@ final class SettingsViewModel: ObservableObject {
             privacyExportSummary = "-"
             return true
         } catch let error as AccountDeletionAPIError {
-            accountDeletionDetail = AccountDeletionStageLabel.summary(error.stages)
+            accountDeletionDetail = AccountDeletionStageLabel.summary(
+                error.stages,
+                operationId: error.operationId
+            )
             statusText = error.recoveryHint ?? error.message
             return false
         } catch {

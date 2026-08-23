@@ -570,6 +570,6 @@ extension View {
     }
 
     func hiAirPageBackground() -> some View {
-        background(HiAirGradients.timeOfDay().ignoresSafeArea())
+        background(HiAirAtmosphericBackground())
     }
 }

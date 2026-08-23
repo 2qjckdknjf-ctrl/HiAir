@@ -1,9 +1,22 @@
 # Deep Glass V4 — Canonical Design Direction (RC worktree)
 
-**Status:** selective integration in progress (not pixel-canonical to unreleased design branch)  
+**Status:** Phases 1–3 integrated in RC (`08083416`); Phase 4 screen widgets/layout open  
 **Visual direction:** Deep Glass V4  
 **UX/accessibility foundation:** Aurora Calm v2  
-**Source reference (read-only):** `/Users/alex/Projects/HIAir` @ `design/redesign-v4-deep-glass`
+**Source reference (read-only):** `/Users/alex/Projects/HIAir` @ `design/redesign-v4-deep-glass`  
+**Inventory:** [Deep Glass V4 inventory](8c66d09b-2e97-41de-be5b-fe5c1ea16fd8) (main vs store-ready diff, 2026-08-22)
+
+## Port status (selective)
+
+| Phase | Scope | RC status |
+|-------|--------|-----------|
+| 1 | Tokens + contrast (iOS + Android colors, gradients, radii, motion) | **Done** |
+| 2 | Glass stack (`HiAirGlassSurface`, slim `HiAirLiquidGlass`) | **Done** |
+| 3 | Floating tab bar + `RootTabView` | **Done** |
+| 4 | `HiAirDeepGlassWidgets`, `HiAirDeepGlassLayout`, `HiAirAtmosphericBackground`, per-screen layout | **Not ported** |
+| 5 | `docs/design/redesign-v4/` spec + references | **Spec only** (`README.md`, `TECHNICAL_SPEC.md`; PNG refs remain on main) |
+
+Do **not** blind-merge `design/redesign-v4-deep-glass`. Port Phase 4 screen-by-screen with regression tests.
 
 ## Principles
 

@@ -68,10 +68,17 @@ struct AccountDeletionAPIError: LocalizedError, Sendable {
 }
 
 enum AccountDeletionStageLabel {
-    static func summary(_ stages: [String: String]) -> String {
-        stages
+    static func summary(_ stages: [String: String], operationId: String? = nil) -> String {
+        let stageText = stages
             .sorted { $0.key < $1.key }
             .map { "\($0.key): \($0.value)" }
             .joined(separator: ", ")
+        guard let operationId, !operationId.isEmpty else {
+            return stageText
+        }
+        if stageText.isEmpty {
+            return "operation_id: \(operationId)"
+        }
+        return "operation_id: \(operationId), \(stageText)"
     }
 }

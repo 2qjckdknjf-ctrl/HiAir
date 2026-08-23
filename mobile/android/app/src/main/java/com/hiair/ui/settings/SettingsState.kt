@@ -618,11 +618,16 @@ class SettingsViewModel(
         return try {
             val requirements = apiClient.fetchDeleteAccountRequirements(state.userId, state.accessToken)
             val requiresApple = requirements.optBoolean("requires_apple_authorization_code", false)
+            if (requirements.optBoolean("in_progress", false)) {
+                state = state.copy(
+                    accountDeletionDetail = SettingsViewModel.formatDeletionDetail(requirements),
+                )
+            }
             if (requiresApple) {
                 state = state.copy(
                     loading = false,
                     statusText = l("settings.account_delete_apple_required"),
-                    accountDeletionDetail = requirements.optString("recovery_hint", ""),
+                    accountDeletionDetail = SettingsViewModel.formatDeletionDetail(requirements),
                 )
                 return false
             }
@@ -631,7 +636,7 @@ class SettingsViewModel(
                 state = state.copy(
                     loading = false,
                     statusText = response.optString("recovery_hint", l("settings.account_delete_failed")),
-                    accountDeletionDetail = response.optJSONObject("stages")?.toString().orEmpty(),
+                    accountDeletionDetail = SettingsViewModel.formatDeletionDetail(response),
                 )
                 return false
             }
@@ -1311,6 +1316,19 @@ class SettingsViewModel(
                 lon = json.getDouble("lon"),
                 timezone = json.optString("timezone").takeIf { it.isNotBlank() },
             )
+        }
+
+        fun formatDeletionDetail(payload: JSONObject): String {
+            val operationId = payload.optString("operation_id").takeIf { it.isNotBlank() }
+            val stages = payload.optJSONObject("stages")
+            val stageText = stages?.keys()?.asSequence()?.sorted()?.joinToString(", ") { key ->
+                "$key: ${stages.optString(key)}"
+            }.orEmpty()
+            return when {
+                operationId != null && stageText.isNotBlank() -> "operation_id: $operationId, $stageText"
+                operationId != null -> "operation_id: $operationId"
+                else -> stageText
+            }
         }
     }
 }

@@ -36,6 +36,7 @@
 		4D84DF0F1974CDEEF384A0F9 /* HiAirSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */; };
 		52A613D5DA6B3312A5A5F249 /* HiAirStatusChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D6651A44B2FD5781660545 /* HiAirStatusChip.swift */; };
 		543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833EA8341D4356991598891 /* RootTabView.swift */; };
+		546A760CA817447A77E71501 /* HiAirAtmosphericBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */; };
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
 		5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB46A64A9D06988894EB3978 /* HiAirMotion.swift */; };
 		611512163246F5F671FAAFE7 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C80D922CB3152908E2D2892 /* LocationService.swift */; };
@@ -191,6 +192,7 @@
 		DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirRadius.swift; sourceTree = "<group>"; };
 		E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirV2Theme.swift; sourceTree = "<group>"; };
+		E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirAtmosphericBackground.swift; sourceTree = "<group>"; };
 		E51B8943BC3F02E49B7FB4D0 /* SubscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceTests.swift; sourceTree = "<group>"; };
 		E5D318EFA32CAF512F14BCAD /* RiskModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskModels.swift; sourceTree = "<group>"; };
 		E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirGradients.swift; sourceTree = "<group>"; };
@@ -296,6 +298,7 @@
 		9640182DCA01F1103308A078 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */,
 				606F94F2339205445B9E3E37 /* HiAirColors.swift */,
 				00BEEF483B33FAEC14EFDD21 /* HiAirComponents.swift */,
 				715102D414AC0A39D31813C2 /* HiAirFloatingTabBar.swift */,
@@ -579,6 +582,7 @@
 				C30809826565B303D0211894 /* HealthTodayMetricsView.swift in Sources */,
 				B921BB174A28136948E7A75A /* HiAirAccessibilityID.swift in Sources */,
 				079F1318A8584B1939E4E3FE /* HiAirApp.swift in Sources */,
+				546A760CA817447A77E71501 /* HiAirAtmosphericBackground.swift in Sources */,
 				F8E4E8CD814CCB27DA50948D /* HiAirColors.swift in Sources */,
 				8EDC00DAEBE8A55D78D3E807 /* HiAirComponents.swift in Sources */,
 				01869191EAF0F868952ED682 /* HiAirFloatingTabBar.swift in Sources */,
