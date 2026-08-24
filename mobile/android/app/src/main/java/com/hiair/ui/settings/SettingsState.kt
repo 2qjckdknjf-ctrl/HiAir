@@ -129,6 +129,24 @@ class SettingsViewModel(
         state = state.copy(profileId = value)
     }
 
+    /** DEBUG-only stable auth/subscription state for store screenshot captures. */
+    fun seedStoreScreenshotSession(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = state.copy(
+            email = "alex@hiair.io",
+            userId = "store-shot-user",
+            accessToken = "store-shot-token",
+            refreshToken = "store-shot-refresh",
+            profileId = "profile-store-shot",
+            preferredLanguage = language.ifBlank { "en" },
+            isPremium = true,
+            subscriptionStatus = "active",
+            latitude = 41.2800,
+            longitude = 1.9800,
+            locationSource = LocationSource.CACHED.raw,
+        )
+    }
+
     fun hasValidLocation(): Boolean = GeoCoordinates.isValid(state.latitude, state.longitude)
 
     fun applyDeviceLocation(lat: Double, lon: Double): Boolean {

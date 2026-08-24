@@ -6,6 +6,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.Spinner
+import com.hiair.StoreScreenshotMode
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.planner.DailyPlannerViewModel
@@ -153,6 +154,7 @@ internal object PlannerScreenRenderer {
 
         // Auto-load once per session when planner opens with no data yet.
         if (
+            !StoreScreenshotMode.active &&
             !rootShell.plannerViewModel.hasAttemptedAutoLoad &&
             !plannerState.loading &&
             plannerState.hourly.isEmpty() &&

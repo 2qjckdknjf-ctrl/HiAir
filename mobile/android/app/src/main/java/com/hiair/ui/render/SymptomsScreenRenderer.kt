@@ -13,6 +13,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import com.hiair.StoreScreenshotMode
 import com.hiair.ui.design.HiAirColors
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirSpacing
@@ -24,6 +25,7 @@ import com.hiair.ui.theme.V2Ui
 internal object SymptomsScreenRenderer {
     fun render(ctx: RenderContext) {
         val activity = ctx.activity
+        val rootShell = ctx.rootShell
         val bodyContainer = ctx.bodyContainer
 
         bodyContainer.addView(HiAirComponents.brandHeader(activity))
@@ -116,7 +118,13 @@ internal object SymptomsScreenRenderer {
         }
 
         contentHost.addView(HiAirComponents.loadingState(activity, ctx.l("symptoms.taxonomy_loading")))
-        loadTaxonomy(ctx, ::paint)
+        val seeded = StoreScreenshotMode.active && rootShell.symptomLogViewModel.state.taxonomy != null
+        if (seeded) {
+            contentHost.removeAllViews()
+            paint(rootShell.symptomLogViewModel.state, profileReady = true)
+        } else {
+            loadTaxonomy(ctx, ::paint)
+        }
     }
 
     private fun loadTaxonomy(

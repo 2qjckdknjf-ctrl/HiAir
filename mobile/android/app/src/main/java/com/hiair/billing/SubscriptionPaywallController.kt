@@ -19,6 +19,11 @@ class SubscriptionPaywallController(
         private set
 
     fun attach(activity: AppCompatActivity) {
+        if (com.hiair.BuildConfig.DEBUG && com.hiair.StoreScreenshotMode.active) {
+            monthlyPrice = "$4.99"
+            yearlyPrice = "$39.99"
+            return
+        }
         if (billingManager != null) return
         billingManager = SubscriptionBillingManager(
             activity = activity,

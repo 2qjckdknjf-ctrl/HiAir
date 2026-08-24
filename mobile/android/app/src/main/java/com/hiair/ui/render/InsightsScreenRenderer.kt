@@ -5,6 +5,7 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import com.hiair.StoreScreenshotMode
 import com.hiair.network.ApiClient
 import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
@@ -147,6 +148,10 @@ internal object InsightsScreenRenderer {
         }
 
         val initialPaint: (InsightsViewData?, String?) -> Unit = { data, error -> paint(data, error) }
+        if (StoreScreenshotMode.active) {
+            paint(storeScreenshotDemoData(ctx), null)
+            return
+        }
         load(ctx, contentHost, initialPaint)
 
         bodyContainer.addView(
@@ -760,5 +765,36 @@ internal object InsightsScreenRenderer {
             )
         }
         return days.size
+    }
+
+    private fun storeScreenshotDemoData(ctx: RenderContext): InsightsViewData {
+        val ru = ctx.rootShell.settingsViewModel.state.preferredLanguage.startsWith("ru")
+        return InsightsViewData(
+            trends = listOf(
+                InsightCardData(
+                    title = if (ru) "Улучшение дыхания" else "Breathing improvement",
+                    observation = if (ru) "AQI ниже среднего 3 дня" else "AQI below average for 3 days",
+                    recommendation = if (ru) "Планируйте прогулки утром" else "Plan morning walks",
+                    confidence = if (ru) "Высокая" else "High",
+                    sampleSize = 12,
+                ),
+            ),
+            associations = listOf(
+                InsightCardData(
+                    title = if (ru) "Утренние прогулки" else "Morning walks",
+                    observation = if (ru) "Меньше симптомов до 10:00" else "Fewer symptoms before 10:00",
+                    recommendation = if (ru) "Сохраняйте ритм" else "Keep the rhythm",
+                    confidence = if (ru) "Средняя" else "Medium",
+                    sampleSize = 8,
+                ),
+            ),
+            insufficient = emptyList(),
+            premiumPatterns = listOf("ventilation_window" to 4),
+            todaySummary = if (ru) "Сегодня воздух благоприятный для прогулок." else "Air is favorable for outdoor time today.",
+            generatedAt = if (ru) "Сегодня, 08:30" else "Today, 8:30 AM",
+            loggedDays = 12,
+            healthStatusText = if (ru) "Health Connect: демо" else "Health Connect: demo",
+            premiumLocked = false,
+        )
     }
 }

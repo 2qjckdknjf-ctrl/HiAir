@@ -72,7 +72,7 @@ class DailyPlannerViewModel(
             forecastAvailable = true,
             ventilationWindows = listOf("07:00–10:00"),
             safeWindows = listOf("07:00–09:30", "18:00–20:00"),
-            hourly = listOf("08:00 low", "14:00 high", "19:00 low"),
+            hourly = listOf("08:00:low", "14:00:high", "19:00:low"),
         )
     }
 

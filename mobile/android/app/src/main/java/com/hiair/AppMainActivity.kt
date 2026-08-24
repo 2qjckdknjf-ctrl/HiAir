@@ -30,6 +30,7 @@ import com.hiair.location.LocationController
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.render.FirstRunOnboardingRenderer
 import kotlinx.coroutines.launch
+import com.hiair.ui.accessibility.HiAirScreenMarkers
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
@@ -231,6 +232,13 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         )
         StoreScreenshotBootstrap.apply(intent, rootShell, onboardingStore)
         renderCurrentScreen()
+        if (StoreScreenshotMode.active) {
+            ScreenshotEnvironmentReporter.reportIfNeeded(
+                context = this,
+                captureOut = intent?.getStringExtra(StoreScreenshotBootstrap.EXTRA_CAPTURE_OUT),
+                runId = intent?.getStringExtra(StoreScreenshotBootstrap.EXTRA_CAPTURE_RUN_ID),
+            )
+        }
         if (rootShell.settingsViewModel.state.userId.isNotBlank()) {
             rootShell.settingsViewModel.refreshEntitlement { renderCurrentScreen() }
         }
@@ -283,12 +291,14 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         updateChromeVisibility()
         if (rootShell.settingsViewModel.state.showPaywall) {
             screenRenderer.renderPaywall(paywallController)
+            applyStoreScreenshotScreenMarker()
             return
         }
         if (!onboardingStore.isCompleted() &&
             rootShell.state.currentScreen == com.hiair.ui.navigation.AppScreen.DASHBOARD
         ) {
             screenRenderer.renderFirstRun(onboardingStore)
+            applyStoreScreenshotScreenMarker()
             return
         }
         when (rootShell.state.currentScreen) {
@@ -298,6 +308,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             AppScreen.SYMPTOMS -> screenRenderer.renderSymptoms()
             AppScreen.SETTINGS -> screenRenderer.renderSettings()
         }
+        applyStoreScreenshotScreenMarker()
     }
 
     private fun isAuthenticated(): Boolean {
@@ -307,6 +318,30 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     private fun shouldShowMainNavigation(): Boolean {
         return isAuthenticated() && onboardingStore.isCompleted()
+    }
+
+    private fun applyStoreScreenshotScreenMarker() {
+        if (!StoreScreenshotMode.active) return
+        val marker = when (StoreScreenshotMode.targetScreen) {
+            "navigation" -> HiAirScreenMarkers.NAVIGATION
+            "onboarding" -> HiAirScreenMarkers.ONBOARDING
+            "paywall" -> HiAirScreenMarkers.PAYWALL
+            else -> HiAirScreenMarkers.forScreen(StoreScreenshotMode.targetScreen)
+        } ?: when {
+            rootShell.settingsViewModel.state.showPaywall -> HiAirScreenMarkers.PAYWALL
+            !onboardingStore.isCompleted() -> HiAirScreenMarkers.ONBOARDING
+            else -> when (rootShell.state.currentScreen) {
+                AppScreen.DASHBOARD -> HiAirScreenMarkers.DASHBOARD
+                AppScreen.PLANNER -> HiAirScreenMarkers.PLANNER
+                AppScreen.INSIGHTS -> HiAirScreenMarkers.INSIGHTS
+                AppScreen.SYMPTOMS -> HiAirScreenMarkers.SYMPTOMS
+                AppScreen.SETTINGS -> HiAirScreenMarkers.SETTINGS
+            }
+        }
+        bodyContainer.contentDescription = marker
+        if (StoreScreenshotMode.targetScreen == "navigation" && navRow.visibility == android.view.View.VISIBLE) {
+            navRow.contentDescription = HiAirScreenMarkers.NAVIGATION
+        }
     }
 
     private fun updateChromeVisibility() {
