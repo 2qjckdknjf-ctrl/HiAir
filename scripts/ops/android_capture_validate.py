@@ -162,6 +162,24 @@ def validate_screen_business_rules(
             if not re.search(r"\b\d{2,3}\b", joined):
                 errors.append("dashboard missing AQI/metrics")
 
+    if screen == "planner":
+        if "plan ready" in lower and "live" in lower:
+            errors.append("planner stale plan ready/live status text")
+        if "24" not in joined and "hour" not in lower and "hourly" not in lower:
+            errors.append("planner missing 24-hour chart section")
+        day_parts = sum(
+            1 for token in ("morning", "evening", "night", "утро", "вечер", "ночь", "day")
+            if token in lower
+        )
+        if day_parts < 3:
+            errors.append("planner missing day-part cards")
+
+    if screen == "symptoms":
+        if "⚠" in joined or "★" in joined or "☆" in joined:
+            errors.append("symptoms uses text symbol icons")
+        if "12/7" in joined or "12 of 7" in lower:
+            errors.append("symptoms impossible progress copy")
+
     if screen == "insights":
         for match in PROGRESS_OVERFLOW.finditer(joined):
             numerator = int(match.group(1))

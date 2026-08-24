@@ -28,7 +28,15 @@ internal object SymptomsScreenRenderer {
         val rootShell = ctx.rootShell
         val bodyContainer = ctx.bodyContainer
 
-        bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        val seeded = StoreScreenshotMode.active && rootShell.symptomLogViewModel.state.taxonomy != null
+        if (seeded) {
+            SymptomsDeepGlassLayout.render(ctx, rootShell.symptomLogViewModel.state)
+            return
+        }
+
+        if (HiAirComponents.shouldShowCompactBrandHeader()) {
+            bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        }
         ctx.titleView.text = ctx.l("title.symptoms")
         bodyContainer.addView(
             V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f },
@@ -118,13 +126,7 @@ internal object SymptomsScreenRenderer {
         }
 
         contentHost.addView(HiAirComponents.loadingState(activity, ctx.l("symptoms.taxonomy_loading")))
-        val seeded = StoreScreenshotMode.active && rootShell.symptomLogViewModel.state.taxonomy != null
-        if (seeded) {
-            contentHost.removeAllViews()
-            paint(rootShell.symptomLogViewModel.state, profileReady = true)
-        } else {
-            loadTaxonomy(ctx, ::paint)
-        }
+        loadTaxonomy(ctx, ::paint)
     }
 
     private fun loadTaxonomy(

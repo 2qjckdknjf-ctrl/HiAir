@@ -72,6 +72,8 @@ class SymptomLogViewModel(
             usingCachedTaxonomy = false,
             expandedCategoryIds = setOf(taxonomy.categories.first().id),
             favorites = listOf("cough", "headache"),
+            selectedType = taxonomy.categories.first().symptoms.firstOrNull()?.symptomType,
+            severity = 3,
         )
     }
 
