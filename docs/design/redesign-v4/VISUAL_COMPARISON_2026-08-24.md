@@ -1,19 +1,18 @@
 # Deep Glass V4 Visual Comparison — 2026-08-24 (v4 evidence)
 
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**Baseline HEAD (committed):** `ab97229406b2e62d1c39be0868b54f03192bcf73`  
-**Evidence run:** `.evidence/ios-screenshots/2026-08-24-hardening-v4-final/`  
-**Provenance:** `worktree_dirty=false`; `rc_source_sha=ef82878755910c1e03cf7ccf3a9106df840c7e3c`  
-**Device:** iPhone 17 Pro Simulator (requested), iOS 26, EN, standard text  
-**Reference SHA-256:** verified against `docs/design/redesign-v4/references/manifest.json`
+**Baseline HEAD:** `09b7823e`  
+**Evidence run:** `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-en-v2/`  
+**Provenance:** UDID-resolved simulator; host observed-environment gate  
+**Device:** iPhone 17 Pro Simulator, iOS 26.2, EN, standard text  
 
 | Screen | Reference | Fresh capture | Verdict |
 |--------|-----------|---------------|---------|
-| Home / Dashboard | `references/01-home-deep-glass.png` | `02-dashboard.png` | **PASS WITH DOCUMENTED DEVIATION** |
+| Home / Dashboard | `references/01-home-deep-glass.png` | `02-dashboard.png` | **PASS** — softer 18pt Aurora fade |
 | Planner | `references/02-planner-deep-glass.png` | `03-planner.png` | **PASS** |
 | Health / Symptoms | `references/03-health-deep-glass.png` | `05-symptoms.png` | **PASS WITH DOCUMENTED DEVIATION** |
 | Onboarding | `references/04-onboarding-deep-glass.png` | `01b-onboarding.png` | **PASS WITH DOCUMENTED DEVIATION** |
-| Paywall | — | `07-paywall.png`, `07b-paywall-restore.png` | **PASS** (post header fix; v4 pre-final scroll still showed bleed — re-capture after VStack header) |
+| Paywall | — | `07-paywall.png`, `07b-paywall-restore.png` | **PASS** — atmospheric gradient behind NavigationStack |
 | Settings | — | `06-settings.png` | **PASS** |
 
 ## Dashboard (`01-home` ↔ `02-dashboard`)
