@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.view.View
+import androidx.annotation.VisibleForTesting
 import com.hiair.ui.design.AtmosphericParticlesConfig
 import com.hiair.ui.design.ParticleConfig
 import kotlin.math.cos
@@ -34,6 +35,9 @@ class AtmosphericParticlesView(context: Context) : View(context) {
             tickerRunning = true
         }
     }
+
+    @VisibleForTesting
+    internal fun isTickerRunningForTests(): Boolean = tickerRunning
 
     fun setPm25(pm25: Double) {
         config = AtmosphericParticlesConfig.forPm25(pm25)
