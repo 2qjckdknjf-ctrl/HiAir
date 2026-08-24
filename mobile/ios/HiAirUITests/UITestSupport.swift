@@ -27,6 +27,18 @@ enum UITestLaunch {
 
         applyShotAccessibilityLaunchArguments(to: &app.launchArguments)
 
+        if language.lowercased().hasPrefix("ru") {
+            app.launchArguments.append("-AppleLanguages")
+            app.launchArguments.append("(ru)")
+            app.launchArguments.append("-AppleLocale")
+            app.launchArguments.append("ru_RU")
+        } else {
+            app.launchArguments.append("-AppleLanguages")
+            app.launchArguments.append("(en)")
+            app.launchArguments.append("-AppleLocale")
+            app.launchArguments.append("en_US")
+        }
+
         var env: [String: String] = [:]
         if seedAuth {
             env["UITEST_SEED_AUTH"] = "1"

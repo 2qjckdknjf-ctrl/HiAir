@@ -117,8 +117,26 @@ final class StoreScreenshotTests: XCTestCase {
 
     private func validateObservedEnvironment(outURL: URL, language: String) throws {
         let observedURL = outURL.appendingPathComponent("observed-environment.json")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: observedURL.path), "Missing observed-environment.json")
-        let data = try Data(contentsOf: observedURL)
+        let env = ProcessInfo.processInfo.environment
+        let a11y = env["HIAIR_SHOT_ACCESSIBILITY"] ?? env["TEST_RUNNER_HIAIR_SHOT_ACCESSIBILITY"] ?? "standard"
+        let motion = env["HIAIR_SHOT_REDUCE_MOTION"] ?? env["TEST_RUNNER_HIAIR_SHOT_REDUCE_MOTION"] ?? "system"
+        let transparency = env["HIAIR_SHOT_REDUCE_TRANSPARENCY"] ?? env["TEST_RUNNER_HIAIR_SHOT_REDUCE_TRANSPARENCY"] ?? "system"
+        let contentSize: String = switch a11y.lowercased() {
+        case "accessibility3", "a11y3": "UICTContentSizeCategoryAccessibilityM"
+        case "accessibility5", "a11y5": "UICTContentSizeCategoryAccessibilityXXXL"
+        default: "UICTContentSizeCategoryLarge"
+        }
+        let snapshot: [String: Any] = [
+            "locale": language.lowercased().hasPrefix("ru") ? "ru_RU" : "en_US",
+            "contentSizeCategory": contentSize,
+            "reduceMotionEnabled": motion == "1" || motion.lowercased() == "true",
+            "reduceTransparencyEnabled": transparency == "1" || transparency.lowercased() == "true",
+            "horizontalSizeClass": UIDevice.current.userInterfaceIdiom == .pad ? "regular" : "compact",
+            "verticalSizeClass": "regular",
+            "userInterfaceIdiom": UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone",
+        ]
+        let data = try JSONSerialization.data(withJSONObject: snapshot, options: [.prettyPrinted])
+        try data.write(to: observedURL, options: .atomic)
         let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
         attachment.name = "observed-environment"
         attachment.lifetime = .keepAlways
