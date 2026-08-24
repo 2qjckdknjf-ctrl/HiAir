@@ -1,54 +1,32 @@
-# Screenshot & Accessibility Matrix — 2026-08-24
+# Screenshot & Accessibility Matrix — 2026-08-24 (updated)
 
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**Legend:** PASS = verified locally; FAIL = defect or invalid evidence; PENDING = not executed; BLOCKED = external dependency
-
-## iOS — Simulator matrix
-
-| Cell | Status | Evidence | Notes |
-|------|--------|----------|-------|
-| iPhone 16e / EN / standard | PENDING | — | Prior matrix under `.evidence/ios-screenshots/2026-08-24-matrix-*` **not final** until `app-observed-environment.json` pipeline re-run |
-| iPhone 17 Pro / EN / standard | PENDING | — | Same — old runs used synthesized observed env |
-| iPhone 17 Pro / RU / standard | PENDING | — | Re-capture required |
-| iPad Pro 13" / EN / standard | PENDING | — | Re-capture required |
-| iPad Pro 13" / RU / standard | PENDING | — | Re-capture required |
-| accessibility3 / iPhone 17 Pro | PENDING | — | Must prove distinct observed `contentSizeCategory` vs standard |
-| accessibility5 / iPhone 17 Pro | PENDING | — | Must prove distinct observed category + geometry contract |
-| Reduce Motion | PENDING | — | App runtime `reduceMotionEnabled` required |
-| Reduce Transparency | PENDING | — | App runtime flag required |
-| loading / empty / error / offline | PASS | `HiAirUITests/MatrixStateScreenshotTests` (prior run) | Re-run after env pipeline green |
-| Paywall scroll / tab clearance | PASS | `PaywallScrollSafeAreaUITests`, `MainTabScrollHittabilityUITests` | |
-| VoiceOver manual pass | PENDING | — | Manual VoiceOver walk not run; automatic hierarchy only |
-
-### iOS observed environment
-
-| Check | Status | Notes |
-|-------|--------|-------|
-| App writes `app-observed-environment.json` | FIXED (code) | `ScreenshotEnvironmentReporter` — runtime Locale/traits/accessibility |
-| Test writes `requested-environment.json` only | FIXED (code) | `StoreScreenshotTests` — no synthetic observed |
-| Shell synthesis fallback removed | FIXED (code) | `capture_ios_screenshots.sh` fails if app file missing |
-| Matrix re-captured with new proof | PENDING | Required before PASS |
+**HEAD:** post-`d0d14954` hardening commits  
+**Legend:** PASS = verified; SEMANTIC PASS = automated gates only; VISUAL PENDING = PNG not manually reviewed; FAIL = invalid/defect
 
 ## Android
 
 | Cell | Status | Evidence | Notes |
 |------|--------|----------|-------|
-| EN / phone / 8 screens | **FAIL / EVIDENCE INVALID** | `.evidence/android-screenshots/2026-08-24-phone-en/` | Crash/launcher/error frames — see `docs/audit/INVALID_ANDROID_CAPTURE_RUNS_2026-08-24.md` |
-| EN / tablet / 8 screens | **FAIL / EVIDENCE INVALID** | `.evidence/android-screenshots/2026-08-24-tablet-en/` | Wrong screen/crash/launcher — preserved as failure evidence |
-| Deep Glass parity (8 screens) | PARTIAL | invalid captures only | Renderer sweep in progress |
-| RU locale captures | PENDING | — | Pipeline supports `HIAIR_SHOT_LANGUAGE=ru`; no valid captures yet |
-| Espresso / instrumentation 8-screen | PENDING | `StoreScreenshotInstrumentedTest` rewritten | Must pass on isolated emulator |
-| TalkBack manual | PENDING | — | Automatic hierarchy checks in new capture script; manual TalkBack not run |
+| EN / phone / 8 screens (prior) | **FAIL / EVIDENCE INVALID** | `.evidence/android-screenshots/2026-08-24-phone-en/` | See `INVALID_ANDROID_CAPTURE_RUNS_2026-08-24.md` |
+| EN / tablet / 8 screens (prior) | **FAIL / EVIDENCE INVALID** | `.evidence/android-screenshots/2026-08-24-tablet-en/` | Same |
+| EN / phone / 8 screens (new) | **SEMANTIC PASS / VISUAL PENDING** | `.evidence/android-screenshots/2026-08-24-phone-en-v6/` | serial `emulator-5554`, AVD `hiair-qa-phone`, manifest `status=PASS` |
+| EN / tablet / 8 screens (new) | **SEMANTIC PASS / VISUAL PENDING** | `.evidence/android-screenshots/2026-08-24-tablet-en-v2/` | serial `emulator-5554`, AVD `hiair-qa-tablet` |
+| Dashboard monitor gate | **PASS** | `.evidence/android-dashboard-monitor/2026-08-24-gate-v5/` | 60s + relaunch/recreate cycles |
+| Deep Glass parity | **PARTIAL** | new captures | Semantic OK; visual parity not signed off |
+| RU phone/tablet | **PENDING** | — | Pipeline ready |
+| a11y font scale / reduce motion | **PENDING** | — | |
+| TalkBack manual | **PENDING** | — | |
 
-## Release verification
+## iOS
 
-| Gate | Status | Evidence |
-|------|--------|----------|
-| iOS Release build | PASS (prior) | Re-verify after iOS matrix re-run |
-| Backend pytest | PENDING | Re-run after commits |
-| Android lint/unit/debug/release/bundle | PENDING | Re-run after Android fixes |
-| Provenance contract test | PENDING | `scripts/ops/test_provenance_manifest_contract.sh` |
+Unchanged — matrix re-capture **PENDING** until `app-observed-environment.json` pipeline re-run.
 
-## Invalid evidence registry
+## Tooling
 
-See [`docs/audit/INVALID_ANDROID_CAPTURE_RUNS_2026-08-24.md`](INVALID_ANDROID_CAPTURE_RUNS_2026-08-24.md).
+| Gate | Status |
+|------|--------|
+| `test_android_capture_validate.py` | PASS |
+| Provenance contract test | PASS (prior commit) |
+
+**Overall verdict:** `NO-GO / HARDENING IN PROGRESS` — Android semantic captures green; visual review + RU/a11y + iOS matrix remain.
