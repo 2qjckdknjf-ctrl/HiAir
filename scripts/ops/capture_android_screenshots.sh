@@ -73,7 +73,8 @@ payload = build_manifest(
     observed={},
     screens=screens,
     test_configuration={"avd_name": avd, "serial": serial, "language": lang},
-    status="FAIL",
+    capture_completed=False,
+    semantic_capture_ok=False,
     failure_reason=reason,
 )
 write_manifest(Path(manifest_path), payload)
@@ -336,8 +337,6 @@ observed.setdefault("avdName", avd_name)
 observed.setdefault("serial", serial)
 observed.setdefault("reduceMotion", motion == "1")
 env_errors = compare_observed_environment(requested, observed)
-if env_errors:
-    raise SystemExit("observed environment mismatch:\n" + "\n".join(env_errors))
 payload = build_manifest(
     out_dir=Path(out_dir),
     source_tree=source_tree,
@@ -358,10 +357,16 @@ payload = build_manifest(
         "reduce_motion": motion == "1",
         "apk_sha256": apk_sha,
     },
-    status="PASS",
+    capture_completed=True,
+    semantic_capture_ok=True,
+    rc_source_sha=source_sha if source_tree.get("tracked_worktree_clean") else None,
+    environment_ok=not env_errors,
+    environment_errors=env_errors,
 )
 write_manifest(Path(manifest_path), payload)
 print(manifest_path)
+if env_errors:
+    raise SystemExit("observed environment mismatch:\n" + "\n".join(env_errors))
 PY
 
 RUN_STATUS="PASS"

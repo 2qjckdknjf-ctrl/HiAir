@@ -31,8 +31,9 @@ def reclassify(manifest_path: Path) -> None:
     payload["classification"] = "SEMANTIC PASS / VISUAL FAIL / NOT RC EVIDENCE"
     payload["rc_evidence"] = False
     payload["source_tree_reproducible"] = False
-    overall, semantic, visual = compute_aggregate_status(
+    overall, semantic, visual, _ = compute_aggregate_status(
         screens=screens,
+        capture_completed=True,
         semantic_capture_ok=True,
         source_tree=payload.get("provenance"),
         rc_source_sha=payload.get("rc_source_sha"),
