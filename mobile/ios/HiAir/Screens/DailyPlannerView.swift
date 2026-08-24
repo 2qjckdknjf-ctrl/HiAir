@@ -29,6 +29,17 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var activityPremiumLocked = false
     @Published var activityTimezoneIdentifier = ""
 
+    @Published private(set) var forecastSurface: PlannerForecastSurface = .idle
+    @Published private(set) var activitySurface: PlannerActivitySurface = .idle
+
+    var hasSuccessfulActivityPlan: Bool {
+        activitySurface.hasDisplayableData
+    }
+
+    var hasForecastData: Bool {
+        forecastSurface.hasDisplayableData || !hourlyItems.isEmpty || !safeWindows.isEmpty
+    }
+
     private let apiClient = APIClient.live()
 
     func refresh(
@@ -39,6 +50,7 @@ final class DailyPlannerViewModel: ObservableObject {
         onPremiumRequired: (() -> Void)? = nil
     ) async {
         loading = true
+        forecastSurface = .loading
         defer { loading = false }
         premiumLocked = false
         ventilationWindowMarked = false
@@ -63,7 +75,9 @@ final class DailyPlannerViewModel: ObservableObject {
             missingMetrics = planner.missingMetrics ?? []
             sources = planner.sources ?? []
             if !planner.isForecastAvailable {
-                statusText = HiAirL10n.t("planner.forecast_unavailable", lang: language)
+                let message = HiAirL10n.t("planner.forecast_unavailable", lang: language)
+                forecastSurface = .unavailable(message: message)
+                statusText = message
                 ProductAnalytics.track("planner_forecast_unavailable", properties: ["quality": dataQuality])
             } else if planner.dataQuality == "partial" {
                 var partial = HiAirL10n.t("planner.forecast_partial", lang: language)
@@ -71,12 +85,14 @@ final class DailyPlannerViewModel: ObservableObject {
                     let listed = missingMetrics.prefix(4).joined(separator: ", ")
                     partial += " (\(listed))"
                 }
+                forecastSurface = .partial(hours: planner.hourlyRisk.count, message: partial)
                 statusText = partial
                 ProductAnalytics.track(
                     "planner_real_forecast_loaded",
                     properties: ["quality": "partial", "hours": String(planner.hourlyRisk.count)]
                 )
             } else {
+                forecastSurface = .loaded(hours: planner.hourlyRisk.count)
                 statusText = String(
                     format: HiAirL10n.t("planner.loaded", lang: language),
                     planner.hourlyRisk.count
@@ -108,10 +124,15 @@ final class DailyPlannerViewModel: ObservableObject {
                 premiumLocked = true
                 activityPremiumLocked = true
                 onPremiumRequired?()
-                statusText = HiAirL10n.t("planner.premium_required", lang: language)
-                activityStatusText = HiAirL10n.t("planner.premium_required", lang: language)
+                let message = HiAirL10n.t("planner.premium_required", lang: language)
+                forecastSurface = .premiumLocked(message: message)
+                activitySurface = .premiumLocked(message: message)
+                statusText = message
+                activityStatusText = message
             } else {
-                statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+                let message = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+                forecastSurface = .failed(message: message)
+                statusText = message
             }
             hourlyItems = []
             safeWindows = []
@@ -119,7 +140,9 @@ final class DailyPlannerViewModel: ObservableObject {
             forecastAvailable = false
         } catch {
             ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "planner"])
-            statusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+            let message = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+            forecastSurface = .failed(message: message)
+            statusText = message
             hourlyItems = []
             safeWindows = []
             ventilationWindows = []
@@ -168,6 +191,7 @@ final class DailyPlannerViewModel: ObservableObject {
     ) async {
         guard !profileId.isEmpty else { return }
         activityPlanLoading = true
+        activitySurface = .loading
         defer { activityPlanLoading = false }
         activityPremiumLocked = false
         activityPlanMarked = false
@@ -193,13 +217,21 @@ final class DailyPlannerViewModel: ObservableObject {
             )
             activityPlan = plan
             activityTimezoneIdentifier = plan.timezone
+            activityStatusText = ""
             if !plan.isForecastAvailable {
-                activityStatusText = HiAirL10n.t("planner.activity.forecast_unavailable", lang: language)
+                let message = HiAirL10n.t("planner.activity.forecast_unavailable", lang: language)
+                activitySurface = .failed(message: message)
+                activityStatusText = message
             } else if plan.dataQuality == "partial" {
-                activityStatusText = HiAirL10n.t("planner.forecast_partial", lang: language)
+                let message = HiAirL10n.t("planner.forecast_partial", lang: language)
+                activitySurface = .partial(message: message)
+                activityStatusText = message
             } else if plan.windows.isEmpty {
-                activityStatusText = HiAirL10n.t("planner.activity.no_windows", lang: language)
+                let message = HiAirL10n.t("planner.activity.no_windows", lang: language)
+                activitySurface = .empty(message: message)
+                activityStatusText = message
             } else {
+                activitySurface = .loaded(windowCount: plan.windows.count)
                 activityStatusText = ""
             }
             ProductAnalytics.track(
@@ -233,9 +265,13 @@ final class DailyPlannerViewModel: ObservableObject {
                 activityPremiumLocked = true
                 premiumLocked = true
                 onPremiumRequired?()
-                activityStatusText = HiAirL10n.t("planner.premium_required", lang: language)
+                let message = HiAirL10n.t("planner.premium_required", lang: language)
+                activitySurface = .premiumLocked(message: message)
+                activityStatusText = message
             } else {
-                activityStatusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+                let message = activityFailureMessage(language: language, forecastLoaded: hasForecastData)
+                activitySurface = .failed(message: message)
+                activityStatusText = message
             }
             activityPlan = nil
         } catch {
@@ -243,9 +279,18 @@ final class DailyPlannerViewModel: ObservableObject {
                 "activity_plan_fetch_failed",
                 properties: ["activity": selectedActivity]
             )
-            activityStatusText = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
+            let message = activityFailureMessage(language: language, forecastLoaded: hasForecastData)
+            activitySurface = .failed(message: message)
+            activityStatusText = message
             activityPlan = nil
         }
+    }
+
+    func activityFailureMessage(language: String, forecastLoaded: Bool) -> String {
+        if forecastLoaded {
+            return HiAirL10n.t("planner.activity.forecast_unavailable", lang: language)
+        }
+        return HiAirL10n.t("planner.empty.unavailable.body", lang: language)
     }
 
     func markActivityPlanned(
@@ -385,33 +430,43 @@ final class DailyPlannerViewModel: ObservableObject {
 struct DailyPlannerView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DailyPlannerViewModel()
+    @State private var selectedDate = Date()
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                Text(session.l("planner.title"))
-                    .font(AuroraTokens.Typography.displayLG)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                HStack(alignment: .center) {
+                    HiAirScreenWordmark(suffix: plannerSuffix)
+                    Button {
+                        session.showPaywall = viewModel.premiumLocked
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(HiAirColors.Text.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(session.l("planner.subtitle"))
+                }
 
-                Text(session.l("planner.subtitle"))
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                HiAirDateStrip(selected: selectedDate) { selectedDate = $0 }
 
-                if !viewModel.statusText.isEmpty && !viewModel.premiumLocked {
-                    Text(viewModel.statusText)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                if let banner = viewModel.forecastSurface.bannerMessage,
+                   !viewModel.hasForecastData {
+                    Text(banner)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Planner.status)
                 }
                 if !viewModel.freshness.isEmpty && viewModel.forecastAvailable {
                     Text(freshnessCaption)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.tertiary)
                 }
                 if !viewModel.sources.isEmpty && viewModel.forecastAvailable {
                     Text("\(session.l("planner.sources")): \(viewModel.sources.joined(separator: ", "))")
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.tertiary)
                 }
 
                 if !session.profileId.isEmpty {
@@ -453,84 +508,8 @@ struct DailyPlannerView: View {
                     )
                 }
 
-                if !viewModel.hourlyItems.isEmpty && viewModel.forecastAvailable {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.l("planner.hourly"))
-                            .font(AuroraTokens.Typography.titleMD)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(alignment: .bottom, spacing: 3) {
-                                ForEach(Array(viewModel.hourlyItems.prefix(24).enumerated()), id: \.offset) { index, item in
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(color(for: item.overallRisk))
-                                        .frame(width: 4, height: index % 2 == 0 ? 32 : 24)
-                                        .overlay(alignment: .bottom) {
-                                            if index % 6 == 0 {
-                                                Text(humanHour(item.hour))
-                                                    .font(.caption2)
-                                                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-                                                    .offset(y: 11)
-                                            }
-                                        }
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("• \(keyEventLine())")
-                                .font(AuroraTokens.Typography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                            if let firstWindow = viewModel.safeWindows.first {
-                                Text("• \(localizedWindowType(firstWindow.type)): \(humanWindowRange(firstWindow.start, firstWindow.end))")
-                                    .font(AuroraTokens.Typography.bodyMD)
-                                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                            }
-                            if let firstVent = viewModel.ventilationWindows.first {
-                                Text("• \(session.l("planner.ventilation_windows")): \(humanWindowRange(firstVent.start, firstVent.end))")
-                                    .font(AuroraTokens.Typography.bodyMD)
-                                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                            }
-                            if !viewModel.ventilationWindows.isEmpty {
-                                if !viewModel.ventilationWindowMarked {
-                                    Button(session.l("planner.ventilation.mark_used")) {
-                                        Task {
-                                            await viewModel.markVentilationUsed(
-                                                profileId: session.profileId,
-                                                userId: session.userId,
-                                                accessToken: session.accessToken,
-                                                language: session.preferredLanguage,
-                                                onPremiumRequired: { session.showPaywall = true }
-                                            )
-                                        }
-                                    }
-                                    .buttonStyle(HiAirSecondaryButtonStyle())
-                                }
-                                if !viewModel.ventilationMarkStatus.isEmpty {
-                                    Text(viewModel.ventilationMarkStatus)
-                                        .font(AuroraTokens.Typography.caption)
-                                        .foregroundStyle(HiAirV2Theme.secondaryText)
-                                }
-                            }
-                        }
-                    }
-                    .v2Card()
-                } else if !viewModel.safeWindows.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.l("planner.safe_windows"))
-                            .font(AuroraTokens.Typography.titleMD)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                        ForEach(viewModel.safeWindows, id: \.start) { window in
-                            Text("\(localizedWindowType(window.type)): \(humanWindowRange(window.start, window.end))")
-                                .font(AuroraTokens.Typography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                    }
-                    .v2Card()
+                if !viewModel.hourlyItems.isEmpty || !viewModel.safeWindows.isEmpty {
+                    plannerLiveContent
                 }
 
                 Button(viewModel.loading ? session.l("planner.loading") : session.l("planner.refresh")) {
@@ -556,6 +535,7 @@ struct DailyPlannerView: View {
                 }
                 .buttonStyle(HiAirGradientButtonStyle())
                 .disabled(viewModel.loading)
+                .accessibilityIdentifier(HiAirAccessibilityID.Planner.refresh)
 
                 Button(session.l("planner.apply")) {
                     session.selectedTab = 0
@@ -564,7 +544,7 @@ struct DailyPlannerView: View {
             }
             .hiAirContentWidth(for: width)
             .hiAirScreenPadding(for: width)
-            .padding(.bottom, HiAirSpacing.xl)
+                .hiAirMainTabScrollContent()
             }
         }
         .hiAirPageBackground()
@@ -605,6 +585,202 @@ struct DailyPlannerView: View {
                     onPremiumRequired: { session.showPaywall = true }
                 )
             }
+        }
+    }
+
+    private var plannerSuffix: String {
+        let title = dg("planner.title")
+        if title.hasPrefix("HiAir ") {
+            return String(title.dropFirst(6))
+        }
+        return session.l("tab.planner")
+    }
+
+    private func dg(_ key: String) -> String {
+        HiAirDeepGlassCopy.t(key, lang: session.preferredLanguage)
+    }
+
+    @ViewBuilder
+    private var plannerLiveContent: some View {
+        HiAirPlannerSummaryStrip(
+            riskLabel: localizedRisk(peakRisk),
+            riskLevel: peakRisk,
+            outdoorRange: outdoorRangeText,
+            outdoorHint: dg("low_pollution_uv"),
+            ventilationRange: ventilationRangeText,
+            ventilationHint: dg("ventilate_hint"),
+            lang: session.preferredLanguage
+        )
+
+        if !viewModel.hourlyItems.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(dg("chart_24h").uppercased())
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                    Spacer()
+                    Text(dg("aqi_us"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(HiAirColors.Text.tertiary)
+                }
+                HiAirHourlyRiskChart(
+                    points: viewModel.hourlyItems,
+                    highlightStartHour: HiAirDeepGlassTime.hour(from: viewModel.safeWindows.first?.start ?? ""),
+                    highlightEndHour: HiAirDeepGlassTime.hour(from: viewModel.safeWindows.first?.end ?? "")
+                )
+                if let first = viewModel.safeWindows.first {
+                    Text("\(dg("recommended")): \(humanWindowRange(first.start, first.end))")
+                        .font(HiAirTypography.caption.weight(.semibold))
+                        .foregroundStyle(HiAirColors.Spectrum.cyan)
+                }
+                if !viewModel.ventilationWindows.isEmpty {
+                    if !viewModel.ventilationWindowMarked {
+                        Button(session.l("planner.ventilation.mark_used")) {
+                            Task {
+                                await viewModel.markVentilationUsed(
+                                    profileId: session.profileId,
+                                    userId: session.userId,
+                                    accessToken: session.accessToken,
+                                    language: session.preferredLanguage,
+                                    onPremiumRequired: { session.showPaywall = true }
+                                )
+                            }
+                        }
+                        .buttonStyle(HiAirOutlineCTAButtonStyle())
+                    }
+                    if !viewModel.ventilationMarkStatus.isEmpty {
+                        Text(viewModel.ventilationMarkStatus)
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirColors.Text.secondary)
+                    }
+                }
+            }
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .hero, glow: HiAirColors.Spectrum.cyan)
+        }
+
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(dayParts, id: \.title) { part in
+                    HiAirDayPartCard(
+                        title: part.title,
+                        hours: part.hours,
+                        temperature: "",
+                        aqi: localizedRisk(part.risk),
+                        risk: part.risk,
+                        bodyText: part.body,
+                        iconName: part.icon
+                    )
+                    .frame(width: 148, alignment: .topLeading)
+                    .frame(minHeight: 176)
+                }
+            }
+        }
+
+        Text(dg("recommendations").uppercased())
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(HiAirColors.Text.secondary)
+
+        HStack(spacing: 10) {
+            HiAirActionHintCard(
+                title: dg("ventilation"),
+                value: ventilationRangeText,
+                bodyText: dg("optimal_ventilate"),
+                icon: "wind",
+                action: { session.selectedTab = 0 }
+            )
+            HiAirActionHintCard(
+                title: dg("hydration"),
+                value: dg("hydrate_goal_l"),
+                bodyText: dg("hydrate_goal"),
+                icon: "drop.fill",
+                action: { session.selectedTab = 3 }
+            )
+        }
+    }
+
+    private var peakRisk: String {
+        viewModel.hourlyItems.max(by: { riskWeight($0.overallRisk) < riskWeight($1.overallRisk) })?.overallRisk
+            ?? viewModel.hourlyItems.first?.overallRisk
+            ?? "moderate"
+    }
+
+    private var outdoorRangeText: String {
+        if let first = viewModel.safeWindows.first {
+            return humanWindowRange(first.start, first.end)
+        }
+        return session.l("common.unavailable")
+    }
+
+    private var ventilationRangeText: String {
+        if let first = viewModel.ventilationWindows.first {
+            return humanWindowRange(first.start, first.end)
+        }
+        return session.l("common.unavailable")
+    }
+
+    private struct DayPart: Identifiable {
+        var id: String { title }
+        let title: String
+        let hours: String
+        let risk: String
+        let body: String
+        let icon: String
+    }
+
+    private var dayParts: [DayPart] {
+        [
+            bucket(title: dg("morning"), hours: "06:00–12:00", icon: "sunrise.fill", range: 6..<12, body: dg("low_pollution")),
+            bucket(title: dg("day"), hours: "12:00–18:00", icon: "sun.max.fill", range: 12..<18, body: session.l("planner.hourly")),
+            bucket(title: dg("evening"), hours: "18:00–22:00", icon: "sunset.fill", range: 18..<22, body: dg("ventilate_hint")),
+            bucket(title: dg("night"), hours: "22:00–06:00", icon: "moon.stars.fill", range: nil, body: dg("low_pollution")),
+        ]
+    }
+
+    private func bucket(title: String, hours: String, icon: String, range: Range<Int>?, body: String) -> DayPart {
+        let items: [AirHourlyRiskPoint]
+        if let range {
+            items = viewModel.hourlyItems.filter { point in
+                guard let hour = HiAirDeepGlassTime.hour(from: point.hour) else { return false }
+                return range.contains(hour)
+            }
+        } else {
+            items = viewModel.hourlyItems.filter { point in
+                guard let hour = HiAirDeepGlassTime.hour(from: point.hour) else { return false }
+                return hour >= 22 || hour < 6
+            }
+        }
+        let risk = items.max(by: { riskWeight($0.overallRisk) < riskWeight($1.overallRisk) })?.overallRisk ?? "low"
+        return DayPart(title: title, hours: hours, risk: risk, body: body, icon: icon)
+    }
+
+    private func localizedRisk(_ risk: String) -> String {
+        switch risk.lowercased() {
+        case "low":
+            return dg("spectrum.low")
+        case "moderate", "medium":
+            return dg("spectrum.moderate")
+        case "high":
+            return dg("spectrum.high")
+        case "very_high", "very high":
+            return dg("spectrum.very_high")
+        default:
+            return dg("spectrum.moderate")
+        }
+    }
+
+    private func riskWeight(_ risk: String) -> Int {
+        switch risk.lowercased() {
+        case "low":
+            return 1
+        case "moderate", "medium":
+            return 2
+        case "high":
+            return 3
+        case "very_high", "very high":
+            return 4
+        default:
+            return 0
         }
     }
 
@@ -671,8 +847,9 @@ struct DailyPlannerView: View {
                     Text(session.l("planner.activity.loading"))
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
-                } else if !viewModel.activityStatusText.isEmpty {
-                    Text(viewModel.activityStatusText)
+                } else if let inline = viewModel.activitySurface.inlineMessage,
+                          !viewModel.activitySurface.hasDisplayableData {
+                    Text(inline)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
@@ -703,6 +880,7 @@ struct DailyPlannerView: View {
                             }
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
+                        .accessibilityIdentifier(HiAirAccessibilityID.Planner.markActivityPlanned)
                     }
                     if !viewModel.activityPlanMarkStatus.isEmpty {
                         Text(viewModel.activityPlanMarkStatus)
@@ -836,21 +1014,6 @@ struct DailyPlannerView: View {
         return String(format: session.l("planner.peak_line"), riskLabel, hourLabel)
     }
 
-    private func localizedRisk(_ risk: String) -> String {
-        switch risk.lowercased() {
-        case "low":
-            return session.l("dashboard.mood.calm")
-        case "moderate", "medium":
-            return session.l("dashboard.mood.aware")
-        case "high":
-            return session.l("dashboard.mood.cautious")
-        case "very_high", "very high":
-            return session.l("dashboard.mood.protective")
-        default:
-            return session.l("dashboard.mood.calm")
-        }
-    }
-
     private func localizedWindowType(_ type: String) -> String {
         switch type.lowercased() {
         case "ventilation", "ventilate":
@@ -887,20 +1050,5 @@ struct DailyPlannerView: View {
             return String(raw.prefix(5))
         }
         return raw
-    }
-
-    private func riskWeight(_ risk: String) -> Int {
-        switch risk.lowercased() {
-        case "low":
-            return 1
-        case "moderate", "medium":
-            return 2
-        case "high":
-            return 3
-        case "very_high", "very high":
-            return 4
-        default:
-            return 0
-        }
     }
 }

@@ -43,7 +43,8 @@ enum HiAirScreenMetrics {
     }
 
     /// Extra scroll clearance when `HiAirFloatingTabBar` replaces the system tab bar.
-    static let floatingTabBarClearance: CGFloat = 88
+    /// Prefer `hiAirMainTabScrollContent()` on tab roots; this constant remains for non-scroll overlays.
+    static let floatingTabBarClearance: CGFloat = 108
 }
 
 struct HiAirAdaptiveLayout<Content: View>: View {

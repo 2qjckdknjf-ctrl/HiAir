@@ -285,10 +285,11 @@ struct InsightsView: View {
                     }
                     .buttonStyle(HiAirGradientButtonStyle())
                     .disabled(viewModel.loading)
+                    .accessibilityIdentifier(HiAirAccessibilityID.Insights.refresh)
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .hiAirMainTabScrollContent()
             }
         }
         .hiAirPageBackground()

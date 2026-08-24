@@ -10,6 +10,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var actions: [String] = []
     @Published var nearestSafeWindow = ""
     @Published var safeWindowLabels: [String] = []
+    @Published var safeWindowModels: [AirSafeWindow] = []
     @Published var environmental: AirEnvironmentalInput?
     @Published var hazardsResponse: HazardsResponse?
     @Published var familyRiskOverview: FamilyRiskOverviewResponse?
@@ -50,6 +51,7 @@ final class DashboardViewModel: ObservableObject {
             actions = []
             nearestSafeWindow = ""
             safeWindowLabels = []
+            safeWindowModels = []
             environmental = nil
             hazardsResponse = nil
             familyRiskOverview = nil
@@ -104,6 +106,7 @@ final class DashboardViewModel: ObservableObject {
             dataQuality = result.dataQuality ?? ""
             let locale = Locale(identifier: language)
             let zone = HiAirHumanDate.timeZone(identifier: result.environmental.timezone)
+            safeWindowModels = result.risk.safeWindows
             safeWindowLabels = result.risk.safeWindows.map { window in
                 Self.formatSafeWindow(
                     type: window.type,
@@ -166,6 +169,7 @@ final class DashboardViewModel: ObservableObject {
             actions = []
             nearestSafeWindow = ""
             safeWindowLabels = []
+            safeWindowModels = []
             environmental = nil
             hazardsResponse = nil
             familyRiskOverview = nil
@@ -303,45 +307,12 @@ struct DashboardView: View {
         RiskAccentColor.color(for: viewModel.riskLevel.isEmpty ? "moderate" : viewModel.riskLevel)
     }
 
-    private var moodTitle: String {
-        switch viewModel.riskLevel.lowercased() {
-        case "low":
-            return session.l("dashboard.mood.calm")
-        case "moderate", "medium":
-            return session.l("dashboard.mood.aware")
-        case "high":
-            return session.l("dashboard.mood.cautious")
-        case "very_high", "very high":
-            return session.l("dashboard.mood.protective")
-        default:
-            return session.l("dashboard.mood.calm")
-        }
-    }
-
     private var pm25ForAtmosphere: Double? {
         viewModel.environmental?.pm25
     }
 
-    private var freshnessLabel: String {
-        if viewModel.loading { return session.l("dashboard.freshness_updating") }
-        switch viewModel.freshness.lowercased() {
-        case "cached":
-            return session.l("dashboard.source_cached")
-        case "stale":
-            return session.l("dashboard.freshness_stale")
-        case "live":
-            return session.l("dashboard.freshness_fresh")
-        default:
-            return session.l("dashboard.freshness_fresh")
-        }
-    }
-
     private var showLiveRiskContent: Bool {
         viewModel.hasLoadedOnce && !viewModel.riskLevel.isEmpty && viewModel.riskLevel != "unknown" && !viewModel.loadFailed
-    }
-
-    private var safeWindows: [String] {
-        viewModel.safeWindowLabels
     }
 
     private var locationLabel: String {
@@ -391,13 +362,6 @@ struct DashboardView: View {
         return session.l("dashboard.reason_unavailable")
     }
 
-    private var weatherTitle: String {
-        if let env = viewModel.environmental {
-            return String(format: "%.0f°C", env.temperature)
-        }
-        return session.l("dashboard.weather_unavailable")
-    }
-
     private var starterChecklist: [(id: String, titleKey: String)] {
         [
             ("risk", "dashboard.get_started.item.risk"),
@@ -406,14 +370,6 @@ struct DashboardView: View {
             ("profile", "dashboard.get_started.item.profile"),
             ("notifications", "dashboard.get_started.item.notifications"),
         ]
-    }
-
-    private var todayHumanDate: String {
-        HiAirHumanDate.string(
-            from: Date(),
-            locale: Locale(identifier: session.preferredLanguage),
-            style: .dateMedium
-        )
     }
 
     private var showStarterChecklist: Bool {
@@ -425,8 +381,7 @@ struct DashboardView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                    dashboardHeader
-                    greetingSection
+                    homeChrome
                     emptyStateSections
 
                     if viewModel.loading && !viewModel.hasLoadedOnce {
@@ -443,18 +398,19 @@ struct DashboardView: View {
                                 }
                             }
                         )
-                        .v2Card()
+                        .padding(HiAirSpacing.md)
+                        .hiAirGlassSurface(prominence: .standard)
                     } else if showLiveRiskContent {
-                        aiSummarySection
-                        riskHeroSection(width: width)
-                        todaysAirSection
+                        environmentalRiskCard(width: width)
+                        weatherAQIRow
+                        extendedAirMetricsSection
+                        recommendationsCard
+                        outdoorWindowCard
                         hazardsSection
                         familyRiskSection
                         protectedDaySection
                         healthMetricsSection
                         wearableLoadSection
-                        quickActionsSection
-                        safeWindowsSection
                     }
 
                     if showStarterChecklist {
@@ -463,7 +419,7 @@ struct DashboardView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .hiAirMainTabScrollContent()
             }
             .refreshable {
                 session.beginExplicitProfileEnsureCycle()
@@ -571,9 +527,29 @@ struct DashboardView: View {
         )
     }
 
+    private func dg(_ key: String) -> String {
+        HiAirDeepGlassCopy.t(key, lang: session.preferredLanguage)
+    }
+
+    private var greetingName: String {
+        let local = session.email.split(separator: "@").first.map(String.init) ?? ""
+        let token = local.split(separator: ".").first.map(String.init) ?? local
+        guard token.count >= 2, token.allSatisfy({ $0.isLetter || $0.isNumber }) else { return "" }
+        return token.prefix(1).uppercased() + token.dropFirst().lowercased()
+    }
+
+    private var riskLevelLabel: String {
+        switch viewModel.riskLevel.lowercased() {
+        case "low": return dg("spectrum.low")
+        case "high": return dg("spectrum.high")
+        case "very_high", "very high": return dg("spectrum.very_high")
+        default: return dg("spectrum.moderate")
+        }
+    }
+
     @ViewBuilder
-    private var dashboardHeader: some View {
-        HStack(spacing: HiAirSpacing.xs) {
+    private var homeChrome: some View {
+        HStack(spacing: 10) {
             Button {
                 Task {
                     if locationService.authorizationStatus == .denied || locationService.authorizationStatus == .restricted {
@@ -587,167 +563,227 @@ struct DashboardView: View {
                     Image(systemName: "location.fill")
                     Text(locationLabel)
                 }
-                .font(HiAirTypography.caption)
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .hiAirChipSurface()
-            }
-
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(viewModel.loading ? HiAirColors.Risk.moderate : HiAirColors.Risk.low)
-                    .frame(width: 6, height: 6)
-                Text(freshnessLabel)
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-            }
-            Spacer()
-            Button {
-                session.selectedTab = 4
-            } label: {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-            }
-            .accessibilityLabel(session.l("dashboard.profile_button"))
-        }
-    }
-
-    @ViewBuilder
-    private var greetingSection: some View {
-        HiAirBrandHeader(
-            title: "HiAir",
-            subtitle: nil,
-            showOrb: true,
-            orbSize: 44,
-            compact: true
-        )
-        Text(todayHumanDate)
-            .font(HiAirTypography.caption)
-            .foregroundStyle(HiAirColors.Text.tertiary)
-
-        let greeting = viewModel.headline.trimmingCharacters(in: .whitespacesAndNewlines)
-        Text(greeting.isEmpty || greeting == "-" ? session.l("dashboard.greeting_neutral") : greeting)
-            .font(HiAirTypography.displayLG)
-            .foregroundStyle(HiAirColors.Text.primary)
-            .accessibilityAddTraits(.isHeader)
-    }
-
-    @ViewBuilder
-    private var aiSummarySection: some View {
-        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
-            HiAirSectionHeader(title: session.l("dashboard.section.ai_summary"))
-            Text(riskReason)
-                .font(HiAirTypography.bodyLG)
+                .font(HiAirTypography.caption.weight(.semibold))
                 .foregroundStyle(HiAirColors.Text.primary)
-                .fixedSize(horizontal: false, vertical: true)
-            if !viewModel.headline.isEmpty, viewModel.headline != "-" {
-                Text(viewModel.headline)
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirColors.Text.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .hiAirGlassSurface(prominence: .compact, cornerRadius: HiAirRadius.chip)
             }
-        }
-        .v2Card()
-        .accessibilityElement(children: .combine)
-    }
+            .buttonStyle(.plain)
 
-    @ViewBuilder
-    private var checklistSection: some View {
-        if !session.checklistHidden {
-            VStack(alignment: .leading, spacing: 8) {
-                HiAirSectionHeader(
-                    title: session.l("dashboard.get_started.title"),
-                    actionTitle: session.l("dashboard.get_started.hide")
-                ) {
-                    session.checklistHidden = true
-                }
-                ForEach(starterChecklist, id: \.id) { item in
-                    Button {
-                        let next = !session.isChecklistItemDone(item.id)
-                        session.markChecklistItem(item.id, done: next)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: session.isChecklistItemDone(item.id) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(session.isChecklistItemDone(item.id) ? HiAirV2Theme.accentStart : HiAirV2Theme.tertiaryText)
-                            Text(session.l(item.titleKey))
-                                .font(HiAirTypography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.secondaryText)
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .v2Card()
-        }
-    }
-
-    private var locationStatusMessage: String {
-        switch locationService.serviceState {
-        case .servicesDisabled:
-            return session.l("location.services_disabled")
-        case .timeout:
-            return session.l("location.timeout")
-        case .denied, .restricted:
-            return session.l("location.denied.body")
-        default:
-            return session.l("dashboard.empty.location_missing")
-        }
-    }
-
-    @ViewBuilder
-    private var emptyStateSections: some View {
-        if !session.hasValidLocation {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(session.l("location.denied.title"))
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-                Text(locationStatusMessage)
-                    .font(HiAirTypography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                HStack(spacing: 10) {
-                    Button(session.l("location.retry")) {
-                        Task { _ = await session.bootstrapLocationFromDevice(locationService: locationService) }
-                    }
-                    .buttonStyle(HiAirGradientButtonStyle())
-                    if locationService.authorizationStatus == .denied || locationService.authorizationStatus == .restricted {
-                        Button(session.l("location.open_settings")) {
-                            locationService.openAppSettings()
-                        }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
-                    }
-                }
-            }
-            .v2Card()
-        }
-
-        if session.profileId.isEmpty {
-            ProfileBootstrapCard(
-                locationService: locationService,
-                onReady: { await reloadDashboard() }
+            Spacer()
+            HiAirLivePill(
+                isLive: !viewModel.loading && viewModel.environmental != nil,
+                label: dg("live")
             )
+            Image("HiAirWordmark")
+                .renderingMode(.original)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(height: 22)
+                .accessibilityLabel("HiAir")
+        }
+
+        VStack(alignment: .leading, spacing: 6) {
+            greetingText
+                .font(HiAirTypography.displayLG)
+                .accessibilityAddTraits(.isHeader)
+            Text(dg("tagline.smarter"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
         }
     }
 
+    private var greetingText: Text {
+        let hello = {
+            let hour = Calendar.current.component(.hour, from: Date())
+            if hour < 12 { return dg("greeting.morning") }
+            if hour < 18 { return dg("greeting.afternoon") }
+            return dg("greeting.evening")
+        }()
+        if greetingName.isEmpty {
+            return Text(hello).foregroundColor(HiAirColors.Text.primary)
+        }
+        return Text(hello + ", ").foregroundColor(HiAirColors.Text.primary)
+            + Text(greetingName).foregroundColor(HiAirColors.Spectrum.violet)
+    }
+
     @ViewBuilder
-    private func riskHeroSection(width: CGFloat) -> some View {
-        if let score = riskScore {
-            HiAirCard {
-                HiAirRiskGaugeView(
-                    score: score,
-                    sectionLabel: session.l("dashboard.current_risk_title"),
-                    statusLabel: moodTitle,
+    private func environmentalRiskCard(width: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.md) {
+            HStack {
+                Label(dg("env_risk"), systemImage: "checkmark.shield")
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                infoButton("dashboard.current_risk_title")
+            }
+            HStack {
+                Spacer()
+                HiAirDeepGlassOrb(
+                    score: riskScore ?? 0,
+                    levelLabel: riskLevelLabel,
                     riskLevel: viewModel.riskLevel,
-                    reason: riskReason,
-                    diameter: min(width * 0.52, 220)
+                    diameter: min(width * 0.58, 240)
+                )
+                Spacer()
+            }
+            HiAirRiskSpectrumBar(score: riskScore ?? 45, lang: session.preferredLanguage)
+            if !riskReason.isEmpty, riskReason != session.l("dashboard.reason_unavailable") {
+                Text(riskReason)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .hero, glow: riskColor)
+    }
+
+    @ViewBuilder
+    private var weatherAQIRow: some View {
+        if let env = viewModel.environmental {
+            HStack(spacing: 12) {
+                HiAirGlassMetricTile(
+                    title: dg("weather"),
+                    value: String(format: "%.0f°C", env.temperature),
+                    subtitle: weatherConditionLabel(env),
+                    footnote: String(
+                        format: "%@ %.0f° · %@ %.0f%%",
+                        dg("feels"),
+                        env.feelsLike,
+                        dg("humidity"),
+                        env.humidity ?? 0
+                    ),
+                    icon: (env.uv ?? 0) >= 5 ? "sun.max.fill" : "cloud.sun.fill",
+                    accent: HiAirColors.Risk.moderate
+                )
+                HiAirGlassMetricTile(
+                    title: dg("aqi"),
+                    value: "\(env.aqi ?? 0)",
+                    subtitle: aqiStatusLabel(env.aqi ?? 0),
+                    footnote: String(format: "PM2.5 %.0f µg/m³", env.pm25 ?? 0),
+                    icon: "aqi.medium",
+                    accent: aqiAccent(env.aqi ?? 0)
                 )
             }
+            .onAppear { ProductAnalytics.track("risk_breakdown_viewed") }
         }
     }
 
+    private func weatherConditionLabel(_ env: AirEnvironmentalInput) -> String {
+        _ = env
+        return dg("outdoor_now")
+    }
+
+    private func aqiAccent(_ aqi: Int) -> Color {
+        if aqi <= 50 { return HiAirColors.Risk.low }
+        if aqi <= 100 { return HiAirColors.Risk.moderate }
+        if aqi <= 150 { return HiAirColors.Risk.high }
+        return HiAirColors.Risk.veryHigh
+    }
+
+    private func aqiStatusLabel(_ aqi: Int) -> String {
+        if aqi <= 50 { return dg("good") }
+        if aqi <= 100 { return dg("spectrum.moderate") }
+        if aqi <= 150 { return dg("spectrum.high") }
+        return dg("spectrum.very_high")
+    }
+
     @ViewBuilder
-    private var todaysAirSection: some View {
+    private var recommendationsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(dg("recommendations"), systemImage: "leaf.fill")
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                Button(dg("view_all")) {
+                    session.selectedTab = 1
+                    session.markChecklistItem("recommendations", done: true)
+                }
+                .font(HiAirTypography.caption.weight(.semibold))
+                .foregroundStyle(HiAirColors.Spectrum.cyan)
+            }
+            let items = viewModel.actions.isEmpty ? [riskReason] : Array(viewModel.actions.prefix(2))
+            ForEach(Array(items.enumerated()), id: \.offset) { index, text in
+                Button {
+                    session.selectedTab = 1
+                    session.markChecklistItem("recommendations", done: true)
+                } label: {
+                    HiAirRecommendationRow(
+                        icon: index == 0 ? "facemask" : "leaf.fill",
+                        text: text,
+                        accent: index == 0 ? HiAirColors.Spectrum.electricBlue : HiAirColors.Spectrum.violet
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            HStack(spacing: HiAirSpacing.sm) {
+                Button(session.l("dashboard.log_symptoms")) {
+                    session.selectedTab = 3
+                }
+                .buttonStyle(HiAirGradientButtonStyle())
+                .accessibilityIdentifier(HiAirAccessibilityID.Dashboard.logSymptoms)
+                Button(session.l("tab.planner")) {
+                    session.selectedTab = 1
+                    session.markChecklistItem("hourly", done: true)
+                }
+                .buttonStyle(HiAirOutlineCTAButtonStyle())
+            }
+        }
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Spectrum.violet)
+    }
+
+    @ViewBuilder
+    private var outdoorWindowCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(dg("outdoor_window"), systemImage: "clock.fill")
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                Text(dg("today"))
+                    .font(HiAirTypography.caption.weight(.semibold))
+                    .foregroundStyle(HiAirColors.Spectrum.cyan)
+            }
+            HiAirOutdoorWindowBar(
+                segments: outdoorSegments,
+                summary: dg("best_window_prefix") + " ",
+                highlightRange: nearestWindowRange,
+                todayLabel: ""
+            )
+        }
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Risk.low)
+    }
+
+    private var outdoorSegments: [Color] {
+        let buckets = [(6, 9), (9, 12), (12, 15), (15, 18), (18, 21), (21, 24)]
+        let base = HiAirRiskStyle.color(for: viewModel.riskLevel)
+        return buckets.map { start, end in
+            let inWindow = viewModel.safeWindowModels.contains { window in
+                guard let windowStart = HiAirDeepGlassTime.hour(from: window.start),
+                      let windowEnd = HiAirDeepGlassTime.hour(from: window.end)
+                else { return false }
+                return windowStart < end && windowEnd > start
+            }
+            return inWindow ? HiAirColors.Risk.low : base
+        }
+    }
+
+    private var nearestWindowRange: String {
+        if let first = viewModel.nearestSafeWindow.split(separator: ":").last {
+            let trimmed = first.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return viewModel.nearestSafeWindow
+    }
+
+    @ViewBuilder
+    private var extendedAirMetricsSection: some View {
         if let env = viewModel.environmental {
             VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
                 HStack {
@@ -760,32 +796,10 @@ struct DashboardView: View {
                         label: session.l(sourceLabelKey(for: env.source))
                     )
                 }
-                HStack(spacing: HiAirSpacing.md) {
-                    HiAirOrbLogoView(
-                        size: 56,
-                        riskLevel: viewModel.riskLevel,
-                        presentation: .brand
-                    )
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(weatherTitle)
-                            .font(HiAirTypography.titleMD)
-                            .foregroundStyle(HiAirColors.Text.primary)
-                        Text("\(session.l("dashboard.mood_prefix")): \(moodTitle)")
-                            .font(HiAirTypography.bodyMD)
-                            .foregroundStyle(HiAirColors.Text.secondary)
-                    }
-                    Spacer()
-                }
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
                     spacing: HiAirSpacing.sm
                 ) {
-                    airMetricTile(
-                        title: session.l("dashboard.metric.aqi"),
-                        value: metricText(env.aqi.map { "\($0)" }),
-                        icon: "aqi.medium",
-                        tooltip: "dashboard.tooltip.aqi"
-                    )
                     airMetricTile(
                         title: session.l("dashboard.metric.pm25"),
                         value: metricText(env.pm25.map { String(format: "%.1f", $0) }),
@@ -814,16 +828,88 @@ struct DashboardView: View {
                     )
                 }
             }
-            .v2Card()
-            .onAppear { ProductAnalytics.track("risk_breakdown_viewed") }
-        } else if !viewModel.loading {
-            HiAirEmptyStateView(
-                title: session.l("dashboard.section.todays_air"),
-                message: session.l("dashboard.empty.api_unavailable"),
-                actionTitle: session.l("common.retry"),
-                action: { Task { await reloadDashboard() } }
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .passive, glow: riskColor)
+        }
+    }
+
+    @ViewBuilder
+    private var checklistSection: some View {
+        if !session.checklistHidden {
+            VStack(alignment: .leading, spacing: 8) {
+                HiAirSectionHeader(
+                    title: session.l("dashboard.get_started.title"),
+                    actionTitle: session.l("dashboard.get_started.hide")
+                ) {
+                    session.checklistHidden = true
+                }
+                ForEach(starterChecklist, id: \.id) { item in
+                    Button {
+                        let next = !session.isChecklistItemDone(item.id)
+                        session.markChecklistItem(item.id, done: next)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: session.isChecklistItemDone(item.id) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(session.isChecklistItemDone(item.id) ? HiAirColors.Cta.gradientStart : HiAirColors.Text.tertiary)
+                            Text(session.l(item.titleKey))
+                                .font(HiAirTypography.bodyMD)
+                                .foregroundStyle(HiAirColors.Text.secondary)
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .passive)
+        }
+    }
+
+    private var locationStatusMessage: String {
+        switch locationService.serviceState {
+        case .servicesDisabled:
+            return session.l("location.services_disabled")
+        case .timeout:
+            return session.l("location.timeout")
+        case .denied, .restricted:
+            return session.l("location.denied.body")
+        default:
+            return session.l("dashboard.empty.location_missing")
+        }
+    }
+
+    @ViewBuilder
+    private var emptyStateSections: some View {
+        if !session.hasValidLocation {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(session.l("location.denied.title"))
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Text(locationStatusMessage)
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+                HStack(spacing: 10) {
+                    Button(session.l("location.retry")) {
+                        Task { _ = await session.bootstrapLocationFromDevice(locationService: locationService) }
+                    }
+                    .buttonStyle(HiAirGradientButtonStyle())
+                    if locationService.authorizationStatus == .denied || locationService.authorizationStatus == .restricted {
+                        Button(session.l("location.open_settings")) {
+                            locationService.openAppSettings()
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                    }
+                }
+            }
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .standard)
+        }
+
+        if session.profileId.isEmpty {
+            ProfileBootstrapCard(
+                locationService: locationService,
+                onReady: { await reloadDashboard() }
             )
-            .v2Card()
         }
     }
 
@@ -869,7 +955,8 @@ struct DashboardView: View {
                     }
                 }
             }
-            .v2Card()
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .passive)
         }
     }
 
@@ -901,7 +988,8 @@ struct DashboardView: View {
                         .foregroundStyle(HiAirColors.Text.secondary)
                 }
             }
-            .v2Card()
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .passive)
         }
     }
 
@@ -955,80 +1043,9 @@ struct DashboardView: View {
                         .foregroundStyle(HiAirColors.Text.secondary)
                 }
             }
-            .v2Card()
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .passive)
         }
-    }
-
-    @ViewBuilder
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
-            HStack {
-                HiAirSectionHeader(title: session.l("dashboard.section.quick_actions"))
-                infoButton("dashboard.recommendations_tooltip")
-            }
-            if viewModel.actions.isEmpty {
-                Text(session.l("dashboard.no_actions"))
-                    .font(HiAirTypography.bodyMD)
-                    .foregroundStyle(HiAirColors.Text.secondary)
-            } else {
-                ForEach(Array(viewModel.actions.prefix(3).enumerated()), id: \.offset) { index, action in
-                    actionTile(
-                        icon: index == 0 ? "drop.fill" : (index == 1 ? "wind" : "figure.walk"),
-                        text: action
-                    )
-                }
-            }
-            HStack(spacing: HiAirSpacing.sm) {
-                Button(session.l("dashboard.log_symptoms")) {
-                    session.selectedTab = 3
-                    session.markChecklistItem("recommendations", done: true)
-                }
-                .buttonStyle(HiAirGradientButtonStyle())
-                Button(session.l("tab.planner")) {
-                    session.selectedTab = 1
-                    session.markChecklistItem("hourly", done: true)
-                }
-                .buttonStyle(HiAirSecondaryButtonStyle())
-            }
-            Button(viewModel.loading ? session.l("dashboard.loading") : session.l("dashboard.recompute")) {
-                Task {
-                    if session.profileId.isEmpty {
-                        // Explicit user recompute — do not reuse a prior terminal ensure failure.
-                        session.beginExplicitProfileEnsureCycle()
-                        _ = await session.ensureProfileIdIfNeeded()
-                    }
-                    session.markChecklistItem("risk", done: true)
-                    await reloadDashboard(skipProfileEnsure: true)
-                }
-            }
-            .buttonStyle(HiAirSecondaryButtonStyle())
-            .disabled(viewModel.loading)
-        }
-        .v2Card()
-    }
-
-    @ViewBuilder
-    private var safeWindowsSection: some View {
-        VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
-            HStack {
-                HiAirSectionHeader(title: session.l("dashboard.safe_windows"))
-                infoButton("dashboard.safe_windows_tooltip")
-            }
-            if safeWindows.isEmpty {
-                Text(session.l("dashboard.no_safe_windows"))
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirColors.Text.secondary)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(safeWindows, id: \.self) { window in
-                            HiAirStatusChip(riskLevel: "low", label: window)
-                        }
-                    }
-                }
-            }
-        }
-        .v2Card()
     }
 
     private func metricText(_ value: String?) -> String {
@@ -1059,28 +1076,6 @@ struct DashboardView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(title), \(value)")
-    }
-
-    @ViewBuilder
-    private func actionTile(icon: String, text: String) -> some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(riskColor.opacity(0.18))
-                .frame(width: 28, height: 28)
-                .overlay(
-                    Image(systemName: icon)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(riskColor)
-                )
-            Text(text)
-                .font(HiAirTypography.bodyMD)
-                .foregroundStyle(HiAirColors.Text.primary)
-            Spacer()
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func infoButton(_ key: String) -> some View {

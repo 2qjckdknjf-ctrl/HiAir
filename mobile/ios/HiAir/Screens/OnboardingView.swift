@@ -22,62 +22,60 @@ struct OnboardingView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                if step == 0 {
-                    HiAirBrandHeader(showOrb: true, orbSize: HiAirScreenMetrics.heroOrbSize(for: width) * 0.6)
-                        .padding(.bottom, HiAirSpacing.xs)
-                }
-
-                HStack {
-                    Spacer()
-                    if fromSettings {
+                if fromSettings {
+                    HStack {
+                        Spacer()
                         Button(session.l("common.close")) { dismiss() }
                             .font(HiAirTypography.caption)
-                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                            .foregroundStyle(HiAirColors.Text.tertiary)
                     }
                 }
 
                 Group {
                     switch step {
                     case 0:
-                        onboardingIntro
+                        onboardingIntro(width: width)
                     case 1:
-                        onboardingProblems
+                        onboardingProblems.v2Card()
                     case 2:
-                        onboardingPersona
+                        onboardingPersona.v2Card()
                     case 3:
-                        onboardingWhatToWatch
+                        onboardingWhatToWatch.v2Card()
                     case 4:
-                        onboardingPermissions
+                        onboardingPermissions.v2Card()
                     case 5:
-                        onboardingHealth
+                        onboardingHealth.v2Card()
                     default:
-                        onboardingDone
+                        onboardingDone.v2Card()
                     }
                 }
-                .v2Card()
 
-                HStack(spacing: 10) {
-                    if canGoBack {
-                        Button(session.l("onboarding.back")) {
-                            step = max(step - 1, 0)
+                if step != 0 {
+                    HStack(spacing: 10) {
+                        if canGoBack {
+                            Button(session.l("onboarding.back")) {
+                                step = max(step - 1, 0)
+                            }
+                            .buttonStyle(HiAirSecondaryButtonStyle())
                         }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        Button(primaryButtonTitle) {
+                            Task { await handlePrimaryAction() }
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                        .disabled(step == 5 && (healthService.connectionState == .consentSaving))
+                        .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.finishButton)
                     }
-                    Button(primaryButtonTitle) {
-                        Task { await handlePrimaryAction() }
-                    }
-                    .buttonStyle(HiAirGradientButtonStyle())
-                    .disabled(step == 5 && (healthService.connectionState == .consentSaving))
-                    .accessibilityIdentifier(
-                        step == 0
-                            ? HiAirAccessibilityID.Onboarding.startButton
-                            : HiAirAccessibilityID.Onboarding.finishButton
-                    )
+                    HiAirProgressDots(current: min(step, 5), total: 6)
+                        .frame(maxWidth: .infinity)
+                    Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: session.preferredLanguage), step + 1))
+                        .font(HiAirTypography.caption)
+                        .foregroundStyle(HiAirColors.Text.tertiary)
+                        .frame(maxWidth: .infinity)
                 }
             }
             .hiAirContentWidth(for: width)
             .hiAirScreenPadding(for: width)
-            .padding(.bottom, HiAirSpacing.xl)
+            .padding(.bottom, HiAirSpacing.lg)
             }
         }
         .hiAirPageBackground()
@@ -144,15 +142,104 @@ struct OnboardingView: View {
         step += 1
     }
 
-    private var onboardingIntro: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(session.l("onboarding.step1.title"))
-                .font(AuroraTokens.Typography.displayLG)
-                .foregroundStyle(HiAirV2Theme.primaryText)
-            Text(session.l("onboarding.step1.body"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
+    private func onboardingIntro(width: CGFloat) -> some View {
+        let lang = session.preferredLanguage
+        return VStack(spacing: 14) {
+            Text("HiAir")
+                .font(HiAirTypography.titleLG)
+                .foregroundStyle(HiAirColors.Text.primary)
+
+            Text(HiAirDeepGlassCopy.t("onboarding.promise", lang: lang))
+                .font(HiAirTypography.titleLG)
+                .foregroundStyle(HiAirColors.Text.primary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(HiAirDeepGlassCopy.t("onboarding.sub", lang: lang))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
+                .multilineTextAlignment(.center)
+
+            HiAirDeepGlassOrb(
+                score: 0,
+                levelLabel: "",
+                riskLevel: "low",
+                diameter: min(width * 0.42, 168),
+                showsScore: false
+            )
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
+                HiAirOnboardingFeatureCard(
+                    title: HiAirDeepGlassCopy.t("feat.air", lang: lang),
+                    bodyText: HiAirDeepGlassCopy.t("feat.air.body", lang: lang),
+                    icon: "wind",
+                    accent: HiAirColors.Spectrum.cyan
+                )
+                HiAirOnboardingFeatureCard(
+                    title: HiAirDeepGlassCopy.t("feat.heat", lang: lang),
+                    bodyText: HiAirDeepGlassCopy.t("feat.heat.body", lang: lang),
+                    icon: "thermometer.sun.fill",
+                    accent: HiAirColors.Risk.high
+                )
+                HiAirOnboardingFeatureCard(
+                    title: HiAirDeepGlassCopy.t("feat.allergy", lang: lang),
+                    bodyText: HiAirDeepGlassCopy.t("feat.allergy.body", lang: lang),
+                    icon: "leaf.fill",
+                    accent: HiAirColors.Spectrum.violet
+                )
+                HiAirOnboardingFeatureCard(
+                    title: HiAirDeepGlassCopy.t("feat.outdoor", lang: lang),
+                    bodyText: HiAirDeepGlassCopy.t("feat.outdoor.body", lang: lang),
+                    icon: "figure.run",
+                    accent: HiAirColors.Risk.low
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 14) {
+                Label {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(HiAirDeepGlassCopy.t("why_location", lang: lang))
+                            .font(HiAirTypography.titleMD)
+                            .foregroundStyle(HiAirColors.Text.primary)
+                        Text(HiAirDeepGlassCopy.t("why_location.body", lang: lang))
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirColors.Text.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "location.fill")
+                        .foregroundStyle(HiAirColors.Spectrum.electricBlue)
+                }
+
+                Button {
+                    Task {
+                        locationService.requestWhenInUseAuthorization()
+                        _ = await session.bootstrapLocationFromDevice(locationService: locationService)
+                        step = 1
+                    }
+                } label: {
+                    Label(HiAirDeepGlassCopy.t("use_location", lang: lang), systemImage: "location.fill")
+                }
+                .buttonStyle(HiAirGradientButtonStyle())
+                .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.startButton)
+
+                Button {
+                    step = 1
+                } label: {
+                    Label(HiAirDeepGlassCopy.t("manual_location", lang: lang), systemImage: "map")
+                }
+                .buttonStyle(HiAirOutlineCTAButtonStyle())
+            }
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Spectrum.electricBlue)
+
+            HiAirProgressDots(current: 0, total: 6)
+            Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: lang), 1))
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.tertiary)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var onboardingProblems: some View {

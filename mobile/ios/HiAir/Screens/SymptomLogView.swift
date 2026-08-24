@@ -650,13 +650,19 @@ final class SymptomLogViewModel: ObservableObject {
 struct SymptomLogView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = SymptomLogViewModel()
+    @StateObject private var healthService = HealthKitService.shared
     @State private var entryPendingDelete: SymptomHistoryItem?
+    @State private var healthSummary: HealthSummaryResponseDTO?
+    @State private var wearableToday: WearableTodayResponse?
+    @State private var showAllHealthMetrics = false
+    private let apiClient = APIClient.live()
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
                     header
+                    healthChrome
                     catalogStateBlock
                     if viewModel.taxonomy != nil {
                         searchBlock
@@ -673,7 +679,7 @@ struct SymptomLogView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .hiAirMainTabScrollContent()
             }
             .refreshable {
                 await reloadAll(forceNetwork: true)
@@ -718,26 +724,196 @@ struct SymptomLogView: View {
         }
     }
 
+    private func dg(_ key: String) -> String {
+        HiAirDeepGlassCopy.t(key, lang: session.preferredLanguage)
+    }
+
+    private var healthSuffix: String {
+        let title = dg("health.title")
+        if title.hasPrefix("HiAir ") {
+            return String(title.dropFirst(6))
+        }
+        return session.l("tab.symptoms")
+    }
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(session.l("symptoms.headline"))
-                .font(AuroraTokens.Typography.displayLG)
-                .foregroundStyle(HiAirV2Theme.primaryText)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                HiAirScreenWordmark(suffix: healthSuffix, suffixUsesGradient: true)
+                Button {
+                    session.selectedTab = 4
+                } label: {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(HiAirColors.Spectrum.cyan)
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .stroke(HiAirColors.Spectrum.cyan.opacity(0.8), lineWidth: 1.2)
+                        )
+                        .shadow(color: HiAirColors.Spectrum.cyan.opacity(0.35), radius: 6)
+                }
+                .accessibilityLabel(session.l("tab.settings"))
+            }
+            Text(dg("checkin"))
+                .font(HiAirTypography.displayLG)
+                .foregroundStyle(HiAirColors.Text.primary)
                 .accessibilityAddTraits(.isHeader)
-            Text(session.l("symptoms.subtitle"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(dg("how_feeling"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
                 .fixedLineSpacing(4)
             if viewModel.usingCachedCatalog {
                 Text(session.l("symptoms.cached_offline"))
-                    .font(AuroraTokens.Typography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.tertiary)
             }
-            Button(session.l("symptoms.add_custom")) {
-                viewModel.showCustomSheet = true
+        }
+    }
+
+    @ViewBuilder
+    private var healthChrome: some View {
+        if let load = wearableToday?.personalLoad {
+            HiAirRecoveryHero(
+                percent: min(max(load.score, 0), 100),
+                title: recoveryTitle(load.level),
+                bodyText: {
+                    let text = load.explanations.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    return text.isEmpty ? session.l("health.today.empty") : text
+                }(),
+                lang: session.preferredLanguage
+            )
+        }
+
+        if !dailyMetricTiles.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(dg("daily_metrics"))
+                        .font(HiAirTypography.titleMD)
+                        .foregroundStyle(HiAirColors.Text.primary)
+                    Spacer()
+                    Button(dg("view_all")) {
+                        showAllHealthMetrics.toggle()
+                    }
+                    .font(HiAirTypography.caption.weight(.semibold))
+                    .foregroundStyle(HiAirColors.Spectrum.cyan)
+                }
+                LazyVGrid(
+                    columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+                    spacing: 8
+                ) {
+                    ForEach(dailyMetricTiles, id: \.title) { tile in
+                        HiAirSparkMetricCard(
+                            title: tile.title,
+                            value: tile.value,
+                            accent: tile.accent,
+                            icon: tile.icon
+                        )
+                    }
+                }
+                if showAllHealthMetrics {
+                    HealthTodayMetricsView(
+                        summary: healthSummary,
+                        personalLoad: wearableToday?.personalLoad
+                    )
+                }
             }
-            .buttonStyle(HiAirSecondaryButtonStyle())
-            .frame(minHeight: 44)
+        }
+
+        if !checkinChips.isEmpty {
+            HStack {
+                Text(dg("symptom_checkin"))
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                Image(systemName: "info.circle")
+                    .foregroundStyle(HiAirColors.Text.secondary)
+            }
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+                spacing: 8
+            ) {
+                ForEach(checkinChips) { item in
+                    HiAirSymptomGlassChip(
+                        title: item.label,
+                        icon: symptomIcon(item.symptomType),
+                        selected: viewModel.selectedType == item.symptomType
+                    ) {
+                        viewModel.beginEntry(for: item.symptomType)
+                    }
+                }
+            }
+        }
+
+        HiAirIntensitySelector(value: $viewModel.severity, lang: session.preferredLanguage)
+
+        Button(session.l("symptoms.add_custom")) {
+            viewModel.showCustomSheet = true
+        }
+        .buttonStyle(HiAirOutlineCTAButtonStyle())
+        .frame(minHeight: 44)
+        .accessibilityIdentifier(HiAirAccessibilityID.Symptoms.addCustom)
+
+        if let insight = wearableToday?.personalLoad?.explanations.first?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !insight.isEmpty {
+            HiAirSmartInsightCard(bodyText: insight, lang: session.preferredLanguage)
+        } else if let notice = viewModel.taxonomy?.safetyNotice, !notice.isEmpty {
+            HiAirSmartInsightCard(bodyText: notice, lang: session.preferredLanguage)
+        }
+    }
+
+    private func recoveryTitle(_ level: String) -> String {
+        switch level.lowercased() {
+        case "low": return dg("good")
+        case "moderate", "medium": return dg("spectrum.moderate")
+        default: return dg("spectrum.high")
+        }
+    }
+
+    private var checkinChips: [SymptomTaxonomyItemDTO] {
+        Array((viewModel.taxonomy?.categories ?? []).flatMap(\.symptoms).prefix(6))
+    }
+
+    private var dailyMetricTiles: [(title: String, value: String, accent: Color, icon: String)] {
+        var tiles: [(title: String, value: String, accent: Color, icon: String)] = []
+        var byType: [String: HealthSummaryMetricDTO] = [:]
+        for metric in healthSummary?.metrics ?? [] {
+            if metric.displayValue != nil {
+                byType[metric.metricType] = metric
+            }
+        }
+        if let hr = byType["heart_rate"]?.displayValue ?? byType["resting_heart_rate"]?.displayValue {
+            tiles.append((dg("heart"), "\(Int(hr.rounded())) bpm", HiAirColors.Risk.veryHigh, "heart.fill"))
+        }
+        if let steps = byType["steps"]?.displayValue {
+            tiles.append((dg("steps"), "\(Int(steps.rounded()))", HiAirColors.Spectrum.cyan, "figure.walk"))
+        }
+        if let kcal = byType["active_energy"]?.displayValue {
+            tiles.append((dg("kcal"), "\(Int(kcal.rounded())) kcal", HiAirColors.Risk.high, "flame.fill"))
+        }
+        if let sleepMin = healthSummary?.sleep?.totalMinutes {
+            let hours = sleepMin / 60
+            let mins = sleepMin % 60
+            tiles.append((dg("sleep"), "\(hours)h \(mins)m", HiAirColors.Spectrum.violet, "moon.fill"))
+        }
+        return Array(tiles.prefix(4))
+    }
+
+    private func symptomIcon(_ type: String) -> String {
+        switch type.lowercased() {
+        case "shortness_of_breath", "wheeze", "dyspnea", "breathing":
+            return "lungs.fill"
+        case "dizziness", "vertigo", "headache", "migraine":
+            return "waveform.path.ecg"
+        case "fatigue", "tiredness":
+            return "zzz"
+        case "cough":
+            return "wind"
+        case "itchy_eyes", "allergy", "allergic_rhinitis", "sneezing":
+            return "allergens"
+        default:
+            return "circle.lefthalf.filled"
         }
     }
 
@@ -900,20 +1076,13 @@ struct SymptomLogView: View {
 
     private func symptomChipRow(items: [SymptomTaxonomyItemDTO]) -> some View {
         FlowWrap(items: items) { item in
-            Button {
+            HiAirSymptomGlassChip(
+                title: item.label,
+                icon: symptomIcon(item.symptomType),
+                selected: viewModel.selectedType == item.symptomType
+            ) {
                 viewModel.beginEntry(for: item.symptomType)
-            } label: {
-                Text(item.label)
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(minHeight: 44)
-                    .background(HiAirColors.Cta.gradientStart.opacity(0.18), in: RoundedRectangle(cornerRadius: 14))
             }
-            .accessibilityLabel(item.label)
         }
     }
 
@@ -1156,6 +1325,29 @@ struct SymptomLogView: View {
                 language: session.preferredLanguage
             )
         }
+        await loadHealthChrome()
+    }
+
+    private func loadHealthChrome() async {
+        guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
+        if !UITestBootstrap.isStoreShots {
+            switch healthService.connectionState {
+            case .connected, .systemAuthorized:
+                break
+            default:
+                return
+            }
+        }
+        async let todayTask = apiClient.fetchWearableToday(
+            userId: session.userId,
+            accessToken: session.accessToken
+        )
+        async let summaryTask = apiClient.fetchHealthSummary(
+            userId: session.userId,
+            accessToken: session.accessToken
+        )
+        wearableToday = try? await todayTask
+        healthSummary = try? await summaryTask
     }
 
     private func historySectionTitle(_ key: String) -> String {
