@@ -11,6 +11,12 @@ class OnboardingStore(context: Context) {
         prefs.edit().putBoolean(KEY_COMPLETED, completed).apply()
     }
 
+    /** DEBUG store-shot helper: force first-run onboarding flow. */
+    fun resetForStoreScreenshot() {
+        if (!BuildConfig.DEBUG) return
+        setCompleted(false)
+    }
+
     companion object {
         private const val PREFS_NAME = "hiair"
         const val KEY_COMPLETED = "onboarding_completed"

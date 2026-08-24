@@ -59,6 +59,12 @@ class SymptomLogViewModel(
     var state: SymptomLogState = SymptomLogState()
         private set
 
+    /** DEBUG-only deterministic demo payload for store screenshot captures. */
+    fun seedStoreScreenshotDemo() {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = state.copy(profileId = "profile-store-shot")
+    }
+
     private var favoritesStore: SymptomFavoritesStore? = null
     private var persistedFavoritesLoaded = false
 

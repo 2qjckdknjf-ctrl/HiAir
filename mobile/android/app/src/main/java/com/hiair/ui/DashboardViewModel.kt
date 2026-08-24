@@ -91,6 +91,48 @@ class DashboardViewModel(
         state = DashboardState()
     }
 
+    /** DEBUG-only deterministic demo payload for store screenshot captures. */
+    fun seedStoreScreenshotDemo(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = DashboardState(
+            status = DashboardStatus.SUCCESS,
+            riskLevel = "moderate",
+            riskScore = 55,
+            headline = if (language.startsWith("ru")) "Умеренный риск на улице" else "Moderate outdoor risk",
+            explanation = if (language.startsWith("ru")) {
+                "Воздух комфортный; жара усиливается к полудню."
+            } else {
+                "Air is comfortable; heat rises toward midday."
+            },
+            actions = listOf(
+                if (language.startsWith("ru")) "Пить воду" else "Carry water",
+                if (language.startsWith("ru")) "Гулять утром или вечером" else "Walk morning or evening",
+            ),
+            safeWindows = listOf("07:00–09:30", "18:00–20:00"),
+            dataSource = "live",
+            aqi = 52,
+            pm25 = 11.0,
+            ozone = 42.0,
+            temperatureC = 27.0,
+            feelsLikeC = 28.0,
+            humidityPercent = 48.0,
+            freshness = "live",
+            dataQuality = "complete",
+            timezone = "Europe/Madrid",
+            wearableSteps = 7421,
+            wearableLoadLevel = "low",
+            wearableSummary = if (language.startsWith("ru")) "Низкая нагрузка" else "Low personal load",
+            wearableConnected = true,
+            hazardsOverallLevel = "moderate",
+            hazardsOverallScore = 55,
+            hazardLines = listOf(
+                HazardLine("heat", "moderate", 55, true),
+                HazardLine("aqi", "low", 25, true),
+            ),
+            protectedDayStatus = "",
+        )
+    }
+
     /**
      * Loads real risk data for the given profile. Must be called from a
      * background thread. On failure the previous values are discarded so the UI

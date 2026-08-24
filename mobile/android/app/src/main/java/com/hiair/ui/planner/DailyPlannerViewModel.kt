@@ -63,6 +63,19 @@ class DailyPlannerViewModel(
     var state: PlannerState = PlannerState()
         private set
 
+    /** DEBUG-only deterministic demo payload for store screenshot captures. */
+    fun seedStoreScreenshotDemo(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = state.copy(
+            statusText = if (language.startsWith("ru")) "План готов" else "Plan ready",
+            freshnessText = "live",
+            forecastAvailable = true,
+            ventilationWindows = listOf("07:00–10:00"),
+            safeWindows = listOf("07:00–09:30", "18:00–20:00"),
+            hourly = listOf("08:00 low", "14:00 high", "19:00 low"),
+        )
+    }
+
     /** True after the first auto or manual planner fetch attempt in this process. */
     var hasAttemptedAutoLoad: Boolean = false
 
