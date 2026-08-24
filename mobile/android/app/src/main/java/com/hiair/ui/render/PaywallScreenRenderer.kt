@@ -13,13 +13,17 @@ internal object PaywallScreenRenderer {
         val state = settings.state
 
         paywall.attach(activity)
-        paywall.refreshPrices()
+        if (!com.hiair.StoreScreenshotMode.active) {
+            paywall.refreshPrices()
+        }
 
         val monthlyPrice = paywall.monthlyPrice
         val yearlyPrice = paywall.yearlyPrice
 
         ctx.bodyContainer.apply {
-            addView(HiAirComponents.brandHeader(activity))
+            if (HiAirComponents.shouldShowCompactBrandHeader()) {
+                addView(HiAirComponents.brandHeader(activity))
+            }
             ctx.titleView.text = ctx.l("paywall.title")
             addView(V2Ui.styledBodyText(activity, ctx.l("paywall.subtitle")))
             addView(V2Ui.spacer(activity, 12))

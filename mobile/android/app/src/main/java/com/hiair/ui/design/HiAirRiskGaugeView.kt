@@ -11,8 +11,10 @@ import android.graphics.SweepGradient
 import android.util.AttributeSet
 import android.view.Gravity
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.R
 import com.hiair.ui.theme.V2Ui
 
 class HiAirRiskGaugeView @JvmOverloads constructor(
@@ -46,6 +48,12 @@ class HiAirRiskGaugeView @JvmOverloads constructor(
     private var riskLevel: String = "moderate"
     private var ringStrokePx: Float = V2Ui.dp(context, 10).toFloat()
 
+    private val orbView = ImageView(context).apply {
+        setImageResource(R.drawable.hiair_orb)
+        imageTintList = null
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        alpha = 0.92f
+    }
     private val scoreView = TextView(context).apply {
         textSize = 48f
         setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -73,6 +81,10 @@ class HiAirRiskGaugeView @JvmOverloads constructor(
         centerColumn.addView(scoreView)
         centerColumn.addView(statusRow)
         addView(
+            orbView,
+            LayoutParams(V2Ui.dp(context, 160), V2Ui.dp(context, 160), Gravity.CENTER),
+        )
+        addView(
             centerColumn,
             LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER),
         )
@@ -99,9 +111,13 @@ class HiAirRiskGaugeView @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val min = V2Ui.dp(context, 200)
+        val widthDp = context.resources.configuration.screenWidthDp
+        val targetDp = HiAirScreenMetrics.heroOrbDp(widthDp).coerceAtLeast(220)
+        val min = V2Ui.dp(context, targetDp)
         val size = resolveSize(min, widthMeasureSpec).coerceAtMost(resolveSize(min, heightMeasureSpec))
         setMeasuredDimension(size, size)
+        val orbSize = (size * 0.72f).toInt()
+        orbView.layoutParams = LayoutParams(orbSize, orbSize, Gravity.CENTER)
     }
 
     override fun onDraw(canvas: Canvas) {

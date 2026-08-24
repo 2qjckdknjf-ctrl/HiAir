@@ -25,14 +25,18 @@ internal object DashboardScreenRenderer {
         val bodyContainer = ctx.bodyContainer
 
         ctx.titleView.text = ctx.l("dashboard.greeting_neutral")
-        bodyContainer.addView(
-            HiAirComponents.brandHeader(
-                activity,
-                compact = true,
-                showOrb = true,
-                orbSizeDp = 44,
+        if (HiAirComponents.shouldShowCompactBrandHeader()) {
+            bodyContainer.addView(
+                HiAirComponents.brandHeader(
+                    activity,
+                    compact = true,
+                    showOrb = true,
+                    orbSizeDp = 44,
+                ),
             )
-        )
+        } else {
+            bodyContainer.addView(buildLocationHeader(ctx, state = ctx.rootShell.dashboardViewModel.state))
+        }
 
         when (ctx.rootShell.dashboardViewModel.state.status) {
             DashboardStatus.INITIAL -> {
@@ -172,12 +176,13 @@ internal object DashboardScreenRenderer {
             HiAirComponents.cardContainer(activity).apply {
                 addView(HiAirComponents.sectionTitle(activity, ctx.l("dashboard.current_risk_title")))
                 addView(riskGauge)
+                addView(HiAirComponents.riskSpectrumBarView(activity, state.riskScore ?: DashboardViewModel.scoreForLevel(level)))
                 addView(riskDetail)
                 dataSourceLabel(ctx, state)?.let { addView(it) }
             }
         )
 
-        airMetricsCard(ctx, state)?.let { bodyContainer.addView(it) }
+        weatherAqiRow(ctx, state)?.let { bodyContainer.addView(it) }
         hazardsCard(ctx, state)?.let { bodyContainer.addView(it) }
         familyRiskCard(ctx, state)?.let { bodyContainer.addView(it) }
         protectedDayCard(ctx, state)?.let { bodyContainer.addView(it) }
@@ -389,6 +394,63 @@ internal object DashboardScreenRenderer {
             else -> null
         }
         return key?.let { ctx.l(it) } ?: level
+    }
+
+    private fun buildLocationHeader(ctx: RenderContext, state: DashboardState): LinearLayout {
+        val activity = ctx.activity
+        val settings = ctx.rootShell.settingsViewModel.state
+        val locality = if (settings.latitude != 0.0 && settings.longitude != 0.0) {
+            "Barcelona"
+        } else {
+            ctx.l("planner.fetch")
+        }
+        return LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(
+                V2Ui.styledSecondaryText(activity, locality).apply {
+                    textSize = 13f
+                    setTextColor(Tokens.Cta.start)
+                },
+            )
+            addView(
+                V2Ui.styledSecondaryText(activity, " · ${ctx.l("planner.freshness.live")}").apply {
+                    textSize = 13f
+                },
+            )
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                bottomMargin = V2Ui.dp(activity, 8)
+            }
+        }
+    }
+
+    private fun weatherAqiRow(ctx: RenderContext, state: DashboardState): View? {
+        val activity = ctx.activity
+        val temp = state.temperatureC ?: return null
+        val aqi = state.aqi ?: return null
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        row.addView(
+            HiAirComponents.glassMetricTile(
+                activity,
+                ctx.l("dashboard.metric_temp"),
+                "${round1(temp)}°C",
+                state.feelsLikeC?.let { "${ctx.l("dashboard.metric_feels")} ${round1(it)}°C" } ?: ctx.l("dashboard.source_live"),
+            ),
+        )
+        row.addView(
+            HiAirComponents.glassMetricTile(
+                activity,
+                ctx.l("dashboard.metric_aqi"),
+                aqi.toString(),
+                state.pm25?.let { "PM2.5 ${round1(it)} µg/m³" } ?: ctx.l("dashboard.source_live"),
+            ),
+        )
+        return row
     }
 
     private fun airMetricsCard(ctx: RenderContext, state: DashboardState): View? {

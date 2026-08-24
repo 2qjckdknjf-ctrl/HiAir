@@ -10,6 +10,7 @@ import com.hiair.network.ApiClient
 import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.insights.InsightsProgressContract
 import com.hiair.ui.design.HiAirHumanDate
 import com.hiair.ui.design.HiAirSpacing
 import com.hiair.ui.design.Tokens
@@ -61,7 +62,9 @@ internal object InsightsScreenRenderer {
         val bodyContainer = ctx.bodyContainer
 
         ctx.titleView.text = ctx.l("nav.insights")
-        bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        if (HiAirComponents.shouldShowCompactBrandHeader()) {
+            bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        }
 
         val contentHost = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -686,6 +689,8 @@ internal object InsightsScreenRenderer {
     ): LinearLayout {
         val activity = ctx.activity
         val unavailable = ctx.l("common.unavailable")
+        val denominator = InsightsProgressContract.denominatorForWindow(selectedWindowDays)
+        val clampedDays = InsightsProgressContract.clampLoggedDays(loggedDays, denominator)
         val card = HiAirComponents.cardContainer(activity)
         card.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.progress_title")))
         val row = LinearLayout(activity).apply {
@@ -693,21 +698,21 @@ internal object InsightsScreenRenderer {
             gravity = Gravity.CENTER_VERTICAL
         }
         val progress = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = TARGET_DAYS
-            progress = loggedDays.coerceIn(0, TARGET_DAYS)
+            max = denominator
+            progress = clampedDays
             layoutParams = LinearLayout.LayoutParams(0, V2Ui.dp(activity, 12), 1f)
         }
         row.addView(progress)
         row.addView(
             TextView(activity).apply {
-                text = "$loggedDays/$TARGET_DAYS"
+                text = InsightsProgressContract.formatFraction(loggedDays, denominator)
                 textSize = 16f
                 setTypeface(typeface, Typeface.BOLD)
                 setTextColor(Tokens.Text.primary)
                 setPadding(V2Ui.dp(activity, HiAirSpacing.sm), 0, 0, 0)
                 contentDescription = ctx.l("insights.progress_days")
-                    .replaceFirst("%d", loggedDays.toString())
-                    .replaceFirst("%d", TARGET_DAYS.toString())
+                    .replaceFirst("%d", clampedDays.toString())
+                    .replaceFirst("%d", denominator.toString())
             },
         )
         card.addView(row)
@@ -715,8 +720,8 @@ internal object InsightsScreenRenderer {
             V2Ui.styledSecondaryText(
                 activity,
                 ctx.l("insights.progress_days")
-                    .replaceFirst("%d", loggedDays.toString())
-                    .replaceFirst("%d", TARGET_DAYS.toString()),
+                    .replaceFirst("%d", clampedDays.toString())
+                    .replaceFirst("%d", denominator.toString()),
             ),
         )
         if (generatedAt != unavailable) {
@@ -792,7 +797,7 @@ internal object InsightsScreenRenderer {
             premiumPatterns = listOf("ventilation_window" to 4),
             todaySummary = if (ru) "Сегодня воздух благоприятный для прогулок." else "Air is favorable for outdoor time today.",
             generatedAt = if (ru) "Сегодня, 08:30" else "Today, 8:30 AM",
-            loggedDays = 12,
+            loggedDays = 5,
             healthStatusText = if (ru) "Health Connect: демо" else "Health Connect: demo",
             premiumLocked = false,
         )

@@ -4,10 +4,12 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.hiair.OnboardingStore
+import com.hiair.StoreScreenshotMode
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.health.WearableHealthHost
 import com.hiair.location.LocationBootstrapHost
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.HiAirScreenMetrics
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 
@@ -33,6 +35,10 @@ internal object FirstRunOnboardingRenderer {
         currentStep = if (isLoggedIn) STEP_VALUE else STEP_AUTH
     }
 
+    fun prepareStoreScreenshotWelcome() {
+        currentStep = STEP_VALUE
+    }
+
     fun render(
         ctx: RenderContext,
         onboardingStore: OnboardingStore,
@@ -51,6 +57,11 @@ internal object FirstRunOnboardingRenderer {
         }
 
         ctx.titleView.text = ctx.l("onboarding.title")
+        if (StoreScreenshotMode.active && StoreScreenshotMode.targetScreen == "onboarding") {
+            renderStoreScreenshotWelcome(ctx, onboardingStore, onComplete)
+            return
+        }
+
         ctx.bodyContainer.addView(
             HiAirComponents.brandHeader(
                 activity,
@@ -313,5 +324,62 @@ internal object FirstRunOnboardingRenderer {
                 }
             }
         }.start()
+    }
+
+    private fun renderStoreScreenshotWelcome(
+        ctx: RenderContext,
+        onboardingStore: OnboardingStore,
+        onComplete: () -> Unit,
+    ) {
+        val activity = ctx.activity
+        ctx.bodyContainer.addView(
+            HiAirComponents.brandHeader(
+                activity,
+                tagline = "Breathe smarter. Live better.",
+                showOrb = true,
+                orbSizeDp = HiAirScreenMetrics.heroOrbDp(activity.resources.configuration.screenWidthDp),
+            ),
+        )
+        val features = HiAirComponents.cardContainer(activity)
+        listOf(
+            ctx.l("onboarding.problem.heat"),
+            ctx.l("onboarding.problem.pm25"),
+            ctx.l("onboarding.problem.ozone"),
+        ).forEach { line ->
+            features.addView(V2Ui.styledBodyText(activity, line).apply { textSize = 14f })
+        }
+        ctx.bodyContainer.addView(features)
+
+        val locationCard = HiAirComponents.cardContainer(activity).apply {
+            addView(HiAirComponents.sectionTitle(activity, ctx.l("onboarding.step5.title")))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("onboarding.permissions.location.body")))
+        }
+        ctx.bodyContainer.addView(locationCard)
+        ctx.bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("onboarding.step1.body")).apply {
+            textSize = 12f
+            setTextColor(Tokens.Text.tertiary)
+        })
+        ctx.bodyContainer.addView(
+            HiAirComponents.primaryButton(activity, ctx.l("onboarding.next")).apply {
+                setOnClickListener {
+                    onboardingStore.setCompleted(true)
+                    onComplete()
+                }
+            },
+        )
+        ctx.bodyContainer.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("onboarding.permissions.later")).apply {
+                setOnClickListener {
+                    onboardingStore.setCompleted(true)
+                    onComplete()
+                }
+            },
+        )
+        ctx.bodyContainer.addView(
+            V2Ui.styledSecondaryText(activity, "● ○ ○ ○").apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                textSize = 12f
+            },
+        )
     }
 }

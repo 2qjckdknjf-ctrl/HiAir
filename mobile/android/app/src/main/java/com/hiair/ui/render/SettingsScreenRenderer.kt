@@ -6,6 +6,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
+import com.hiair.StoreScreenshotMode
 import com.hiair.BuildConfig
 import com.hiair.health.WearableHealthHost
 import android.widget.ArrayAdapter
@@ -23,6 +24,66 @@ import java.util.Locale
 
 internal object SettingsScreenRenderer {
     fun render(ctx: RenderContext) {
+        if (StoreScreenshotMode.active) {
+            renderStoreScreenshot(ctx)
+            return
+        }
+        renderFullSettings(ctx)
+    }
+
+    private fun renderStoreScreenshot(ctx: RenderContext) {
+        val activity = ctx.activity
+        val rootShell = ctx.rootShell
+        val state = rootShell.settingsViewModel.state
+        val bodyContainer = ctx.bodyContainer
+
+        ctx.titleView.text = ctx.l("title.settings")
+        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply { textSize = 13f })
+
+        val accountCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle(ctx, "auth.title"))
+            addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.premium_active")))
+        }
+        bodyContainer.addView(accountCard)
+
+        val wearableConnected = state.wearableStatus.contains("connected", ignoreCase = true) ||
+            state.wearableStatus.contains("подключ", ignoreCase = true)
+        val wearablesCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle(ctx, "settings.wearables.title"))
+            addView(V2Ui.styledSecondaryText(activity, state.wearableStatus))
+            if (wearableConnected) {
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")))
+            } else {
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")))
+            }
+        }
+        bodyContainer.addView(wearablesCard)
+
+        val prefsCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle(ctx, "settings.notifications"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.push")))
+            addView(sectionTitle(ctx, "settings.subscription"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.premium_active")))
+            addView(sectionTitle(ctx, "settings.profile"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.persona_adult")))
+        }
+        bodyContainer.addView(prefsCard)
+
+        val securityCard = HiAirComponents.glassAccentContainer(activity).apply {
+            addView(sectionTitle(ctx, "settings.security_privacy"))
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy_export")))
+            addView(V2Ui.spacer(activity, 12))
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")))
+        }
+        bodyContainer.addView(securityCard)
+    }
+
+    private fun sectionTitle(ctx: RenderContext, key: String): TextView {
+        return HiAirComponents.sectionTitle(ctx.activity, ctx.l(key))
+    }
+
+    private fun renderFullSettings(ctx: RenderContext) {
         val activity = ctx.activity
         val rootShell = ctx.rootShell
         val titleView = ctx.titleView
@@ -469,23 +530,28 @@ internal object SettingsScreenRenderer {
         val wearablesCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.wearables.title"))
             addView(V2Ui.styledSecondaryText(activity, rootShell.settingsViewModel.state.wearableStatus))
-            addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
-                setOnClickListener {
-                    (activity as? WearableHealthHost)?.requestWearableConnect {
-                        rootShell.settingsViewModel.refreshWearableStatus()
-                        ctx.rerender()
+            val connected = rootShell.settingsViewModel.state.wearableStatus.contains("connected", ignoreCase = true) ||
+                rootShell.settingsViewModel.state.wearableStatus.contains("подключ", ignoreCase = true)
+            if (connected) {
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
+                    setOnClickListener {
+                        (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = false) { remoteOk ->
+                            rootShell.settingsViewModel.applyWearableRevokeResult(remoteOk, deleteData = false)
+                            statusText.text = rootShell.settingsViewModel.state.statusText
+                            ctx.rerender()
+                        }
                     }
-                }
-            })
-            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
-                setOnClickListener {
-                    (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = false) { remoteOk ->
-                        rootShell.settingsViewModel.applyWearableRevokeResult(remoteOk, deleteData = false)
-                        statusText.text = rootShell.settingsViewModel.state.statusText
-                        ctx.rerender()
+                })
+            } else {
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
+                    setOnClickListener {
+                        (activity as? WearableHealthHost)?.requestWearableConnect {
+                            rootShell.settingsViewModel.refreshWearableStatus()
+                            ctx.rerender()
+                        }
                     }
-                }
-            })
+                })
+            }
             addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
                 setOnClickListener {
                     (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = true) { remoteOk ->
@@ -497,7 +563,9 @@ internal object SettingsScreenRenderer {
             })
         }
         bodyContainer.addView(wearablesCard)
-        rootShell.settingsViewModel.refreshWearableStatus()
+        if (!StoreScreenshotMode.active) {
+            rootShell.settingsViewModel.refreshWearableStatus()
+        }
 
         val securityCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))

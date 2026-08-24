@@ -182,12 +182,7 @@ object HiAirComponents {
             ).apply {
                 cornerRadius = V2Ui.dp(context, HiAirRadius.cta).toFloat()
             }
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            )
-            params.topMargin = V2Ui.dp(context, HiAirSpacing.sm)
-            layoutParams = params
+            layoutParams = HiAirResponsiveLayout.constrainedButtonLayoutParams(context)
         }
     }
 
@@ -197,15 +192,63 @@ object HiAirComponents {
             setTextColor(HiAirColors.Text.primary)
             minHeight = V2Ui.dp(context, 48)
             background = HiAirLiquidGlass.glassDrawable(context, HiAirRadius.md, HiAirLiquidGlass.Variant.REGULAR)
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            )
-            params.topMargin = V2Ui.dp(context, HiAirSpacing.xs)
-            layoutParams = params
+            layoutParams = HiAirResponsiveLayout.constrainedButtonLayoutParams(context).apply {
+                topMargin = V2Ui.dp(context, HiAirSpacing.xs)
+            }
             HiAirLiquidGlass.applySpringPress(this)
         }
     }
+
+    fun riskSpectrumBarView(context: Context, score: Int): HiAirRiskSpectrumBarView {
+        return HiAirRiskSpectrumBarView(context).apply {
+            bind(score)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = V2Ui.dp(context, HiAirSpacing.sm)
+                bottomMargin = V2Ui.dp(context, HiAirSpacing.xs)
+            }
+        }
+    }
+
+    fun glassMetricTile(
+        context: Context,
+        title: String,
+        value: String,
+        subtitle: String,
+    ): LinearLayout {
+        return cardContainer(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = V2Ui.dp(context, HiAirSpacing.xs)
+            }
+            addView(
+                TextView(context).apply {
+                    text = title
+                    textSize = 12f
+                    setTextColor(HiAirColors.Text.secondary)
+                },
+            )
+            addView(
+                TextView(context).apply {
+                    text = value
+                    textSize = 22f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(HiAirColors.Text.primary)
+                },
+            )
+            addView(
+                TextView(context).apply {
+                    text = subtitle
+                    textSize = 12f
+                    setTextColor(HiAirColors.Text.secondary)
+                },
+            )
+        }
+    }
+
+    fun shouldShowCompactBrandHeader(): Boolean = !com.hiair.StoreScreenshotMode.active
 
     fun sectionHeader(context: Context, title: String): TextView {
         return TextView(context).apply {
