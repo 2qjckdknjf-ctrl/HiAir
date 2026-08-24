@@ -66,6 +66,48 @@ def compare_observed_environment(requested: dict[str, Any], observed: dict[str, 
     return errors
 
 
+def compute_aggregate_status(
+    *,
+    screens: list[dict[str, Any]],
+    semantic_capture_ok: bool,
+    source_tree: dict[str, Any] | None = None,
+    rc_source_sha: str | None = None,
+    environment_ok: bool = True,
+) -> tuple[str, str, str]:
+    """Return (overall_status, semantic_validation, visual_review_result)."""
+    if not screens:
+        return "FAIL", "FAIL", "FAIL"
+
+    semantic_ok = all(s.get("semantic_validation_ok") for s in screens)
+    if not semantic_ok or not semantic_capture_ok:
+        return "FAIL", "FAIL", "FAIL"
+
+    visual_results = [str(s.get("visual_review_result", "PENDING")).upper() for s in screens]
+    if any(result == "FAIL" for result in visual_results):
+        return "FAIL", "PASS", "FAIL"
+    if any(result == "PENDING" for result in visual_results):
+        return "PENDING", "PASS", "PENDING"
+
+    visual_ok = all(result == "PASS" for result in visual_results)
+    if not visual_ok:
+        return "FAIL", "PASS", "FAIL"
+
+    provenance_ok = True
+    if source_tree is not None:
+        provenance_ok = (
+            bool(source_tree.get("tracked_worktree_clean"))
+            and bool(source_tree.get("source_tree_reproducible", source_tree.get("tracked_worktree_clean")))
+            and not source_tree.get("untracked_source_inputs")
+        )
+    if rc_source_sha is not None and not rc_source_sha.strip():
+        provenance_ok = False
+
+    if not environment_ok or not provenance_ok:
+        return "PENDING", "PASS", "PASS"
+
+    return "PASS", "PASS", "PASS"
+
+
 def build_manifest(
     *,
     out_dir: Path,
@@ -78,25 +120,33 @@ def build_manifest(
     test_configuration: dict[str, Any],
     status: str,
     failure_reason: str | None = None,
+    rc_source_sha: str | None = None,
+    environment_ok: bool = True,
 ) -> dict[str, Any]:
-    semantic_ok = bool(screens) and all(s.get("semantic_validation_ok") for s in screens)
-    computed_status = "PASS" if status == "PASS" and semantic_ok else "FAIL"
-    visual_ok = bool(screens) and all(s.get("visual_review_result") == "PASS" for s in screens)
+    semantic_capture_ok = status == "PASS"
+    overall, semantic_label, visual_label = compute_aggregate_status(
+        screens=screens,
+        semantic_capture_ok=semantic_capture_ok,
+        source_tree=source_tree,
+        rc_source_sha=rc_source_sha,
+        environment_ok=environment_ok,
+    )
     return {
         "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "artifact_kind": "android_store_screenshot_evidence",
-        "status": computed_status,
+        "status": overall,
         "failure_reason": failure_reason,
         "provenance": source_tree,
         "source_sha": source_sha,
+        "rc_source_sha": rc_source_sha,
         "run_id": run_id,
         "test_configuration": test_configuration,
         "requested_environment": requested,
         "app_observed_environment": observed,
         "output_dir": str(out_dir),
         "screens": screens,
-        "semantic_validation": "PASS" if semantic_ok else "FAIL",
-        "visual_review_result": "PASS" if visual_ok else "PENDING" if computed_status == "PASS" else "FAIL",
+        "semantic_validation": semantic_label,
+        "visual_review_result": visual_label,
     }
 
 
