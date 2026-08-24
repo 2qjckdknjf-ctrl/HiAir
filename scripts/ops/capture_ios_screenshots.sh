@@ -106,6 +106,8 @@ for group in data:
         suggested = item.get("suggestedHumanReadableName", "")
         if not exported:
             continue
+        if "observed-environment" in suggested.lower():
+            continue
         if not (exported.endswith(".png") or suggested.endswith(".png") or ".png" in suggested.lower()):
             continue
         src = os.path.join(attach_dir, exported)
