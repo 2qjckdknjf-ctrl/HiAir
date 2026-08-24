@@ -128,7 +128,7 @@ object HiAirComponents {
                 V2Ui.dp(context, HiAirSpacing.md),
                 V2Ui.dp(context, HiAirSpacing.md),
             )
-            background = contentCardBackground(context)
+            background = glassCardBackground(context)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,

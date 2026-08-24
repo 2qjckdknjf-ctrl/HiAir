@@ -58,7 +58,7 @@ internal object HealthTodayMetricsRenderer {
         val metricRows = metricRows(ctx, summary)
         val sleepRows = sleepRows(ctx, summary)
 
-        return V2Ui.cardContainer(activity).apply {
+        return HiAirComponents.cardContainer(activity).apply {
             addView(V2Ui.styledBodyText(activity, ctx.l("health.today.title")).apply { textSize = 16f })
             addView(V2Ui.spacer(activity, 6))
 

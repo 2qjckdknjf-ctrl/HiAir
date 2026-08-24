@@ -204,6 +204,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         navRow.addView(insightsButton)
         navRow.addView(symptomsButton)
         navRow.addView(settingsButton)
+        HiAirLiquidGlass.applyNavigationBlur(navRow)
         root.addView(navRow)
 
         screenRenderer = MainScreenRenderer(
@@ -228,6 +229,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             rootShell.settingsViewModel.state.userId.isNotBlank() &&
                 rootShell.settingsViewModel.state.accessToken.isNotBlank(),
         )
+        StoreScreenshotBootstrap.apply(intent, rootShell, onboardingStore)
         renderCurrentScreen()
         if (rootShell.settingsViewModel.state.userId.isNotBlank()) {
             rootShell.settingsViewModel.refreshEntitlement { renderCurrentScreen() }
