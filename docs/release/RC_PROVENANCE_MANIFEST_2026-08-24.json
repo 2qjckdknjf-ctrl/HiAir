@@ -1,0 +1,37 @@
+{
+  "manifest_kind": "hiair_store_ready_rc_provenance",
+  "generated_at": "2026-08-24T12:55:00Z",
+  "manifest_commit_sha": "PENDING_THIS_COMMIT",
+  "rc_source_sha": "ef82878755910c1e03cf7ccf3a9106df840c7e3c",
+  "worktree_dirty": false,
+  "branch": "cursor/store-ready-hardening-2026-08-22",
+  "verdict": "NO-GO / HARDENING IN PROGRESS",
+  "ios": {
+    "artifact_type": "simulator_debug_test_evidence",
+    "signing_status": "unsigned_simulator_store_screenshots",
+    "screenshot_evidence_path": ".evidence/ios-screenshots/2026-08-24-hardening-v4-final/",
+    "screenshot_evidence_sha256_register": "sha256:see capture-manifest.json files[] in evidence dir",
+    "xcresult_sha256": "56e5535a85d58b15ac7fc538a13e96dea2bed492733750afb0a16ae25b1125e9",
+    "release_build_verified": true,
+    "release_signing_status": "development_local_simulator_only"
+  },
+  "android": {
+    "artifact_type": "aab_release_local",
+    "signing_status": "debug_or_dev_release_not_play_uploadable",
+    "bundle_path": "mobile/android/app/build/outputs/bundle/release/app-release.aab",
+    "target_sdk": 36,
+    "gates": ["testDebugUnitTest", "lintDebug", "assembleDebug", "assembleRelease", "bundleRelease"]
+  },
+  "screenshot_files_sha256": {
+    "01-auth.png": "8b08b490bad50474680eb1a2168546005bf0ac82e84b1f8e8fcc0e3865f621e7",
+    "01b-onboarding.png": "b8d812adc04eab1048def1e5d0fa5a0ee95a9ce3539f81de2f43fc0028e10aa2",
+    "02-dashboard.png": "743788d015ca07b6a902dadaf448520ef385f478fe15bd258821b9af95e79a31",
+    "03-planner.png": "3df1bd9b13f61ef66f1792988ec19b73de652caca15cb94894450d35c603c91e",
+    "04-insights.png": "6671bdc622ca465d50c253c07888e6054166e32e9e869d428b172c5ba9c2f41c",
+    "05-symptoms.png": "05ef65fd0abf23e199d516f791c1b1ba25a129930778dabf69cdb3345205558c",
+    "06-settings.png": "85bf8fd6876116d4e07aa85790fcab7653f800560fe2b3e76e3258c6ea564dd0",
+    "06b-settings-subscription.png": "e6a090a980346ba310bae723c00fa72f77ae2174eff1f986bc116e2126c8ef5a",
+    "07-paywall.png": "b90be9e668398d0cc2d339972dc28a9f90de9f7d6084f04353893044a5d320ec",
+    "07b-paywall-restore.png": "042b565b07515bae633bd2823230f7dd36fb16ffd2afc817d63f026f69d3b60c"
+  }
+}

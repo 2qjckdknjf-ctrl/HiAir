@@ -2,8 +2,8 @@
 
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
 **Baseline HEAD (committed):** `ab97229406b2e62d1c39be0868b54f03192bcf73`  
-**Evidence run:** `.evidence/ios-screenshots/2026-08-24-hardening-v4/`  
-**Provenance:** `worktree_dirty=true`; `rc_source_sha=null`; see `capture-manifest.json` for diff hashes and per-PNG SHA-256  
+**Evidence run:** `.evidence/ios-screenshots/2026-08-24-hardening-v4-final/`  
+**Provenance:** `worktree_dirty=false`; `rc_source_sha=ef82878755910c1e03cf7ccf3a9106df840c7e3c`  
 **Device:** iPhone 17 Pro Simulator (requested), iOS 26, EN, standard text  
 **Reference SHA-256:** verified against `docs/design/redesign-v4/references/manifest.json`
 
