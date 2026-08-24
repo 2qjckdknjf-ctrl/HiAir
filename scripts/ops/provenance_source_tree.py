@@ -20,6 +20,8 @@ def git(root: Path, *args: str) -> str:
 def classify_untracked(path: str) -> str:
     if path in EVIDENCE_EXACT or any(path.startswith(p) for p in EVIDENCE_PREFIXES):
         return "evidence_output"
+    if path.endswith(".sha256"):
+        return "evidence_output"
     lower = path.lower()
     if lower.endswith((
         ".png", ".jpg", ".jpeg", ".xcresult", ".log", ".ipa", ".aab", ".apk", ".deriveddata",
