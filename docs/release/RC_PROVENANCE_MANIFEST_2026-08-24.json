@@ -1,14 +1,14 @@
 {
   "manifest_kind": "hiair_store_ready_rc_provenance",
-  "generated_at": "2026-08-24T13:38:29Z",
-  "manifest_generated_from_sha": "92baf86ee78f63cc6c926b2fcd18fe8f8a609eb3",
-  "manifest_file_sha256": "20be642e803182af4298baefceb9d7c304407e0cf711400c03a05465b4c5c118",
+  "generated_at": "2026-08-24T13:38:50Z",
+  "manifest_generated_from_sha": "aac0cb961acef34c688c04948c54e68cfb77ddeb",
+  "manifest_file_sha256": "7497a6d92ffbaa75ca1a7570869605b154f9bdbbcac915b9c921b53b72d71b27",
   "manifest_containing_commit_sha": null,
   "manifest_containing_commit_sha_note": "Not stored inside this file (self-reference impossible). Determine after commit via: git log -1 --format=%H -- <this-file>",
   "source_tree": {
-    "head_sha": "92baf86ee78f63cc6c926b2fcd18fe8f8a609eb3",
-    "tracked_worktree_clean": false,
-    "tracked_diff_sha256": "b41188577f8efa5728f66c92150d2ae2f89d740403757a92db7b1b158fe20569",
+    "head_sha": "aac0cb961acef34c688c04948c54e68cfb77ddeb",
+    "tracked_worktree_clean": true,
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "untracked_source_inputs": [],
     "untracked_evidence_outputs": [
       ".evidence/android-avd-setup.log",
@@ -6245,11 +6245,11 @@
       ".evidence/ios-screenshots/phase4-hardening-en-v2/07b-paywall-restore.png"
     ],
     "untracked_other": [],
-    "source_tree_reproducible": false,
-    "rc_source_sha": null,
+    "source_tree_reproducible": true,
+    "rc_source_sha": "aac0cb961acef34c688c04948c54e68cfb77ddeb",
     "note": "manifest_containing_commit_sha is NOT stored inside JSON manifests (self-reference impossible). Report it externally after git commit."
   },
-  "rc_source_sha": null,
+  "rc_source_sha": "aac0cb961acef34c688c04948c54e68cfb77ddeb",
   "branch": "cursor/store-ready-hardening-2026-08-22",
   "verdict": "NO-GO / HARDENING IN PROGRESS",
   "ios": {
