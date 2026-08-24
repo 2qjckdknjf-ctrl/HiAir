@@ -12,9 +12,11 @@
 		022C18940F38359470483E2A /* GeoCoordinatesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B7431269DC0B1AC625289B /* GeoCoordinatesTests.swift */; };
 		079F1318A8584B1939E4E3FE /* HiAirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD707A08B6657EF85395B26 /* HiAirApp.swift */; };
 		0B19571439FFB543F25751C6 /* HiAirHumanDateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */; };
+		0F2C85A156AB3B2CE5167341 /* PaywallScrollSafeAreaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6271A449AEAD56D90FA84F44 /* PaywallScrollSafeAreaUITests.swift */; };
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		116362F5B5F2F56299C94173 /* RuntimeUXRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
+		1A77C5318CAD3DC901E109F2 /* HiAirDeepGlassTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979A9003276BD007D952A744 /* HiAirDeepGlassTokenTests.swift */; };
 		1A92F62E0EC617E5AEF0DD14 /* StoreProductIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81AEC3B255250F766121E890 /* StoreProductIDs.swift */; };
 		1BF97FD1C79322D4ED0D3924 /* HiAirLiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */; };
 		1C93CBBDDA86CE4492DDC214 /* SubscriptionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009C29A00FC9406DB23BBCEA /* SubscriptionDiagnostics.swift */; };
@@ -30,8 +32,10 @@
 		3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */ = {isa = PBXBuildFile; fileRef = A364D644D684423921A0EDAA /* StoreProductFetching.swift */; };
 		3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */; };
 		469E899308A7D2A622154EB2 /* AccountDeletionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F7B86EEE31F2AEC12EB812 /* AccountDeletionModels.swift */; };
+		477F73CC281B486F0F94F3FC /* HiAirMainTabLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E46E103B57EE1DA200BE00 /* HiAirMainTabLayout.swift */; };
 		47FDE2DE4AB462EA0052DD48 /* HealthKitTimeoutRaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */; };
 		4853B61EB9536BE54342284F /* HiAirGlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03DC1358C9F4B77C3508586E /* HiAirGlassSurface.swift */; };
+		4956D0A5F4D2C2BABC85DF6A /* DailyPlannerSurfaceStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDFD9AEA8D22717B8485CAC5 /* DailyPlannerSurfaceStateTests.swift */; };
 		495E02E3BAC0F3A167563E5C /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030CBAFA89BD721FF0066134 /* SymptomLogView.swift */; };
 		4D84DF0F1974CDEEF384A0F9 /* HiAirSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */; };
 		52A613D5DA6B3312A5A5F249 /* HiAirStatusChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D6651A44B2FD5781660545 /* HiAirStatusChip.swift */; };
@@ -39,6 +43,7 @@
 		546A760CA817447A77E71501 /* HiAirAtmosphericBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */; };
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
 		5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB46A64A9D06988894EB3978 /* HiAirMotion.swift */; };
+		60600899A0A468E146AD36D5 /* DailyPlannerSurfaceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D642B7BB092A85F6645659 /* DailyPlannerSurfaceState.swift */; };
 		611512163246F5F671FAAFE7 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C80D922CB3152908E2D2892 /* LocationService.swift */; };
 		620932E297A0EFA3FE5AA010 /* InfoPlistPackagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */; };
 		622F96C121C55BFEDC2ACA92 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */; };
@@ -46,6 +51,7 @@
 		714BB4A2D60C45C93C508CFD /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 473FF9ADA6A471A1B256FE84 /* PaywallView.swift */; };
 		72B9B45CCF3D3E3C7E8A99B4 /* HiAirResponsiveSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1799C91CB76C7ED1CD7E9FDB /* HiAirResponsiveSpacing.swift */; };
 		72FFBCFF13652EB51825A9C8 /* ProfileEnsureOutcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47E3D3B1AAA614A9339E3BE /* ProfileEnsureOutcome.swift */; };
+		7321D183C576FE8BB94645C3 /* PaywallLocalizationContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF5EDBAE81558D23A4B388E6 /* PaywallLocalizationContractTests.swift */; };
 		7642D4EC715458CE46C68EFB /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */; };
 		77B0C3A0D969BE57865D3A5A /* UITestBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4DA4D6012AFA1C4003ECBD /* UITestBootstrap.swift */; };
 		77E0A0837CB889643F23BF59 /* RuntimePerformanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B2908A1BCD2026DD269B92 /* RuntimePerformanceProbe.swift */; };
@@ -82,14 +88,17 @@
 		E7ED5E21F3AE2BC0F37ECEF1 /* IPadSandboxPurchaseUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */; };
 		E8574E435130C15C6FC138B9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */; };
 		E8BD8007A0F000FF990B49F1 /* ForecastDTOTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */; };
+		E98E261451A02F580F8F4884 /* MainTabScrollHittabilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EF67EA453D311B4C7330E9 /* MainTabScrollHittabilityUITests.swift */; };
 		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
 		F1FD4A15DAFF7E0E44495F4F /* WearableStatusPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */; };
+		F21832066506A0D19A91D0FF /* HiAirDeepGlassLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A444E750C40287B303263C /* HiAirDeepGlassLayout.swift */; };
 		F45FDF7A57BEBC388CDD6343 /* HiAirPremium.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 58B07551915E7C0571623EC9 /* HiAirPremium.storekit */; };
 		F7796D20327E2DEB59780003 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */; };
 		F8E4E8CD814CCB27DA50948D /* HiAirColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606F94F2339205445B9E3E37 /* HiAirColors.swift */; };
 		F9902B01523BE5FF472F880D /* HiAirGradients.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */; };
+		FC8CAF6FE2392401A2942292 /* HiAirDeepGlassWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4135D012330C3AC6D150C221 /* HiAirDeepGlassWidgets.swift */; };
 		FD5992A72A475C761562967F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C556E4BD33D299DF71C4B0E6 /* APIClient.swift */; };
 		FD8B29CC141ED0908C27B0A5 /* HiAirHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48422F7238CC5AD060255382 /* HiAirHaptics.swift */; };
 		FDB44A73E28090FC8862D9F9 /* HiAirLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6183833DB60B26DF8F99DF12 /* HiAirLaunchView.swift */; };
@@ -124,6 +133,7 @@
 		14F7B86EEE31F2AEC12EB812 /* AccountDeletionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionModels.swift; sourceTree = "<group>"; };
 		1799C91CB76C7ED1CD7E9FDB /* HiAirResponsiveSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirResponsiveSpacing.swift; sourceTree = "<group>"; };
 		18DD51FD5CC5B9ECEB95787E /* HealthIntelligenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthIntelligenceModels.swift; sourceTree = "<group>"; };
+		21D642B7BB092A85F6645659 /* DailyPlannerSurfaceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPlannerSurfaceState.swift; sourceTree = "<group>"; };
 		244924BEC6FD44E41B87A87B /* SupabaseAuthLogoutTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseAuthLogoutTransportTests.swift; sourceTree = "<group>"; };
 		246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseSingleFlightGuard.swift; sourceTree = "<group>"; };
 		24B2908A1BCD2026DD269B92 /* RuntimePerformanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimePerformanceProbe.swift; sourceTree = "<group>"; };
@@ -135,11 +145,13 @@
 		35D1E2C509CFB15ACA399B3D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3A8542A065CABD03BC96EB1E /* HiAirUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSessionTests.swift; sourceTree = "<group>"; };
+		4135D012330C3AC6D150C221 /* HiAirDeepGlassWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirDeepGlassWidgets.swift; sourceTree = "<group>"; };
 		473FF9ADA6A471A1B256FE84 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		48422F7238CC5AD060255382 /* HiAirHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirHaptics.swift; sourceTree = "<group>"; };
 		49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPadSandboxPurchaseUITests.swift; sourceTree = "<group>"; };
 		4A454EB07D85907CF969834B /* HiAirScreenMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirScreenMetrics.swift; sourceTree = "<group>"; };
 		51E66A00598B11116F22A217 /* RiskAccentColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskAccentColor.swift; sourceTree = "<group>"; };
+		53EF67EA453D311B4C7330E9 /* MainTabScrollHittabilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabScrollHittabilityUITests.swift; sourceTree = "<group>"; };
 		58B07551915E7C0571623EC9 /* HiAirPremium.storekit */ = {isa = PBXFileReference; path = HiAirPremium.storekit; sourceTree = "<group>"; };
 		5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeUXRecoveryTests.swift; sourceTree = "<group>"; };
 		5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
@@ -148,6 +160,7 @@
 		6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForecastDTOTests.swift; sourceTree = "<group>"; };
 		606F94F2339205445B9E3E37 /* HiAirColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirColors.swift; sourceTree = "<group>"; };
 		6183833DB60B26DF8F99DF12 /* HiAirLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLaunchView.swift; sourceTree = "<group>"; };
+		6271A449AEAD56D90FA84F44 /* PaywallScrollSafeAreaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallScrollSafeAreaUITests.swift; sourceTree = "<group>"; };
 		633C39532BF5572FD090BFB8 /* HealthKitTimeoutRace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTimeoutRace.swift; sourceTree = "<group>"; };
 		67847104B8F30C42099F2318 /* SettingsDisconnectLocalFirstTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDisconnectLocalFirstTests.swift; sourceTree = "<group>"; };
 		6B1CF7645DD4B0B92F0CA11F /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -161,6 +174,7 @@
 		8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTimeoutRaceTests.swift; sourceTree = "<group>"; };
 		913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableStatusPresentation.swift; sourceTree = "<group>"; };
 		93EEF3FD465B8193BE67529E /* HiAirTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		979A9003276BD007D952A744 /* HiAirDeepGlassTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirDeepGlassTokenTests.swift; sourceTree = "<group>"; };
 		9877705B2259F97CBA762758 /* UITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestSupport.swift; sourceTree = "<group>"; };
 		9BD707A08B6657EF85395B26 /* HiAirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirApp.swift; sourceTree = "<group>"; };
 		9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphericParticles.swift; sourceTree = "<group>"; };
@@ -170,6 +184,7 @@
 		AA4DA4D6012AFA1C4003ECBD /* UITestBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestBootstrap.swift; sourceTree = "<group>"; };
 		AB03AB32DC5D272A4BCF0999 /* HealthKitAuthorizationSingleFlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationSingleFlightTests.swift; sourceTree = "<group>"; };
 		AEFCD764FFBC4E01ED44F0E0 /* PlaceGeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceGeocodingService.swift; sourceTree = "<group>"; };
+		AF5EDBAE81558D23A4B388E6 /* PaywallLocalizationContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallLocalizationContractTests.swift; sourceTree = "<group>"; };
 		B225391F981853BB27DC62E7 /* HiAirHumanDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirHumanDate.swift; sourceTree = "<group>"; };
 		B47E3D3B1AAA614A9339E3BE /* ProfileEnsureOutcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEnsureOutcome.swift; sourceTree = "<group>"; };
 		BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductAnalytics.swift; sourceTree = "<group>"; };
@@ -187,15 +202,18 @@
 		D5B7431269DC0B1AC625289B /* GeoCoordinatesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoCoordinatesTests.swift; sourceTree = "<group>"; };
 		D5F76C9D3AC184612BAAF7ED /* HealthTodayMetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthTodayMetricsView.swift; sourceTree = "<group>"; };
 		D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPlannerView.swift; sourceTree = "<group>"; };
+		D7A444E750C40287B303263C /* HiAirDeepGlassLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirDeepGlassLayout.swift; sourceTree = "<group>"; };
 		D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirLiquidGlass.swift; sourceTree = "<group>"; };
 		D9D61A692A21F8137C8C9A0A /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 		DD5E2B65A2779082CBA2B644 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirRadius.swift; sourceTree = "<group>"; };
 		E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirV2Theme.swift; sourceTree = "<group>"; };
+		E1E46E103B57EE1DA200BE00 /* HiAirMainTabLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirMainTabLayout.swift; sourceTree = "<group>"; };
 		E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirAtmosphericBackground.swift; sourceTree = "<group>"; };
 		E51B8943BC3F02E49B7FB4D0 /* SubscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceTests.swift; sourceTree = "<group>"; };
 		E5D318EFA32CAF512F14BCAD /* RiskModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskModels.swift; sourceTree = "<group>"; };
 		E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirGradients.swift; sourceTree = "<group>"; };
+		EDFD9AEA8D22717B8485CAC5 /* DailyPlannerSurfaceStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPlannerSurfaceStateTests.swift; sourceTree = "<group>"; };
 		F0D6651A44B2FD5781660545 /* HiAirStatusChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirStatusChip.swift; sourceTree = "<group>"; };
 		F189463A81578D7DA02A429B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		F5F4A846E176862AF8006820 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -240,6 +258,8 @@
 			isa = PBXGroup;
 			children = (
 				49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */,
+				53EF67EA453D311B4C7330E9 /* MainTabScrollHittabilityUITests.swift */,
+				6271A449AEAD56D90FA84F44 /* PaywallScrollSafeAreaUITests.swift */,
 				CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */,
 				C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */,
 				9877705B2259F97CBA762758 /* UITestSupport.swift */,
@@ -301,12 +321,15 @@
 				E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */,
 				606F94F2339205445B9E3E37 /* HiAirColors.swift */,
 				00BEEF483B33FAEC14EFDD21 /* HiAirComponents.swift */,
+				D7A444E750C40287B303263C /* HiAirDeepGlassLayout.swift */,
+				4135D012330C3AC6D150C221 /* HiAirDeepGlassWidgets.swift */,
 				715102D414AC0A39D31813C2 /* HiAirFloatingTabBar.swift */,
 				03DC1358C9F4B77C3508586E /* HiAirGlassSurface.swift */,
 				E78DD9D4821EF0A22A2303FD /* HiAirGradients.swift */,
 				48422F7238CC5AD060255382 /* HiAirHaptics.swift */,
 				B225391F981853BB27DC62E7 /* HiAirHumanDate.swift */,
 				D7FCB3C5626E5CD69B8D18E6 /* HiAirLiquidGlass.swift */,
+				E1E46E103B57EE1DA200BE00 /* HiAirMainTabLayout.swift */,
 				FB46A64A9D06988894EB3978 /* HiAirMotion.swift */,
 				DEFB8686609633E1DFCD4196 /* HiAirRadius.swift */,
 				1799C91CB76C7ED1CD7E9FDB /* HiAirResponsiveSpacing.swift */,
@@ -327,13 +350,16 @@
 			isa = PBXGroup;
 			children = (
 				3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */,
+				EDFD9AEA8D22717B8485CAC5 /* DailyPlannerSurfaceStateTests.swift */,
 				6035BCFBCB2EFEFE6B28CB45 /* ForecastDTOTests.swift */,
 				D5B7431269DC0B1AC625289B /* GeoCoordinatesTests.swift */,
 				AB03AB32DC5D272A4BCF0999 /* HealthKitAuthorizationSingleFlightTests.swift */,
 				8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */,
+				979A9003276BD007D952A744 /* HiAirDeepGlassTokenTests.swift */,
 				CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */,
 				2D9130F80936891489C73F67 /* HiAirTypographyDynamicTypeTests.swift */,
 				CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */,
+				AF5EDBAE81558D23A4B388E6 /* PaywallLocalizationContractTests.swift */,
 				2DAE1DA0A37DFC548AF3687D /* ProfileEnsureTests.swift */,
 				5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */,
 				67847104B8F30C42099F2318 /* SettingsDisconnectLocalFirstTests.swift */,
@@ -387,6 +413,7 @@
 			children = (
 				9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */,
 				F189463A81578D7DA02A429B /* AuthView.swift */,
+				21D642B7BB092A85F6645659 /* DailyPlannerSurfaceState.swift */,
 				D67EAE1A22084EFF9B3310D5 /* DailyPlannerView.swift */,
 				3067FB46BAFE989CA0A16E0E /* DashboardView.swift */,
 				D5F76C9D3AC184612BAAF7ED /* HealthTodayMetricsView.swift */,
@@ -536,6 +563,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				E7ED5E21F3AE2BC0F37ECEF1 /* IPadSandboxPurchaseUITests.swift in Sources */,
+				E98E261451A02F580F8F4884 /* MainTabScrollHittabilityUITests.swift in Sources */,
+				0F2C85A156AB3B2CE5167341 /* PaywallScrollSafeAreaUITests.swift in Sources */,
 				3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */,
 				A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */,
 				C30E487232AD1079B0F38B2B /* UITestSupport.swift in Sources */,
@@ -548,13 +577,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */,
+				4956D0A5F4D2C2BABC85DF6A /* DailyPlannerSurfaceStateTests.swift in Sources */,
 				E8BD8007A0F000FF990B49F1 /* ForecastDTOTests.swift in Sources */,
 				022C18940F38359470483E2A /* GeoCoordinatesTests.swift in Sources */,
 				C1113FCF17266A966F5C04D3 /* HealthKitAuthorizationSingleFlightTests.swift in Sources */,
 				47FDE2DE4AB462EA0052DD48 /* HealthKitTimeoutRaceTests.swift in Sources */,
+				1A77C5318CAD3DC901E109F2 /* HiAirDeepGlassTokenTests.swift in Sources */,
 				0B19571439FFB543F25751C6 /* HiAirHumanDateTests.swift in Sources */,
 				9CC86DD95DDDF6D53601E006 /* HiAirTypographyDynamicTypeTests.swift in Sources */,
 				620932E297A0EFA3FE5AA010 /* InfoPlistPackagingTests.swift in Sources */,
+				7321D183C576FE8BB94645C3 /* PaywallLocalizationContractTests.swift in Sources */,
 				630FD44D484D2D68453486A9 /* ProfileEnsureTests.swift in Sources */,
 				116362F5B5F2F56299C94173 /* RuntimeUXRecoveryTests.swift in Sources */,
 				79DDAA28852A36E88E5C25D4 /* SettingsDisconnectLocalFirstTests.swift in Sources */,
@@ -574,6 +606,7 @@
 				EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */,
 				841C3D6FD329442C7C057429 /* AtmosphericParticles.swift in Sources */,
 				1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */,
+				60600899A0A468E146AD36D5 /* DailyPlannerSurfaceState.swift in Sources */,
 				3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */,
 				BA5EEFEA16CA6962363CB004 /* DashboardView.swift in Sources */,
 				218A1D239B38024245EB822C /* HealthIntelligenceModels.swift in Sources */,
@@ -585,6 +618,8 @@
 				546A760CA817447A77E71501 /* HiAirAtmosphericBackground.swift in Sources */,
 				F8E4E8CD814CCB27DA50948D /* HiAirColors.swift in Sources */,
 				8EDC00DAEBE8A55D78D3E807 /* HiAirComponents.swift in Sources */,
+				F21832066506A0D19A91D0FF /* HiAirDeepGlassLayout.swift in Sources */,
+				FC8CAF6FE2392401A2942292 /* HiAirDeepGlassWidgets.swift in Sources */,
 				01869191EAF0F868952ED682 /* HiAirFloatingTabBar.swift in Sources */,
 				4853B61EB9536BE54342284F /* HiAirGlassSurface.swift in Sources */,
 				F9902B01523BE5FF472F880D /* HiAirGradients.swift in Sources */,
@@ -592,6 +627,7 @@
 				E181DAAD698B8A895596F5C9 /* HiAirHumanDate.swift in Sources */,
 				FDB44A73E28090FC8862D9F9 /* HiAirLaunchView.swift in Sources */,
 				1BF97FD1C79322D4ED0D3924 /* HiAirLiquidGlass.swift in Sources */,
+				477F73CC281B486F0F94F3FC /* HiAirMainTabLayout.swift in Sources */,
 				5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */,
 				A926FA88A521C2D6C60E7C1C /* HiAirRadius.swift in Sources */,
 				72B9B45CCF3D3E3C7E8A99B4 /* HiAirResponsiveSpacing.swift in Sources */,
