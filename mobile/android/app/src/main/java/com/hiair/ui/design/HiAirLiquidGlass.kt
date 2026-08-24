@@ -55,6 +55,35 @@ object HiAirLiquidGlass {
         }
     }
 
+    /**
+     * Floating nav shell: blur applies only to the glass background layer;
+     * tab icons and labels stay sharp on top.
+     */
+    fun wrapNavigationContent(
+        context: Context,
+        navBackground: android.graphics.drawable.Drawable,
+        content: android.view.View,
+    ): android.widget.FrameLayout {
+        val shell = android.widget.FrameLayout(context)
+        val blurLayer = android.view.View(context).apply {
+            background = navBackground
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+        }
+        applyNavigationBlur(blurLayer)
+        shell.addView(blurLayer)
+        shell.addView(
+            content,
+            android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+        return shell
+    }
+
     fun applySpringPress(view: View) {
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {

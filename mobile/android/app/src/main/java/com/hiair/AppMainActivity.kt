@@ -16,7 +16,7 @@ import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.design.HiAirComponents
-import com.hiair.ui.design.HiAirLiquidGlass
+import com.hiair.ui.design.HiAirResponsiveLayout
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
 import com.hiair.network.ApiClient
@@ -31,6 +31,8 @@ import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.render.FirstRunOnboardingRenderer
 import kotlinx.coroutines.launch
 import com.hiair.ui.accessibility.HiAirScreenMarkers
+import com.hiair.ui.design.HiAirLiquidGlass
+import com.hiair.ui.design.HiAirScreenMetrics
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
@@ -48,6 +50,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var insightsButton: Button
     private lateinit var symptomsButton: Button
     private lateinit var settingsButton: Button
+    private lateinit var navShell: FrameLayout
     private lateinit var navRow: LinearLayout
     private lateinit var supabaseAuth: SupabaseAuthService
     private lateinit var healthConnectService: HealthConnectService
@@ -155,7 +158,16 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(12), 0, dp(108))
         }
-        scroll.addView(bodyContainer)
+        val bodyHost = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            )
+            addView(bodyContainer)
+        }
+        scroll.addView(bodyHost)
         overlayContainer = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -172,12 +184,6 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
             setPadding(p, p, p, p + dp(4))
-            background = HiAirComponents.liquidGlassNavBackground(this@AppMainActivity)
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            layoutParams = params
         }
         val lang = rootShell.settingsViewModel.state.preferredLanguage
         dashboardButton = V2Ui.navButton(this, AndroidL10n.t("nav.dashboard", lang)) {
@@ -205,8 +211,17 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         navRow.addView(insightsButton)
         navRow.addView(symptomsButton)
         navRow.addView(settingsButton)
-        HiAirLiquidGlass.applyNavigationBlur(navRow)
-        root.addView(navRow)
+        navShell = HiAirLiquidGlass.wrapNavigationContent(
+            this,
+            HiAirComponents.liquidGlassNavBackground(this),
+            navRow,
+        ).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+        }
+        root.addView(navShell)
 
         screenRenderer = MainScreenRenderer(
             activity = this,
@@ -283,9 +298,25 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         )
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateResponsiveChrome()
+    }
+
+    private fun updateResponsiveChrome() {
+        HiAirResponsiveLayout.applyContentWidth(bodyContainer, this)
+        val widthDp = resources.configuration.screenWidthDp
+        val navMaxPx = V2Ui.dp(this, HiAirScreenMetrics.navBarMaxWidthDp.coerceAtMost(widthDp))
+        val navParams = navShell.layoutParams as LinearLayout.LayoutParams
+        navParams.width = minOf(navMaxPx, resources.displayMetrics.widthPixels)
+        navParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        navShell.layoutParams = navParams
+    }
+
     private fun renderCurrentScreen() {
         bodyContainer.removeAllViews()
         overlayContainer.removeAllViews()
+        updateResponsiveChrome()
         syncNavLabels()
         syncNavSelection()
         updateChromeVisibility()
@@ -339,14 +370,14 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             }
         }
         bodyContainer.contentDescription = marker
-        if (StoreScreenshotMode.targetScreen == "navigation" && navRow.visibility == android.view.View.VISIBLE) {
-            navRow.contentDescription = HiAirScreenMarkers.NAVIGATION
+        if (StoreScreenshotMode.targetScreen == "navigation" && navShell.visibility == android.view.View.VISIBLE) {
+            navShell.contentDescription = HiAirScreenMarkers.NAVIGATION
         }
     }
 
     private fun updateChromeVisibility() {
         val showNav = shouldShowMainNavigation() && !rootShell.settingsViewModel.state.showPaywall
-        navRow.visibility = if (showNav) android.view.View.VISIBLE else android.view.View.GONE
+        navShell.visibility = if (showNav) android.view.View.VISIBLE else android.view.View.GONE
         titleView.visibility = if (showNav) android.view.View.VISIBLE else android.view.View.GONE
     }
 
