@@ -76,6 +76,7 @@ xcodebuild \
   "TEST_RUNNER_HIAIR_SCREENSHOT_OUT=${OUT}" \
   "TEST_RUNNER_HIAIR_SHOT_LANGUAGE=${LANGUAGE}" \
   "TEST_RUNNER_HIAIR_SCREENSHOT_RUN_STAMP=${RUN_STAMP}" \
+  "TEST_RUNNER_HIAIR_CAPTURE_RUN_ID=${RUN_STAMP}" \
   "TEST_RUNNER_HIAIR_SHOT_ACCESSIBILITY=${ACCESSIBILITY_SIZE}" \
   "TEST_RUNNER_HIAIR_SHOT_REDUCE_MOTION=${REDUCE_MOTION}" \
   "TEST_RUNNER_HIAIR_SHOT_REDUCE_TRANSPARENCY=${REDUCE_TRANSPARENCY}" \
@@ -141,80 +142,63 @@ if build_status != 0:
     raise SystemExit(build_status)
 PY
 
-OBSERVED="${OUT}/observed-environment.json"
-python3 - <<'PY' "${OBSERVED}" "${LANGUAGE}" "${ACCESSIBILITY_SIZE}" "${REDUCE_MOTION}" "${REDUCE_TRANSPARENCY}" "${SIM_DEVICE_NAME}"
-import json, sys
-out_path, language, a11y, motion, transparency, device_name = sys.argv[1:]
-content_size = {
-    "accessibility3": "UICTContentSizeCategoryAccessibilityM",
-    "a11y3": "UICTContentSizeCategoryAccessibilityM",
-    "accessibility5": "UICTContentSizeCategoryAccessibilityXXXL",
-    "a11y5": "UICTContentSizeCategoryAccessibilityXXXL",
-}.get(a11y.lower(), "UICTContentSizeCategoryLarge")
-idiom = "pad" if "ipad" in device_name.lower() else "phone"
-h_class = "regular" if idiom == "pad" else "compact"
-payload = {
-    "locale": "ru_RU" if language.lower().startswith("ru") else "en_US",
-    "contentSizeCategory": content_size,
-    "reduceMotionEnabled": motion in ("1", "true", "yes"),
-    "reduceTransparencyEnabled": transparency in ("1", "true", "yes"),
-    "horizontalSizeClass": h_class,
-    "verticalSizeClass": "regular",
-    "userInterfaceIdiom": idiom,
-}
-with open(out_path, "w", encoding="utf-8") as handle:
-    json.dump(payload, handle, indent=2)
-    handle.write("\n")
-PY
+APP_OBSERVED="${OUT}/app-observed-environment.json"
+REQUESTED="${OUT}/requested-environment.json"
 
-if [[ ! -f "${OBSERVED}" ]]; then
-  echo "[screenshots] Missing observed-environment.json" >&2
+if [[ ! -f "${APP_OBSERVED}" ]]; then
+  echo "[screenshots] Missing app-observed-environment.json (app must write runtime proof)" >&2
+  exit 1
+fi
+if [[ ! -f "${REQUESTED}" ]]; then
+  echo "[screenshots] Missing requested-environment.json from UI test" >&2
   exit 1
 fi
 
-python3 - <<'PY' "${OBSERVED}" "${ACCESSIBILITY_SIZE}" "${REDUCE_MOTION}" "${REDUCE_TRANSPARENCY}" "${LANGUAGE}"
+python3 - <<'PY' "${APP_OBSERVED}" "${REQUESTED}" "${ACCESSIBILITY_SIZE}" "${REDUCE_MOTION}" "${REDUCE_TRANSPARENCY}" "${LANGUAGE}" "${RUN_STAMP}"
 import json, sys
-observed_path, req_a11y, req_motion, req_transparency, req_lang = sys.argv[1:]
-with open(observed_path, encoding="utf-8") as handle:
+app_path, req_path, req_a11y, req_motion, req_transparency, req_lang, run_stamp = sys.argv[1:]
+with open(app_path, encoding="utf-8") as handle:
     observed = json.load(handle)
-
-def norm_motion(v):
-    return v in ("1", "true", "yes")
-
-def norm_transparency(v):
-    return v in ("1", "true", "yes")
+with open(req_path, encoding="utf-8") as handle:
+    requested = json.load(handle)
 
 errors = []
-if req_lang and not observed.get("locale", "").lower().startswith(req_lang.lower()[:2]):
+if observed.get("captureRunId") != run_stamp:
+    errors.append(f"captureRunId mismatch app={observed.get('captureRunId')} expected={run_stamp}")
+if requested.get("captureRunId") != run_stamp:
+    errors.append(f"requested captureRunId mismatch")
+
+if req_lang and not str(observed.get("locale", "")).lower().startswith(req_lang.lower()[:2]):
     errors.append(f"locale expected prefix {req_lang}, got {observed.get('locale')}")
 
-if req_a11y == "accessibility3":
-    if "AccessibilityM" not in observed.get("contentSizeCategory", ""):
+if req_a11y in ("accessibility3", "a11y3"):
+    if "AccessibilityM" not in str(observed.get("contentSizeCategory", "")):
         errors.append(f"contentSizeCategory expected AccessibilityM, got {observed.get('contentSizeCategory')}")
-elif req_a11y == "accessibility5":
-    if "AccessibilityXXXL" not in observed.get("contentSizeCategory", ""):
+elif req_a11y in ("accessibility5", "a11y5"):
+    if "AccessibilityXXXL" not in str(observed.get("contentSizeCategory", "")):
         errors.append(f"contentSizeCategory expected AccessibilityXXXL, got {observed.get('contentSizeCategory')}")
 
 if req_motion not in ("system", ""):
-    want = norm_motion(req_motion)
+    want = req_motion in ("1", "true", "yes")
     if observed.get("reduceMotionEnabled") != want:
         errors.append(f"reduceMotion requested={req_motion} observed={observed.get('reduceMotionEnabled')}")
 
 if req_transparency not in ("system", ""):
-    want = norm_transparency(req_transparency)
+    want = req_transparency in ("1", "true", "yes")
     if observed.get("reduceTransparencyEnabled") != want:
         errors.append(f"reduceTransparency requested={req_transparency} observed={observed.get('reduceTransparencyEnabled')}")
 
 if errors:
-    raise SystemExit("[screenshots] Observed environment mismatch:\n" + "\n".join(errors))
-print("[screenshots] observed environment validated")
+    raise SystemExit("[screenshots] App observed environment mismatch:\n" + "\n".join(errors))
+print("[screenshots] app-observed-environment validated against requested")
 PY
 
 python3 - <<'PY' \
   "${MANIFEST}" "${OUT}" "${DEST}" "${LANGUAGE}" \
   "${ACCESSIBILITY_SIZE}" "${REDUCE_MOTION}" "${REDUCE_TRANSPARENCY}" \
   "${SOURCE_TREE_JSON}" "${RUN_STAMP}" "${BUILD_STATUS}" \
-  "${PERSISTENT_RESULT}" "${SIM_UDID}" "${SIM_DEVICE_NAME}" "${SIM_RUNTIME_ID}" "${SIM_RUNTIME_VER}" "${OBSERVED}"
+  "${PERSISTENT_RESULT}" "${SIM_UDID}" "${SIM_DEVICE_NAME}" "${SIM_RUNTIME_ID}" "${SIM_RUNTIME_VER}" \
+  "${APP_OBSERVED}" "${REQUESTED}"
 import hashlib, json, os, sys
 from datetime import datetime, timezone
 
@@ -222,12 +206,14 @@ from datetime import datetime, timezone
     manifest_path, out_dir, destination, language,
     req_a11y, req_motion, req_transparency,
     source_tree_json, run_stamp, build_status,
-    result_bundle, sim_udid, sim_name, runtime_id, runtime_ver, observed_path,
+    result_bundle, sim_udid, sim_name, runtime_id, runtime_ver, app_observed_path, requested_path,
 ) = sys.argv[1:]
 
 source_tree = json.loads(source_tree_json)
-with open(observed_path, encoding="utf-8") as handle:
-    observed = json.load(handle)
+with open(app_observed_path, encoding="utf-8") as handle:
+    app_observed = json.load(handle)
+with open(requested_path, encoding="utf-8") as handle:
+    requested_environment = json.load(handle)
 
 expected = [
     "01-auth.png","01b-onboarding.png","02-dashboard.png","03-planner.png","04-insights.png",
@@ -272,7 +258,8 @@ payload = {
         "requested_reduce_transparency": req_transparency,
         "xcodebuild_exit_status": int(build_status),
     },
-    "observed_environment": observed,
+    "requested_environment": requested_environment,
+    "app_observed_environment": app_observed,
     "output_dir": out_dir,
     "result_bundle": result_bundle,
     "result_bundle_sha256": xcresult_sha256,

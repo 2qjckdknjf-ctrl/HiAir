@@ -8,7 +8,8 @@ final class StoreScreenshotTests: XCTestCase {
         let env = ProcessInfo.processInfo.environment
         let runStamp = env["HIAIR_SCREENSHOT_RUN_STAMP"]
             ?? env["TEST_RUNNER_HIAIR_SCREENSHOT_RUN_STAMP"]
-        if let runStamp, !runStamp.isEmpty {
+            ?? UUID().uuidString
+        if !runStamp.isEmpty {
             UserDefaults.standard.set(runStamp, forKey: "HIAIR_SCREENSHOT_RUN_STAMP")
         }
         let outPath = env["HIAIR_SCREENSHOT_OUT"]
@@ -21,6 +22,8 @@ final class StoreScreenshotTests: XCTestCase {
         let shotEnv: [String: String] = [
             "HIAIR_REPORT_SHOT_ENV": "1",
             "HIAIR_SCREENSHOT_OUT": outPath,
+            "HIAIR_CAPTURE_RUN_ID": runStamp,
+            "TEST_RUNNER_HIAIR_CAPTURE_RUN_ID": runStamp,
         ]
 
         // 1) Auth / marketing entry
@@ -112,39 +115,57 @@ final class StoreScreenshotTests: XCTestCase {
             }
         }
 
-        try validateObservedEnvironment(outURL: outURL, language: language)
+        try validateObservedEnvironment(outURL: outURL, language: language, runId: runStamp)
     }
 
-    private func validateObservedEnvironment(outURL: URL, language: String) throws {
-        let observedURL = outURL.appendingPathComponent("observed-environment.json")
+    private func validateObservedEnvironment(outURL: URL, language: String, runId: String) throws {
+        let requestedURL = outURL.appendingPathComponent("requested-environment.json")
         let env = ProcessInfo.processInfo.environment
         let a11y = env["HIAIR_SHOT_ACCESSIBILITY"] ?? env["TEST_RUNNER_HIAIR_SHOT_ACCESSIBILITY"] ?? "standard"
         let motion = env["HIAIR_SHOT_REDUCE_MOTION"] ?? env["TEST_RUNNER_HIAIR_SHOT_REDUCE_MOTION"] ?? "system"
         let transparency = env["HIAIR_SHOT_REDUCE_TRANSPARENCY"] ?? env["TEST_RUNNER_HIAIR_SHOT_REDUCE_TRANSPARENCY"] ?? "system"
-        let contentSize: String = switch a11y.lowercased() {
-        case "accessibility3", "a11y3": "UICTContentSizeCategoryAccessibilityM"
-        case "accessibility5", "a11y5": "UICTContentSizeCategoryAccessibilityXXXL"
-        default: "UICTContentSizeCategoryLarge"
-        }
-        let snapshot: [String: Any] = [
-            "locale": language.lowercased().hasPrefix("ru") ? "ru_RU" : "en_US",
-            "contentSizeCategory": contentSize,
-            "reduceMotionEnabled": motion == "1" || motion.lowercased() == "true",
-            "reduceTransparencyEnabled": transparency == "1" || transparency.lowercased() == "true",
-            "horizontalSizeClass": UIDevice.current.userInterfaceIdiom == .pad ? "regular" : "compact",
-            "verticalSizeClass": "regular",
-            "userInterfaceIdiom": UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone",
+        let requested: [String: Any] = [
+            "captureRunId": runId,
+            "language": language,
+            "requestedAccessibilityTextSize": a11y,
+            "requestedReduceMotion": motion,
+            "requestedReduceTransparency": transparency,
         ]
-        let data = try JSONSerialization.data(withJSONObject: snapshot, options: [.prettyPrinted])
-        try data.write(to: observedURL, options: .atomic)
-        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
-        attachment.name = "observed-environment"
+        let requestedData = try JSONSerialization.data(withJSONObject: requested, options: [.prettyPrinted])
+        try requestedData.write(to: requestedURL, options: .atomic)
+
+        let observedURL = outURL.appendingPathComponent("app-observed-environment.json")
+        for _ in 0..<30 {
+            if FileManager.default.fileExists(atPath: observedURL.path) { break }
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: observedURL.path),
+            "App must write app-observed-environment.json from runtime"
+        )
+        let observedData = try Data(contentsOf: observedURL)
+        let attachment = XCTAttachment(data: observedData, uniformTypeIdentifier: "public.json")
+        attachment.name = "app-observed-environment"
         attachment.lifetime = .keepAlways
         add(attachment)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        XCTAssertNotNil(json)
-        if let locale = json?["locale"] as? String {
+
+        let observed = try JSONSerialization.jsonObject(with: observedData) as? [String: Any]
+        XCTAssertEqual(observed?["captureRunId"] as? String, runId)
+        if let locale = observed?["locale"] as? String {
             XCTAssertTrue(locale.lowercased().hasPrefix(String(language.prefix(2)).lowercased()), "Unexpected locale \(locale)")
+        }
+        if a11y == "accessibility3" || a11y == "a11y3" {
+            let cat = observed?["contentSizeCategory"] as? String ?? ""
+            XCTAssertTrue(cat.contains("AccessibilityM"), "Expected AccessibilityM got \(cat)")
+        } else if a11y == "accessibility5" || a11y == "a11y5" {
+            let cat = observed?["contentSizeCategory"] as? String ?? ""
+            XCTAssertTrue(cat.contains("AccessibilityXXXL"), "Expected AccessibilityXXXL got \(cat)")
+        }
+        if motion == "1" || motion.lowercased() == "true" {
+            XCTAssertEqual(observed?["reduceMotionEnabled"] as? Bool, true)
+        }
+        if transparency == "1" || transparency.lowercased() == "true" {
+            XCTAssertEqual(observed?["reduceTransparencyEnabled"] as? Bool, true)
         }
     }
 
