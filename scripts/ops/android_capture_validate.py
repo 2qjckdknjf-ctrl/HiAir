@@ -35,6 +35,7 @@ ERROR_HINTS = (
 )
 
 RAW_KEY = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
+SCREEN_MARKER = re.compile(r"^screen\.[a-z]+\.root$")
 
 
 @dataclass
@@ -110,8 +111,14 @@ def validate_hierarchy(
             errors.append(f"crash dialog pattern: {pat.pattern}")
 
     lower_joined = joined.lower()
-    if any(hint in lower_joined for hint in LAUNCHER_HINTS):
-        errors.append("launcher UI detected in hierarchy")
+    for node in iter_nodes(root):
+        pkg = node.attrib.get("package", "")
+        if pkg and any(hint in pkg for hint in LAUNCHER_HINTS):
+            errors.append(f"launcher UI detected in hierarchy package={pkg}")
+            break
+    if not any("launcher UI" in e for e in errors):
+        if any(hint in lower_joined for hint in LAUNCHER_HINTS):
+            errors.append("launcher UI detected in hierarchy")
 
     if not allow_loading:
         for hint in ERROR_HINTS:
@@ -119,6 +126,8 @@ def validate_hierarchy(
                 errors.append(f"error/loading UI detected: {hint}")
 
     for text in collect_visible_text(root):
+        if SCREEN_MARKER.match(text):
+            continue
         if RAW_KEY.match(text) and not text.startswith("com."):
             errors.append(f"raw localization key visible: {text}")
             break

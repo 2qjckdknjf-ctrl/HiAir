@@ -38,6 +38,14 @@ object ScreenshotEnvironmentReporter {
             .put("versionName", BuildConfig.VERSION_NAME)
             .put("versionCode", BuildConfig.VERSION_CODE)
             .put("targetScreen", StoreScreenshotMode.targetScreen ?: JSONObject.NULL)
+            .put(
+                "reduceMotion",
+                android.provider.Settings.Global.getFloat(
+                    context.contentResolver,
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1f,
+                ) == 0f,
+            )
         target.writeText(payload.toString(2) + "\n")
     }
 }
