@@ -36,7 +36,7 @@ else:
     udid = dev["udid"]
     name = dev["name"]
 
-info = simctl_json("list", "devices")
+info = simctl_json("devices")
 runtime_id = None
 runtime_version = None
 device_name = name
