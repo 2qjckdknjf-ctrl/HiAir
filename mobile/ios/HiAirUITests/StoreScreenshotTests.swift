@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Captures App Store product screenshots into `HIAIR_SCREENSHOT_OUT` (PNG files).
 /// Launch with UITEST_STORE_SHOTS=1 so the app installs rich mock API payloads.

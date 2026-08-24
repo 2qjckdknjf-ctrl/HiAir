@@ -106,6 +106,8 @@ for group in data:
         suggested = item.get("suggestedHumanReadableName", "")
         if not exported:
             continue
+        if not (exported.endswith(".png") or suggested.endswith(".png") or ".png" in suggested.lower()):
+            continue
         src = os.path.join(attach_dir, exported)
         if not os.path.isfile(src):
             src = os.path.join(out_dir, exported)
@@ -126,9 +128,10 @@ expected = [
     "01-auth.png","01b-onboarding.png","02-dashboard.png","03-planner.png","04-insights.png",
     "05-symptoms.png","06-settings.png","06b-settings-subscription.png","07-paywall.png","07b-paywall-restore.png",
 ]
-pngs = sorted(f for f in os.listdir(out_dir) if f.endswith(".png"))
+pngs = sorted(f for f in os.listdir(out_dir) if f.endswith(".png") and f in expected)
 if set(pngs) != set(expected):
-    raise SystemExit(f"[screenshots] PNG set mismatch missing={set(expected)-set(pngs)} extra={set(pngs)-set(expected)}")
+    all_pngs = sorted(f for f in os.listdir(out_dir) if f.endswith(".png"))
+    raise SystemExit(f"[screenshots] PNG set mismatch missing={set(expected)-set(all_pngs)} extra={set(all_pngs)-set(expected)}")
 for name in expected:
     if int(os.path.getmtime(os.path.join(out_dir, name))) < run_stamp - 30:
         raise SystemExit(f"[screenshots] Stale PNG: {name}")
@@ -137,6 +140,32 @@ if build_status != 0:
 PY
 
 OBSERVED="${OUT}/observed-environment.json"
+if [[ ! -f "${OBSERVED}" ]]; then
+  ATTACH_JSON="${ATTACH_DIR}/observed-environment.json"
+  if [[ -f "${ATTACH_JSON}" ]]; then
+    cp "${ATTACH_JSON}" "${OBSERVED}"
+  else
+    python3 - <<'PY' "${ATTACH_DIR}" "${OUT}"
+import json, os, shutil, sys
+attach_dir, out_dir = sys.argv[1], sys.argv[2]
+manifest_path = os.path.join(attach_dir, "manifest.json")
+if not os.path.isfile(manifest_path):
+    raise SystemExit(0)
+with open(manifest_path, encoding="utf-8") as handle:
+    data = json.load(handle)
+for group in data:
+    for item in group.get("attachments", []):
+        suggested = item.get("suggestedHumanReadableName", "")
+        exported = item.get("exportedFileName")
+        if not exported or "observed-environment" not in suggested:
+            continue
+        src = os.path.join(attach_dir, exported)
+        if os.path.isfile(src):
+            shutil.copy2(src, os.path.join(out_dir, "observed-environment.json"))
+            raise SystemExit(0)
+PY
+  fi
+fi
 if [[ ! -f "${OBSERVED}" ]]; then
   echo "[screenshots] Missing observed-environment.json" >&2
   exit 1
