@@ -1,37 +1,44 @@
 # Screenshot & Accessibility Matrix — 2026-08-24
 
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**Base commit:** `ab972294` (worktree dirty — see evidence manifests for diff identity)  
-**Legend:** PASS = verified locally; FAIL = defect open; BLOCKED = not locally executable
+**Base commit:** `09b7823e` (post-hardening; evidence under `.evidence/` is generated output)  
+**Legend:** PASS = verified locally; FAIL = defect; PENDING = runnable but not executed; BLOCKED = attempted and impossible (missing dependency)
 
-## iOS — iPhone 17 Pro Simulator
+## iOS — Simulator matrix
 
 | Cell | Status | Evidence | Notes |
 |------|--------|----------|-------|
-| EN / standard / phone | PASS | `.evidence/ios-screenshots/2026-08-24-hardening-v4/` | Store suite 10/10 PNG + manifest |
-| EN / standard / paywall scroll | PASS | PaywallScrollSafeAreaUITests | NavigationStack toolbar; restore hittable |
-| EN / standard / tab clearance | PASS | MainTabScrollHittabilityUITests | Geometry vs `tab.bar` all 5 tabs |
-| RU / standard / phone | BLOCKED | — | Capture script supports `HIAIR_SHOT_LANGUAGE=ru`; not run in this pass |
-| accessibility3 / phone | BLOCKED | — | Requires Dynamic Type launch env |
-| accessibility5 / phone | BLOCKED | — | Requires Dynamic Type launch env |
-| Reduce Transparency | BLOCKED | — | Requires `-UIAccessibilityReduceTransparencyEnabled` |
-| Reduce Motion | BLOCKED | — | Requires `-UIAccessibilityReduceMotionEnabled` |
-| iPad 13" | BLOCKED | — | IPadSandboxPurchaseUITests pass on phone sim; iPad sim capture not run |
-| loading / empty / error / offline | BLOCKED | — | Matrix states need dedicated UITest routes |
+| iPhone 16e / EN / standard | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone16e-en-v2/` | UDID `61119C43…`, iOS 26.2, 10/10 PNG + manifest |
+| iPhone 17 Pro / EN / standard | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-en-v2/` | UDID resolved via `resolve_ios_simulator.sh` |
+| iPhone 17 Pro / RU / standard | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-ru-v4/` | `AppleLanguages=(ru)` + host observed-env gate |
+| iPad Pro 13" (M5) / EN / standard | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-ipad-pro13-en/` | `userInterfaceIdiom=pad`, regular width |
+| iPad Pro 13" (M5) / RU / standard | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-ipad-pro13-ru/` | |
+| accessibility3 / iPhone 17 Pro | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-a11y3-v2/` | `-UIPreferredContentSizeCategoryName=AccessibilityM` |
+| accessibility5 / iPhone 17 Pro | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-a11y5-v2/` | AccessibilityXXXL |
+| Reduce Motion | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-reduce-motion-v2/` | Launch arg + observed gate |
+| Reduce Transparency | PASS | `.evidence/ios-screenshots/2026-08-24-matrix-iphone17pro-reduce-transparency-v2/` | Launch arg + observed gate |
+| loading / empty / error / offline | PASS | `HiAirUITests/MatrixStateScreenshotTests` (5/5 green) | PNGs under `/tmp` matrix dirs during test run |
+| account deletion recovery | PASS | `MatrixStateScreenshotTests/testCaptureAccountDeletionRecovery` | Settings partial-deletion detail seeded |
+| onboarding / paywall / Settings | PASS | Store suite cells in each capture dir | Included in 10-PNG contract |
+| Paywall scroll / tab clearance | PASS | `PaywallScrollSafeAreaUITests`, `MainTabScrollHittabilityUITests` | Post fade/paywall fix |
+| TalkBack manual pass | PENDING | — | Automatic hierarchy only; manual TalkBack walk not run |
 
 ## Android
 
 | Cell | Status | Evidence | Notes |
 |------|--------|----------|-------|
-| EN / phone / debug | PARTIAL | assembleDebug + lint + unit tests | Bottom nav + paywall billing fixes only |
-| Deep Glass parity (8 screens) | FAIL | — | Not complete; Paywall + nav shell only |
-| tablet reflow | BLOCKED | — | No fresh tablet screenshots |
-| TalkBack / a11y matrix | BLOCKED | — | Manual/device automation not run |
+| EN / phone / 8 screens | PASS | `.evidence/android-screenshots/2026-08-24-phone-en/` | DEBUG mock seed; `android-34` AVD `hiair-qa-phone` |
+| EN / tablet / 8 screens | PASS | `.evidence/android-screenshots/2026-08-24-tablet-en/` | AVD `hiair-qa-tablet` |
+| Deep Glass parity (8 screens) | PARTIAL | screenshots above | Glass cards on dashboard; nav blur; full renderer sweep incomplete |
+| RU locale captures | PENDING | — | Pipeline supports `HIAIR_SHOT_LANGUAGE=ru`; not re-shot this pass |
+| Espresso bootstrap smoke | PASS | `StoreScreenshotInstrumentedTest` | Launches dashboard under store-shot intent |
+| TalkBack manual | PENDING | — | uiautomator hierarchy not automated this pass |
 
 ## Release verification
 
 | Gate | Status | Evidence |
 |------|--------|----------|
-| iOS Release build | PASS | `scripts/ops/verify_ios_release_leaks.sh` |
-| Operator UI in Release | PASS (UI) | `#if DEBUG` guards; l10n strings WARN in binary |
-| Android release bundle | PASS | `bundleRelease` unsigned dev signing |
+| iOS Release build | PASS | `scripts/ops/verify_ios_release_leaks.sh` → `.evidence/ios-release-verify/20260824-151937/` |
+| iOS unit + UI | PASS | 213 unit + 27 UI (incl. matrix state) |
+| Backend pytest | PASS | ~76% cov, 70% gate |
+| Android lint/unit/debug/release/bundle | PASS | `assembleDebug`, `bundleRelease`, `lint`, `test` |

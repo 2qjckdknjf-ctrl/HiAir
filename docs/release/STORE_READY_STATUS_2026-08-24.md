@@ -2,33 +2,33 @@
 
 **Verdict:** `NO-GO / HARDENING IN PROGRESS`  
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**RC source SHA (clean):** `ef82878755910c1e03cf7ccf3a9106df840c7e3c`
+**HEAD:** `09b7823e` (pre-truth-doc commit; see RC manifest after doc commit)  
+**RC source SHA:** set only when `source_tree_reproducible=true` (tracked clean, no untracked source inputs)
 
-## Closed in this pass
+## Closed this sprint
 
-- iOS Deep Glass V4 main tabs + floating tab bar fade/clearance
-- Planner independent forecast/activity state machine
-- Paywall NavigationStack chrome, ASC length identifiers, scroll regression test
-- Settings operator copy removed (EN/RU); DEBUG-only operator UI
-- Screenshot pipeline: exact 10 PNG names, empty-dir guard, provenance manifest, contract test
-- Release build verification script (DEBUG UI stripped; operator l10n WARN in binary)
-- Full iOS unit (213) + UI (20) regression green
-- Android paywall billing gates, legal URL config, bottom nav, subtitle fix
-- Reference PNGs + visual comparison register
+- **Provenance contract:** `manifest_generated_from_sha`, `manifest_file_sha256`, `.sha256` sidecar; `manifest_containing_commit_sha` documented as external-only; clean-tree fields (`tracked_worktree_clean`, `untracked_source_inputs`, `untracked_evidence_outputs`, `source_tree_reproducible`)
+- **iOS capture pipeline:** UDID-resolved destinations, observed-environment gating, matrix runner, state screenshot tests
+- **iOS visual:** softer tab-bar fade; paywall atmospheric background restored; service-period copy
+- **iOS matrix:** iPhone 16e/17 Pro EN/RU, iPad Pro 13 EN/RU, a11y3/5, Reduce Motion/Transparency, dashboard state cells
+- **Android:** DEBUG store-shot mock seed, phone/tablet 8-screen adb pipeline, glass dashboard cards + nav blur
+- **Gates:** backend pytest, iOS 213 unit + full UI suite, Release verify (WARN operator l10n strings), Android lint/test/bundle
 
-## Open / BLOCKED
+## Remaining before STORE SANDBOX READY
 
-- **Android Phase 4 parity** — 8 screens + nav shell Deep Glass incomplete
-- **Full iOS/Android a11y matrix** — RU, a11y3/5, Reduce Motion/Transparency, iPad captures
-- **Operator l10n in Release binary** — UI unreachable; optional DEBUG-only string table split
-- **ASC/Play signed upload artifacts** — local builds use development signing only
-- **Physical device / Sandbox IAP certification** — external owner verification
-- **Truth-alignment operator runbooks** — partial; RC manifest in repo pending final commit
+- Physical-device ASC Sandbox IAP (external)
+- Production signing + ASC/Play upload/submit (external)
+- Production deploy/secrets rotation (external)
+- Android Deep Glass full renderer parity + RU tablet/locale matrix captures (local, PENDING)
+- Manual TalkBack / VoiceOver walk (local, PENDING)
+- Fresh canonical visual comparison sign-off after tab/paywall fixes (local)
+
+## Not external blockers
+
+Android parity screenshots, simulator matrix, and provenance tooling — **local work**, not owner blockers.
 
 ## Owner actions
 
-1. Review `.evidence/ios-screenshots/2026-08-24-hardening-v4-final/` captures
-2. Complete Android screen parity sprint
-3. Run locale/a11y/iPad matrix captures
-4. ASC Sandbox purchase on physical device / TestFlight when ready
-5. Explicit «можно сабмитить» before submit/publish
+1. Review `.evidence/ios-screenshots/2026-08-24-matrix-*` and Android `.evidence/android-screenshots/*`
+2. Physical Sandbox IAP on device when ready
+3. Explicit «можно сабмитить» before ASC/Play submit
