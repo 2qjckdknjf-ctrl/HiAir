@@ -18,6 +18,7 @@ enum HiAirAccessibilityID {
     }
 
     enum Tabs {
+        static let bar = "tab.bar"
         static let dashboard = "tab.dashboard"
         static let planner = "tab.planner"
         static let insights = "tab.insights"
@@ -33,6 +34,7 @@ enum HiAirAccessibilityID {
         static let locationOpenSettings = "dashboard.location_open_settings"
         static let refresh = "dashboard.refresh"
         static let placeChip = "dashboard.place_chip"
+        static let logSymptoms = "dashboard.log_symptoms"
     }
 
     enum Planner {
@@ -40,6 +42,12 @@ enum HiAirAccessibilityID {
         static let createProfileCTA = "planner.create_profile"
         static let refresh = "planner.refresh"
         static let status = "planner.status"
+        static let markActivityPlanned = "planner.activity.mark_planned"
+    }
+
+    enum Symptoms {
+        static let root = "symptoms.root"
+        static let addCustom = "symptoms.add_custom"
     }
 
     enum Insights {

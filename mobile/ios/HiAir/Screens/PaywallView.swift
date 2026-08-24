@@ -57,9 +57,9 @@ private struct PaywallContent: View {
     }
 
     var body: some View {
-        NavigationStack {
-            HiAirAdaptiveLayout { width, _ in
-            ScrollView {
+        HiAirAdaptiveLayout { width, _ in
+            NavigationStack {
+                ScrollView {
                     VStack(alignment: .leading, spacing: HiAirSpacing.lg) {
                         HiAirBrandHeader(
                             title: session.l("paywall.title"),
@@ -69,7 +69,7 @@ private struct PaywallContent: View {
                             compact: false
                         )
 
-                        requiredSubscriptionFacts
+                        benefitsCard
                         catalogContent
 
                         Button(session.l("paywall.restore")) {
@@ -77,19 +77,23 @@ private struct PaywallContent: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(purchaseBusy)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Paywall.restore)
 
                         Text(session.l("paywall.legal_auto_renew"))
                             .font(HiAirTypography.caption)
                             .foregroundStyle(HiAirColors.Text.secondary)
+                            .accessibilityIdentifier(HiAirAccessibilityID.Paywall.legalCopy)
+
+                        HStack(spacing: HiAirSpacing.md) {
+                            policyButton(session.l("paywall.terms"), url: termsURL)
+                            policyButton(session.l("paywall.privacy"), url: privacyURL)
+                        }
 
                         Button(session.l("settings.manage_subscription")) {
                             Task { await subscriptionService.showManageSubscriptions() }
                         }
                         .font(HiAirTypography.bodyMD)
-
-                        comparisonCard
-                        examplesCard
-                        benefitsCard
+                        .foregroundStyle(HiAirColors.Spectrum.cyan)
 
                         Text(session.l("paywall.disclaimer"))
                             .font(HiAirTypography.caption)
@@ -104,16 +108,22 @@ private struct PaywallContent: View {
                     .hiAirContentWidth(for: width)
                     .hiAirScreenPadding(for: width)
                     .padding(.bottom, HiAirSpacing.xl)
-            }
-            .navigationTitle(session.l("paywall.nav_title"))
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(session.l("common.close")) { dismiss() }
-                        .disabled(purchaseBusy)
-                        .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
                 }
+                .navigationTitle(session.l("paywall.nav_title"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(session.l("common.close")) { dismiss() }
+                            .font(HiAirTypography.bodyMD.weight(.semibold))
+                            .foregroundStyle(HiAirColors.Spectrum.cyan)
+                            .disabled(purchaseBusy)
+                            .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
+                    }
+                }
+                .toolbarBackground(HiAirColors.Surface.bg0.opacity(0.96), for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbar(.visible, for: .navigationBar)
             }
-            .interactiveDismissDisabled(purchaseBusy)
             .onAppear {
                 SubscriptionDiagnostics.log("paywall_appeared", resultType: "\(subscriptionService.catalogState)")
                 subscriptionService.loadProducts()
@@ -121,8 +131,6 @@ private struct PaywallContent: View {
             .onChange(of: session.isPremium) { isPremium in
                 if isPremium { dismiss() }
             }
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .sheet(isPresented: Binding(
                 get: { safariURL != nil },
                 set: { if !$0 { safariURL = nil } }
@@ -131,7 +139,6 @@ private struct PaywallContent: View {
                     PaywallSafariView(url: safariURL)
                         .ignoresSafeArea()
                 }
-            }
             }
         }
         .preferredColorScheme(.dark)
@@ -164,7 +171,8 @@ private struct PaywallContent: View {
                 policyButton(session.l("paywall.privacy"), url: privacyURL)
             }
         }
-        .v2Card()
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Spectrum.cyan)
         .accessibilityIdentifier(HiAirAccessibilityID.Paywall.legalCopy)
     }
 
@@ -225,7 +233,8 @@ private struct PaywallContent: View {
             compareRow(free: false, text: session.l("paywall.compare.premium.ai"))
             compareRow(free: false, text: session.l("paywall.compare.premium.reports"))
         }
-        .v2Card()
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .passive)
     }
 
     private var examplesCard: some View {
@@ -235,7 +244,8 @@ private struct PaywallContent: View {
             exampleBlock(title: session.l("paywall.examples.insights.title"), body: session.l("paywall.examples.insights.body"))
             exampleBlock(title: session.l("paywall.examples.forecast.title"), body: session.l("paywall.examples.forecast.body"))
         }
-        .v2Card()
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .passive)
     }
 
     private var benefitsCard: some View {
@@ -246,7 +256,8 @@ private struct PaywallContent: View {
             benefitRow(session.l("paywall.benefit.export"))
             benefitRow(session.l("paywall.benefit.insights"))
         }
-        .v2Card()
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .passive)
     }
 
     @ViewBuilder
@@ -287,7 +298,8 @@ private struct PaywallContent: View {
             .buttonStyle(HiAirGradientButtonStyle())
             .disabled(purchaseBusy || subscriptionService.isLoading)
         }
-        .v2Card()
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .passive)
     }
 
     private var failedCatalogBlock: some View {
@@ -305,7 +317,8 @@ private struct PaywallContent: View {
             .buttonStyle(HiAirGradientButtonStyle())
             .disabled(purchaseBusy || subscriptionService.isLoading)
         }
-        .v2Card()
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .passive)
     }
 
     @ViewBuilder
@@ -313,13 +326,12 @@ private struct PaywallContent: View {
         let isPurchasing = purchasingProductId == product.id
         let disabledReason = subscribeDisabledReason(for: product)
         let yearly = product.id == StoreProductIDs.yearly
-        let length = yearly ? session.l("paywall.length_year") : session.l("paywall.length_month")
 
         VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
             Text(planDisplayTitle(product: product, titleKey: titleKey))
                 .font(HiAirTypography.titleMD)
                 .foregroundStyle(HiAirColors.Text.primary)
-            Text(length)
+            Text(session.l(yearly ? "paywall.length_year" : "paywall.length_month"))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirColors.Text.secondary)
                 .accessibilityIdentifier(
@@ -335,6 +347,11 @@ private struct PaywallContent: View {
                         ? HiAirAccessibilityID.Paywall.priceYearly
                         : HiAirAccessibilityID.Paywall.priceMonthly
                 )
+            if let perMonth = yearlyPerMonthPrice(product) {
+                Text(String(format: session.l("paywall.price_per_month"), perMonth))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+            }
 
             Button {
                 handleSubscribeTap(product: product, disabledReason: disabledReason)
@@ -351,7 +368,7 @@ private struct PaywallContent: View {
             )
         }
         .padding()
-        .v2Card()
+        .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Spectrum.cyan)
     }
 
     private func compareRow(free: Bool, text: String) -> some View {

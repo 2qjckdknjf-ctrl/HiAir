@@ -185,16 +185,28 @@ final class TabNavigationUITests: XCTestCase {
     }
 
     func testPaywallOpenAndClose() throws {
-        let app = UITestLaunch.launch(clearProfile: false, extraEnvironment: [
-            "UITEST_PROFILE_ID": "profile-seed",
-            "UITEST_CLEAR_PROFILE": "0",
-        ])
+        let app = UITestLaunch.launch(
+            language: "en",
+            seedAuth: true,
+            seedLocation: true,
+            clearProfile: false,
+            skipOnboarding: true,
+            mockAPI: true,
+            extraEnvironment: [
+                "UITEST_STORE_SHOTS": "1",
+                "UITEST_PROFILE_ID": "profile-uitest-1",
+                "UITEST_EMAIL": "alex@hiair.io",
+                "UITEST_USER_ID": "uitest-paywall-close",
+            ]
+        )
+        _ = waitForIdentifier(app, "tab.settings", timeout: 12)
         tapHiAirTab(app, identifier: "tab.settings")
         let openPaywall = scrollToIdentifier(app, "settings.open_paywall")
         openPaywall.tap()
-        let closeQuery = app.descendants(matching: .any).matching(identifier: "paywall.close")
-        let close = closeQuery.element(boundBy: 0)
-        XCTAssertTrue(close.waitForExistence(timeout: 8), "Missing paywall.close")
+        _ = waitForIdentifier(app, "paywall.root", timeout: 12)
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        let close = app.descendants(matching: .any).matching(identifier: "paywall.close").firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 12), "Missing paywall.close")
         attachScreenshot(app, name: "30-paywall-open")
         close.tap()
         attachScreenshot(app, name: "31-paywall-closed")

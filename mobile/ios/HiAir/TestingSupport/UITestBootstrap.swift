@@ -208,6 +208,58 @@ enum UITestBootstrap {
         )
         UITestMockAPIProtocol.setRoute(
             method: "GET",
+            path: "/api/planner/activities",
+            response: .json(
+                200,
+                object: [
+                    "activities": [
+                        ["activity": "walking", "defaultDurationMinutes": 30, "defaultIntensity": "low", "outdoor": true],
+                        ["activity": "running", "defaultDurationMinutes": 45, "defaultIntensity": "high", "outdoor": true],
+                    ]
+                ]
+            )
+        )
+        UITestMockAPIProtocol.setRoute(
+            method: "POST",
+            path: "/api/planner/activity-plan",
+            response: .json(
+                200,
+                object: [
+                    "profileId": "profile-uitest-1",
+                    "activity": "walking",
+                    "intensity": "moderate",
+                    "durationMinutes": 45,
+                    "timezone": "Europe/Madrid",
+                    "forecastAvailable": true,
+                    "dataQuality": "complete",
+                    "freshness": "live",
+                    "sources": ["openmeteo"],
+                    "generatedAt": "2026-08-08T10:00:00Z",
+                    "hourly": [],
+                    "windows": [
+                        [
+                            "tier": "best",
+                            "start": "2026-08-08T07:00:00Z",
+                            "end": "2026-08-08T09:00:00Z",
+                            "score": 25,
+                            "confidence": 0.86,
+                            "reasonCodes": ["heat"],
+                        ],
+                        [
+                            "tier": "best",
+                            "start": "2026-08-08T18:00:00Z",
+                            "end": "2026-08-08T20:00:00Z",
+                            "score": 30,
+                            "confidence": 0.8,
+                            "reasonCodes": ["aqi"],
+                        ],
+                    ],
+                    "recommendedStart": "2026-08-08T07:00:00Z",
+                ]
+            )
+        )
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
             path: "/api/insights/personal-patterns",
             response: .json(
                 200,

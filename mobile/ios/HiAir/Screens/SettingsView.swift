@@ -129,6 +129,36 @@ final class SettingsViewModel: ObservableObject {
         return "\(max(years, 0))"
     }
 
+    var showsUserFacingStatus: Bool {
+        let trimmed = statusText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "-" { return false }
+        if trimmed.localizedCaseInsensitiveContains("observability") { return false }
+        if trimmed.localizedCaseInsensitiveContains("наблюда") { return false }
+        if isDeveloperOperatorStatus(trimmed) { return false }
+        return true
+    }
+
+    func isDeveloperOperatorStatus(_ text: String) -> Bool {
+        let keys = [
+            "settings.plans_loaded",
+            "settings.plans_load_failed",
+            "settings.subscription_loaded",
+            "settings.subscription_load_failed",
+            "settings.subscription_activated",
+            "settings.subscription_activate_failed",
+            "settings.subscription_canceled",
+            "settings.subscription_cancel_failed",
+            "settings.ai_request_failed",
+            "settings.ai_failed",
+        ]
+        for lang in ["en", "ru", "es", "it", "fr"] {
+            if keys.contains(where: { HiAirL10n.t($0, lang: lang) == text }) {
+                return true
+            }
+        }
+        return false
+    }
+
     func localizedSubscriptionStatus() -> String {
         switch subscriptionStatus.lowercased() {
         case "active":
@@ -980,8 +1010,17 @@ struct SettingsView: View {
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }
                     Toggle(session.l("settings.morning_briefing"), isOn: $viewModel.morningBriefingEnabled)
-                    TextField(session.l("settings.morning_briefing_time"), text: $viewModel.morningBriefingTime)
-                        .textFieldStyle(.roundedBorder)
+                    TextField(
+                        "",
+                        text: $viewModel.morningBriefingTime,
+                        prompt: Text(session.l("settings.morning_briefing_time"))
+                            .foregroundColor(HiAirColors.Text.secondary)
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .hiAirInputSurface()
+                    .foregroundStyle(HiAirColors.Text.primary)
+                    .keyboardType(.numbersAndPunctuation)
                     if viewModel.userId.isEmpty {
                         Text(session.l("settings.briefing_setup_hint"))
                             .font(AuroraTokens.Typography.caption)
@@ -1000,8 +1039,7 @@ struct SettingsView: View {
                     Stepper("\(session.l("settings.quiet_start")): \(viewModel.quietHoursStart):00", value: $viewModel.quietHoursStart, in: 0...23)
                     Stepper("\(session.l("settings.quiet_end")): \(viewModel.quietHoursEnd):00", value: $viewModel.quietHoursEnd, in: 0...23)
                 }
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .tint(HiAirV2Theme.accentStart)
+                .hiAirNativeFormChrome()
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -1037,6 +1075,7 @@ struct SettingsView: View {
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
+                .hiAirNativeFormChrome()
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -1061,9 +1100,11 @@ struct SettingsView: View {
                     }
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
-                    Text(viewModel.statusText)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if viewModel.showsUserFacingStatus {
+                        Text(viewModel.statusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
                 }
                 .v2Card()
 
@@ -1084,6 +1125,7 @@ struct SettingsView: View {
                     .buttonStyle(HiAirGradientButtonStyle())
                     .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
                     #if DEBUG
+                    if !UITestBootstrap.hidesDebugOperatorChrome {
                     DisclosureGroup(session.l("settings.subscription_dev")) {
                         Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
                             ForEach(viewModel.plans, id: \.planId) { plan in
@@ -1112,8 +1154,9 @@ struct SettingsView: View {
                         .buttonStyle(HiAirSecondaryButtonStyle())
                     }
                     .font(AuroraTokens.Typography.caption)
+                    }
                     #endif
-                    if !viewModel.statusText.isEmpty && viewModel.statusText != "-" {
+                    if viewModel.showsUserFacingStatus {
                         Text(viewModel.statusText)
                             .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
@@ -1123,6 +1166,7 @@ struct SettingsView: View {
                 .v2Card()
 
                 #if DEBUG
+                if !UITestBootstrap.hidesDebugOperatorChrome {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.ai_observability"))
                         .font(AuroraTokens.Typography.titleMD)
@@ -1207,6 +1251,7 @@ struct SettingsView: View {
                     }
                 }
                 .v2Card()
+                }
                 #endif
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -1498,7 +1543,7 @@ struct SettingsView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirScreenMetrics.floatingTabBarClearance)
+                .hiAirMainTabScrollContent()
             }
         }
         .hiAirPageBackground()
@@ -1527,27 +1572,34 @@ struct SettingsView: View {
             }
             Task { await session.refreshEntitlement() }
             #if DEBUG
-            if viewModel.plans.isEmpty {
-                Task { await viewModel.loadPlans() }
+            if !UITestBootstrap.hidesDebugOperatorChrome {
+                if viewModel.plans.isEmpty {
+                    Task { await viewModel.loadPlans() }
+                }
+                if viewModel.aiTrendPoints.isEmpty {
+                    viewModel.scheduleAISummaryRefresh(force: true)
+                }
             }
             #endif
-            if viewModel.aiTrendPoints.isEmpty {
-                viewModel.scheduleAISummaryRefresh(force: true)
-            }
         }
+        #if DEBUG
         .onChange(of: viewModel.aiSummaryHours) { _ in
+            guard !UITestBootstrap.hidesDebugOperatorChrome else { return }
             viewModel.scheduleAISummaryRefresh(force: true)
         }
         .onChange(of: viewModel.aiChartMetric) { _ in
+            guard !UITestBootstrap.hidesDebugOperatorChrome else { return }
             if viewModel.aiTrendPoints.isEmpty {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
         }
         .onChange(of: viewModel.aiChartMode) { _ in
+            guard !UITestBootstrap.hidesDebugOperatorChrome else { return }
             if viewModel.aiTrendPoints.isEmpty {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
         }
+        #endif
         .onChange(of: viewModel.pushAlertsEnabled) { enabled in
             session.markChecklistItem("notifications", done: enabled)
         }

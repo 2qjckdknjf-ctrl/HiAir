@@ -5,9 +5,14 @@ import XCTest
 final class StoreScreenshotTests: XCTestCase {
     func testCaptureStoreScreenshots() throws {
         let env = ProcessInfo.processInfo.environment
-        // Prefer TEST_RUNNER_HIAIR_SCREENSHOT_OUT from xcodebuild; keep absolute fallback for local runs.
+        let runStamp = env["HIAIR_SCREENSHOT_RUN_STAMP"]
+            ?? env["TEST_RUNNER_HIAIR_SCREENSHOT_RUN_STAMP"]
+        if let runStamp, !runStamp.isEmpty {
+            UserDefaults.standard.set(runStamp, forKey: "HIAIR_SCREENSHOT_RUN_STAMP")
+        }
         let outPath = env["HIAIR_SCREENSHOT_OUT"]
-            ?? "/Users/alex/Projects/HIAir-store-ready/docs/brand/store-assets/asc-screenshots/captured-iphone"
+            ?? env["TEST_RUNNER_HIAIR_SCREENSHOT_OUT"]
+            ?? "\(FileManager.default.temporaryDirectory.path)/hiair-store-screenshots"
         let outURL = URL(fileURLWithPath: outPath, isDirectory: true)
         try FileManager.default.createDirectory(at: outURL, withIntermediateDirectories: true)
 
@@ -94,11 +99,19 @@ final class StoreScreenshotTests: XCTestCase {
                 paywall.tap()
                 _ = waitForIdentifier(app, "paywall.root", timeout: 8)
                 sleepBriefly(6.0)
+                assertNoRawPaywallKeys(in: app)
                 try savePNG(app, to: outURL.appendingPathComponent("07-paywall.png"))
                 app.swipeUp()
                 sleepBriefly(0.8)
                 try savePNG(app, to: outURL.appendingPathComponent("07b-paywall-restore.png"))
             }
+        }
+    }
+
+    private func assertNoRawPaywallKeys(in app: XCUIApplication) {
+        for element in app.staticTexts.allElementsBoundByIndex {
+            let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
+            XCTAssertFalse(label.hasPrefix("paywall."), "Raw paywall localization key visible: \(label)")
         }
     }
 
