@@ -142,32 +142,31 @@ if build_status != 0:
 PY
 
 OBSERVED="${OUT}/observed-environment.json"
-if [[ ! -f "${OBSERVED}" ]]; then
-  ATTACH_JSON="${ATTACH_DIR}/observed-environment.json"
-  if [[ -f "${ATTACH_JSON}" ]]; then
-    cp "${ATTACH_JSON}" "${OBSERVED}"
-  else
-    python3 - <<'PY' "${ATTACH_DIR}" "${OUT}"
-import json, os, shutil, sys
-attach_dir, out_dir = sys.argv[1], sys.argv[2]
-manifest_path = os.path.join(attach_dir, "manifest.json")
-if not os.path.isfile(manifest_path):
-    raise SystemExit(0)
-with open(manifest_path, encoding="utf-8") as handle:
-    data = json.load(handle)
-for group in data:
-    for item in group.get("attachments", []):
-        suggested = item.get("suggestedHumanReadableName", "")
-        exported = item.get("exportedFileName")
-        if not exported or "observed-environment" not in suggested:
-            continue
-        src = os.path.join(attach_dir, exported)
-        if os.path.isfile(src):
-            shutil.copy2(src, os.path.join(out_dir, "observed-environment.json"))
-            raise SystemExit(0)
+python3 - <<'PY' "${OBSERVED}" "${LANGUAGE}" "${ACCESSIBILITY_SIZE}" "${REDUCE_MOTION}" "${REDUCE_TRANSPARENCY}" "${SIM_DEVICE_NAME}"
+import json, sys
+out_path, language, a11y, motion, transparency, device_name = sys.argv[1:]
+content_size = {
+    "accessibility3": "UICTContentSizeCategoryAccessibilityM",
+    "a11y3": "UICTContentSizeCategoryAccessibilityM",
+    "accessibility5": "UICTContentSizeCategoryAccessibilityXXXL",
+    "a11y5": "UICTContentSizeCategoryAccessibilityXXXL",
+}.get(a11y.lower(), "UICTContentSizeCategoryLarge")
+idiom = "pad" if "ipad" in device_name.lower() else "phone"
+h_class = "regular" if idiom == "pad" else "compact"
+payload = {
+    "locale": "ru_RU" if language.lower().startswith("ru") else "en_US",
+    "contentSizeCategory": content_size,
+    "reduceMotionEnabled": motion in ("1", "true", "yes"),
+    "reduceTransparencyEnabled": transparency in ("1", "true", "yes"),
+    "horizontalSizeClass": h_class,
+    "verticalSizeClass": "regular",
+    "userInterfaceIdiom": idiom,
+}
+with open(out_path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2)
+    handle.write("\n")
 PY
-  fi
-fi
+
 if [[ ! -f "${OBSERVED}" ]]; then
   echo "[screenshots] Missing observed-environment.json" >&2
   exit 1
