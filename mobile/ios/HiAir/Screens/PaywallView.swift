@@ -57,72 +57,77 @@ private struct PaywallContent: View {
     }
 
     var body: some View {
-        HiAirAdaptiveLayout { width, _ in
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: HiAirSpacing.lg) {
-                        HiAirBrandHeader(
-                            title: session.l("paywall.title"),
-                            subtitle: session.l("paywall.subtitle"),
-                            showOrb: true,
-                            orbSize: 56,
-                            compact: false
-                        )
+        ZStack {
+            HiAirAtmosphericBackground()
+            HiAirAdaptiveLayout { width, _ in
+                NavigationStack {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: HiAirSpacing.lg) {
+                            HiAirBrandHeader(
+                                title: session.l("paywall.title"),
+                                subtitle: session.l("paywall.subtitle"),
+                                showOrb: true,
+                                orbSize: 56,
+                                compact: false
+                            )
 
-                        benefitsCard
-                        catalogContent
+                            benefitsCard
+                            catalogContent
 
-                        Button(session.l("paywall.restore")) {
-                            Task { await restore() }
-                        }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
-                        .disabled(purchaseBusy)
-                        .accessibilityIdentifier(HiAirAccessibilityID.Paywall.restore)
-
-                        Text(session.l("paywall.legal_auto_renew"))
-                            .font(HiAirTypography.caption)
-                            .foregroundStyle(HiAirColors.Text.secondary)
-                            .accessibilityIdentifier(HiAirAccessibilityID.Paywall.legalCopy)
-
-                        HStack(spacing: HiAirSpacing.md) {
-                            policyButton(session.l("paywall.terms"), url: termsURL)
-                            policyButton(session.l("paywall.privacy"), url: privacyURL)
-                        }
-
-                        Button(session.l("settings.manage_subscription")) {
-                            Task { await subscriptionService.showManageSubscriptions() }
-                        }
-                        .font(HiAirTypography.bodyMD)
-                        .foregroundStyle(HiAirColors.Spectrum.cyan)
-
-                        Text(session.l("paywall.disclaimer"))
-                            .font(HiAirTypography.caption)
-                            .foregroundStyle(HiAirColors.Text.secondary)
-
-                        if !statusMessage.isEmpty {
-                            Text(statusMessage)
-                                .font(HiAirTypography.bodyMD)
-                                .foregroundStyle(HiAirColors.Text.secondary)
-                        }
-                    }
-                    .hiAirContentWidth(for: width)
-                    .hiAirScreenPadding(for: width)
-                    .padding(.bottom, HiAirSpacing.xl)
-                }
-                .navigationTitle(session.l("paywall.nav_title"))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(session.l("common.close")) { dismiss() }
-                            .font(HiAirTypography.bodyMD.weight(.semibold))
-                            .foregroundStyle(HiAirColors.Spectrum.cyan)
+                            Button(session.l("paywall.restore")) {
+                                Task { await restore() }
+                            }
+                            .buttonStyle(HiAirSecondaryButtonStyle())
                             .disabled(purchaseBusy)
-                            .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
+                            .accessibilityIdentifier(HiAirAccessibilityID.Paywall.restore)
+
+                            Text(session.l("paywall.legal_auto_renew"))
+                                .font(HiAirTypography.caption)
+                                .foregroundStyle(HiAirColors.Text.secondary)
+                                .accessibilityIdentifier(HiAirAccessibilityID.Paywall.legalCopy)
+
+                            HStack(spacing: HiAirSpacing.md) {
+                                policyButton(session.l("paywall.terms"), url: termsURL)
+                                policyButton(session.l("paywall.privacy"), url: privacyURL)
+                            }
+
+                            Button(session.l("settings.manage_subscription")) {
+                                Task { await subscriptionService.showManageSubscriptions() }
+                            }
+                            .font(HiAirTypography.bodyMD)
+                            .foregroundStyle(HiAirColors.Spectrum.cyan)
+
+                            Text(session.l("paywall.disclaimer"))
+                                .font(HiAirTypography.caption)
+                                .foregroundStyle(HiAirColors.Text.secondary)
+
+                            if !statusMessage.isEmpty {
+                                Text(statusMessage)
+                                    .font(HiAirTypography.bodyMD)
+                                    .foregroundStyle(HiAirColors.Text.secondary)
+                            }
+                        }
+                        .hiAirContentWidth(for: width)
+                        .hiAirScreenPadding(for: width)
+                        .padding(.bottom, HiAirSpacing.xl)
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .navigationTitle(session.l("paywall.nav_title"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(session.l("common.close")) { dismiss() }
+                                .font(HiAirTypography.bodyMD.weight(.semibold))
+                                .foregroundStyle(HiAirColors.Spectrum.cyan)
+                                .disabled(purchaseBusy)
+                                .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
+                        }
+                    }
+                    .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .toolbar(.visible, for: .navigationBar)
                 }
-                .toolbarBackground(HiAirColors.Surface.bg0.opacity(0.96), for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .toolbar(.visible, for: .navigationBar)
             }
             .onAppear {
                 SubscriptionDiagnostics.log("paywall_appeared", resultType: "\(subscriptionService.catalogState)")
@@ -142,7 +147,6 @@ private struct PaywallContent: View {
             }
         }
         .preferredColorScheme(.dark)
-        .hiAirPageBackground()
         .interactiveDismissDisabled(purchaseBusy)
         .accessibilityIdentifier(HiAirAccessibilityID.Paywall.root)
     }

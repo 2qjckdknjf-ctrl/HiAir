@@ -22,7 +22,7 @@ extension HiAirScreenMetrics {
     static let floatingTabBarFallbackHeight: CGFloat = 88
 
     /// Soft fade above the floating tab bar so scroll content does not read through glass.
-    static let mainTabContentFadeHeight: CGFloat = 40
+    static let mainTabContentFadeHeight: CGFloat = 18
 
     /// Extra breathing room above tab bar for the last scroll item (used with `safeAreaInset`).
     static let mainTabScrollTailSpacing: CGFloat = 44
@@ -38,8 +38,8 @@ private struct HiAirMainTabBarBottomChrome: View {
             LinearGradient(
                 stops: [
                     .init(color: Color.clear, location: 0),
-                    .init(color: HiAirColors.Surface.bg2.opacity(0.78), location: 0.35),
-                    .init(color: HiAirColors.Surface.bg2.opacity(0.96), location: 1),
+                    .init(color: HiAirColors.Spectrum.cyan.opacity(0.05), location: 0.55),
+                    .init(color: HiAirColors.Surface.bg1.opacity(0.22), location: 1),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
