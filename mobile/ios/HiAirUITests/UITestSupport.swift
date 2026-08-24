@@ -25,6 +25,8 @@ enum UITestLaunch {
             app.launchArguments.append("-UITestMockAPI")
         }
 
+        applyShotAccessibilityLaunchArguments(to: &app.launchArguments)
+
         var env: [String: String] = [:]
         if seedAuth {
             env["UITEST_SEED_AUTH"] = "1"
@@ -52,6 +54,31 @@ enum UITestLaunch {
         app.launchEnvironment = env
         app.launch()
         return app
+    }
+
+    private static func applyShotAccessibilityLaunchArguments(to launchArguments: inout [String]) {
+        let env = ProcessInfo.processInfo.environment
+        let accessibility = env["HIAIR_SHOT_ACCESSIBILITY"] ?? env["TEST_RUNNER_HIAIR_SHOT_ACCESSIBILITY"] ?? "standard"
+        let reduceMotion = env["HIAIR_SHOT_REDUCE_MOTION"] ?? env["TEST_RUNNER_HIAIR_SHOT_REDUCE_MOTION"] ?? "system"
+        let reduceTransparency = env["HIAIR_SHOT_REDUCE_TRANSPARENCY"] ?? env["TEST_RUNNER_HIAIR_SHOT_REDUCE_TRANSPARENCY"] ?? "system"
+
+        let contentSizeCategory: String? = switch accessibility.lowercased() {
+        case "accessibility3", "a11y3": "UICTContentSizeCategoryAccessibilityM"
+        case "accessibility5", "a11y5": "UICTContentSizeCategoryAccessibilityXXXL"
+        case "standard", "large": "UICTContentSizeCategoryLarge"
+        default: nil
+        }
+        if let contentSizeCategory {
+            launchArguments.append("-UIPreferredContentSizeCategoryName=\(contentSizeCategory)")
+        }
+        if reduceMotion == "1" || reduceMotion.lowercased() == "true" {
+            launchArguments.append("-UIAccessibilityReduceMotionEnabled")
+            launchArguments.append("YES")
+        }
+        if reduceTransparency == "1" || reduceTransparency.lowercased() == "true" {
+            launchArguments.append("-UIAccessibilityReduceTransparencyEnabled")
+            launchArguments.append("YES")
+        }
     }
 
     static func saveEvidence(app: XCUIApplication, name: String) {
@@ -92,6 +119,16 @@ extension XCTestCase {
         let element = app.descendants(matching: .any)[identifier]
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "Missing accessibility id: \(identifier)")
         return element
+    }
+
+    func sleepBriefly(_ seconds: TimeInterval) {
+        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+    }
+
+    func savePNG(_ app: XCUIApplication, to url: URL) throws {
+        let data = app.screenshot().pngRepresentation
+        try data.write(to: url, options: .atomic)
+        attachScreenshot(app, name: url.deletingPathExtension().lastPathComponent)
     }
 
     func tapHiAirTab(_ app: XCUIApplication, identifier: String, timeout: TimeInterval = UITestLaunch.defaultTimeout) {

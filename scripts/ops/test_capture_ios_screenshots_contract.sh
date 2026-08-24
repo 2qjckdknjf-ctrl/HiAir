@@ -61,19 +61,12 @@ print("ok")
 PY
 pass "exact expected filename set validates"
 
-# Dirty-tree provenance fields present in manifest writer inputs.
-BASE="$(git -C "${ROOT}" rev-parse HEAD)"
-DIRTY=false
-git -C "${ROOT}" diff-index --quiet HEAD -- || DIRTY=true
-DIFF_SHA="$(git -C "${ROOT}" diff HEAD | shasum -a 256 | awk '{print $1}')"
-UNTRACKED_SHA="$(git -C "${ROOT}" ls-files --others --exclude-standard | LC_ALL=C sort | shasum -a 256 | awk '{print $1}')"
-[[ -n "${BASE}" ]] || fail "base commit sha empty"
-[[ -n "${DIFF_SHA}" ]] || fail "tracked diff sha empty"
-[[ -n "${UNTRACKED_SHA}" ]] || fail "untracked register sha empty"
-if [[ "${DIRTY}" == "true" ]]; then
-  pass "worktree dirty — manifest must not set rc_source_sha as factual RC identity"
-else
-  pass "worktree clean — rc_source_sha may equal base commit"
-fi
+# Dirty-tree provenance fields via provenance_source_tree.py
+python3 "${ROOT}/scripts/ops/provenance_source_tree.py" "${ROOT}" --json >/dev/null
+TREE="$(python3 "${ROOT}/scripts/ops/provenance_source_tree.py" "${ROOT}" --json)"
+for key in head_sha tracked_worktree_clean untracked_source_inputs untracked_evidence_outputs source_tree_reproducible; do
+  python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert sys.argv[2] in d" "${TREE}" "${key}" || fail "missing provenance key ${key}"
+done
+pass "provenance_source_tree exposes clean-tree semantics"
 
 echo "[contract] all capture_ios_screenshots contract checks passed"

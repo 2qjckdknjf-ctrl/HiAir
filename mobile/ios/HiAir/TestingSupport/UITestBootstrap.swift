@@ -30,6 +30,25 @@ enum UITestBootstrap {
         isUITesting && ProcessInfo.processInfo.environment["UITEST_STORE_SHOTS"] == "1"
     }
 
+    static var shouldReportShotEnvironment: Bool {
+        isStoreShots || ProcessInfo.processInfo.environment["HIAIR_REPORT_SHOT_ENV"] == "1"
+    }
+
+    static var requestedAccessibilitySize: String? {
+        ProcessInfo.processInfo.environment["HIAIR_SHOT_ACCESSIBILITY"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_HIAIR_SHOT_ACCESSIBILITY"]
+    }
+
+    static var requestedReduceMotion: String? {
+        ProcessInfo.processInfo.environment["HIAIR_SHOT_REDUCE_MOTION"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_HIAIR_SHOT_REDUCE_MOTION"]
+    }
+
+    static var requestedReduceTransparency: String? {
+        ProcessInfo.processInfo.environment["HIAIR_SHOT_REDUCE_TRANSPARENCY"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_HIAIR_SHOT_REDUCE_TRANSPARENCY"]
+    }
+
     /// Hide DEBUG-only operator chrome (API testing, AI observability) during any UITest run.
     /// Store shots and App Review device tests must match Release, not a debug Settings dump.
     static var hidesDebugOperatorChrome: Bool {
@@ -53,6 +72,7 @@ enum UITestBootstrap {
             UITestMockAPIProtocol.reset()
             UITestMockAPIProtocol.isEnabled = true
             let env = ProcessInfo.processInfo.environment
+            applyMatrixStateMocks(env)
             if let status = Int(env["UITEST_PROFILES_STATUS"] ?? ""), status != 200 {
                 UITestMockAPIProtocol.reset(
                     listProfiles: .json(status, object: ["detail": "uitest status \(status)"]),
@@ -106,6 +126,27 @@ enum UITestBootstrap {
                 "hour": String(format: "2026-08-08T%02d:00:00Z", hour),
                 "overallRisk": risk,
             ]
+        }
+    }
+
+    /// Rich deterministic payloads so Simulator store screenshots show real product UI (not empty/error shells).
+    private static func applyMatrixStateMocks(_ env: [String: String]) {
+        guard let matrixState = env["UITEST_MATRIX_STATE"], !matrixState.isEmpty else { return }
+        switch matrixState.lowercased() {
+        case "loading":
+            UITestMockAPIProtocol.responseDelayNanoseconds = 120_000_000_000
+        case "error":
+            UITestMockAPIProtocol.setRoute(
+                method: "GET",
+                path: "/api/air/current-risk",
+                response: .json(503, object: ["detail": "uitest matrix error"])
+            )
+        case "offline":
+            UITestMockAPIProtocol.failNextWithURLError = .notConnectedToInternet
+            UITestMockAPIProtocol.failURLErrorPathSubstring = "/api/air/current-risk"
+            UITestMockAPIProtocol.failErrorRemainingCount = 99
+        default:
+            break
         }
     }
 

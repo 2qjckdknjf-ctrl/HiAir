@@ -16,7 +16,11 @@ final class StoreScreenshotTests: XCTestCase {
         let outURL = URL(fileURLWithPath: outPath, isDirectory: true)
         try FileManager.default.createDirectory(at: outURL, withIntermediateDirectories: true)
 
-        let language = env["HIAIR_SHOT_LANGUAGE"] ?? "en"
+        let language = env["HIAIR_SHOT_LANGUAGE"] ?? env["TEST_RUNNER_HIAIR_SHOT_LANGUAGE"] ?? "en"
+        let shotEnv: [String: String] = [
+            "HIAIR_REPORT_SHOT_ENV": "1",
+            "HIAIR_SCREENSHOT_OUT": outPath,
+        ]
 
         // 1) Auth / marketing entry
         var app = UITestLaunch.launch(
@@ -26,7 +30,7 @@ final class StoreScreenshotTests: XCTestCase {
             clearProfile: true,
             skipOnboarding: true,
             mockAPI: true,
-            extraEnvironment: ["UITEST_STORE_SHOTS": "1"]
+            extraEnvironment: ["UITEST_STORE_SHOTS": "1"].merging(shotEnv) { _, new in new }
         )
         _ = waitForIdentifier(app, "auth.root", timeout: 12)
         sleepBriefly(1.2)
@@ -45,7 +49,7 @@ final class StoreScreenshotTests: XCTestCase {
                 "UITEST_STORE_SHOTS": "1",
                 "UITEST_EMAIL": "alex@hiair.io",
                 "UITEST_USER_ID": "store-shot-user",
-            ]
+            ].merging(shotEnv) { _, new in new }
         )
         _ = waitForIdentifier(app, "onboarding.root", timeout: 12)
         sleepBriefly(1.2)
@@ -66,7 +70,7 @@ final class StoreScreenshotTests: XCTestCase {
                 "UITEST_PLACE_NAME": "Castelldefels",
                 "UITEST_EMAIL": "alex@hiair.io",
                 "UITEST_USER_ID": "store-shot-user",
-            ]
+            ].merging(shotEnv) { _, new in new }
         )
         _ = waitForIdentifier(app, "tab.dashboard", timeout: 12)
         sleepBriefly(2.0)
@@ -106,6 +110,23 @@ final class StoreScreenshotTests: XCTestCase {
                 try savePNG(app, to: outURL.appendingPathComponent("07b-paywall-restore.png"))
             }
         }
+
+        try validateObservedEnvironment(outURL: outURL, language: language)
+    }
+
+    private func validateObservedEnvironment(outURL: URL, language: String) throws {
+        let observedURL = outURL.appendingPathComponent("observed-environment.json")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: observedURL.path), "Missing observed-environment.json")
+        let data = try Data(contentsOf: observedURL)
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "observed-environment"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertNotNil(json)
+        if let locale = json?["locale"] as? String {
+            XCTAssertTrue(locale.lowercased().hasPrefix(String(language.prefix(2)).lowercased()), "Unexpected locale \(locale)")
+        }
     }
 
     private func assertNoRawPaywallKeys(in app: XCUIApplication) {
@@ -119,15 +140,5 @@ final class StoreScreenshotTests: XCTestCase {
         let tab = app.descendants(matching: .any)[identifier]
         XCTAssertTrue(tab.waitForExistence(timeout: 8), "Missing tab \(identifier)")
         tab.tap()
-    }
-
-    private func sleepBriefly(_ seconds: TimeInterval) {
-        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
-    }
-
-    private func savePNG(_ app: XCUIApplication, to url: URL) throws {
-        let data = app.screenshot().pngRepresentation
-        try data.write(to: url, options: .atomic)
-        attachScreenshot(app, name: url.deletingPathExtension().lastPathComponent)
     }
 }

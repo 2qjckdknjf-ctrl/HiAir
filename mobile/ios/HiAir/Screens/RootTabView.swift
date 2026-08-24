@@ -49,6 +49,7 @@ struct RootTabView: View {
                     .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.root)
             }
         }
+        .hiAirScreenshotEnvironmentReporter()
         .fullScreenCover(isPresented: $session.showOnboardingFromSettings) {
             OnboardingView(fromSettings: true)
                 .environmentObject(session)

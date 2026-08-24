@@ -27,6 +27,8 @@
 		21DA068E82B7BCAB678446E2 /* PurchaseSingleFlightGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246EC419CE71D319699FD8CB /* PurchaseSingleFlightGuard.swift */; };
 		2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */; };
 		322B36A8EF64B2A533BA618A /* HealthKitTimeoutRace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633C39532BF5572FD090BFB8 /* HealthKitTimeoutRace.swift */; };
+		333D29BF8123F577DBCDE4C9 /* MatrixStateScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6F8963CB387D9686FCCA407 /* MatrixStateScreenshotTests.swift */; };
+		38AB3100F7496D6683E52454 /* ScreenshotEnvironmentReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE41072F28A005F3E32294F4 /* ScreenshotEnvironmentReporter.swift */; };
 		3AC3E0ADDBFFD0DC43F7E86C /* StartupDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ECBE1C770399F50F75291D /* StartupDiagnostics.swift */; };
 		3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */; };
 		3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */ = {isa = PBXBuildFile; fileRef = A364D644D684423921A0EDAA /* StoreProductFetching.swift */; };
@@ -180,6 +182,7 @@
 		9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphericParticles.swift; sourceTree = "<group>"; };
 		A0B75F7FAF52543E6F33F582 /* TimeOfDayBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDayBackground.swift; sourceTree = "<group>"; };
 		A364D644D684423921A0EDAA /* StoreProductFetching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreProductFetching.swift; sourceTree = "<group>"; };
+		A6F8963CB387D9686FCCA407 /* MatrixStateScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatrixStateScreenshotTests.swift; sourceTree = "<group>"; };
 		A995EC21CCEE6CB54421DDCF /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		AA4DA4D6012AFA1C4003ECBD /* UITestBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestBootstrap.swift; sourceTree = "<group>"; };
 		AB03AB32DC5D272A4BCF0999 /* HealthKitAuthorizationSingleFlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationSingleFlightTests.swift; sourceTree = "<group>"; };
@@ -191,6 +194,7 @@
 		BBC81AD73B87F92F9743D86B /* WearableConsentUIStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentUIStateTests.swift; sourceTree = "<group>"; };
 		BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirShadow.swift; sourceTree = "<group>"; };
 		BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		BE41072F28A005F3E32294F4 /* ScreenshotEnvironmentReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotEnvironmentReporter.swift; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
 		C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreScreenshotTests.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -259,6 +263,7 @@
 			children = (
 				49FFC765953D210929DB1427 /* IPadSandboxPurchaseUITests.swift */,
 				53EF67EA453D311B4C7330E9 /* MainTabScrollHittabilityUITests.swift */,
+				A6F8963CB387D9686FCCA407 /* MatrixStateScreenshotTests.swift */,
 				6271A449AEAD56D90FA84F44 /* PaywallScrollSafeAreaUITests.swift */,
 				CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */,
 				C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */,
@@ -271,6 +276,7 @@
 		2CC2C88F585546C335A87387 /* TestingSupport */ = {
 			isa = PBXGroup;
 			children = (
+				BE41072F28A005F3E32294F4 /* ScreenshotEnvironmentReporter.swift */,
 				AA4DA4D6012AFA1C4003ECBD /* UITestBootstrap.swift */,
 				D45801250D377C4C9F87BCE9 /* UITestMockAPIProtocol.swift */,
 			);
@@ -564,6 +570,7 @@
 			files = (
 				E7ED5E21F3AE2BC0F37ECEF1 /* IPadSandboxPurchaseUITests.swift in Sources */,
 				E98E261451A02F580F8F4884 /* MainTabScrollHittabilityUITests.swift in Sources */,
+				333D29BF8123F577DBCDE4C9 /* MatrixStateScreenshotTests.swift in Sources */,
 				0F2C85A156AB3B2CE5167341 /* PaywallScrollSafeAreaUITests.swift in Sources */,
 				3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */,
 				A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */,
@@ -652,6 +659,7 @@
 				15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */,
 				543BC79133D25680DCFBB795 /* RootTabView.swift in Sources */,
 				77E0A0837CB889643F23BF59 /* RuntimePerformanceProbe.swift in Sources */,
+				38AB3100F7496D6683E52454 /* ScreenshotEnvironmentReporter.swift in Sources */,
 				5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */,
 				3AC3E0ADDBFFD0DC43F7E86C /* StartupDiagnostics.swift in Sources */,
 				3E3C742D4984CEFCDFCB654F /* StoreProductFetching.swift in Sources */,
