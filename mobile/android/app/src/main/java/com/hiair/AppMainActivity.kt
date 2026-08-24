@@ -136,16 +136,46 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         }
         root.addView(titleView)
 
+        val contentFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            )
+        }
+        val scroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+            clipToPadding = false
+        }
+        bodyContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(12), 0, dp(108))
+        }
+        scroll.addView(bodyContainer)
+        overlayContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+            isClickable = false
+            isFocusable = false
+        }
+        contentFrame.addView(scroll)
+        contentFrame.addView(overlayContainer)
+        root.addView(contentFrame)
+
         navRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
-            setPadding(p, p, p, p)
+            setPadding(p, p, p, p + dp(4))
             background = HiAirComponents.liquidGlassNavBackground(this@AppMainActivity)
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            params.topMargin = dp(12)
             layoutParams = params
         }
         val lang = rootShell.settingsViewModel.state.preferredLanguage
@@ -175,36 +205,6 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         navRow.addView(symptomsButton)
         navRow.addView(settingsButton)
         root.addView(navRow)
-
-        val contentFrame = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
-            )
-        }
-        val scroll = ScrollView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            )
-        }
-        bodyContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(12), 0, dp(24))
-        }
-        scroll.addView(bodyContainer)
-        overlayContainer = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            )
-            isClickable = false
-            isFocusable = false
-        }
-        contentFrame.addView(scroll)
-        contentFrame.addView(overlayContainer)
-        root.addView(contentFrame)
 
         screenRenderer = MainScreenRenderer(
             activity = this,
