@@ -1,6 +1,6 @@
 # Deep Glass V4 — Canonical Design Direction (RC worktree)
 
-**Status:** Phases 1–3 integrated in RC (`08083416`); Phase 4 screen widgets/layout open  
+**Status:** Phases 1–4 integrated on branch `cursor/store-ready-hardening-2026-08-22` (Dashboard, Planner, Health/Symptoms, Onboarding); screenshot matrix + Android screen parity in progress  
 **Visual direction:** Deep Glass V4  
 **UX/accessibility foundation:** Aurora Calm v2  
 **Source reference (read-only):** `/Users/alex/Projects/HIAir` @ `design/redesign-v4-deep-glass`  
@@ -13,7 +13,7 @@
 | 1 | Tokens + contrast (iOS + Android colors, gradients, radii, motion) | **Done** |
 | 2 | Glass stack (`HiAirGlassSurface`, slim `HiAirLiquidGlass`) | **Done** |
 | 3 | Floating tab bar + `RootTabView` | **Done** |
-| 4 | `HiAirDeepGlassWidgets`, `HiAirDeepGlassLayout`, `HiAirAtmosphericBackground`, per-screen layout | **Not ported** |
+| 4 | `HiAirDeepGlassWidgets`, `HiAirDeepGlassLayout`, `HiAirAtmosphericBackground`, per-screen layout | **Ported** (iOS Dashboard, Planner, SymptomLog/Health, Onboarding) |
 | 5 | `docs/design/redesign-v4/` spec + references | **Spec only** (`README.md`, `TECHNICAL_SPEC.md`; PNG refs remain on main) |
 
 Do **not** blind-merge `design/redesign-v4-deep-glass`. Port Phase 4 screen-by-screen with regression tests.
