@@ -66,13 +66,31 @@ class DailyPlannerViewModel(
     /** DEBUG-only deterministic demo payload for store screenshot captures. */
     fun seedStoreScreenshotDemo(language: String) {
         if (!com.hiair.BuildConfig.DEBUG) return
+        val ru = language.startsWith("ru")
+        val hourly = (6..23).map { hour ->
+            val risk = when {
+                hour in 12..16 -> "high"
+                hour in 18..20 -> "low"
+                else -> "moderate"
+            }
+            String.format("%02d:00", hour) + ":$risk"
+        } + listOf("00:00:low", "03:00:low")
         state = state.copy(
-            statusText = if (language.startsWith("ru")) "План готов" else "Plan ready",
-            freshnessText = "live",
+            statusText = "",
+            freshnessText = if (ru) "Обновлено только что" else "Updated just now",
             forecastAvailable = true,
-            ventilationWindows = listOf("07:00–10:00"),
-            safeWindows = listOf("07:00–09:30", "18:00–20:00"),
-            hourly = listOf("08:00:low", "14:00:high", "19:00:low"),
+            premiumRequired = false,
+            peakLine = if (ru) "Пик загрязнения в 14:00" else "Pollution peak at 2:00 PM",
+            safeWindows = listOf(
+                if (ru) "18:40–20:20 · низкое загрязнение" else "18:40–20:20 · low pollution",
+            ),
+            ventilationWindows = listOf(
+                if (ru) "21:00–22:30 · хороший обмен" else "21:00–22:30 · good air exchange",
+            ),
+            hourly = hourly,
+            activityRecommendedStart = "19:00",
+            activityForecastAvailable = true,
+            activityPremiumRequired = false,
         )
     }
 
