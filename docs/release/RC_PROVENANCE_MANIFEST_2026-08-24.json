@@ -1,7 +1,7 @@
 {
   "manifest_kind": "hiair_store_ready_rc_provenance",
   "generated_at": "2026-08-24T12:55:00Z",
-  "manifest_commit_sha": "PENDING_THIS_COMMIT",
+  "manifest_commit_sha": "61dc708e9ade39bc9da61ea437095802f8c050a1",
   "rc_source_sha": "ef82878755910c1e03cf7ccf3a9106df840c7e3c",
   "worktree_dirty": false,
   "branch": "cursor/store-ready-hardening-2026-08-22",
@@ -20,7 +20,13 @@
     "signing_status": "debug_or_dev_release_not_play_uploadable",
     "bundle_path": "mobile/android/app/build/outputs/bundle/release/app-release.aab",
     "target_sdk": 36,
-    "gates": ["testDebugUnitTest", "lintDebug", "assembleDebug", "assembleRelease", "bundleRelease"]
+    "gates": [
+      "testDebugUnitTest",
+      "lintDebug",
+      "assembleDebug",
+      "assembleRelease",
+      "bundleRelease"
+    ]
   },
   "screenshot_files_sha256": {
     "01-auth.png": "8b08b490bad50474680eb1a2168546005bf0ac82e84b1f8e8fcc0e3865f621e7",
