@@ -1,7 +1,7 @@
 package com.hiair
 
 import android.content.Intent
-import com.hiair.ui.navigation.AppScreen
+import com.hiair.ui.render.FirstRunOnboardingRenderer
 import com.hiair.ui.navigation.RootShellViewModel
 
 object StoreScreenshotBootstrap {
@@ -41,7 +41,8 @@ object StoreScreenshotBootstrap {
             }
             "onboarding" -> {
                 onboardingStore.resetForStoreScreenshot()
-                rootShell.settingsViewModel.seedStoreScreenshotSession(
+                FirstRunOnboardingRenderer.prepareStoreScreenshotWelcome()
+                rootShell.settingsViewModel.seedStoreScreenshotOnboarding(
                     extras.getString(EXTRA_LANGUAGE)?.ifBlank { "en" } ?: "en",
                 )
                 rootShell.openDashboard()

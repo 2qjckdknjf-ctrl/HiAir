@@ -129,6 +129,12 @@ class SettingsViewModel(
         state = state.copy(profileId = value)
     }
 
+    /** DEBUG-only guest onboarding state for store screenshot captures. */
+    fun seedStoreScreenshotOnboarding(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = SettingsState(preferredLanguage = language.ifBlank { "en" })
+    }
+
     /** DEBUG-only stable auth/subscription state for store screenshot captures. */
     fun seedStoreScreenshotSession(language: String) {
         if (!com.hiair.BuildConfig.DEBUG) return
@@ -141,6 +147,7 @@ class SettingsViewModel(
             preferredLanguage = language.ifBlank { "en" },
             isPremium = true,
             subscriptionStatus = "active",
+            wearableStatus = if (language.startsWith("ru")) "Health Connect подключён" else "Health Connect connected",
             latitude = 41.2800,
             longitude = 1.9800,
             locationSource = LocationSource.CACHED.raw,

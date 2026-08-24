@@ -59,6 +59,11 @@ class SubscriptionPaywallController(
     var onEntitlementUpdated: (() -> Unit)? = null
 
     fun refreshPrices() {
+        if (com.hiair.BuildConfig.DEBUG && com.hiair.StoreScreenshotMode.active) {
+            monthlyPrice = "$4.99"
+            yearlyPrice = "$39.99"
+            return
+        }
         monthlyPrice = billingManager?.displayPrice(SubscriptionBillingManager.MONTHLY_PRODUCT_ID)
         yearlyPrice = billingManager?.displayPrice(SubscriptionBillingManager.YEARLY_PRODUCT_ID)
     }
