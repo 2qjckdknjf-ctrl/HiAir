@@ -239,8 +239,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
                 runId = intent?.getStringExtra(StoreScreenshotBootstrap.EXTRA_CAPTURE_RUN_ID),
             )
         }
-        if (rootShell.settingsViewModel.state.userId.isNotBlank()) {
-            rootShell.settingsViewModel.refreshEntitlement { renderCurrentScreen() }
+        if (rootShell.settingsViewModel.state.userId.isNotBlank() && !StoreScreenshotMode.active) {
+            rootShell.settingsViewModel.refreshEntitlement { runOnUiThread { renderCurrentScreen() } }
         }
     }
 

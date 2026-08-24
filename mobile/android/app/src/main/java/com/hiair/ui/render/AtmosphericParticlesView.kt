@@ -25,8 +25,14 @@ class AtmosphericParticlesView(context: Context) : View(context) {
         }
     }
 
-    init {
-        ticker.start()
+    private var tickerRunning = false
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (!tickerRunning) {
+            ticker.start()
+            tickerRunning = true
+        }
     }
 
     fun setPm25(pm25: Double) {
@@ -40,8 +46,11 @@ class AtmosphericParticlesView(context: Context) : View(context) {
     }
 
     override fun onDetachedFromWindow() {
+        if (tickerRunning) {
+            ticker.cancel()
+            tickerRunning = false
+        }
         super.onDetachedFromWindow()
-        ticker.cancel()
     }
 
     override fun onDraw(canvas: Canvas) {
