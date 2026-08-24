@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import com.hiair.ui.accessibility.HiAirScreenMarkers
 import com.hiair.ui.design.HiAirLiquidGlass
 import com.hiair.ui.design.HiAirScreenMetrics
+import androidx.annotation.VisibleForTesting
 import com.hiair.ui.theme.V2Ui
 
 @SuppressLint("SetTextI18n")
@@ -304,7 +305,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     }
 
     private fun updateResponsiveChrome() {
-        HiAirResponsiveLayout.applyContentWidth(bodyContainer, this)
+        val horizontalPad = HiAirComponents.horizontalPaddingDp(this)
+        HiAirResponsiveLayout.applyContentWidth(bodyContainer, this, horizontalPad)
         val widthDp = resources.configuration.screenWidthDp
         val navMaxPx = V2Ui.dp(this, HiAirScreenMetrics.navBarMaxWidthDp.coerceAtMost(widthDp))
         val navParams = navShell.layoutParams as LinearLayout.LayoutParams
@@ -405,6 +407,12 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     }
 
     private fun dp(value: Int): Int = V2Ui.dp(this, value)
+
+    @VisibleForTesting
+    internal fun bodyContainerForTests(): LinearLayout = bodyContainer
+
+    @VisibleForTesting
+    internal fun navShellForTests(): FrameLayout = navShell
 
     override fun requestWearableConnect(onComplete: () -> Unit) {
         val state = rootShell.settingsViewModel.state

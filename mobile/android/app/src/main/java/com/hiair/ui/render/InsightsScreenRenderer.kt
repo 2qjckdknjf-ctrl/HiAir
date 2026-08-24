@@ -9,6 +9,7 @@ import com.hiair.StoreScreenshotMode
 import com.hiair.network.ApiClient
 import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
+import com.hiair.ui.design.HiAirResponsiveLayout
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.insights.InsightsProgressContract
 import com.hiair.ui.design.HiAirHumanDate
@@ -730,6 +731,7 @@ internal object InsightsScreenRenderer {
         if (!hasInsights) {
             card.addView(V2Ui.styledSecondaryText(activity, ctx.l("state.empty.insights.body")))
         }
+        card.layoutParams = HiAirResponsiveLayout.readingColumnLayoutParams(activity)
         return card
     }
 

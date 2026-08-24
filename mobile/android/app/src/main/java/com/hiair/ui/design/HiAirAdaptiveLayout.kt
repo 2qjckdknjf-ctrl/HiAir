@@ -1,9 +1,5 @@
 package com.hiair.ui.design
 
-import android.content.Context
-import android.view.Gravity
-import com.hiair.ui.theme.V2Ui
-
 enum class HiAirLayoutMode {
     COMPACT,
     STANDARD,
@@ -74,32 +70,6 @@ object HiAirResponsiveSpacing {
             HiAirLayoutMode.STANDARD -> HiAirSpacing.md
             HiAirLayoutMode.TABLET -> HiAirSpacing.lg
             HiAirLayoutMode.EXPANDED -> HiAirSpacing.lg
-        }
-    }
-}
-
-object HiAirResponsiveLayout {
-    fun screenWidthDp(context: Context): Int = context.resources.configuration.screenWidthDp
-
-    fun applyContentWidth(view: android.view.View, context: Context) {
-        val widthDp = screenWidthDp(context)
-        val maxPx = V2Ui.dp(context, HiAirScreenMetrics.contentMaxWidthDp(widthDp))
-        val screenPx = context.resources.displayMetrics.widthPixels
-        val targetPx = minOf(maxPx, screenPx)
-        val params = view.layoutParams ?: android.view.ViewGroup.LayoutParams(targetPx, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
-        params.width = targetPx
-        view.layoutParams = params
-    }
-
-    fun constrainedButtonLayoutParams(context: Context): android.widget.LinearLayout.LayoutParams {
-        val widthDp = screenWidthDp(context)
-        val maxWidth = V2Ui.dp(context, HiAirScreenMetrics.ctaMaxWidthDp)
-        return android.widget.LinearLayout.LayoutParams(
-            minOf(maxWidth, context.resources.displayMetrics.widthPixels),
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = V2Ui.dp(context, HiAirSpacing.sm)
         }
     }
 }
