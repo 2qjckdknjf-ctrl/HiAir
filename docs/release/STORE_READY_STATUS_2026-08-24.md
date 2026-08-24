@@ -2,33 +2,33 @@
 
 **Verdict:** `NO-GO / HARDENING IN PROGRESS`  
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**HEAD:** `09b7823e` (pre-truth-doc commit; see RC manifest after doc commit)  
-**RC source SHA:** set only when `source_tree_reproducible=true` (tracked clean, no untracked source inputs)
+**Worktree:** `/Users/alex/Projects/HIAir-store-ready`
 
-## Closed this sprint
+## Corrected this pass
 
-- **Provenance contract:** `manifest_generated_from_sha`, `manifest_file_sha256`, `.sha256` sidecar; `manifest_containing_commit_sha` documented as external-only; clean-tree fields (`tracked_worktree_clean`, `untracked_source_inputs`, `untracked_evidence_outputs`, `source_tree_reproducible`)
-- **iOS capture pipeline:** UDID-resolved destinations, observed-environment gating, matrix runner, state screenshot tests
-- **iOS visual:** softer tab-bar fade; paywall atmospheric background restored; service-period copy
-- **iOS matrix:** iPhone 16e/17 Pro EN/RU, iPad Pro 13 EN/RU, a11y3/5, Reduce Motion/Transparency, dashboard state cells
-- **Android:** DEBUG store-shot mock seed, phone/tablet 8-screen adb pipeline, glass dashboard cards + nav blur
-- **Gates:** backend pytest, iOS 213 unit + full UI suite, Release verify (WARN operator l10n strings), Android lint/test/bundle
+- **Android evidence invalidated:** phone/tablet 2026-08-24 captures marked `FAIL / EVIDENCE INVALID` (crash dialog, launcher, load errors). Failure evidence preserved; see `docs/audit/INVALID_ANDROID_CAPTURE_RUNS_2026-08-24.md`.
+- **Provenance model:** remove self-referential `manifest_file_sha256` from JSON; file SHA only in `.sha256` sidecar; `manifest_payload_sha256` with canonicalization; contract test script.
+- **iOS observed environment:** app writes `app-observed-environment.json` from runtime; test writes `requested-environment.json`; shell synthesis removed.
+- **Android capture pipeline:** emulator serial isolation, semantic validation, foreground package checks, hierarchy XML + logcat, app observed env pull.
+- **Android screenshot state:** DEBUG seeder for offline Planner/Insights/Symptoms; mock billing on paywall; screen root markers; instrumentation covers 8 screens (no `pressHome` success).
 
-## Remaining before STORE SANDBOX READY
+## Still open (local)
 
-- Physical-device ASC Sandbox IAP (external)
-- Production signing + ASC/Play upload/submit (external)
-- Production deploy/secrets rotation (external)
-- Android Deep Glass full renderer parity + RU tablet/locale matrix captures (local, PENDING)
-- Manual TalkBack / VoiceOver walk (local, PENDING)
-- Fresh canonical visual comparison sign-off after tab/paywall fixes (local)
+- Re-run full iOS matrix with runtime observed proof
+- Valid Android phone/tablet EN + RU + a11y captures with manual visual review (16 PNG)
+- Android Deep Glass V4 full renderer parity (8 screens)
+- Full backend/iOS/Android gate table with current HEAD SHA
+- RC provenance manifest (separate commit) **only after all local gates green**
 
-## Not external blockers
+## External blockers (unchanged)
 
-Android parity screenshots, simulator matrix, and provenance tooling — **local work**, not owner blockers.
+- Physical-device ASC Sandbox IAP
+- Production signing + ASC/Play upload/submit
+- Production deploy/secrets rotation
 
 ## Owner actions
 
-1. Review `.evidence/ios-screenshots/2026-08-24-matrix-*` and Android `.evidence/android-screenshots/*`
-2. Physical Sandbox IAP on device when ready
-3. Explicit «можно сабмитить» before ASC/Play submit
+1. Review invalid Android failure evidence paths (do not treat as PASS)
+2. After agent reports green local gates — review new `.evidence/android-screenshots/*` and iOS matrix dirs
+3. Physical Sandbox IAP when ready
+4. Explicit «можно сабмитить» before ASC/Play submit
