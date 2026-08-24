@@ -1571,6 +1571,13 @@ struct SettingsView: View {
                 session.applyEntitlement(entitlement)
             }
             Task { await session.refreshEntitlement() }
+            if UITestBootstrap.isUITesting,
+               ProcessInfo.processInfo.environment["UITEST_SEED_ACCOUNT_DELETION_RECOVERY"] == "1" {
+                viewModel.accountDeletionDetail = AccountDeletionStageLabel.summary(
+                    ["auth": "deleted", "billing": "pending_apple_revoke"],
+                    operationId: "uitest-op-recovery"
+                )
+            }
             #if DEBUG
             if !UITestBootstrap.hidesDebugOperatorChrome {
                 if viewModel.plans.isEmpty {
