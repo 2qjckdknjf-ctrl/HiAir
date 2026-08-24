@@ -508,8 +508,12 @@ internal object SymptomsScreenRenderer {
                 },
             )
             addView(V2Ui.styledBodyText(activity, ctx.l("symptoms.location")).apply {
-                val params = layoutParams as LinearLayout.LayoutParams
-                params.topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                }
             })
             addView(locationPickerRow(ctx, state, repaint))
             addView(
@@ -525,8 +529,12 @@ internal object SymptomsScreenRenderer {
                     selectedValue = state.frequency,
                     onSelected = { viewModel.setFrequency(it) },
                 ).apply {
-                    (layoutParams as LinearLayout.LayoutParams).topMargin =
-                        V2Ui.dp(activity, HiAirSpacing.sm)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply {
+                        topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                    }
                 },
             )
             addView(
