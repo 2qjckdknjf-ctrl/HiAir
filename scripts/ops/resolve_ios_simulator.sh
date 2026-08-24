@@ -52,7 +52,15 @@ for runtime, devices in info.get("devices", {}).items():
         break
 
 subprocess.run(["xcrun", "simctl", "boot", udid], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], check=True)
+boot = subprocess.run(
+    ["xcrun", "simctl", "bootstatus", udid, "-b"],
+    check=True,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.PIPE,
+    text=True,
+)
+if boot.stderr:
+    print(boot.stderr, file=sys.stderr, end="")
 
 print(json.dumps({
     "udid": udid,
