@@ -870,6 +870,24 @@ struct SavedPlaceListResponse: Codable {
     let places: [SavedPlace]
 }
 
+// MARK: - HiAir 1.5 Travel Mode
+
+struct TravelSession: Codable, Hashable {
+    let active: Bool
+    let placeId: String?
+    let placeName: String?
+    let lat: Double?
+    let lon: Double?
+    let timezone: String?
+    let until: String?
+    let source: String
+}
+
+struct TravelSessionStartRequest: Codable {
+    let placeId: String
+    let until: String?
+}
+
 // MARK: - HiAir 1.6 Personal Adaptation
 
 struct PersonalBaseline: Codable, Identifiable, Hashable {

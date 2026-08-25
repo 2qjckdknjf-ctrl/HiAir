@@ -206,4 +206,42 @@ class FeatureSurfacesParseTest {
         val label = FamilyRiskParser.riskLabel(members[0], "en")
         assertTrue(label.contains("70"))
     }
+
+    @Test
+    fun travelSessionParsesActiveAndInactive() {
+        val activeRaw = """
+            {
+              "active": true,
+              "placeId": "place-1",
+              "placeName": "Office",
+              "lat": 40.42,
+              "lon": -3.70,
+              "timezone": "Europe/Madrid",
+              "until": null,
+              "source": "travel"
+            }
+        """.trimIndent()
+        val active = SettingsViewModel.parseTravelSession(activeRaw)
+        assertTrue(active.active)
+        assertEquals("place-1", active.placeId)
+        assertEquals("Office", active.placeName)
+        assertEquals("travel", active.source)
+
+        val inactiveRaw = """
+            {
+              "active": false,
+              "placeId": null,
+              "placeName": null,
+              "lat": null,
+              "lon": null,
+              "timezone": null,
+              "until": null,
+              "source": "home"
+            }
+        """.trimIndent()
+        val inactive = SettingsViewModel.parseTravelSession(inactiveRaw)
+        assertFalse(inactive.active)
+        assertEquals("home", inactive.source)
+    }
+
 }

@@ -626,6 +626,92 @@ internal object SettingsScreenRenderer {
         }
         bodyContainer.addView(placesCard)
 
+        val travelStatusView = TextView(activity).apply {
+            text = rootShell.settingsViewModel.state.travelStatusText
+            textSize = 14f
+            setTextColor(Tokens.Text.secondary)
+        }
+        val travelActiveView = V2Ui.styledBodyText(activity, "")
+        val travelPlaceSpinner = Spinner(activity)
+        fun refreshTravelUi() {
+            val st = rootShell.settingsViewModel.state
+            val places = st.savedPlaces
+            val labels = if (places.isEmpty()) {
+                listOf(ctx.l("settings.travel.need_place"))
+            } else {
+                places.map { it.name }
+            }
+            travelPlaceSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, labels)
+            val selectedIdx = places.indexOfFirst { it.id == st.selectedTravelPlaceId }.coerceAtLeast(0)
+            if (places.isNotEmpty()) {
+                travelPlaceSpinner.setSelection(selectedIdx.coerceAtMost(places.lastIndex), false)
+            }
+            if (st.travelSession.active) {
+                val name = st.travelSession.placeName
+                    ?: places.firstOrNull { it.id == st.travelSession.placeId }?.name
+                    ?: "—"
+                travelActiveView.text = String.format(Locale.US, ctx.l("settings.travel.active"), name)
+                travelPlaceSpinner.visibility = View.GONE
+            } else {
+                travelActiveView.text = ctx.l("settings.travel.inactive")
+                travelPlaceSpinner.visibility = if (places.isEmpty()) View.GONE else View.VISIBLE
+            }
+            travelStatusView.text = st.travelStatusText
+        }
+        travelPlaceSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val places = rootShell.settingsViewModel.state.savedPlaces
+                if (position in places.indices) {
+                    rootShell.settingsViewModel.setSelectedTravelPlaceId(places[position].id)
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        val travelStartEndButton = HiAirComponents.primaryButton(activity, ctx.l("settings.travel.start"))
+        fun bindTravelButton() {
+            val st = rootShell.settingsViewModel.state
+            travelStartEndButton.text = when {
+                st.travelLoading -> ctx.l("common.loading")
+                st.travelSession.active -> ctx.l("settings.travel.end")
+                else -> ctx.l("settings.travel.start")
+            }
+            travelStartEndButton.isEnabled = !st.travelLoading && (
+                st.travelSession.active || st.savedPlaces.isNotEmpty()
+            )
+        }
+        travelStartEndButton.setOnClickListener {
+            Thread {
+                val st = rootShell.settingsViewModel.state
+                if (st.travelSession.active) {
+                    rootShell.settingsViewModel.endTravel()
+                } else {
+                    rootShell.settingsViewModel.startTravel()
+                }
+                activity.runOnUiThread {
+                    refreshTravelUi()
+                    bindTravelButton()
+                }
+            }.start()
+        }
+        if (isLoggedIn) {
+            Thread {
+                rootShell.settingsViewModel.loadTravelSession()
+                activity.runOnUiThread {
+                    refreshTravelUi()
+                    bindTravelButton()
+                }
+            }.start()
+        }
+        val travelCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.travel.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.travel.subtitle")))
+            addView(travelActiveView)
+            addView(travelPlaceSpinner)
+            addView(travelStartEndButton)
+            addView(travelStatusView)
+        }
+        bodyContainer.addView(travelCard)
+
         val workWorkloadOptions = listOf("light", "moderate", "heavy", "very_heavy")
         val workWorkloadLabels = workWorkloadOptions.map { ctx.l("settings.work.workload.$it") }
         val workRiskText = V2Ui.styledBodyText(activity, rootShell.settingsViewModel.state.workSiteRiskText)

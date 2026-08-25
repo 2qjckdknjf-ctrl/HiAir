@@ -30,6 +30,17 @@ data class SavedPlaceItem(
     val timezone: String? = null,
 )
 
+data class TravelSessionItem(
+    val active: Boolean = false,
+    val placeId: String? = null,
+    val placeName: String? = null,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val timezone: String? = null,
+    val until: String? = null,
+    val source: String = "home",
+)
+
 data class SettingsState(
     val email: String = "",
     val password: String = "",
@@ -85,6 +96,10 @@ data class SettingsState(
     val savedPlaces: List<SavedPlaceItem> = emptyList(),
     val placesStatusText: String = "-",
     val placesLoading: Boolean = false,
+    val travelSession: TravelSessionItem = TravelSessionItem(),
+    val selectedTravelPlaceId: String = "",
+    val travelStatusText: String = "",
+    val travelLoading: Boolean = false,
     val workWorkload: String = "moderate",
     val workSiteRiskText: String = "",
     val workSiteRiskProxyOnly: Boolean = false,
@@ -642,13 +657,88 @@ class SettingsViewModel(
         state = state.copy(placesLoading = true)
         try {
             val raw = apiClient.listPlaces(state.userId, state.accessToken.ifBlank { null })
+            val places = parsePlacesList(raw)
+            val selected = when {
+                state.selectedTravelPlaceId.isNotBlank() && places.any { it.id == state.selectedTravelPlaceId } ->
+                    state.selectedTravelPlaceId
+                else -> places.firstOrNull()?.id.orEmpty()
+            }
             state = state.copy(
                 placesLoading = false,
-                savedPlaces = parsePlacesList(raw),
+                savedPlaces = places,
+                selectedTravelPlaceId = selected,
                 placesStatusText = l("places.loaded"),
             )
         } catch (_: Exception) {
             state = state.copy(placesLoading = false, placesStatusText = l("places.load_failed"))
+        }
+    }
+
+    fun loadTravelSession() {
+        if (state.userId.isBlank()) return
+        try {
+            val session = parseTravelSession(apiClient.getTravelSession(state.userId, state.accessToken.ifBlank { null }))
+            state = state.copy(
+                travelSession = session,
+                selectedTravelPlaceId = session.placeId?.takeIf { it.isNotBlank() }
+                    ?: state.selectedTravelPlaceId,
+                travelStatusText = "",
+            )
+        } catch (_: Exception) {
+            state = state.copy(travelStatusText = l("settings.travel.load_failed"))
+        }
+    }
+
+    fun setSelectedTravelPlaceId(placeId: String) {
+        state = state.copy(selectedTravelPlaceId = placeId)
+    }
+
+    fun startTravel(placeId: String = state.selectedTravelPlaceId) {
+        if (state.userId.isBlank()) return
+        if (placeId.isBlank()) {
+            state = state.copy(travelStatusText = l("settings.travel.need_place"))
+            return
+        }
+        state = state.copy(travelLoading = true)
+        try {
+            val session = parseTravelSession(
+                apiClient.startTravelSession(
+                    userId = state.userId,
+                    accessToken = state.accessToken.ifBlank { null },
+                    placeId = placeId,
+                ),
+            )
+            state = state.copy(
+                travelLoading = false,
+                travelSession = session,
+                selectedTravelPlaceId = placeId,
+                travelStatusText = l("settings.travel.started"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                travelLoading = false,
+                travelStatusText = l("settings.travel.start_failed"),
+            )
+        }
+    }
+
+    fun endTravel() {
+        if (state.userId.isBlank()) return
+        state = state.copy(travelLoading = true)
+        try {
+            val session = parseTravelSession(
+                apiClient.clearTravelSession(state.userId, state.accessToken.ifBlank { null }),
+            )
+            state = state.copy(
+                travelLoading = false,
+                travelSession = session,
+                travelStatusText = l("settings.travel.ended"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                travelLoading = false,
+                travelStatusText = l("settings.travel.end_failed"),
+            )
         }
     }
 
@@ -827,11 +917,17 @@ class SettingsViewModel(
                 accessToken = state.accessToken.ifBlank { null },
                 placeId = placeId,
             )
+            val remaining = state.savedPlaces.filterNot { it.id == placeId }
             state = state.copy(
                 placesLoading = false,
-                savedPlaces = state.savedPlaces.filterNot { it.id == placeId },
+                savedPlaces = remaining,
+                selectedTravelPlaceId = when {
+                    state.selectedTravelPlaceId == placeId -> remaining.firstOrNull()?.id.orEmpty()
+                    else -> state.selectedTravelPlaceId
+                },
                 placesStatusText = l("places.deleted"),
             )
+            loadTravelSession()
         } catch (_: Exception) {
             state = state.copy(placesLoading = false, placesStatusText = l("places.delete_failed"))
         }
@@ -1283,6 +1379,20 @@ class SettingsViewModel(
                 lat = json.getDouble("lat"),
                 lon = json.getDouble("lon"),
                 timezone = json.optString("timezone").takeIf { it.isNotBlank() },
+            )
+        }
+
+        fun parseTravelSession(raw: String): TravelSessionItem {
+            val json = JSONObject(raw)
+            return TravelSessionItem(
+                active = json.optBoolean("active", false),
+                placeId = json.optString("placeId").takeIf { it.isNotBlank() },
+                placeName = json.optString("placeName").takeIf { it.isNotBlank() },
+                lat = if (json.isNull("lat")) null else json.optDouble("lat"),
+                lon = if (json.isNull("lon")) null else json.optDouble("lon"),
+                timezone = json.optString("timezone").takeIf { it.isNotBlank() },
+                until = json.optString("until").takeIf { it.isNotBlank() },
+                source = json.optString("source", "home").ifBlank { "home" },
             )
         }
     }

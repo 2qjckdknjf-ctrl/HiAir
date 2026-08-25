@@ -160,6 +160,38 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun getTravelSession(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/travel/session"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun startTravelSession(
+        userId: String,
+        accessToken: String? = null,
+        placeId: String,
+        until: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/travel/session"
+        val json = JSONObject().apply {
+            put("placeId", placeId)
+            if (!until.isNullOrBlank()) {
+                put("until", until)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun clearTravelSession(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/travel/session"
+        return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchAdaptation(
         userId: String,
         accessToken: String? = null,

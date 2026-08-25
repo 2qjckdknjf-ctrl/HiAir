@@ -29,4 +29,4 @@
 - [x] Place limits by entitlement tier (free: 3, premium: 25)
 - [x] Mobile 402 limit message when adding places (iOS + Android)
 - [x] Travel mode — temporary location override via saved place (`/api/travel/session`)
-- Mobile Settings travel toggle UI
+- [x] Mobile Settings travel toggle UI (iOS + Android)
