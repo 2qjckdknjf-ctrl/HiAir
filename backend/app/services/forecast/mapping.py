@@ -37,9 +37,35 @@ def forecast_point_to_environmental(point: EnvironmentalForecastPoint) -> Enviro
         no2=point.no2_ugm3,
         uv=point.uv_index,
         wind_speed=point.wind_speed_mps,
+        # Forecast points do not carry CAMS pollen / wildfire smoke — set
+        # explicitly so response serialization never drops the honesty keys,
+        # then callers merge live values via retain_live_only_metrics().
+        pollen_grains_m3=None,
+        wildfire_pm10=None,
         source=source,
         timestamp=point.timestamp,
         timezone=point.timezone,
+    )
+
+
+def retain_live_only_metrics(
+    mapped: EnvironmentalInput,
+    live: EnvironmentalInput,
+) -> EnvironmentalInput:
+    """Keep live CAMS pollen / wildfire smoke when forecast overlay replaces current."""
+    return mapped.model_copy(
+        update={
+            "pollen_grains_m3": (
+                mapped.pollen_grains_m3
+                if mapped.pollen_grains_m3 is not None
+                else live.pollen_grains_m3
+            ),
+            "wildfire_pm10": (
+                mapped.wildfire_pm10
+                if mapped.wildfire_pm10 is not None
+                else live.wildfire_pm10
+            ),
+        }
     )
 
 

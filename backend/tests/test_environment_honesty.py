@@ -101,6 +101,42 @@ def test_forecast_mapping_does_not_default_missing_humidity_to_zero() -> None:
     mapped = forecast_point_to_environmental(point)
     assert mapped is not None
     assert mapped.humidity is None
+    # Honesty keys must be explicitly set (even when null) so exclude_unset
+    # serializers never drop pollen / wildfire from API responses.
+    assert "pollen_grains_m3" in mapped.model_fields_set
+    assert "wildfire_pm10" in mapped.model_fields_set
+    assert mapped.pollen_grains_m3 is None
+    assert mapped.wildfire_pm10 is None
+
+
+def test_retain_live_only_metrics_keeps_pollen_and_smoke() -> None:
+    from app.models.air import EnvironmentalInput
+    from app.services.forecast.mapping import retain_live_only_metrics
+
+    live = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=28.0,
+        feels_like=29.0,
+        pollen_grains_m3=42.0,
+        wildfire_pm10=8.5,
+        source="live",
+        timestamp="2026-07-15T08:00:00+02:00",
+    )
+    mapped = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=30.0,
+        feels_like=31.0,
+        pollen_grains_m3=None,
+        wildfire_pm10=None,
+        source="forecast",
+        timestamp="2026-07-15T09:00:00+02:00",
+    )
+    merged = retain_live_only_metrics(mapped, live)
+    assert merged.temperature == 30.0
+    assert merged.pollen_grains_m3 == 42.0
+    assert merged.wildfire_pm10 == 8.5
 
 
 class _FakeClient:

@@ -21,6 +21,7 @@ from app.services.forecast.mapping import (
     apply_freshness_source,
     forecast_point_to_environmental,
     forecast_to_hourly_inputs,
+    retain_live_only_metrics,
 )
 from app.services.forecast.service import get_forecast
 
@@ -58,7 +59,10 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         if forecast.current is not None:
             mapped = forecast_point_to_environmental(forecast.current)
             if mapped is not None:
-                environment = apply_freshness_source(mapped, forecast.freshness.value)
+                environment = apply_freshness_source(
+                    retain_live_only_metrics(mapped, environment),
+                    forecast.freshness.value,
+                )
     except Exception:
         hourly_points = []
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
