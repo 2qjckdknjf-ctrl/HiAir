@@ -8,6 +8,19 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SECRET_FILE = ROOT / "backend" / ".secrets" / "cloudflare_api_token"
+DEFAULT_ACCOUNT_ID = "864f04d729c24f574a228558b40d7b82"
+
+
+def _load_token() -> str:
+    if SECRET_FILE.exists():
+        value = SECRET_FILE.read_text(encoding="utf-8").strip().splitlines()[0].strip()
+        if value:
+            return value
+    return (os.getenv("CLOUDFLARE_API_TOKEN") or "").strip()
 
 
 def _get(url: str, token: str) -> tuple[int, dict]:
@@ -41,11 +54,12 @@ def _request_status(url: str, token: str) -> int:
 
 
 def main() -> int:
-    token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
-    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+    token = _load_token()
+    account_id = (os.getenv("CLOUDFLARE_ACCOUNT_ID") or DEFAULT_ACCOUNT_ID).strip()
 
     if not token:
         print("cloudflare-token: FAIL missing CLOUDFLARE_API_TOKEN")
+        print(f"action: write Custom API Token to {SECRET_FILE} or export CLOUDFLARE_API_TOKEN")
         print("action: set GitHub production secret CLOUDFLARE_API_TOKEN (Custom API Token, not expired OAuth)")
         return 1
 

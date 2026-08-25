@@ -28,15 +28,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SECRET_FILE = ROOT / "backend" / ".secrets" / "cloudflare_api_token"
+# Keep in sync with scripts/ops/rotate_cloudflare_github_token.py
 ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "864f04d729c24f574a228558b40d7b82").strip()
 
-# Permission group IDs are stable Cloudflare identifiers.
-# Workers Scripts Write + Account Settings Read cover wrangler deploy + secrets.
-# Containers Edit may appear under Workers; if create fails, extend via dashboard.
-PERMISSION_GROUP_IDS = [
-    # Account Settings Read
-    "cbf4e4b45e4b4d1aa9a1f0f7c0f9c2a1",
-]
+# Permission group IDs are resolved at runtime from /user/tokens/permission_groups
+# (Workers Scripts Write/Edit + Account Settings Read + Containers/Builds/KV when present).
 
 
 def _api(method: str, path: str, token: str, body: dict | None = None) -> dict:

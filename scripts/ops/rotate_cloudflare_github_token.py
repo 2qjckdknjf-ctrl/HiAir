@@ -25,12 +25,14 @@ ACCOUNT_ID = "864f04d729c24f574a228558b40d7b82"
 
 
 def _load_token() -> str:
-    env = (os.getenv("CLOUDFLARE_API_TOKEN") or "").strip()
-    if env:
-        return env
+    # Prefer the local secret file over env: operators refresh the file
+    # after creating a Custom Token, while a stale CLOUDFLARE_API_TOKEN
+    # (often expired wrangler OAuth) may still linger in the shell.
     if SECRET_FILE.exists():
-        return SECRET_FILE.read_text(encoding="utf-8").strip().splitlines()[0].strip()
-    return ""
+        value = SECRET_FILE.read_text(encoding="utf-8").strip().splitlines()[0].strip()
+        if value:
+            return value
+    return (os.getenv("CLOUDFLARE_API_TOKEN") or "").strip()
 
 
 def _refresh_wrangler_oauth() -> str:
