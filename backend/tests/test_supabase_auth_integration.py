@@ -129,11 +129,22 @@ def test_delete_account_triggers_own_data_delete(monkeypatch) -> None:
     _configure_supabase(monkeypatch)
     calls: list[str] = []
 
-    def _delete_user_data(user_id: str) -> bool:
+    def _delete_account(**kwargs: object):
+        user_id = str(kwargs.get("user_id", ""))
         calls.append(user_id)
-        return True
+        from app.services.account_deletion import AccountDeletionOutcome, DeletionStage, StageResult, StageStatus
 
-    monkeypatch.setattr("app.api.privacy.privacy_repository.delete_user_data", _delete_user_data)
+        return AccountDeletionOutcome(
+            completed=True,
+            operation_id="op-test",
+            stages=[
+                StageResult(DeletionStage.APPLE_REVOKE, StageStatus.NOT_APPLICABLE),
+                StageResult(DeletionStage.PUBLIC_DATA, StageStatus.COMPLETED),
+                StageResult(DeletionStage.SUPABASE_AUTH, StageStatus.NOT_APPLICABLE),
+            ],
+        )
+
+    monkeypatch.setattr("app.api.privacy.account_deletion_service.delete_account", _delete_account)
     token = _supabase_token("00000000-0000-0000-0000-000000000555")
     client = TestClient(app)
     response = client.post(
@@ -142,5 +153,6 @@ def test_delete_account_triggers_own_data_delete(monkeypatch) -> None:
         json={"confirmation": "DELETE"},
     )
     assert response.status_code == 200, response.text
-    assert response.json() == {"deleted": True}
+    body = response.json()
+    assert body["deleted"] is True
     assert calls == ["00000000-0000-0000-0000-000000000555"]

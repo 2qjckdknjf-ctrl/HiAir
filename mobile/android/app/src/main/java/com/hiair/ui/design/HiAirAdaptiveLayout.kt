@@ -9,36 +9,56 @@ enum class HiAirLayoutMode {
 
 object HiAirScreenMetrics {
     const val compactMaxDp = 360
-    const val tabletMinDp = 600
+    const val mediumMinDp = 600
     const val expandedMinDp = 840
-    const val contentMaxDp = 680
+    const val contentCanvasMaxDp = 1080
+    const val contentCanvasExpandedDp = 1120
+    const val readingColumnMaxDp = 680
+    const val ctaMaxWidthDp = 520
+    const val navBarMaxWidthDp = 720
 
     fun layoutMode(widthDp: Int): HiAirLayoutMode {
         return when {
             widthDp >= expandedMinDp -> HiAirLayoutMode.EXPANDED
-            widthDp >= tabletMinDp -> HiAirLayoutMode.TABLET
+            widthDp >= mediumMinDp -> HiAirLayoutMode.TABLET
             widthDp < compactMaxDp -> HiAirLayoutMode.COMPACT
             else -> HiAirLayoutMode.STANDARD
         }
     }
 
-    fun allowsTwoColumn(widthDp: Int): Boolean = widthDp >= tabletMinDp
+    fun contentMaxWidthDp(widthDp: Int): Int {
+        return when (layoutMode(widthDp)) {
+            HiAirLayoutMode.COMPACT, HiAirLayoutMode.STANDARD -> widthDp
+            HiAirLayoutMode.TABLET -> minOf(widthDp - 48, 840)
+            HiAirLayoutMode.EXPANDED -> minOf(widthDp - 64, contentCanvasExpandedDp)
+        }
+    }
+
+    fun gridColumnCount(widthDp: Int, maxColumns: Int = 3): Int {
+        return when (layoutMode(widthDp)) {
+            HiAirLayoutMode.COMPACT, HiAirLayoutMode.STANDARD -> 1
+            HiAirLayoutMode.TABLET -> minOf(2, maxColumns)
+            HiAirLayoutMode.EXPANDED -> maxColumns.coerceAtMost(4)
+        }
+    }
+
+    fun allowsTwoColumn(widthDp: Int): Boolean = widthDp >= mediumMinDp
 
     fun heroOrbDp(widthDp: Int): Int {
         return when (layoutMode(widthDp)) {
-            HiAirLayoutMode.COMPACT -> (widthDp * 0.20f).toInt().coerceAtMost(72)
-            HiAirLayoutMode.STANDARD -> (widthDp * 0.22f).toInt().coerceAtMost(96)
-            HiAirLayoutMode.TABLET -> (widthDp * 0.16f).toInt().coerceAtMost(140)
-            HiAirLayoutMode.EXPANDED -> (widthDp * 0.14f).toInt().coerceAtMost(160)
-        }
+            HiAirLayoutMode.COMPACT -> 220
+            HiAirLayoutMode.STANDARD -> 240
+            HiAirLayoutMode.TABLET -> 260
+            HiAirLayoutMode.EXPANDED -> 280
+        }.coerceIn(180, 320)
     }
 
     fun horizontalPaddingDp(widthDp: Int): Int {
         return when (layoutMode(widthDp)) {
             HiAirLayoutMode.COMPACT -> HiAirSpacing.md
-            HiAirLayoutMode.STANDARD -> HiAirSpacing.md
+            HiAirLayoutMode.STANDARD -> HiAirSpacing.md + 4
             HiAirLayoutMode.TABLET -> HiAirSpacing.xl
-            HiAirLayoutMode.EXPANDED -> HiAirSpacing.xl
+            HiAirLayoutMode.EXPANDED -> HiAirSpacing.xl + 8
         }
     }
 }

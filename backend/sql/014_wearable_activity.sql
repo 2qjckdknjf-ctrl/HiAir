@@ -1,14 +1,11 @@
--- Wearable & Activity Intelligence v1
--- Aggregated health summaries with explicit user consent.
+-- Wearable & Activity Intelligence v1 (portable DDL for CI/local PostgreSQL).
+-- Supabase FK + RLS: 028_wearable_health_supabase.sql
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- ----------------------------
--- health_data_consents
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.health_data_consents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     platform text NOT NULL CHECK (platform IN ('ios', 'android')),
     source text NOT NULL CHECK (source IN ('apple_health', 'health_connect')),
     steps_enabled boolean NOT NULL DEFAULT false,
@@ -29,17 +26,12 @@ CREATE INDEX IF NOT EXISTS idx_health_data_consents_user_source
     ON public.health_data_consents (user_id, source);
 CREATE INDEX IF NOT EXISTS idx_health_data_consents_accepted_revoked
     ON public.health_data_consents (accepted_at, revoked_at);
-
--- One active consent row per user+source (latest wins via upsert in app layer).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_health_data_consents_user_source_unique
     ON public.health_data_consents (user_id, source);
 
--- ----------------------------
--- wearable_daily_summaries
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.wearable_daily_summaries (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     date date NOT NULL,
     steps_total integer,
     steps_goal integer,
@@ -61,12 +53,9 @@ CREATE INDEX IF NOT EXISTS idx_wearable_daily_user_date
 CREATE INDEX IF NOT EXISTS idx_wearable_daily_user_source
     ON public.wearable_daily_summaries (user_id, source);
 
--- ----------------------------
--- wearable_hourly_summaries
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.wearable_hourly_summaries (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     hour_start timestamptz NOT NULL,
     steps_total integer,
     heart_rate_avg numeric,
@@ -80,58 +69,3 @@ CREATE INDEX IF NOT EXISTS idx_wearable_hourly_user_hour
     ON public.wearable_hourly_summaries (user_id, hour_start DESC);
 CREATE INDEX IF NOT EXISTS idx_wearable_hourly_user_source
     ON public.wearable_hourly_summaries (user_id, source);
-
--- ----------------------------
--- RLS: direct user ownership (003 pattern)
--- ----------------------------
-ALTER TABLE public.health_data_consents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wearable_daily_summaries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wearable_hourly_summaries ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS health_data_consents_select_own ON public.health_data_consents;
-CREATE POLICY health_data_consents_select_own ON public.health_data_consents
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS health_data_consents_insert_own ON public.health_data_consents;
-CREATE POLICY health_data_consents_insert_own ON public.health_data_consents
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS health_data_consents_update_own ON public.health_data_consents;
-CREATE POLICY health_data_consents_update_own ON public.health_data_consents
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS health_data_consents_delete_own ON public.health_data_consents;
-CREATE POLICY health_data_consents_delete_own ON public.health_data_consents
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_daily_summaries_select_own ON public.wearable_daily_summaries;
-CREATE POLICY wearable_daily_summaries_select_own ON public.wearable_daily_summaries
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_daily_summaries_insert_own ON public.wearable_daily_summaries;
-CREATE POLICY wearable_daily_summaries_insert_own ON public.wearable_daily_summaries
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_daily_summaries_update_own ON public.wearable_daily_summaries;
-CREATE POLICY wearable_daily_summaries_update_own ON public.wearable_daily_summaries
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_daily_summaries_delete_own ON public.wearable_daily_summaries;
-CREATE POLICY wearable_daily_summaries_delete_own ON public.wearable_daily_summaries
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_hourly_summaries_select_own ON public.wearable_hourly_summaries;
-CREATE POLICY wearable_hourly_summaries_select_own ON public.wearable_hourly_summaries
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_hourly_summaries_insert_own ON public.wearable_hourly_summaries;
-CREATE POLICY wearable_hourly_summaries_insert_own ON public.wearable_hourly_summaries
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_hourly_summaries_update_own ON public.wearable_hourly_summaries;
-CREATE POLICY wearable_hourly_summaries_update_own ON public.wearable_hourly_summaries
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_hourly_summaries_delete_own ON public.wearable_hourly_summaries;
-CREATE POLICY wearable_hourly_summaries_delete_own ON public.wearable_hourly_summaries
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);

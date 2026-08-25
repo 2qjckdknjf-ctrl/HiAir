@@ -112,13 +112,175 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
+    fun fetchHazards(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/air/hazards?profileId=$profileId"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun listPlaces(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/places"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createPlace(
+        userId: String,
+        accessToken: String? = null,
+        name: String,
+        placeType: String,
+        lat: Double,
+        lon: Double,
+        timezone: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/places"
+        val json = JSONObject().apply {
+            put("name", name)
+            put("placeType", placeType)
+            put("lat", lat)
+            put("lon", lon)
+            if (!timezone.isNullOrBlank()) {
+                put("timezone", timezone)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun deletePlace(
+        userId: String,
+        accessToken: String? = null,
+        placeId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/places/$placeId"
+        return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchAdaptation(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/insights/adaptation?profileId=$profileId"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createProtectedDayEvent(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+        eventType: String,
+        eventDate: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/insights/protected-day-events"
+        val json = JSONObject().apply {
+            put("profileId", profileId)
+            put("eventType", eventType)
+            if (!eventDate.isNullOrBlank()) {
+                put("eventDate", eventDate)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun fetchSiteRisk(
+        userId: String,
+        accessToken: String? = null,
+        lat: Double,
+        lon: Double,
+        workload: String = "moderate",
+        acclimatized: Boolean = true,
+    ): String {
+        val endpoint = buildString {
+            append("$baseUrl/api/work/site-risk?lat=$lat&lon=$lon")
+            append("&workload=$workload")
+            append("&acclimatized=$acclimatized")
+        }
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun listFamilyMembers(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/family/members"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createFamilyMember(
+        userId: String,
+        accessToken: String? = null,
+        memberProfileId: String,
+        relation: String,
+        label: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/family/members"
+        val json = JSONObject().apply {
+            put("memberProfileId", memberProfileId)
+            put("relation", relation)
+            if (!label.isNullOrBlank()) {
+                put("label", label)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun deleteFamilyMember(
+        userId: String,
+        accessToken: String? = null,
+        memberLinkId: String,
+    ): String {
+        val endpoint = "$baseUrl/api/family/members/$memberLinkId"
+        return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchFamilyRiskOverview(userId: String, accessToken: String? = null): String {
+        val endpoint = "$baseUrl/api/family/risk-overview"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
     fun fetchAirDayPlan(
         userId: String,
         accessToken: String? = null,
         profileId: String
     ): String {
         val endpoint = "$baseUrl/api/air/day-plan?profileId=$profileId"
-        return request("GET", endpoint, null, authHeaders(userId, accessToken))
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun fetchActivityCatalog(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/planner/activities"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun createActivityPlan(
+        userId: String,
+        accessToken: String? = null,
+        profileId: String,
+        activity: String,
+        durationMinutes: Int? = null,
+        intensity: String? = null,
+        placeId: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/planner/activity-plan"
+        val json = JSONObject().apply {
+            put("profileId", profileId)
+            put("activity", activity)
+            if (durationMinutes != null) {
+                put("durationMinutes", durationMinutes)
+            }
+            if (!intensity.isNullOrBlank()) {
+                put("intensity", intensity)
+            }
+            if (!placeId.isNullOrBlank()) {
+                put("placeId", placeId)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
     fun fetchPersonalPatterns(
@@ -219,12 +381,25 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
-    fun deleteAccount(userId: String, accessToken: String? = null): String {
+    fun fetchDeleteAccountRequirements(userId: String, accessToken: String? = null): JSONObject {
+        val endpoint = "$baseUrl/api/privacy/delete-account/requirements"
+        val raw = requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+        return JSONObject(raw)
+    }
+
+    fun deleteAccount(
+        userId: String,
+        accessToken: String? = null,
+        appleAuthorizationCode: String? = null,
+    ): JSONObject {
         val endpoint = "$baseUrl/api/privacy/delete-account"
         val json = JSONObject().apply {
             put("confirmation", "DELETE")
+            if (!appleAuthorizationCode.isNullOrBlank()) {
+                put("apple_authorization_code", appleAuthorizationCode)
+            }
         }.toString()
-        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+        return JSONObject(requestStrict("POST", endpoint, json, authHeaders(userId, accessToken)))
     }
 
     fun createQuickSymptom(

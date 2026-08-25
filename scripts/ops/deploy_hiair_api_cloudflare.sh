@@ -36,6 +36,18 @@ echo "[api] installing worker dependencies"
   npm install --no-fund --no-audit
 )
 
+echo "[api] resolving authoritative DEPLOY_GIT_SHA"
+RESOLVED_RELEASE_SHA="${RESOLVED_RELEASE_SHA:-}"
+DEPLOY_GIT_SHA_INPUT="${DEPLOY_GIT_SHA:-}"
+GITHUB_SHA_INPUT="${GITHUB_SHA:-$(git -C "${ROOT_DIR}" rev-parse HEAD 2>/dev/null || true)}"
+DEPLOY_GIT_SHA="$(
+  python3 "${ROOT_DIR}/scripts/release/resolve_deploy_git_sha.py" \
+    --resolved-release-sha "${RESOLVED_RELEASE_SHA}" \
+    --deploy-git-sha "${DEPLOY_GIT_SHA_INPUT}" \
+    --github-sha "${GITHUB_SHA_INPUT}"
+)" || exit 1
+export DEPLOY_GIT_SHA
+
 echo "[api] syncing wrangler secrets from ${ENV_FILE}"
 TMP_SECRETS="$(mktemp)"
 python3 <<PY >"${TMP_SECRETS}"
@@ -78,6 +90,11 @@ allowed = {
   "APPLE_APP_APPLE_ID",
   "GOOGLE_PLAY_PACKAGE_NAME",
   "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+  "APPLE_TEAM_ID",
+  "APPLE_SIGN_IN_KEY_ID",
+  "APPLE_SERVICES_ID",
+  "APPLE_SIGN_IN_P8_CONTENT",
+  "APPLE_SIGN_IN_P8_PATH",
   "ENVIRONMENT_ALLOW_SAMPLE_FALLBACK",
   "DEPLOY_GIT_SHA",
   "WEATHER_API_PROVIDER",
@@ -134,6 +151,21 @@ if app_env in ("production", "prod", "staging"):
         values["HIAIR_AUTH_PROVIDER"] = "supabase"
     if not subscription_provider or subscription_provider == "stub":
         raise SystemExit("ERROR: production deploy requires SUBSCRIPTION_PROVIDER != stub")
+    apple_team = values.get("APPLE_TEAM_ID", "").strip()
+    apple_key_id = values.get("APPLE_SIGN_IN_KEY_ID", "").strip()
+    apple_services_id = values.get("APPLE_SERVICES_ID", "").strip()
+    apple_p8_content = values.get("APPLE_SIGN_IN_P8_CONTENT", "").strip()
+    apple_p8_path = values.get("APPLE_SIGN_IN_P8_PATH", "").strip()
+    if not apple_team or not apple_key_id or not apple_services_id:
+        raise SystemExit(
+            "ERROR: production deploy requires APPLE_TEAM_ID, APPLE_SIGN_IN_KEY_ID, "
+            "and APPLE_SERVICES_ID for Sign in with Apple account deletion"
+        )
+    if not apple_p8_content and not apple_p8_path:
+        raise SystemExit(
+            "ERROR: production deploy requires APPLE_SIGN_IN_P8_CONTENT "
+            "(preferred) or APPLE_SIGN_IN_P8_PATH"
+        )
     # Fail-closed: never serve synthetic sample/mock environment data in protected deploys.
     values["ENVIRONMENT_ALLOW_SAMPLE_FALLBACK"] = "false"
 else:
@@ -143,9 +175,10 @@ else:
 values.setdefault("GOOGLE_PLAY_VERIFIER_MODE", values.get("GOOGLE_PLAY_VERIFIER_MODE", "stub"))
 values.setdefault("HIAIR_AUTH_PROVIDER", values.get("HIAIR_AUTH_PROVIDER", "supabase"))
 values["HIAIR_AUTH_EMAIL_BRIDGE_ENABLED"] = "true"
-deploy_sha = os.environ.get("GITHUB_SHA", "").strip() or os.environ.get("DEPLOY_GIT_SHA", "").strip()
-if deploy_sha:
-    values["DEPLOY_GIT_SHA"] = deploy_sha
+deploy_git_sha = os.environ.get("DEPLOY_GIT_SHA", "").strip()
+if not deploy_git_sha:
+    raise SystemExit("ERROR: DEPLOY_GIT_SHA must be resolved before secret sync.")
+values["DEPLOY_GIT_SHA"] = deploy_git_sha
 required = ("DATABASE_URL", "JWT_SECRET", "DEPLOY_GIT_SHA", "SUPABASE_URL")
 missing = [key for key in required if not values.get(key)]
 if missing:

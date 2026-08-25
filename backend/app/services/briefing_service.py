@@ -16,6 +16,13 @@ import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
+from app.models.air import SafeWindowType
+from app.services.forecast.mapping import (
+    apply_freshness_source,
+    forecast_point_to_environmental,
+    forecast_to_hourly_inputs,
+)
+from app.services.forecast.service import get_forecast
 
 
 def get_due_briefings(now_utc: datetime | None = None) -> list[dict[str, str]]:
@@ -43,9 +50,30 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
 
     user_settings = settings_repository.get_user_settings(user_id)
     environment = air_environment_service.load_environment(profile)
+    forecast = None
+    hourly_points = []
+    try:
+        forecast = get_forecast(profile.home_lat, profile.home_lon)
+        hourly_points = forecast_to_hourly_inputs(forecast)
+        if forecast.current is not None:
+            mapped = forecast_point_to_environmental(forecast.current)
+            if mapped is not None:
+                environment = apply_freshness_source(mapped, forecast.freshness.value)
+    except Exception:
+        hourly_points = []
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
-    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
-    plan = air_risk_engine.build_day_plan(profile, environment)
+    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load, hourly_points=hourly_points)
+    plan = air_risk_engine.build_day_plan(
+        profile,
+        environment,
+        hourly_points=hourly_points,
+        personal_load=personal_load,
+        generated_at=forecast.generated_at if forecast is not None else None,
+        freshness=forecast.freshness.value if forecast is not None else None,
+        data_quality=forecast.quality.value if forecast is not None else "unavailable",
+        sources=forecast.sources if forecast is not None else None,
+        missing_metrics=forecast.missing_metrics if forecast is not None else None,
+    )
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=user_settings.preferred_language)
     health_context: list[str] = []
     try:
@@ -81,11 +109,24 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         risk_assessment_id=None,
         health_context=health_context[:4],
     )
-    first_window = plan.safeWindows[0] if plan.safeWindows else None
+    first_window = None
+    window_label = "Best outdoor window"
+    for preferred in (SafeWindowType.WALK, SafeWindowType.GENERAL_OUTDOOR, SafeWindowType.RUN):
+        first_window = next((item for item in plan.safeWindows if item.type == preferred), None)
+        if first_window is not None:
+            break
+    if first_window is None:
+        first_window = next(
+            (item for item in plan.safeWindows if item.type != SafeWindowType.VENTILATION),
+            None,
+        )
+    if first_window is None and plan.safeWindows:
+        first_window = plan.safeWindows[0]
+        window_label = f"Best {first_window.type.value} window"
     window_text = f"{first_window.start}-{first_window.end}" if first_window else "later tonight"
     message = (
         f"Good morning. Today's risk is {risk.overallRisk.value}. "
-        f"Best outdoor window: {window_text}. {explanation}"
+        f"{window_label}: {window_text}. {explanation}"
     )
     return message, profile_id, risk.overallRisk.value
 

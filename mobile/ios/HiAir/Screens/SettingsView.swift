@@ -95,8 +95,21 @@ final class SettingsViewModel: ObservableObject {
     @Published var aiErrorBreakdown: [AIBreakdownByErrorType] = []
     @Published var privacyExportSummary = "-"
     @Published var wearableStatus = "-"
+    @Published var savedPlaces: [SavedPlace] = []
+    @Published var placesStatusText = ""
+    @Published var profileHomeLat: Double?
+    @Published var profileHomeLon: Double?
+    @Published var workWorkload = "moderate"
+    @Published var workSiteRiskText = ""
+    @Published var workSiteRiskProxyOnly = false
+    @Published var workSiteRiskLoading = false
+    @Published var familyMembers: [FamilyMemberLink] = []
+    @Published var familyRiskByLinkId: [String: FamilyMemberRiskLine] = [:]
+    @Published var familyStatusText = ""
+    @Published var availableProfiles: [UserProfile] = []
     @Published var statusText = "-"
     @Published var loading = false
+    @Published var accountDeletionDetail = ""
 
     private let apiClient: APIClient
 
@@ -114,6 +127,36 @@ final class SettingsViewModel: ObservableObject {
     func ageYearsLabel() -> String {
         let years = Calendar.current.dateComponents([.year], from: dateOfBirth, to: Date()).year ?? 0
         return "\(max(years, 0))"
+    }
+
+    var showsUserFacingStatus: Bool {
+        let trimmed = statusText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "-" { return false }
+        if trimmed.localizedCaseInsensitiveContains("observability") { return false }
+        if trimmed.localizedCaseInsensitiveContains("наблюда") { return false }
+        if isDeveloperOperatorStatus(trimmed) { return false }
+        return true
+    }
+
+    func isDeveloperOperatorStatus(_ text: String) -> Bool {
+        let keys = [
+            "settings.plans_loaded",
+            "settings.plans_load_failed",
+            "settings.subscription_loaded",
+            "settings.subscription_load_failed",
+            "settings.subscription_activated",
+            "settings.subscription_activate_failed",
+            "settings.subscription_canceled",
+            "settings.subscription_cancel_failed",
+            "settings.ai_request_failed",
+            "settings.ai_failed",
+        ]
+        for lang in ["en", "ru", "es", "it", "fr"] {
+            if keys.contains(where: { HiAirL10n.t($0, lang: lang) == text }) {
+                return true
+            }
+        }
+        return false
     }
 
     func localizedSubscriptionStatus() -> String {
@@ -192,13 +235,18 @@ final class SettingsViewModel: ObservableObject {
         defer { loading = false }
         do {
             let profiles = try await apiClient.listProfiles(userId: userId, accessToken: accessToken)
+            availableProfiles = profiles
             if let profile = profiles.first {
                 profileId = profile.id
                 selectedPersona = profile.personaType
+                profileHomeLat = profile.homeLat
+                profileHomeLon = profile.homeLon
                 if let raw = profile.dateOfBirth, let parsed = Self.birthDateFormatter.date(from: raw) {
                     dateOfBirth = parsed
                 }
             }
+            await loadSavedPlaces()
+            await loadFamilyMembers()
             let response = try await apiClient.fetchUserSettings(userId: userId, accessToken: accessToken)
             pushAlertsEnabled = response.pushAlertsEnabled
             riskThreshold = response.alertThreshold
@@ -282,24 +330,219 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    func deleteAccount() async -> Bool {
+    func performAccountDeletion(appleCoordinator: AppleSignInCoordinator) async -> Bool {
         guard !userId.isEmpty else {
             statusText = l("settings.user_id_required")
             return false
         }
         loading = true
         defer { loading = false }
+        accountDeletionDetail = ""
         do {
-            try await apiClient.deleteAccount(userId: userId, accessToken: accessToken)
+            let requirements = try await apiClient.fetchDeleteAccountRequirements(
+                userId: userId,
+                accessToken: accessToken
+            )
+            if requirements.inProgress {
+                accountDeletionDetail = AccountDeletionStageLabel.summary(
+                    requirements.stages,
+                    operationId: requirements.operationId
+                )
+            }
+            var appleCode: String?
+            if requirements.requiresAppleAuthorizationCode {
+                do {
+                    appleCode = try await appleCoordinator.authorizationCodeForAccountDeletion()
+                } catch let error as AppleSignInError where error == .cancelled {
+                    statusText = l("settings.account_delete_cancelled")
+                    return false
+                }
+            }
+            let result = try await apiClient.deleteAccount(
+                userId: userId,
+                accessToken: accessToken,
+                appleAuthorizationCode: appleCode
+            )
+            guard result.deleted else {
+                accountDeletionDetail = AccountDeletionStageLabel.summary(
+                    result.stages,
+                    operationId: result.operationId
+                )
+                statusText = result.recoveryHint ?? l("settings.account_delete_failed")
+                return false
+            }
             statusText = l("settings.account_deleted")
             ProductAnalytics.track("privacy_delete")
             userId = ""
             accessToken = ""
             privacyExportSummary = "-"
             return true
+        } catch let error as AccountDeletionAPIError {
+            accountDeletionDetail = AccountDeletionStageLabel.summary(
+                error.stages,
+                operationId: error.operationId
+            )
+            statusText = error.recoveryHint ?? error.message
+            return false
         } catch {
             statusText = l("settings.account_delete_failed")
             return false
+        }
+    }
+
+    func loadSavedPlaces() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let response = try await apiClient.listPlaces(userId: userId, accessToken: accessToken)
+            savedPlaces = response.places
+            placesStatusText = ""
+        } catch {
+            placesStatusText = l("settings.places.load_failed")
+        }
+    }
+
+    func loadFamilyMembers() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let response = try await apiClient.listFamilyMembers(userId: userId, accessToken: accessToken)
+            familyMembers = response.members
+            familyStatusText = ""
+            await loadFamilyRiskOverview()
+        } catch {
+            familyStatusText = l("settings.family.load_failed")
+        }
+    }
+
+    func loadFamilyRiskOverview() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let overview = try await apiClient.fetchFamilyRiskOverview(userId: userId, accessToken: accessToken)
+            familyRiskByLinkId = Dictionary(uniqueKeysWithValues: overview.members.map { ($0.memberLinkId, $0) })
+        } catch {
+            familyRiskByLinkId = [:]
+        }
+    }
+
+    func familyRiskLabel(for memberId: String, language: String) -> String {
+        guard let line = familyRiskByLinkId[memberId] else { return "" }
+        if !line.available {
+            return HiAirL10n.t("settings.family.risk_unavailable", lang: language)
+        }
+        let levelKey: String? = switch line.riskLevel.lowercased() {
+        case "low": "hazards.level.low"
+        case "moderate", "medium": "hazards.level.moderate"
+        case "high": "hazards.level.high"
+        case "very_high", "very high": "hazards.level.very_high"
+        default: nil
+        }
+        let level = levelKey.map { HiAirL10n.t($0, lang: language) } ?? line.riskLevel
+        return HiAirL10n.t("settings.family.risk_line", lang: language)
+            .replacingOccurrences(of: "%@", with: level)
+            .replacingOccurrences(of: "%d", with: String(line.riskScore))
+    }
+
+    func addFamilyMember(profileId: String, relation: String, label: String?) async {
+        guard !userId.isEmpty, !profileId.isEmpty else { return }
+        familyStatusText = ""
+        do {
+            let member = try await apiClient.createFamilyMember(
+                payload: FamilyMemberCreateRequest(
+                    memberProfileId: profileId,
+                    relation: relation,
+                    label: label?.isEmpty == true ? nil : label
+                ),
+                userId: userId,
+                accessToken: accessToken
+            )
+            familyMembers.append(member)
+            familyStatusText = l("settings.family.added")
+        } catch {
+            familyStatusText = l("settings.family.add_failed")
+        }
+    }
+
+    func deleteFamilyMember(_ linkId: String) async {
+        guard !userId.isEmpty else { return }
+        do {
+            try await apiClient.deleteFamilyMember(memberLinkId: linkId, userId: userId, accessToken: accessToken)
+            familyMembers.removeAll { $0.id == linkId }
+            familyStatusText = l("settings.family.deleted")
+        } catch {
+            familyStatusText = l("settings.family.delete_failed")
+        }
+    }
+
+    func loadWorkSiteRisk() async {
+        guard !userId.isEmpty,
+              let lat = profileHomeLat,
+              let lon = profileHomeLon else {
+            workSiteRiskText = l("settings.work.no_location")
+            return
+        }
+        workSiteRiskLoading = true
+        defer { workSiteRiskLoading = false }
+        do {
+            let response = try await apiClient.fetchSiteRisk(
+                lat: lat,
+                lon: lon,
+                workload: workWorkload,
+                acclimatized: true,
+                userId: userId,
+                accessToken: accessToken
+            )
+            let assessment = response.assessment
+            workSiteRiskProxyOnly = assessment.reasonCodes.contains("heat_index_proxy_only")
+            let workRest = String(
+                format: l("settings.work.work_rest"),
+                assessment.workRest.workMinutes,
+                assessment.workRest.restMinutes
+            )
+            workSiteRiskText = String(
+                format: l("settings.work.summary"),
+                assessment.riskLevel,
+                workRest
+            )
+        } catch {
+            workSiteRiskText = l("settings.work.load_failed")
+            workSiteRiskProxyOnly = false
+        }
+    }
+
+    func addHomePlace(name: String, lat: Double, lon: Double, timezone: String?) async {
+        guard !userId.isEmpty else { return }
+        placesStatusText = ""
+        do {
+            let place = try await apiClient.createPlace(
+                payload: SavedPlaceCreateRequest(
+                    name: name,
+                    placeType: "home",
+                    lat: lat,
+                    lon: lon,
+                    timezone: timezone
+                ),
+                userId: userId,
+                accessToken: accessToken
+            )
+            savedPlaces.append(place)
+            placesStatusText = l("settings.places.added")
+        } catch let APIError.serverWithDetail(statusCode: 402, detail: _) {
+            placesStatusText = l("settings.places.limit_reached")
+        } catch let APIError.server(statusCode: 402) {
+            placesStatusText = l("settings.places.limit_reached")
+        } catch {
+            placesStatusText = l("settings.places.add_failed")
+        }
+    }
+
+    func deleteSavedPlace(_ placeId: String) async {
+        guard !userId.isEmpty else { return }
+        placesStatusText = ""
+        do {
+            try await apiClient.deletePlace(placeId: placeId, userId: userId, accessToken: accessToken)
+            savedPlaces.removeAll { $0.id == placeId }
+            placesStatusText = l("settings.places.deleted")
+        } catch {
+            placesStatusText = l("settings.places.delete_failed")
         }
     }
 
@@ -741,6 +984,8 @@ struct SettingsView: View {
     @State private var showingGuide = false
     @State private var showingAIGuide = false
     @State private var showWearableConsent = false
+    @State private var showDeleteAccountConfirm = false
+    private let appleDeletionCoordinator = AppleSignInCoordinator()
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
@@ -765,8 +1010,17 @@ struct SettingsView: View {
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }
                     Toggle(session.l("settings.morning_briefing"), isOn: $viewModel.morningBriefingEnabled)
-                    TextField(session.l("settings.morning_briefing_time"), text: $viewModel.morningBriefingTime)
-                        .textFieldStyle(.roundedBorder)
+                    TextField(
+                        "",
+                        text: $viewModel.morningBriefingTime,
+                        prompt: Text(session.l("settings.morning_briefing_time"))
+                            .foregroundColor(HiAirColors.Text.secondary)
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .hiAirInputSurface()
+                    .foregroundStyle(HiAirColors.Text.primary)
+                    .keyboardType(.numbersAndPunctuation)
                     if viewModel.userId.isEmpty {
                         Text(session.l("settings.briefing_setup_hint"))
                             .font(AuroraTokens.Typography.caption)
@@ -785,8 +1039,7 @@ struct SettingsView: View {
                     Stepper("\(session.l("settings.quiet_start")): \(viewModel.quietHoursStart):00", value: $viewModel.quietHoursStart, in: 0...23)
                     Stepper("\(session.l("settings.quiet_end")): \(viewModel.quietHoursEnd):00", value: $viewModel.quietHoursEnd, in: 0...23)
                 }
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .tint(HiAirV2Theme.accentStart)
+                .hiAirNativeFormChrome()
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -822,6 +1075,7 @@ struct SettingsView: View {
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
                 }
+                .hiAirNativeFormChrome()
                 .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -846,9 +1100,11 @@ struct SettingsView: View {
                     }
                     .disabled(viewModel.loading)
                     .tint(HiAirV2Theme.accentStart)
-                    Text(viewModel.statusText)
-                        .font(AuroraTokens.Typography.caption)
-                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if viewModel.showsUserFacingStatus {
+                        Text(viewModel.statusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
                 }
                 .v2Card()
 
@@ -869,6 +1125,7 @@ struct SettingsView: View {
                     .buttonStyle(HiAirGradientButtonStyle())
                     .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
                     #if DEBUG
+                    if !UITestBootstrap.hidesDebugOperatorChrome {
                     DisclosureGroup(session.l("settings.subscription_dev")) {
                         Picker(session.l("settings.plan"), selection: $viewModel.selectedPlanId) {
                             ForEach(viewModel.plans, id: \.planId) { plan in
@@ -897,8 +1154,9 @@ struct SettingsView: View {
                         .buttonStyle(HiAirSecondaryButtonStyle())
                     }
                     .font(AuroraTokens.Typography.caption)
+                    }
                     #endif
-                    if !viewModel.statusText.isEmpty && viewModel.statusText != "-" {
+                    if viewModel.showsUserFacingStatus {
                         Text(viewModel.statusText)
                             .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
@@ -908,6 +1166,7 @@ struct SettingsView: View {
                 .v2Card()
 
                 #if DEBUG
+                if !UITestBootstrap.hidesDebugOperatorChrome {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.ai_observability"))
                         .font(AuroraTokens.Typography.titleMD)
@@ -992,6 +1251,7 @@ struct SettingsView: View {
                     }
                 }
                 .v2Card()
+                }
                 #endif
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -1018,6 +1278,170 @@ struct SettingsView: View {
                 }
                 .tint(HiAirV2Theme.accentStart)
                 .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.places.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    if viewModel.savedPlaces.isEmpty {
+                        Text(session.l("settings.places.empty"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    } else {
+                        ForEach(viewModel.savedPlaces) { place in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(place.name)
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                        .foregroundStyle(HiAirV2Theme.primaryText)
+                                    Text(
+                                        String(
+                                            format: session.l("settings.places.coords"),
+                                            locale: Locale(identifier: session.preferredLanguage),
+                                            place.lat,
+                                            place.lon
+                                        )
+                                    )
+                                    .font(AuroraTokens.Typography.caption)
+                                    .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                }
+                                Spacer()
+                                Button(session.l("settings.places.delete")) {
+                                    Task { await viewModel.deleteSavedPlace(place.id) }
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                            }
+                        }
+                    }
+                    if session.hasValidLocation || GeoCoordinates.isValid(
+                        lat: viewModel.profileHomeLat ?? 0,
+                        lon: viewModel.profileHomeLon ?? 0
+                    ) {
+                        Button(session.l("settings.places.add_home")) {
+                            let lat = session.hasValidLocation ? session.latitude : (viewModel.profileHomeLat ?? 0)
+                            let lon = session.hasValidLocation ? session.longitude : (viewModel.profileHomeLon ?? 0)
+                            let name = session.displayPlaceName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let resolvedName = (name?.isEmpty == false) ? name! : session.l("settings.places.home_default_name")
+                            Task {
+                                await viewModel.addHomePlace(
+                                    name: resolvedName,
+                                    lat: lat,
+                                    lon: lon,
+                                    timezone: TimeZone.current.identifier
+                                )
+                            }
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                    }
+                    if !viewModel.placesStatusText.isEmpty {
+                        Text(viewModel.placesStatusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+                .v2Card()
+                .onAppear {
+                    Task { await viewModel.loadSavedPlaces() }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.work.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("settings.work.subtitle"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    Picker(session.l("settings.work.workload"), selection: $viewModel.workWorkload) {
+                        Text(session.l("settings.work.workload.light")).tag("light")
+                        Text(session.l("settings.work.workload.moderate")).tag("moderate")
+                        Text(session.l("settings.work.workload.heavy")).tag("heavy")
+                        Text(session.l("settings.work.workload.very_heavy")).tag("very_heavy")
+                    }
+                    .pickerStyle(.menu)
+                    Button(viewModel.workSiteRiskLoading ? session.l("common.loading") : session.l("settings.work.refresh")) {
+                        Task { await viewModel.loadWorkSiteRisk() }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    if !viewModel.workSiteRiskText.isEmpty {
+                        Text(viewModel.workSiteRiskText)
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.primaryText)
+                    }
+                    if viewModel.workSiteRiskProxyOnly {
+                        Text(session.l("settings.work.proxy_disclaimer"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                }
+                .v2Card()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.family.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("settings.family.subtitle"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if viewModel.familyMembers.isEmpty {
+                        Text(session.l("settings.family.empty"))
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    } else {
+                        ForEach(viewModel.familyMembers) { member in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(member.label ?? member.memberProfileId)
+                                        .font(AuroraTokens.Typography.bodyMD)
+                                    Text(session.l("settings.family.relation.\(member.relation)"))
+                                        .font(AuroraTokens.Typography.caption)
+                                        .foregroundStyle(HiAirV2Theme.tertiaryText)
+                                    let riskLabel = viewModel.familyRiskLabel(for: member.id, language: session.preferredLanguage)
+                                    if !riskLabel.isEmpty {
+                                        Text(riskLabel)
+                                            .font(AuroraTokens.Typography.caption)
+                                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                                    }
+                                }
+                                Spacer()
+                                Button(session.l("settings.family.delete")) {
+                                    Task { await viewModel.deleteFamilyMember(member.id) }
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                            }
+                        }
+                    }
+                    ForEach(
+                        viewModel.availableProfiles.filter { profile in
+                            profile.id != viewModel.profileId
+                                && !viewModel.familyMembers.contains(where: { $0.memberProfileId == profile.id })
+                        }
+                    ) { profile in
+                        HStack {
+                            Text(profile.personaType)
+                                .font(AuroraTokens.Typography.bodyMD)
+                            Spacer()
+                            Button(session.l("settings.family.add")) {
+                                Task {
+                                    await viewModel.addFamilyMember(
+                                        profileId: profile.id,
+                                        relation: "child",
+                                        label: profile.personaType
+                                    )
+                                }
+                            }
+                            .buttonStyle(HiAirSecondaryButtonStyle())
+                        }
+                    }
+                    if !viewModel.familyStatusText.isEmpty {
+                        Text(viewModel.familyStatusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+                .v2Card()
+                .onAppear {
+                    Task { await viewModel.loadFamilyMembers() }
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.wearables.title"))
@@ -1080,16 +1504,17 @@ struct SettingsView: View {
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                     }
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.delete_account")) {
-                        Task {
-                            let deleted = await viewModel.deleteAccount()
-                            if deleted {
-                                session.logout()
-                            }
-                        }
+                        showDeleteAccountConfirm = true
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading)
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.deleteAccount)
+                    if !viewModel.accountDeletionDetail.isEmpty {
+                        Text(viewModel.accountDeletionDetail)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
                     Button(session.l("settings.log_out")) {
                         session.logout()
                         viewModel.userId = ""
@@ -1118,10 +1543,11 @@ struct SettingsView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .hiAirMainTabScrollContent()
             }
         }
         .hiAirPageBackground()
+        .accessibilityIdentifier(HiAirAccessibilityID.Settings.root)
         .onAppear {
             if viewModel.userId.isEmpty {
                 viewModel.userId = session.userId
@@ -1145,28 +1571,42 @@ struct SettingsView: View {
                 session.applyEntitlement(entitlement)
             }
             Task { await session.refreshEntitlement() }
+            if UITestBootstrap.isUITesting,
+               ProcessInfo.processInfo.environment["UITEST_SEED_ACCOUNT_DELETION_RECOVERY"] == "1" {
+                viewModel.accountDeletionDetail = AccountDeletionStageLabel.summary(
+                    ["auth": "deleted", "billing": "pending_apple_revoke"],
+                    operationId: "uitest-op-recovery"
+                )
+            }
             #if DEBUG
-            if viewModel.plans.isEmpty {
-                Task { await viewModel.loadPlans() }
+            if !UITestBootstrap.hidesDebugOperatorChrome {
+                if viewModel.plans.isEmpty {
+                    Task { await viewModel.loadPlans() }
+                }
+                if viewModel.aiTrendPoints.isEmpty {
+                    viewModel.scheduleAISummaryRefresh(force: true)
+                }
             }
             #endif
-            if viewModel.aiTrendPoints.isEmpty {
-                viewModel.scheduleAISummaryRefresh(force: true)
-            }
         }
+        #if DEBUG
         .onChange(of: viewModel.aiSummaryHours) { _ in
+            guard !UITestBootstrap.hidesDebugOperatorChrome else { return }
             viewModel.scheduleAISummaryRefresh(force: true)
         }
         .onChange(of: viewModel.aiChartMetric) { _ in
+            guard !UITestBootstrap.hidesDebugOperatorChrome else { return }
             if viewModel.aiTrendPoints.isEmpty {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
         }
         .onChange(of: viewModel.aiChartMode) { _ in
+            guard !UITestBootstrap.hidesDebugOperatorChrome else { return }
             if viewModel.aiTrendPoints.isEmpty {
                 viewModel.scheduleAISummaryRefresh(force: true)
             }
         }
+        #endif
         .onChange(of: viewModel.pushAlertsEnabled) { enabled in
             session.markChecklistItem("notifications", done: enabled)
         }
@@ -1180,6 +1620,25 @@ struct SettingsView: View {
         .sheet(isPresented: $showingAIGuide) {
             HiAirAIGuideView()
                 .environmentObject(session)
+        }
+        .confirmationDialog(
+            session.l("settings.delete_account_confirm_title"),
+            isPresented: $showDeleteAccountConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(session.l("settings.delete_account_confirm_action"), role: .destructive) {
+                Task {
+                    let deleted = await viewModel.performAccountDeletion(
+                        appleCoordinator: appleDeletionCoordinator
+                    )
+                    if deleted {
+                        session.logout()
+                    }
+                }
+            }
+            Button(session.l("settings.cancel"), role: .cancel) {}
+        } message: {
+            Text(session.l("settings.delete_account_confirm_body"))
         }
     }
 
@@ -1559,7 +2018,7 @@ private struct HiAirAIGuideView: View {
                                             .frame(width: 28, height: 28)
                                             .overlay(
                                                 Image(systemName: "person.fill")
-                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .font(.caption.weight(.semibold))
                                                     .foregroundStyle(HiAirV2Theme.primaryText)
                                             )
                                     } else {

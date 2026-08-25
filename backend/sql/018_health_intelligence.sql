@@ -1,12 +1,8 @@
--- Health Intelligence Expansion
--- Metric-level daily aggregates, sleep summaries, sync state, expanded symptoms.
--- Idempotent. Preserves wearables-v1 tables.
+-- Health Intelligence Expansion (portable DDL for CI/local PostgreSQL).
+-- Supabase FK + RLS: 028_wearable_health_supabase.sql
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- ----------------------------
--- Extend consent categories
--- ----------------------------
 ALTER TABLE IF EXISTS public.health_data_consents
     ADD COLUMN IF NOT EXISTS activity_enabled boolean NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS sleep_stages_enabled boolean NOT NULL DEFAULT false,
@@ -17,18 +13,14 @@ ALTER TABLE IF EXISTS public.health_data_consents
     ADD COLUMN IF NOT EXISTS body_metrics_enabled boolean NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS sensitive_metrics_enabled boolean NOT NULL DEFAULT false;
 
--- Backfill activity from legacy steps flag when present.
 UPDATE public.health_data_consents
 SET activity_enabled = TRUE
 WHERE steps_enabled = TRUE
   AND activity_enabled = FALSE;
 
--- ----------------------------
--- Metric-level daily summaries (canonical EAV)
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.wearable_metric_daily (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     profile_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
     local_date date NOT NULL,
     timezone text NOT NULL DEFAULT 'UTC',
@@ -63,12 +55,9 @@ CREATE INDEX IF NOT EXISTS idx_wearable_metric_daily_user_metric
 CREATE INDEX IF NOT EXISTS idx_wearable_metric_daily_profile_date
     ON public.wearable_metric_daily (profile_id, local_date DESC);
 
--- ----------------------------
--- Sleep night summaries
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.wearable_sleep_summaries (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     profile_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
     local_date date NOT NULL,
     timezone text NOT NULL DEFAULT 'UTC',
@@ -91,12 +80,9 @@ CREATE TABLE IF NOT EXISTS public.wearable_sleep_summaries (
 CREATE INDEX IF NOT EXISTS idx_wearable_sleep_user_date
     ON public.wearable_sleep_summaries (user_id, local_date DESC);
 
--- ----------------------------
--- Sync state / anchors
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.wearable_sync_state (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     platform text NOT NULL CHECK (platform IN ('ios', 'android')),
     source_platform text NOT NULL CHECK (source_platform IN ('apple_health', 'health_connect')),
     last_success_at timestamptz,
@@ -110,9 +96,6 @@ CREATE TABLE IF NOT EXISTS public.wearable_sync_state (
     UNIQUE (user_id, source_platform)
 );
 
--- ----------------------------
--- Expanded symptom entry columns (keep legacy booleans)
--- ----------------------------
 ALTER TABLE IF EXISTS public.symptom_logs
     ADD COLUMN IF NOT EXISTS category text,
     ADD COLUMN IF NOT EXISTS severity smallint,
@@ -140,12 +123,9 @@ CREATE INDEX IF NOT EXISTS idx_symptom_logs_profile_category
     ON public.symptom_logs (profile_id, category, logged_at DESC)
     WHERE deleted_at IS NULL;
 
--- ----------------------------
--- Custom symptoms + favorites
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.custom_symptoms (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     profile_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
     label text NOT NULL,
     category text NOT NULL DEFAULT 'custom',
@@ -158,7 +138,7 @@ CREATE TABLE IF NOT EXISTS public.custom_symptoms (
 
 CREATE TABLE IF NOT EXISTS public.symptom_favorites (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     symptom_type text NOT NULL,
     sort_order integer NOT NULL DEFAULT 0,
@@ -166,12 +146,9 @@ CREATE TABLE IF NOT EXISTS public.symptom_favorites (
     UNIQUE (user_id, profile_id, symptom_type)
 );
 
--- ----------------------------
--- Cached explainable insights
--- ----------------------------
 CREATE TABLE IF NOT EXISTS public.health_insights (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     insight_key text NOT NULL,
     title text NOT NULL,
@@ -190,91 +167,3 @@ CREATE TABLE IF NOT EXISTS public.health_insights (
 
 CREATE INDEX IF NOT EXISTS idx_health_insights_profile_generated
     ON public.health_insights (profile_id, generated_at DESC);
-
--- ----------------------------
--- RLS
--- ----------------------------
-ALTER TABLE public.wearable_metric_daily ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wearable_sleep_summaries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wearable_sync_state ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.custom_symptoms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.symptom_favorites ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.health_insights ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS wearable_metric_daily_select_own ON public.wearable_metric_daily;
-CREATE POLICY wearable_metric_daily_select_own ON public.wearable_metric_daily
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_metric_daily_insert_own ON public.wearable_metric_daily;
-CREATE POLICY wearable_metric_daily_insert_own ON public.wearable_metric_daily
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_metric_daily_update_own ON public.wearable_metric_daily;
-CREATE POLICY wearable_metric_daily_update_own ON public.wearable_metric_daily
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_metric_daily_delete_own ON public.wearable_metric_daily;
-CREATE POLICY wearable_metric_daily_delete_own ON public.wearable_metric_daily
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_sleep_summaries_select_own ON public.wearable_sleep_summaries;
-CREATE POLICY wearable_sleep_summaries_select_own ON public.wearable_sleep_summaries
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_sleep_summaries_insert_own ON public.wearable_sleep_summaries;
-CREATE POLICY wearable_sleep_summaries_insert_own ON public.wearable_sleep_summaries
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_sleep_summaries_update_own ON public.wearable_sleep_summaries;
-CREATE POLICY wearable_sleep_summaries_update_own ON public.wearable_sleep_summaries
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_sleep_summaries_delete_own ON public.wearable_sleep_summaries;
-CREATE POLICY wearable_sleep_summaries_delete_own ON public.wearable_sleep_summaries
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS wearable_sync_state_select_own ON public.wearable_sync_state;
-CREATE POLICY wearable_sync_state_select_own ON public.wearable_sync_state
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_sync_state_insert_own ON public.wearable_sync_state;
-CREATE POLICY wearable_sync_state_insert_own ON public.wearable_sync_state
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_sync_state_update_own ON public.wearable_sync_state;
-CREATE POLICY wearable_sync_state_update_own ON public.wearable_sync_state
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_sync_state_delete_own ON public.wearable_sync_state;
-CREATE POLICY wearable_sync_state_delete_own ON public.wearable_sync_state
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS custom_symptoms_select_own ON public.custom_symptoms;
-CREATE POLICY custom_symptoms_select_own ON public.custom_symptoms
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS custom_symptoms_insert_own ON public.custom_symptoms;
-CREATE POLICY custom_symptoms_insert_own ON public.custom_symptoms
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS custom_symptoms_update_own ON public.custom_symptoms;
-CREATE POLICY custom_symptoms_update_own ON public.custom_symptoms
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS custom_symptoms_delete_own ON public.custom_symptoms;
-CREATE POLICY custom_symptoms_delete_own ON public.custom_symptoms
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS symptom_favorites_select_own ON public.symptom_favorites;
-CREATE POLICY symptom_favorites_select_own ON public.symptom_favorites
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS symptom_favorites_insert_own ON public.symptom_favorites;
-CREATE POLICY symptom_favorites_insert_own ON public.symptom_favorites
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS symptom_favorites_update_own ON public.symptom_favorites;
-CREATE POLICY symptom_favorites_update_own ON public.symptom_favorites
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS symptom_favorites_delete_own ON public.symptom_favorites;
-CREATE POLICY symptom_favorites_delete_own ON public.symptom_favorites
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);
-
-DROP POLICY IF EXISTS health_insights_select_own ON public.health_insights;
-CREATE POLICY health_insights_select_own ON public.health_insights
-    FOR SELECT USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS health_insights_insert_own ON public.health_insights;
-CREATE POLICY health_insights_insert_own ON public.health_insights
-    FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS health_insights_update_own ON public.health_insights;
-CREATE POLICY health_insights_update_own ON public.health_insights
-    FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS health_insights_delete_own ON public.health_insights;
-CREATE POLICY health_insights_delete_own ON public.health_insights
-    FOR DELETE USING ((SELECT auth.uid()) = user_id);

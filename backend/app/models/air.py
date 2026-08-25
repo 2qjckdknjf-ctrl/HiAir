@@ -62,13 +62,14 @@ class EnvironmentalInput(BaseModel):
     lon: float = Field(ge=-180, le=180)
     temperature: float
     feels_like: float
-    humidity: float = Field(ge=0, le=100)
-    aqi: int = Field(ge=0)
-    pm25: float = Field(ge=0)
-    pm10: float = Field(ge=0)
-    ozone: float = Field(ge=0)
-    uv: float = Field(ge=0)
-    wind_speed: float = Field(ge=0)
+    humidity: float | None = Field(default=None, ge=0, le=100)
+    aqi: int | None = Field(default=None, ge=0)
+    pm25: float | None = Field(default=None, ge=0)
+    pm10: float | None = Field(default=None, ge=0)
+    ozone: float | None = Field(default=None, ge=0)
+    no2: float | None = Field(default=None, ge=0)
+    uv: float | None = Field(default=None, ge=0)
+    wind_speed: float | None = Field(default=None, ge=0)
     source: str
     timestamp: str
     timezone: str = "UTC"
@@ -98,6 +99,8 @@ class RiskAssessmentResult(BaseModel):
     recommendationFlags: list[str]
     reasonCodes: list[str]
     personalLoad: PersonalLoadAssessment | None = None
+    # Additive: outdoor-only windows stay in safeWindows; ventilation is separate.
+    ventilationWindows: list[SafeWindow] = Field(default_factory=list)
 
 
 class RecommendationCard(BaseModel):
@@ -114,6 +117,10 @@ class CurrentRiskResponse(BaseModel):
     recommendation: RecommendationCard
     explanation: str
     explanationSource: str
+    dataQuality: str | None = None
+    freshness: str | None = None
+    sources: list[str] | None = None
+    generatedAt: str | None = None
 
 
 class HourlyRiskPoint(BaseModel):
@@ -127,6 +134,13 @@ class DayPlanResponse(BaseModel):
     hourlyRisk: list[HourlyRiskPoint]
     safeWindows: list[SafeWindow]
     ventilationWindows: list[SafeWindow]
+    generatedAt: str | None = None
+    dataQuality: str | None = None
+    freshness: str | None = None
+    sources: list[str] | None = None
+    forecastHours: int | None = None
+    forecastAvailable: bool = True
+    missingMetrics: list[str] = []
 
 
 class RecommendationResponse(BaseModel):

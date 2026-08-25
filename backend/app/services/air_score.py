@@ -1,7 +1,8 @@
-"""Shared helpers for mapping mock environment snapshots into the air-risk engine.
+"""Shared helpers for mapping environment snapshots into the air-risk engine.
 
 Used by the dashboard and planner routers so the risk-score mapping and the
 ``EnvironmentSnapshot`` -> ``EnvironmentalInput`` adapter stay in one place.
+Optional UV/PM10/wind stay null when the provider did not supply them.
 """
 
 from app.models.air import EnvironmentalInput
@@ -22,19 +23,24 @@ def to_air_environment(
     timestamp: str = "1970-01-01T00:00:00Z",
 ) -> EnvironmentalInput:
     humidity = float(environment.humidity_percent)
+    feels_like = (
+        float(environment.feels_like)
+        if environment.feels_like is not None
+        else float(environment.temperature_c)
+    )
     return EnvironmentalInput(
         lat=lat,
         lon=lon,
         temperature=float(environment.temperature_c),
-        feels_like=float(environment.temperature_c + (humidity / 20.0)),
+        feels_like=feels_like,
         humidity=humidity,
-        aqi=int(environment.aqi),
-        pm25=float(environment.pm25),
-        pm10=max(1.0, float(environment.pm25) * 1.4),
-        ozone=float(environment.ozone),
-        uv=4.0,
-        wind_speed=2.0,
+        aqi=int(environment.aqi) if environment.aqi is not None else None,
+        pm25=float(environment.pm25) if environment.pm25 is not None else None,
+        pm10=environment.pm10,
+        ozone=float(environment.ozone) if environment.ozone is not None else None,
+        uv=environment.uv,
+        wind_speed=environment.wind_speed,
         source=environment.source,
         timestamp=timestamp,
-        timezone="UTC",
+        timezone=environment.timezone or "UTC",
     )

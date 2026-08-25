@@ -21,6 +21,12 @@ import app.services.health_analytics_service as health_analytics_service
 import app.services.settings_repository as settings_repository
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
+from app.services.forecast.mapping import (
+    apply_freshness_source,
+    forecast_point_to_environmental,
+    forecast_to_hourly_inputs,
+)
+from app.services.forecast.service import get_forecast
 from app.services.localization import normalize_language
 
 ReportKind = Literal["morning", "evening", "weekly"]
@@ -126,8 +132,24 @@ def build_ai_report(
     user_settings = settings_repository.get_user_settings(user_id)
     language = user_settings.preferred_language
     environment = air_environment_service.load_environment(profile)
+    forecast = None
+    hourly_points: list = []
+    try:
+        forecast = get_forecast(profile.home_lat, profile.home_lon)
+        hourly_points = forecast_to_hourly_inputs(forecast)
+        if forecast.current is not None:
+            mapped = forecast_point_to_environmental(forecast.current)
+            if mapped is not None:
+                environment = apply_freshness_source(mapped, forecast.freshness.value)
+    except Exception:
+        hourly_points = []
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
-    risk = air_risk_engine.evaluate_risk(profile, environment, personal_load)
+    risk = air_risk_engine.evaluate_risk(
+        profile,
+        environment,
+        personal_load,
+        hourly_points=hourly_points,
+    )
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
 
     window_days = 7 if kind == "weekly" else 30

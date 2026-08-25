@@ -510,7 +510,7 @@ struct HiAirErrorView: View {
     var body: some View {
         VStack(spacing: HiAirSpacing.md) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 36))
+                .font(.largeTitle)
                 .foregroundStyle(HiAirColors.Feedback.errorSoft)
             Text(title)
                 .font(HiAirTypography.titleMD)
@@ -570,6 +570,6 @@ extension View {
     }
 
     func hiAirPageBackground() -> some View {
-        background(HiAirGradients.timeOfDay().ignoresSafeArea())
+        background(HiAirAtmosphericBackground())
     }
 }

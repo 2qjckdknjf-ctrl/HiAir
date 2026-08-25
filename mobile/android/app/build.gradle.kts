@@ -35,14 +35,15 @@ val hasReleaseSigning = hasEnvSigning || hasPropertiesSigning
 
 android {
     namespace = "com.hiair"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hiair"
         minSdk = 26
-        targetSdk = 35
-        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 181
+        targetSdk = 36
+        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 189
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -176,4 +177,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:5.12.0")
     testImplementation("org.json:json:20240303")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
 }

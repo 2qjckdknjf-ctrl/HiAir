@@ -9,14 +9,18 @@ from fastapi import HTTPException
 
 from app.models.subscription import UserEntitlementResponse
 from app.services.db import get_connection
+import app.services.places_repository as places_repository
 
 FREE_MAX_PROFILES = 1
 PREMIUM_MAX_PROFILES = 6
+FREE_MAX_SAVED_PLACES = 3
+PREMIUM_MAX_SAVED_PLACES = 25
 
 
 @dataclass(frozen=True)
 class EntitlementLimits:
     max_profiles: int
+    max_saved_places: int
     extended_forecast_enabled: bool
     custom_alerts_enabled: bool
     export_reports_enabled: bool
@@ -108,8 +112,10 @@ def get_current_entitlement(user_id: str) -> UserEntitlementResponse:
 
 def get_subscription_limits(user_id: str) -> EntitlementLimits:
     ent = get_current_entitlement(user_id)
+    max_saved_places = PREMIUM_MAX_SAVED_PLACES if ent.is_premium else FREE_MAX_SAVED_PLACES
     return EntitlementLimits(
         max_profiles=ent.max_profiles,
+        max_saved_places=max_saved_places,
         extended_forecast_enabled=ent.extended_forecast_enabled,
         custom_alerts_enabled=ent.custom_alerts_enabled,
         export_reports_enabled=ent.export_reports_enabled,
@@ -153,6 +159,19 @@ def assert_profile_limit(user_id: str) -> None:
         raise HTTPException(
             status_code=402,
             detail=f"Profile limit reached ({limits.max_profiles}). Upgrade to Premium for family profiles.",
+        )
+
+
+def assert_saved_places_limit(user_id: str) -> None:
+    limits = get_subscription_limits(user_id)
+    count = places_repository.count_places(user_id=user_id)
+    if count >= limits.max_saved_places:
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Saved place limit reached ({limits.max_saved_places}). "
+                "Upgrade to Premium for more locations."
+            ),
         )
 
 

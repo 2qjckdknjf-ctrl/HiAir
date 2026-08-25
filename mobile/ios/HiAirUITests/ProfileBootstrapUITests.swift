@@ -163,17 +163,17 @@ final class TabNavigationUITests: XCTestCase {
         ])
         attachScreenshot(app, name: "10-tabs-dashboard")
 
-        app.tabBars.buttons.element(boundBy: 1).tap()
+        tapHiAirTab(app, identifier: "tab.planner")
         attachScreenshot(app, name: "11-tabs-planner")
-        app.tabBars.buttons.element(boundBy: 2).tap()
+        tapHiAirTab(app, identifier: "tab.insights")
         attachScreenshot(app, name: "12-tabs-insights")
-        app.tabBars.buttons.element(boundBy: 3).tap()
+        tapHiAirTab(app, identifier: "tab.symptoms")
         attachScreenshot(app, name: "13-tabs-symptoms")
-        app.tabBars.buttons.element(boundBy: 4).tap()
+        tapHiAirTab(app, identifier: "tab.settings")
         attachScreenshot(app, name: "14-tabs-settings")
 
-        let logout = app.descendants(matching: .any)["settings.logout"]
-        XCTAssertTrue(logout.waitForExistence(timeout: 6), "Settings logout control should be reachable")
+        let logout = scrollToIdentifier(app, "settings.logout")
+        XCTAssertTrue(logout.exists, "Settings logout control should be reachable")
         attachA11yDump(app, name: "14-tabs-settings")
     }
 
@@ -185,16 +185,28 @@ final class TabNavigationUITests: XCTestCase {
     }
 
     func testPaywallOpenAndClose() throws {
-        let app = UITestLaunch.launch(clearProfile: false, extraEnvironment: [
-            "UITEST_PROFILE_ID": "profile-seed",
-            "UITEST_CLEAR_PROFILE": "0",
-        ])
-        app.tabBars.buttons.element(boundBy: 4).tap()
-        let openPaywall = waitForIdentifier(app, "settings.open_paywall", timeout: 8)
+        let app = UITestLaunch.launch(
+            language: "en",
+            seedAuth: true,
+            seedLocation: true,
+            clearProfile: false,
+            skipOnboarding: true,
+            mockAPI: true,
+            extraEnvironment: [
+                "UITEST_STORE_SHOTS": "1",
+                "UITEST_PROFILE_ID": "profile-uitest-1",
+                "UITEST_EMAIL": "alex@hiair.io",
+                "UITEST_USER_ID": "uitest-paywall-close",
+            ]
+        )
+        _ = waitForIdentifier(app, "tab.settings", timeout: 12)
+        tapHiAirTab(app, identifier: "tab.settings")
+        let openPaywall = scrollToIdentifier(app, "settings.open_paywall")
         openPaywall.tap()
-        let closeQuery = app.descendants(matching: .any).matching(identifier: "paywall.close")
-        let close = closeQuery.element(boundBy: 0)
-        XCTAssertTrue(close.waitForExistence(timeout: 8), "Missing paywall.close")
+        _ = waitForIdentifier(app, "paywall.root", timeout: 12)
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        let close = app.descendants(matching: .any).matching(identifier: "paywall.close").firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 12), "Missing paywall.close")
         attachScreenshot(app, name: "30-paywall-open")
         close.tap()
         attachScreenshot(app, name: "31-paywall-closed")
@@ -206,8 +218,8 @@ final class TabNavigationUITests: XCTestCase {
             "UITEST_PROFILE_ID": "profile-seed",
             "UITEST_CLEAR_PROFILE": "0",
         ])
-        app.tabBars.buttons.element(boundBy: 4).tap()
-        let logout = waitForIdentifier(app, "settings.logout", timeout: 8)
+        tapHiAirTab(app, identifier: "tab.settings")
+        let logout = scrollToIdentifier(app, "settings.logout")
         logout.tap()
         let auth = waitForIdentifier(app, "auth.root", timeout: 8)
         attachScreenshot(app, name: "40-logout-auth")

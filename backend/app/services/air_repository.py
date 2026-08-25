@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from math import ceil
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
@@ -106,7 +107,12 @@ def get_latest_environment_snapshot(
                     pm25,
                     ozone,
                     source,
-                    timestamp_utc
+                    timestamp_utc,
+                    feels_like,
+                    pm10,
+                    uv,
+                    wind_speed,
+                    no2
                 FROM environment_snapshots
                 WHERE geo_hash = %s
                   AND timestamp_utc >= %s
@@ -122,10 +128,15 @@ def get_latest_environment_snapshot(
     return EnvironmentSnapshot(
         temperature_c=float(row["temperature_c"]),
         humidity_percent=float(row["humidity_percent"]),
-        aqi=int(row["aqi"]),
-        pm25=float(row["pm25"]),
-        ozone=float(row["ozone"]),
+        aqi=None if row["aqi"] is None else int(row["aqi"]),
+        pm25=None if row["pm25"] is None else float(row["pm25"]),
+        ozone=None if row["ozone"] is None else float(row["ozone"]),
         source=str(row["source"]),
+        pm10=None if row.get("pm10") is None else float(row["pm10"]),
+        no2=None if row.get("no2") is None else float(row["no2"]),
+        uv=None if row.get("uv") is None else float(row["uv"]),
+        wind_speed=None if row.get("wind_speed") is None else float(row["wind_speed"]),
+        feels_like=None if row.get("feels_like") is None else float(row["feels_like"]),
     )
 
 
@@ -152,9 +163,10 @@ def save_environment_snapshot(environment: EnvironmentalInput) -> str:
                     feels_like,
                     pm10,
                     uv,
-                    wind_speed
+                    wind_speed,
+                    no2
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     snapshot_id,
@@ -173,6 +185,7 @@ def save_environment_snapshot(environment: EnvironmentalInput) -> str:
                     environment.pm10,
                     environment.uv,
                     environment.wind_speed,
+                    environment.no2,
                 ),
             )
     return snapshot_id
@@ -294,6 +307,49 @@ def find_recent_alert_by_dedupe_key(dedupe_key: str, within_hours: int = 6) -> b
             )
             row = cur.fetchone()
     return row is not None
+
+
+def minutes_until_alert_cooldown_elapsed(
+    profile_id: str,
+    cooldown_minutes: int = 60,
+    *,
+    alert_type: str | None = None,
+) -> int:
+    """Minutes remaining before another alert of the same type may be sent."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if alert_type:
+                cur.execute(
+                    """
+                    SELECT sent_at
+                    FROM alert_events
+                    WHERE user_profile_id = %s
+                      AND alert_type = %s
+                    ORDER BY sent_at DESC
+                    LIMIT 1
+                    """,
+                    (profile_id, alert_type),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT sent_at
+                    FROM alert_events
+                    WHERE user_profile_id = %s
+                    ORDER BY sent_at DESC
+                    LIMIT 1
+                    """,
+                    (profile_id,),
+                )
+            row = cur.fetchone()
+    if row is None:
+        return 0
+    sent_at = row["sent_at"]
+    if sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=timezone.utc)
+    elapsed_minutes = (datetime.now(timezone.utc) - sent_at).total_seconds() / 60.0
+    remaining = cooldown_minutes - elapsed_minutes
+    return max(0, int(ceil(remaining)))
 
 
 def save_alert_event(

@@ -7,6 +7,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Locale
 
@@ -48,6 +49,13 @@ class HiAirHumanDateTest {
         )
         assertTrue(range.contains("–"))
         assertFalse(range.contains("T08"))
+    }
+
+    @Test
+    fun zoneIdFallsBackWhenIdentifierIsUnknown() {
+        assertEquals(ZoneId.systemDefault(), HiAirHumanDate.zoneId(null))
+        assertEquals(ZoneId.systemDefault(), HiAirHumanDate.zoneId("not-a-zone"))
+        assertEquals(ZoneId.of("Europe/Madrid"), HiAirHumanDate.zoneId("Europe/Madrid"))
     }
 }
 

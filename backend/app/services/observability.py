@@ -16,6 +16,9 @@ class ObservabilityState:
     ai_explanations_fallback: int = 0
     ai_guardrail_blocked: int = 0
     risk_level_alias_counts: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    alert_decisions_total: int = 0
+    alert_decisions_suppressed: int = 0
+    alert_decision_suppress_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     lock: Lock = field(default_factory=Lock)
 
 
@@ -47,6 +50,9 @@ def snapshot_metrics() -> dict[str, object]:
             "ai_explanations_fallback": state.ai_explanations_fallback,
             "ai_guardrail_blocked": state.ai_guardrail_blocked,
             "risk_level_alias_counts": dict(state.risk_level_alias_counts),
+            "alert_decisions_total": state.alert_decisions_total,
+            "alert_decisions_suppressed": state.alert_decisions_suppressed,
+            "alert_decision_suppress_reasons": dict(state.alert_decision_suppress_reasons),
             "by_method": dict(state.by_method),
             "by_status": dict(state.by_status),
             "by_path": dict(state.by_path),
@@ -66,3 +72,12 @@ def record_risk_level_alias(domain: str, source_level: str, normalized_level: st
     key = f"{domain}:{source_level}->{normalized_level}"
     with state.lock:
         state.risk_level_alias_counts[key] += 1
+
+
+def record_alert_decision(*, suppressed: bool, reason_codes: list[str] | None = None) -> None:
+    with state.lock:
+        state.alert_decisions_total += 1
+        if suppressed:
+            state.alert_decisions_suppressed += 1
+            for code in reason_codes or []:
+                state.alert_decision_suppress_reasons[code] += 1

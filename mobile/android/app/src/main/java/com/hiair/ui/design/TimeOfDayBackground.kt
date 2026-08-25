@@ -11,11 +11,11 @@ object TimeOfDayBackground {
         )
     }
 
-    fun surfacePrimary(): Int = lighten(Tokens.TimeOfDayPhase.current().top, 0.06f)
+    fun surfacePrimary(): Int = HiAirColors.Surface.bg2
 
-    fun surfaceSecondary(): Int = lighten(Tokens.TimeOfDayPhase.current().top, 0.12f)
+    fun surfaceSecondary(): Int = HiAirColors.Surface.bg3
 
-    fun surfaceElevated(): Int = lighten(Tokens.TimeOfDayPhase.current().top, 0.18f)
+    fun surfaceElevated(): Int = lighten(HiAirColors.Surface.bg3, 0.08f)
 
     private fun lighten(color: Int, amount: Float): Int {
         val hsv = FloatArray(3)

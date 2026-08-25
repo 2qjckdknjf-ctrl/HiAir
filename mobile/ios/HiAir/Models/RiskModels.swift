@@ -2,10 +2,10 @@ import Foundation
 
 struct EnvironmentSnapshot: Codable {
     let temperatureC: Double
-    let humidityPercent: Double
-    let aqi: Int
-    let pm25: Double
-    let ozone: Double
+    let humidityPercent: Double?
+    let aqi: Int?
+    let pm25: Double?
+    let ozone: Double?
     let source: String
 
     enum CodingKeys: String, CodingKey {
@@ -199,6 +199,7 @@ struct AirRiskAssessment: Codable {
     let safeWindows: [AirSafeWindow]
     let recommendationFlags: [String]
     let reasonCodes: [String]
+    let ventilationWindows: [AirSafeWindow]?
 }
 
 struct AirRecommendationCard: Codable {
@@ -212,16 +213,17 @@ struct AirEnvironmentalInput: Codable {
     let lon: Double
     let temperature: Double
     let feelsLike: Double
-    let humidity: Double
-    let aqi: Int
-    let pm25: Double
-    let pm10: Double
-    let ozone: Double
-    let uv: Double
-    let windSpeed: Double
+    let humidity: Double?
+    let aqi: Int?
+    let pm25: Double?
+    let pm10: Double?
+    let ozone: Double?
+    let no2: Double?
+    let uv: Double?
+    let windSpeed: Double?
     let source: String
     let timestamp: String
-    let timezone: String
+    let timezone: String?
 
     enum CodingKeys: String, CodingKey {
         case lat
@@ -233,6 +235,7 @@ struct AirEnvironmentalInput: Codable {
         case pm25
         case pm10
         case ozone
+        case no2
         case uv
         case windSpeed = "wind_speed"
         case source
@@ -249,6 +252,10 @@ struct AirCurrentRiskResponse: Codable {
     let recommendation: AirRecommendationCard
     let explanation: String
     let explanationSource: String
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let generatedAt: String?
 }
 
 struct AirHourlyRiskPoint: Codable {
@@ -262,6 +269,17 @@ struct AirDayPlanResponse: Codable {
     let hourlyRisk: [AirHourlyRiskPoint]
     let safeWindows: [AirSafeWindow]
     let ventilationWindows: [AirSafeWindow]
+    let generatedAt: String?
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let forecastHours: Int?
+    let forecastAvailable: Bool?
+    let missingMetrics: [String]?
+
+    var isForecastAvailable: Bool {
+        forecastAvailable ?? !hourlyRisk.isEmpty
+    }
 }
 
 struct PersonalPatternInsight: Codable {
@@ -475,7 +493,7 @@ struct AuthResponse: Codable {
     }
 }
 
-struct UserProfile: Codable {
+struct UserProfile: Codable, Identifiable {
     let id: String
     let userId: String
     let personaType: String
@@ -724,4 +742,234 @@ struct WearableDataDeleteResponse: Codable {
     let deletedDaily: Int
     let deletedHourly: Int
     let consentRevoked: Bool
+}
+
+// MARK: - HiAir 1.2 Activity Best-Time
+
+struct ActivityCatalogItem: Codable, Identifiable, Hashable {
+    let activity: String
+    let defaultDurationMinutes: Int
+    let defaultIntensity: String
+    let outdoor: Bool
+
+    var id: String { activity }
+}
+
+struct ActivityCatalogResponse: Codable {
+    let activities: [ActivityCatalogItem]
+}
+
+struct ActivityPlanRequest: Codable {
+    let profileId: String
+    let activity: String
+    let durationMinutes: Int?
+    let intensity: String?
+    let earliestStart: String?
+    let latestStart: String?
+    let placeId: String?
+}
+
+struct ActivityHourAssessment: Codable {
+    let hour: String
+    let tier: String
+    let score: Int
+    let reasonCodes: [String]
+}
+
+struct ActivityWindow: Codable, Identifiable, Hashable {
+    let tier: String
+    let start: String
+    let end: String
+    let score: Int
+    let reasonCodes: [String]
+    let confidence: Double
+
+    var id: String { "\(tier)-\(start)-\(end)" }
+}
+
+struct ActivityPlanResponse: Codable {
+    let profileId: String
+    let activity: String
+    let intensity: String
+    let durationMinutes: Int
+    let timezone: String
+    let forecastAvailable: Bool
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let missingMetrics: [String]?
+    let generatedAt: String?
+    let hourly: [ActivityHourAssessment]
+    let windows: [ActivityWindow]
+    let recommendedStart: String?
+    let personalLoadScore: Int?
+    let personalLoadLevel: String?
+    let personalLoadReasonCodes: [String]?
+
+    var isForecastAvailable: Bool {
+        forecastAvailable
+    }
+}
+
+// MARK: - HiAir 1.3 Multi-Hazard
+
+struct HazardScore: Codable, Identifiable, Hashable {
+    let hazard: String
+    let level: String
+    let score: Int
+    let available: Bool
+    let reasonCodes: [String]
+    let unavailableReason: String?
+
+    var id: String { hazard }
+}
+
+struct MultiHazardAssessment: Codable {
+    let profileId: String
+    let assessedAt: String
+    let hazards: [HazardScore]
+    let overallLevel: String
+    let overallScore: Int
+    let availableCount: Int
+    let reasonCodes: [String]
+}
+
+struct HazardsResponse: Codable {
+    let profileId: String
+    let assessedAt: String
+    let environmental: AirEnvironmentalInput
+    let assessment: MultiHazardAssessment
+    let dataQuality: String?
+    let freshness: String?
+    let sources: [String]?
+    let generatedAt: String?
+}
+
+// MARK: - HiAir 1.5 Saved Places
+
+struct SavedPlace: Codable, Identifiable, Hashable {
+    let id: String
+    let userId: String
+    let name: String
+    let placeType: String
+    let lat: Double
+    let lon: Double
+    let timezone: String?
+    let createdAt: String?
+}
+
+struct SavedPlaceCreateRequest: Codable {
+    let name: String
+    let placeType: String
+    let lat: Double
+    let lon: Double
+    let timezone: String?
+}
+
+struct SavedPlaceListResponse: Codable {
+    let places: [SavedPlace]
+}
+
+// MARK: - HiAir 1.6 Personal Adaptation
+
+struct PersonalBaseline: Codable, Identifiable, Hashable {
+    let metric: String
+    let window: String
+    let value: Double?
+    let sampleSize: Int
+    let confidence: Double
+    let available: Bool
+
+    var id: String { "\(metric)-\(window)" }
+}
+
+struct ProtectedDaysSummary: Codable {
+    let highRiskPeriodsAvoided: Int
+    let workoutsMoved: Int
+    let ventilationWindowsUsed: Int
+    let poorAirExposureReduced: Int
+    let available: Bool
+}
+
+struct PersonalAdaptationSnapshot: Codable {
+    let profileId: String
+    let generatedAt: String
+    let baselines: [PersonalBaseline]
+    let protectedDays: ProtectedDaysSummary
+    let reasonCodes: [String]
+}
+
+struct ProtectedDayEventCreateRequest: Codable {
+    let profileId: String
+    let eventType: String
+    let eventDate: String?
+}
+
+struct ProtectedDayEventRecord: Codable {
+    let id: String
+    let profileId: String
+    let eventType: String
+    let eventDate: String
+}
+
+struct WorkRestRecommendation: Codable {
+    let workMinutes: Int
+    let restMinutes: Int
+    let rationaleCodes: [String]
+}
+
+struct SiteRiskAssessment: Codable {
+    let siteId: String
+    let wbgtC: Double?
+    let heatIndexC: Double?
+    let workload: String
+    let riskLevel: String
+    let workRest: WorkRestRecommendation
+    let availableMetrics: [String]
+    let missingMetrics: [String]
+    let reasonCodes: [String]
+}
+
+struct SiteRiskResponse: Codable {
+    let assessedAt: String
+    let environmentalSource: String?
+    let assessment: SiteRiskAssessment
+}
+
+struct FamilyMemberLink: Codable, Identifiable, Hashable {
+    let id: String
+    let ownerUserId: String
+    let memberProfileId: String
+    let relation: String
+    let label: String?
+    let createdAt: String?
+}
+
+struct FamilyMemberCreateRequest: Codable {
+    let memberProfileId: String
+    let relation: String
+    let label: String?
+}
+
+struct FamilyMemberListResponse: Codable {
+    let members: [FamilyMemberLink]
+}
+
+struct FamilyMemberRiskLine: Codable, Identifiable, Hashable {
+    var id: String { memberLinkId }
+    let memberLinkId: String
+    let memberProfileId: String
+    let relation: String
+    let label: String?
+    let riskLevel: String
+    let riskScore: Int
+    let available: Bool
+    let unavailableReason: String?
+}
+
+struct FamilyRiskOverviewResponse: Codable {
+    let ownerUserId: String
+    let assessedAt: String
+    let members: [FamilyMemberRiskLine]
+    let highestRiskLevel: String?
 }

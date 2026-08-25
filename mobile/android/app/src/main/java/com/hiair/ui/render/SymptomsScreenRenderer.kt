@@ -13,6 +13,8 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import com.hiair.StoreScreenshotMode
+import com.hiair.StoreScreenshotMockSeeder
 import com.hiair.ui.design.HiAirColors
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirSpacing
@@ -24,9 +26,20 @@ import com.hiair.ui.theme.V2Ui
 internal object SymptomsScreenRenderer {
     fun render(ctx: RenderContext) {
         val activity = ctx.activity
+        val rootShell = ctx.rootShell
         val bodyContainer = ctx.bodyContainer
 
-        bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        if (StoreScreenshotMode.active) {
+            if (rootShell.symptomLogViewModel.state.taxonomy == null) {
+                StoreScreenshotMockSeeder.apply(rootShell)
+            }
+            SymptomsDeepGlassLayout.render(ctx, rootShell.symptomLogViewModel.state)
+            return
+        }
+
+        if (HiAirComponents.shouldShowCompactBrandHeader()) {
+            bodyContainer.addView(HiAirComponents.brandHeader(activity))
+        }
         ctx.titleView.text = ctx.l("title.symptoms")
         bodyContainer.addView(
             V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f },
@@ -500,8 +513,12 @@ internal object SymptomsScreenRenderer {
                 },
             )
             addView(V2Ui.styledBodyText(activity, ctx.l("symptoms.location")).apply {
-                val params = layoutParams as LinearLayout.LayoutParams
-                params.topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                }
             })
             addView(locationPickerRow(ctx, state, repaint))
             addView(
@@ -517,8 +534,12 @@ internal object SymptomsScreenRenderer {
                     selectedValue = state.frequency,
                     onSelected = { viewModel.setFrequency(it) },
                 ).apply {
-                    (layoutParams as LinearLayout.LayoutParams).topMargin =
-                        V2Ui.dp(activity, HiAirSpacing.sm)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply {
+                        topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                    }
                 },
             )
             addView(

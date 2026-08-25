@@ -13,8 +13,22 @@ import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import com.hiair.ui.family.FamilyMemberItem
+import com.hiair.ui.family.FamilyMembersParser
+import com.hiair.ui.family.FamilyMemberRiskItem
+import com.hiair.ui.family.FamilyRiskParser
+import com.hiair.ui.work.WorkSiteRiskParser
 import org.json.JSONArray
 import org.json.JSONObject
+
+data class SavedPlaceItem(
+    val id: String,
+    val name: String,
+    val placeType: String,
+    val lat: Double,
+    val lon: Double,
+    val timezone: String? = null,
+)
 
 data class SettingsState(
     val email: String = "",
@@ -37,6 +51,7 @@ data class SettingsState(
     val subscriptionStatus: String = "inactive",
     val isPremium: Boolean = false,
     val showPaywall: Boolean = false,
+    val paywallSelectedPlanId: String = "yearly",
     val paywallStatusText: String = "",
     val aiSummaryHours: Int = 24,
     val aiSummaryText: String = "-",
@@ -61,6 +76,7 @@ data class SettingsState(
     val aiLastUpdatedLabel: String = "-",
     val aiBreakdownText: String = "-",
     val privacyExportSummary: String = "-",
+    val accountDeletionDetail: String = "",
     val wearableStatus: String = "-",
     val loading: Boolean = false,
     val statusText: String = "-",
@@ -68,6 +84,17 @@ data class SettingsState(
     val longitude: Double = 0.0,
     val locationSource: String = LocationSource.UNKNOWN.raw,
     val locationRevision: Int = 0,
+    val savedPlaces: List<SavedPlaceItem> = emptyList(),
+    val placesStatusText: String = "-",
+    val placesLoading: Boolean = false,
+    val workWorkload: String = "moderate",
+    val workSiteRiskText: String = "",
+    val workSiteRiskProxyOnly: Boolean = false,
+    val workSiteRiskLoading: Boolean = false,
+    val familyMembers: List<FamilyMemberItem> = emptyList(),
+    val familyRiskByLinkId: Map<String, FamilyMemberRiskItem> = emptyMap(),
+    val familyStatusText: String = "",
+    val availableProfileIds: List<Pair<String, String>> = emptyList(),
 )
 
 class SettingsViewModel(
@@ -101,6 +128,31 @@ class SettingsViewModel(
 
     fun setProfileId(value: String) {
         state = state.copy(profileId = value)
+    }
+
+    /** DEBUG-only guest onboarding state for store screenshot captures. */
+    fun seedStoreScreenshotOnboarding(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = SettingsState(preferredLanguage = language.ifBlank { "en" })
+    }
+
+    /** DEBUG-only stable auth/subscription state for store screenshot captures. */
+    fun seedStoreScreenshotSession(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        state = state.copy(
+            email = "alex@hiair.io",
+            userId = "store-shot-user",
+            accessToken = "store-shot-token",
+            refreshToken = "store-shot-refresh",
+            profileId = "profile-store-shot",
+            preferredLanguage = language.ifBlank { "en" },
+            isPremium = true,
+            subscriptionStatus = "active",
+            wearableStatus = if (language.startsWith("ru")) "Health Connect подключён" else "Health Connect connected",
+            latitude = 41.2800,
+            longitude = 1.9800,
+            locationSource = LocationSource.CACHED.raw,
+        )
     }
 
     fun hasValidLocation(): Boolean = GeoCoordinates.isValid(state.latitude, state.longitude)
@@ -588,9 +640,32 @@ class SettingsViewModel(
             state = state.copy(statusText = l("settings.user_id_required"))
             return false
         }
-        state = state.copy(loading = true)
+        state = state.copy(loading = true, accountDeletionDetail = "")
         return try {
-            apiClient.deleteAccount(state.userId, state.accessToken)
+            val requirements = apiClient.fetchDeleteAccountRequirements(state.userId, state.accessToken)
+            val requiresApple = requirements.optBoolean("requires_apple_authorization_code", false)
+            if (requirements.optBoolean("in_progress", false)) {
+                state = state.copy(
+                    accountDeletionDetail = SettingsViewModel.formatDeletionDetail(requirements),
+                )
+            }
+            if (requiresApple) {
+                state = state.copy(
+                    loading = false,
+                    statusText = l("settings.account_delete_apple_required"),
+                    accountDeletionDetail = SettingsViewModel.formatDeletionDetail(requirements),
+                )
+                return false
+            }
+            val response = apiClient.deleteAccount(state.userId, state.accessToken)
+            if (!response.optBoolean("deleted", false)) {
+                state = state.copy(
+                    loading = false,
+                    statusText = response.optString("recovery_hint", l("settings.account_delete_failed")),
+                    accountDeletionDetail = SettingsViewModel.formatDeletionDetail(response),
+                )
+                return false
+            }
             state = state.copy(
                 loading = false,
                 email = "",
@@ -599,13 +674,224 @@ class SettingsViewModel(
                 accessToken = "",
                 refreshToken = "",
                 privacyExportSummary = "-",
-                statusText = l("settings.account_deleted")
+                statusText = l("settings.account_deleted"),
+                accountDeletionDetail = "",
             )
             ProductAnalytics.track("privacy_delete")
             true
+        } catch (error: ApiHttpException) {
+            state = state.copy(
+                loading = false,
+                statusText = l("settings.account_delete_failed"),
+                accountDeletionDetail = error.message.orEmpty(),
+            )
+            false
         } catch (_: Exception) {
             state = state.copy(loading = false, statusText = l("settings.account_delete_failed"))
             false
+        }
+    }
+
+    fun loadPlaces() {
+        if (state.userId.isBlank()) {
+            state = state.copy(placesStatusText = l("settings.user_id_required"))
+            return
+        }
+        state = state.copy(placesLoading = true)
+        try {
+            val raw = apiClient.listPlaces(state.userId, state.accessToken.ifBlank { null })
+            state = state.copy(
+                placesLoading = false,
+                savedPlaces = parsePlacesList(raw),
+                placesStatusText = l("places.loaded"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(placesLoading = false, placesStatusText = l("places.load_failed"))
+        }
+    }
+
+    fun setWorkWorkload(workload: String) {
+        state = state.copy(workWorkload = workload)
+    }
+
+    fun loadWorkSiteRisk() {
+        if (state.userId.isBlank()) {
+            state = state.copy(workSiteRiskText = l("settings.work.no_location"))
+            return
+        }
+        if (!hasValidLocation()) {
+            state = state.copy(workSiteRiskText = l("settings.work.no_location"))
+            return
+        }
+        state = state.copy(workSiteRiskLoading = true, workSiteRiskText = "")
+        try {
+            val raw = apiClient.fetchSiteRisk(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                lat = state.latitude,
+                lon = state.longitude,
+                workload = state.workWorkload,
+                acclimatized = true,
+            )
+            val parsed = WorkSiteRiskParser.parse(raw, state.preferredLanguage)
+            state = state.copy(
+                workSiteRiskLoading = false,
+                workSiteRiskText = parsed.summaryLine,
+                workSiteRiskProxyOnly = parsed.proxyOnly,
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                workSiteRiskLoading = false,
+                workSiteRiskText = l("settings.work.load_failed"),
+                workSiteRiskProxyOnly = false,
+            )
+        }
+    }
+
+    fun refreshAvailableProfiles() {
+        if (state.userId.isBlank()) return
+        try {
+            val array = JSONArray(apiClient.listProfiles(state.userId, state.accessToken.ifBlank { null }))
+            val profiles = buildList {
+                for (index in 0 until array.length()) {
+                    val profile = array.getJSONObject(index)
+                    val id = profile.optString("id")
+                    val persona = profile.optString("persona_type", "adult")
+                    if (id.isNotBlank()) add(id to persona)
+                }
+            }
+            state = state.copy(availableProfileIds = profiles)
+        } catch (_: Exception) {
+            // Optional enrichment for family UI.
+        }
+    }
+
+    fun loadFamilyMembers() {
+        if (state.userId.isBlank()) return
+        try {
+            val raw = apiClient.listFamilyMembers(state.userId, state.accessToken.ifBlank { null })
+            state = state.copy(
+                familyMembers = FamilyMembersParser.parseList(raw),
+                familyStatusText = "",
+            )
+            loadFamilyRiskOverview()
+        } catch (_: Exception) {
+            state = state.copy(familyStatusText = l("settings.family.load_failed"))
+        }
+    }
+
+    fun loadFamilyRiskOverview() {
+        if (state.userId.isBlank()) return
+        try {
+            val raw = apiClient.fetchFamilyRiskOverview(state.userId, state.accessToken.ifBlank { null })
+            val risks = FamilyRiskParser.parseOverview(raw)
+            state = state.copy(
+                familyRiskByLinkId = risks.associateBy { it.memberLinkId },
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyRiskByLinkId = emptyMap())
+        }
+    }
+
+    fun addFamilyMember(profileId: String, relation: String, label: String?) {
+        if (state.userId.isBlank() || profileId.isBlank()) return
+        try {
+            val raw = apiClient.createFamilyMember(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                memberProfileId = profileId,
+                relation = relation,
+                label = label,
+            )
+            val created = FamilyMembersParser.parseMember(raw)
+            state = state.copy(
+                familyMembers = state.familyMembers + created,
+                familyStatusText = l("settings.family.added"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyStatusText = l("settings.family.add_failed"))
+        }
+    }
+
+    fun deleteFamilyMember(linkId: String) {
+        if (state.userId.isBlank() || linkId.isBlank()) return
+        try {
+            apiClient.deleteFamilyMember(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                memberLinkId = linkId,
+            )
+            state = state.copy(
+                familyMembers = state.familyMembers.filterNot { it.id == linkId },
+                familyStatusText = l("settings.family.deleted"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(familyStatusText = l("settings.family.delete_failed"))
+        }
+    }
+
+    fun addSavedPlace(name: String, placeType: String) {
+        if (state.userId.isBlank()) {
+            state = state.copy(placesStatusText = l("settings.user_id_required"))
+            return
+        }
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
+            state = state.copy(placesStatusText = l("places.name_required"))
+            return
+        }
+        if (!hasValidLocation()) {
+            state = state.copy(placesStatusText = l("places.location_required"))
+            return
+        }
+        state = state.copy(placesLoading = true)
+        try {
+            val raw = apiClient.createPlace(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                name = trimmedName,
+                placeType = placeType,
+                lat = state.latitude,
+                lon = state.longitude,
+            )
+            val created = parseSavedPlace(raw)
+            state = state.copy(
+                placesLoading = false,
+                savedPlaces = state.savedPlaces + created,
+                placesStatusText = l("places.added"),
+            )
+        } catch (error: ApiHttpException) {
+            state = state.copy(
+                placesLoading = false,
+                placesStatusText = if (error.statusCode == 402) {
+                    l("places.limit_reached")
+                } else {
+                    l("places.add_failed")
+                },
+            )
+        } catch (_: Exception) {
+            state = state.copy(placesLoading = false, placesStatusText = l("places.add_failed"))
+        }
+    }
+
+    fun deleteSavedPlace(placeId: String) {
+        if (state.userId.isBlank() || placeId.isBlank()) {
+            return
+        }
+        state = state.copy(placesLoading = true)
+        try {
+            apiClient.deletePlace(
+                userId = state.userId,
+                accessToken = state.accessToken.ifBlank { null },
+                placeId = placeId,
+            )
+            state = state.copy(
+                placesLoading = false,
+                savedPlaces = state.savedPlaces.filterNot { it.id == placeId },
+                placesStatusText = l("places.deleted"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(placesLoading = false, placesStatusText = l("places.delete_failed"))
         }
     }
 
@@ -805,6 +1091,10 @@ class SettingsViewModel(
 
     fun dismissPaywall() {
         state = state.copy(showPaywall = false)
+    }
+
+    fun setPaywallSelectedPlanId(planId: String) {
+        state = state.copy(paywallSelectedPlanId = planId)
     }
 
     fun setPaywallStatus(message: String) {
@@ -1030,6 +1320,45 @@ class SettingsViewModel(
                 aiBreakdownText = "-",
                 statusText = l("settings.ai_failed")
             )
+        }
+    }
+
+    companion object {
+        fun parsePlacesList(raw: String): List<SavedPlaceItem> {
+            val array = JSONObject(raw).optJSONArray("places") ?: JSONArray()
+            return buildList {
+                for (index in 0 until array.length()) {
+                    add(parseSavedPlace(array.getJSONObject(index)))
+                }
+            }
+        }
+
+        fun parseSavedPlace(raw: String): SavedPlaceItem {
+            return parseSavedPlace(JSONObject(raw))
+        }
+
+        private fun parseSavedPlace(json: JSONObject): SavedPlaceItem {
+            return SavedPlaceItem(
+                id = json.getString("id"),
+                name = json.getString("name"),
+                placeType = json.optString("placeType"),
+                lat = json.getDouble("lat"),
+                lon = json.getDouble("lon"),
+                timezone = json.optString("timezone").takeIf { it.isNotBlank() },
+            )
+        }
+
+        fun formatDeletionDetail(payload: JSONObject): String {
+            val operationId = payload.optString("operation_id").takeIf { it.isNotBlank() }
+            val stages = payload.optJSONObject("stages")
+            val stageText = stages?.keys()?.asSequence()?.sorted()?.joinToString(", ") { key ->
+                "$key: ${stages.optString(key)}"
+            }.orEmpty()
+            return when {
+                operationId != null && stageText.isNotBlank() -> "operation_id: $operationId, $stageText"
+                operationId != null -> "operation_id: $operationId"
+                else -> stageText
+            }
         }
     }
 }

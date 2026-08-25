@@ -11,45 +11,23 @@ struct RootTabView: View {
                 AuthView()
                     .accessibilityIdentifier(HiAirAccessibilityID.Auth.root)
             } else if session.onboardingCompleted {
-                TabView(selection: $session.selectedTab) {
-                    DashboardView()
-                        .tag(0)
-                        .tabItem {
-                            Label(session.l("tab.dashboard"), systemImage: "gauge.medium")
-                        }
-                        .accessibilityIdentifier(HiAirAccessibilityID.Tabs.dashboard)
-
-                    DailyPlannerView()
-                        .tag(1)
-                        .tabItem {
-                            Label(session.l("tab.planner"), systemImage: "calendar")
-                        }
-                        .accessibilityIdentifier(HiAirAccessibilityID.Tabs.planner)
-
-                    InsightsView()
-                        .tag(2)
-                        .tabItem {
-                            Label(session.l("tab.insights"), systemImage: "sparkles")
-                        }
-                        .accessibilityIdentifier(HiAirAccessibilityID.Tabs.insights)
-
-                    SymptomLogView()
-                        .tag(3)
-                        .tabItem {
-                            Label(session.l("tab.symptoms"), systemImage: "heart.text.square")
-                        }
-                        .accessibilityIdentifier(HiAirAccessibilityID.Tabs.symptoms)
-
-                    SettingsView()
-                        .tag(4)
-                        .tabItem {
-                            Label(session.l("tab.settings"), systemImage: "gearshape")
-                        }
-                        .accessibilityIdentifier(HiAirAccessibilityID.Tabs.settings)
+                HiAirFloatingTabBarHost(selection: $session.selectedTab, items: mainTabItems) {
+                    TabView(selection: $session.selectedTab) {
+                        DashboardView()
+                            .tag(0)
+                        DailyPlannerView()
+                            .tag(1)
+                        InsightsView()
+                            .tag(2)
+                        SymptomLogView()
+                            .tag(3)
+                        SettingsView()
+                            .tag(4)
+                    }
+                    .tint(HiAirColors.Cta.gradientStart)
+                    .toolbar(.hidden, for: .tabBar)
+                    .toolbarBackground(.hidden, for: .tabBar)
                 }
-                .tint(HiAirColors.Cta.gradientStart)
-                .toolbarBackground(HiAirLiquidGlass.material(for: .regular), for: .tabBar)
-                .toolbarBackground(.visible, for: .tabBar)
                 .task(id: session.userId) {
                     if UITestBootstrap.disableAutoProfileBootstrap {
                         return
@@ -71,16 +49,57 @@ struct RootTabView: View {
                     .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.root)
             }
         }
+        .hiAirScreenshotEnvironmentReporter()
         .fullScreenCover(isPresented: $session.showOnboardingFromSettings) {
             OnboardingView(fromSettings: true)
                 .environmentObject(session)
                 .environmentObject(subscriptionService)
         }
-        .sheet(isPresented: $session.showPaywall) {
+        .fullScreenCover(isPresented: $session.showPaywall) {
             PaywallView()
                 .environmentObject(session)
                 .environmentObject(subscriptionService)
                 .accessibilityIdentifier(HiAirAccessibilityID.Paywall.root)
         }
+    }
+
+    private var mainTabItems: [HiAirFloatingTabItem] {
+        [
+            HiAirFloatingTabItem(
+                id: 0,
+                title: session.l("tab.dashboard"),
+                systemImage: "house",
+                selectedSystemImage: "house.fill",
+                accessibilityID: HiAirAccessibilityID.Tabs.dashboard
+            ),
+            HiAirFloatingTabItem(
+                id: 1,
+                title: session.l("tab.planner"),
+                systemImage: "calendar",
+                selectedSystemImage: "calendar",
+                accessibilityID: HiAirAccessibilityID.Tabs.planner
+            ),
+            HiAirFloatingTabItem(
+                id: 2,
+                title: session.l("tab.insights"),
+                systemImage: "sparkles",
+                selectedSystemImage: "sparkles",
+                accessibilityID: HiAirAccessibilityID.Tabs.insights
+            ),
+            HiAirFloatingTabItem(
+                id: 3,
+                title: session.l("tab.symptoms"),
+                systemImage: "heart",
+                selectedSystemImage: "heart.fill",
+                accessibilityID: HiAirAccessibilityID.Tabs.symptoms
+            ),
+            HiAirFloatingTabItem(
+                id: 4,
+                title: session.l("tab.settings"),
+                systemImage: "gearshape",
+                selectedSystemImage: "gearshape.fill",
+                accessibilityID: HiAirAccessibilityID.Tabs.settings
+            ),
+        ]
     }
 }

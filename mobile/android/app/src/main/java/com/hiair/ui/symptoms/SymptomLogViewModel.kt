@@ -1,5 +1,6 @@
 package com.hiair.ui.symptoms
 
+import com.hiair.StoreScreenshotMockSeeder
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
@@ -58,6 +59,23 @@ class SymptomLogViewModel(
 ) {
     var state: SymptomLogState = SymptomLogState()
         private set
+
+    /** DEBUG-only deterministic demo payload for store screenshot captures. */
+    fun seedStoreScreenshotDemo(language: String) {
+        if (!com.hiair.BuildConfig.DEBUG) return
+        val taxonomy = StoreScreenshotMockSeeder.demoTaxonomy(language)
+        state = state.copy(
+            profileId = "profile-store-shot",
+            taxonomy = taxonomy,
+            taxonomyLoading = false,
+            taxonomyFailed = false,
+            usingCachedTaxonomy = false,
+            expandedCategoryIds = setOf(taxonomy.categories.first().id),
+            favorites = listOf("cough", "headache"),
+            selectedType = taxonomy.categories.first().symptoms.firstOrNull()?.symptomType,
+            severity = 3,
+        )
+    }
 
     private var favoritesStore: SymptomFavoritesStore? = null
     private var persistedFavoritesLoaded = false

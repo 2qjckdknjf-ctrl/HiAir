@@ -21,6 +21,8 @@ from app.api.insights import router as insights_router
 from app.api.notifications import router as notifications_router
 from app.api.observability import router as observability_router
 from app.api.planner import router as planner_router
+from app.api.places import router as places_router
+from app.api.family import router as family_router
 from app.api.privacy import router as privacy_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
@@ -32,6 +34,7 @@ from app.api.thresholds import router as thresholds_router
 from app.api.validation import router as validation_router
 from app.api.waitlist import router as waitlist_router
 from app.api.wearables import router as wearables_router
+from app.api.work import router as work_router
 from app.core.settings import _is_protected_env, settings, validate_runtime_settings
 from app.services.observability import record_request
 
@@ -97,6 +100,8 @@ def create_app() -> FastAPI:
     app.include_router(privacy_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")
     app.include_router(planner_router, prefix="/api")
+    app.include_router(places_router, prefix="/api")
+    app.include_router(family_router, prefix="/api")
     app.include_router(environment_router, prefix="/api")
     app.include_router(risk_router, prefix="/api")
     app.include_router(air_router, prefix="/api")
@@ -115,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(wearables_router, prefix="/api")
     app.include_router(health_intelligence_router, prefix="/api")
     app.include_router(ai_reports_router, prefix="/api")
+    app.include_router(work_router, prefix="/api")
     return app
 
 

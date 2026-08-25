@@ -24,10 +24,16 @@ class SymptomInput(BaseModel):
 class EnvironmentSnapshot(BaseModel):
     temperature_c: float
     humidity_percent: float = Field(ge=0, le=100)
-    aqi: int = Field(ge=0)
-    pm25: float = Field(ge=0)
-    ozone: float = Field(ge=0)
+    aqi: int | None = Field(default=None, ge=0)
+    pm25: float | None = Field(default=None, ge=0)
+    ozone: float | None = Field(default=None, ge=0)
+    no2: float | None = None
     source: str = "mock"
+    pm10: float | None = None
+    uv: float | None = None
+    wind_speed: float | None = None
+    feels_like: float | None = None
+    timezone: str | None = None
 
 
 class RiskEstimateRequest(BaseModel):

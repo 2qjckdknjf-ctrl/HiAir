@@ -102,11 +102,19 @@ enum HiAirHumanDate {
         fromISO startISO: String,
         toISO endISO: String,
         locale: Locale = .autoupdatingCurrent,
+        timeZone: TimeZone = .autoupdatingCurrent,
         unavailable: String = "—"
     ) -> String {
         guard let start = date(fromISO: startISO), let end = date(fromISO: endISO) else {
             return unavailable
         }
-        return timeRange(from: start, to: end, locale: locale)
+        return timeRange(from: start, to: end, locale: locale, timeZone: timeZone)
+    }
+
+    static func timeZone(identifier: String?) -> TimeZone {
+        if let identifier, let zone = TimeZone(identifier: identifier) {
+            return zone
+        }
+        return .autoupdatingCurrent
     }
 }

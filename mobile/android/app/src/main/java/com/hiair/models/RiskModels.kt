@@ -2,10 +2,10 @@ package com.hiair.models
 
 data class EnvironmentSnapshot(
     val temperature_c: Double,
-    val humidity_percent: Double,
-    val aqi: Int,
-    val pm25: Double,
-    val ozone: Double,
+    val humidity_percent: Double? = null,
+    val aqi: Int? = null,
+    val pm25: Double? = null,
+    val ozone: Double? = null,
     val source: String
 )
 
@@ -110,9 +110,9 @@ data class AirRiskAssessment(
     val indoorVentilationRisk: String,
     val safeWindows: List<AirSafeWindow>,
     val recommendationFlags: List<String>,
-    val reasonCodes: List<String>
+    val reasonCodes: List<String>,
+    val ventilationWindows: List<AirSafeWindow>? = null,
 )
-
 data class AirRecommendationCard(
     val headline: String,
     val summary: String,
@@ -125,7 +125,11 @@ data class AirCurrentRiskResponse(
     val risk: AirRiskAssessment,
     val recommendation: AirRecommendationCard,
     val explanation: String,
-    val explanationSource: String
+    val explanationSource: String,
+    val dataQuality: String? = null,
+    val freshness: String? = null,
+    val sources: List<String>? = null,
+    val generatedAt: String? = null
 )
 
 data class AirDayPlanResponse(
@@ -133,5 +137,12 @@ data class AirDayPlanResponse(
     val timezone: String,
     val hourlyRisk: List<Map<String, String>>,
     val safeWindows: List<AirSafeWindow>,
-    val ventilationWindows: List<AirSafeWindow>
+    val ventilationWindows: List<AirSafeWindow>,
+    val generatedAt: String? = null,
+    val dataQuality: String? = null,
+    val freshness: String? = null,
+    val sources: List<String>? = null,
+    val forecastHours: Int? = null,
+    val forecastAvailable: Boolean? = null,
+    val missingMetrics: List<String>? = null
 )

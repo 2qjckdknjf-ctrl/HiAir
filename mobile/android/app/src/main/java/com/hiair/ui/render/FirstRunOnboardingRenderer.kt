@@ -4,10 +4,12 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.hiair.OnboardingStore
+import com.hiair.StoreScreenshotMode
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.health.WearableHealthHost
 import com.hiair.location.LocationBootstrapHost
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.HiAirScreenMetrics
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 
@@ -21,8 +23,20 @@ internal object FirstRunOnboardingRenderer {
     var currentStep: Int = STEP_VALUE
         private set
 
+    private var authEmailInput: android.widget.EditText? = null
+    private var authPasswordInput: android.widget.EditText? = null
+    private var authSubmitting: Boolean = false
+
+    fun primaryAuthButtonCountForStep(step: Int): Int {
+        return if (step == STEP_AUTH) 1 else 0
+    }
+
     fun resetStepForSession(isLoggedIn: Boolean) {
         currentStep = if (isLoggedIn) STEP_VALUE else STEP_AUTH
+    }
+
+    fun prepareStoreScreenshotWelcome() {
+        currentStep = STEP_VALUE
     }
 
     fun render(
@@ -43,6 +57,11 @@ internal object FirstRunOnboardingRenderer {
         }
 
         ctx.titleView.text = ctx.l("onboarding.title")
+        if (StoreScreenshotMode.active && StoreScreenshotMode.targetScreen == "onboarding") {
+            OnboardingResponsiveLayout.renderStoreScreenshotWelcome(ctx, onboardingStore, onComplete)
+            return
+        }
+
         ctx.bodyContainer.addView(
             HiAirComponents.brandHeader(
                 activity,
@@ -79,27 +98,10 @@ internal object FirstRunOnboardingRenderer {
         card.addView(V2Ui.spacer(activity, 8))
         val emailInput = HiAirComponents.inputField(activity, ctx.l("settings.email"))
         val passwordInput = HiAirComponents.inputField(activity, ctx.l("settings.password"))
+        authEmailInput = emailInput
+        authPasswordInput = passwordInput
         card.addView(emailInput)
         card.addView(passwordInput)
-        card.addView(
-            HiAirComponents.primaryButton(activity, ctx.l("settings.log_in")).apply {
-                setOnClickListener {
-                    ctx.rootShell.settingsViewModel.setEmail(emailInput.text.toString())
-                    ctx.rootShell.settingsViewModel.setPassword(passwordInput.text.toString())
-                    Thread {
-                        ctx.rootShell.settingsViewModel.login {
-                            activity.runOnUiThread {
-                                ctx.persistSession()
-                                if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
-                                    currentStep = STEP_VALUE
-                                }
-                                ctx.rerender()
-                            }
-                        }
-                    }.start()
-                }
-            },
-        )
         card.addView(
             HiAirComponents.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
                 setOnClickListener {
@@ -224,7 +226,9 @@ internal object FirstRunOnboardingRenderer {
 
         row.addView(
             HiAirComponents.primaryButton(activity, primaryButtonTitle(ctx)).apply {
+                isEnabled = !authSubmitting
                 setOnClickListener {
+                    if (authSubmitting) return@setOnClickListener
                     handlePrimaryAction(ctx, isLoggedIn, onboardingStore, onComplete)
                 }
             },
@@ -250,7 +254,7 @@ internal object FirstRunOnboardingRenderer {
         onComplete: () -> Unit,
     ) {
         when (currentStep) {
-            STEP_AUTH -> Unit
+            STEP_AUTH -> submitAuthLogin(ctx)
             STEP_VALUE -> {
                 currentStep = STEP_LOCATION
                 ctx.rerender()
@@ -294,5 +298,31 @@ internal object FirstRunOnboardingRenderer {
 
     private fun firstContentStep(isLoggedIn: Boolean): Int {
         return if (isLoggedIn) STEP_VALUE else STEP_AUTH
+    }
+
+    private fun submitAuthLogin(ctx: RenderContext) {
+        val activity = ctx.activity
+        val email = authEmailInput?.text?.toString()?.trim().orEmpty()
+        val password = authPasswordInput?.text?.toString().orEmpty()
+        if (email.isBlank() || password.isBlank()) {
+            return
+        }
+        if (authSubmitting) return
+        authSubmitting = true
+        ctx.rerender()
+        ctx.rootShell.settingsViewModel.setEmail(email)
+        ctx.rootShell.settingsViewModel.setPassword(password)
+        Thread {
+            ctx.rootShell.settingsViewModel.login {
+                activity.runOnUiThread {
+                    authSubmitting = false
+                    ctx.persistSession()
+                    if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
+                        currentStep = STEP_VALUE
+                    }
+                    ctx.rerender()
+                }
+            }
+        }.start()
     }
 }

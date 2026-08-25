@@ -154,6 +154,8 @@ echo "HiAir final gate python: ${GATE_PYTHON}"
 run_step "Android release config verification" check_android_release_config
 run_step "iOS release config verification" check_ios_release_config
 run_step "Repository secret baseline scan" check_repo_secret_baseline
+run_step "Forecast integrity (no synthetic production helpers)" \
+  bash -lc "'${GATE_PYTHON}' '${ROOT_DIR}/scripts/release/check_forecast_integrity.py'"
 run_step "External readiness checklist" check_external_readiness
 
 REPO_PYTHON="${GATE_PYTHON}"
