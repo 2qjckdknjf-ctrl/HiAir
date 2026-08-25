@@ -95,7 +95,8 @@ CREATE POLICY wearable_daily_summaries_insert_own ON public.wearable_daily_summa
 DROP POLICY IF EXISTS wearable_daily_summaries_update_own ON public.wearable_daily_summaries;
 CREATE POLICY wearable_daily_summaries_update_own ON public.wearable_daily_summaries
     FOR UPDATE USING ((SELECT auth.uid()) = user_id);
-DROP POLICY IF EXISTS wearable_daily_summaries_delete_own ON public.wearable_daily_summaries
+DROP POLICY IF EXISTS wearable_daily_summaries_delete_own ON public.wearable_daily_summaries;
+CREATE POLICY wearable_daily_summaries_delete_own ON public.wearable_daily_summaries
     FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 DROP POLICY IF EXISTS wearable_hourly_summaries_select_own ON public.wearable_hourly_summaries;
