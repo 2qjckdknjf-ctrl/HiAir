@@ -33,7 +33,7 @@ Every sitemap route has a unique title, meta description, canonical URL and one 
 - `site.webmanifest` and branded icons are available.
 - `_headers` adds baseline security, privacy and caching headers for Cloudflare Pages.
 - `404.html` prevents broken paths from becoming low-quality indexed pages.
-- The production Pages workflow regenerates and validates content before deploy.
+- The Pages workflow validates generation, SEO integrity, and local routes on pull requests. Production deploy still runs only after a successful validate job on `main` (push or intentional `workflow_dispatch`), never from a pull request.
 
 ## Regression gate
 
@@ -41,10 +41,12 @@ Run:
 
 ```bash
 python3 scripts/ops/generate_web_seo_content.py
+git diff --exit-code -- web
 python3 scripts/ops/check_web_seo.py
+python3 scripts/ops/check_web_local_routes.py
 ```
 
-The gate fails on missing sitemap files, duplicate titles/descriptions, canonical mismatches, invalid JSON-LD, broken internal links, orphan index pages, crawl blocking or public legal placeholders.
+The gate fails on generator drift, missing sitemap files, duplicate titles/descriptions/H1s, canonical mismatches, missing Open Graph or X metadata, invalid JSON-LD, fake prices or ratings, broken internal links, orphan index pages, crawl blocking, public legal placeholders, or overclaiming “safe for your body” copy.
 
 ## Required owner/production actions after merge
 
