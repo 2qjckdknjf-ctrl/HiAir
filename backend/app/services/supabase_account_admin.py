@@ -62,6 +62,8 @@ def fetch_auth_user(user_id: str) -> dict[str, Any] | None:
 
 
 def detect_auth_provider(user_id: str) -> str:
+    if not uses_supabase_auth():
+        return "email"
     user = fetch_auth_user(user_id)
     if not user:
         return "unknown"
