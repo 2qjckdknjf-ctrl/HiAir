@@ -41,6 +41,140 @@ def foreground_package_from_adb_output(activity_dump: str, window_dump: str = ""
     return parse_foreground_package(activity_dump) or parse_foreground_package(window_dump)
 
 
+def parse_app_window_frame(window_dump: str, package: str = EXPECTED_PACKAGE) -> tuple[int, int, int, int] | None:
+    """Parse focused/resumed app window frame from `dumpsys window` output."""
+    if not window_dump.strip():
+        return None
+    blocks = re.split(r"\n(?=Window\{)", window_dump)
+    candidates: list[tuple[int, tuple[int, int, int, int]]] = []
+    for block in blocks:
+        if package not in block:
+            continue
+        priority = 0
+        if re.search(r"mCurrentFocus|mFocusedApp|topResumedActivity", block):
+            priority += 4
+        if re.search(r"mAttrs=.*TYPE_APPLICATION", block):
+            priority += 2
+        if re.search(r"isOnScreen=true|mViewVisibility=0", block):
+            priority += 1
+        frame = None
+        for pattern in (
+            r"mFrame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+            r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+            r"mBounds=Rect\((\d+), (\d+) - (\d+), (\d+)\)",
+        ):
+            match = re.search(pattern, block)
+            if match:
+                x1, y1, x2, y2 = map(int, match.groups())
+                frame = (x1, y1, x2, y2)
+                break
+        if frame is not None:
+            candidates.append((priority, frame))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item[0], (item[1][2] - item[1][0]) * (item[1][3] - item[1][1])), reverse=True)
+    return candidates[0][1]
+
+
+# Canonical PNG references for targeted visual review (repo-relative paths).
+ANDROID_VISUAL_CANONICAL_REFERENCES: dict[str, str | None] = {
+    "medium-settings": None,
+    "tablet-portrait-paywall": None,
+    "tablet-landscape-paywall": None,
+    "tablet-portrait-onboarding": "docs/design/redesign-v4/references/04-onboarding-deep-glass.png",
+    "tablet-landscape-onboarding": "docs/design/redesign-v4/references/04-onboarding-deep-glass.png",
+    "expanded-navigation": None,
+    "medium-dashboard": "docs/design/redesign-v4/references/01-home-deep-glass.png",
+    "tablet-landscape-dashboard": "docs/design/redesign-v4/references/01-home-deep-glass.png",
+    "phone-planner": "docs/design/redesign-v4/references/02-planner-deep-glass.png",
+    "tablet-landscape-planner": "docs/design/redesign-v4/references/02-planner-deep-glass.png",
+    "phone-symptoms": "docs/design/redesign-v4/references/03-health-deep-glass.png",
+    "tablet-landscape-symptoms": "docs/design/redesign-v4/references/03-health-deep-glass.png",
+}
+
+
+def validate_canonical_references(repo_root: Path) -> list[str]:
+    """Return missing canonical reference paths (empty list = all present)."""
+    missing: list[str] = []
+    for shot_id, ref in ANDROID_VISUAL_CANONICAL_REFERENCES.items():
+        if ref is None:
+            continue
+        path = repo_root / ref
+        if not path.is_file():
+            missing.append(f"{shot_id}: {ref}")
+    return missing
+
+
+def visual_review_is_complete(review: dict[str, Any]) -> bool:
+    gate = str(review.get("visual_gate", "")).upper()
+    if "PASS" in gate and "PENDING" not in gate:
+        return True
+    shots = review.get("shots") or []
+    if not shots:
+        return False
+    results = [str(shot.get("visual_result", "PENDING")).upper() for shot in shots]
+    return bool(results) and all(result == "PASS" for result in results)
+
+
+def sync_visual_review_to_manifest(manifest: dict[str, Any], review: dict[str, Any]) -> dict[str, Any]:
+    """Merge completed visual-review.json results into targeted-visual manifest.json."""
+    review_by_id = {str(shot.get("id")): shot for shot in review.get("shots", []) if shot.get("id")}
+    primary_ids = set(ANDROID_VISUAL_CANONICAL_REFERENCES.keys())
+    for shot in manifest.get("shots", []):
+        shot_id = str(shot.get("id", ""))
+        if shot_id in review_by_id:
+            shot["visual_review"] = review_by_id[shot_id].get("visual_result", "PENDING")
+        elif shot_id.endswith("-end-scroll"):
+            shot["visual_review"] = "SUPPLEMENTAL"
+        elif shot_id not in primary_ids:
+            shot["visual_review"] = shot.get("visual_review", "PENDING")
+    manifest["visual_review"] = review.get("visual_gate", manifest.get("visual_review", "PENDING"))
+    manifest["visual_review_path"] = "visual-review.json"
+    if review.get("shelf_gate"):
+        manifest["shelf_gate"] = review["shelf_gate"]
+    if review.get("reviewed_at"):
+        manifest["visual_reviewed_at"] = review["reviewed_at"]
+    return manifest
+
+
+def build_visual_review_template(
+    *,
+    evidence_dir: str,
+    manifest_path: str,
+    prior_review: str | None = None,
+) -> dict[str, Any]:
+    shots = []
+    for shot_id, canonical in ANDROID_VISUAL_CANONICAL_REFERENCES.items():
+        shots.append(
+            {
+                "id": shot_id,
+                "semantic_result": "PASS",
+                "visual_result": "PENDING",
+                "screenshot": f"{shot_id}.app.png",
+                "canonical_reference": canonical,
+                "crop_cleanliness": "PENDING",
+                "safe_area_correctness": "PENDING",
+                "responsive_composition": "PENDING",
+                "information_completeness": "PENDING",
+                "v4_hierarchy": "PENDING",
+                "nav_clearance": "PENDING",
+                "deviations": [],
+                "required_fixes": [],
+                "reviewed_at": None,
+            },
+        )
+    return {
+        "overall": "SEMANTIC PASS / VISUAL PENDING / NOT RC EVIDENCE",
+        "semantic_gate": "PENDING",
+        "visual_gate": "PENDING MANUAL REVIEW",
+        "capture_manifest": manifest_path,
+        "prior_review": prior_review,
+        "reviewed_at": None,
+        "notes": "Review only *.app.png. Phone = V4 hierarchy; tablet = responsive composition; Settings/Paywall = component system.",
+        "shots": shots,
+    }
+
+
 def compare_observed_environment(requested: dict[str, Any], observed: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if requested.get("captureRunId") != observed.get("captureRunId"):

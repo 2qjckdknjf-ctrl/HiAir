@@ -46,6 +46,9 @@ PROGRESS_OVERFLOW = re.compile(r"\b(\d{2,})/(\d+)\b")
 
 RAW_KEY = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
 SCREEN_MARKER = re.compile(r"^screen\.[a-z]+\.root$")
+READINESS_MARKER = re.compile(r"^store\.[a-z]+\.ready$")
+CONTENT_ROOT_MARKER = re.compile(r"^store\.[a-z]+\.content_root$")
+GEOMETRY_MARKER = re.compile(r"^geometry\.[a-z0-9_]+(\.[a-z0-9_]+)+$")
 
 
 @dataclass
@@ -138,6 +141,12 @@ def validate_hierarchy(
     for text in collect_visible_text(root):
         if SCREEN_MARKER.match(text):
             continue
+        if READINESS_MARKER.match(text):
+            continue
+        if CONTENT_ROOT_MARKER.match(text):
+            continue
+        if GEOMETRY_MARKER.match(text):
+            continue
         if RAW_KEY.match(text) and not text.startswith("com."):
             errors.append(f"raw localization key visible: {text}")
             break
@@ -190,7 +199,19 @@ def validate_screen_business_rules(
     if screen == "settings":
         if re.search(r"\b-\b", joined) and "ai_range" in lower:
             errors.append("settings placeholder dash detected")
-        if "connect" in lower and "disconnect" in lower:
+        connect_cta = any(
+            t.strip().lower() in {"connect", "подключить", "conectar", "connetti", "connecter"}
+            for t in texts
+        )
+        disconnect_cta = any(
+            (
+                t.strip().lower() in {"disconnect", "desconectar", "disconnetti", "déconnecter", "deconnecter"}
+                or "отключ" in t.lower()
+                or t.strip().lower().startswith("disconnect")
+            )
+            for t in texts
+        )
+        if connect_cta and disconnect_cta:
             errors.append("settings shows both Connect and Disconnect")
 
     if screen == "paywall" and not allow_paywall_error_state:
