@@ -30,7 +30,9 @@ Expand from heat + air quality into a modular personal environmental safety laye
 ## Still open
 
 - [x] Dust module from direct provider PM10 (`score_dust` when `pm10` present)
-- [ ] Pollen / smoke dedicated provider feeds
+- [x] Pollen / smoke provider interface + Open-Meteo CAMS primary
+- [x] Optional secondary Ambee pollen fill-only (AMBEE_API_KEY; never invents)
+- [ ] Additional commercial/regional pollen-smoke feeds beyond Ambee
 - [ ] Regional hazard configuration (USA, Southern Europe, GCC, Egypt)
 - [x] NO2 from Open-Meteo `nitrogen_dioxide` in live env + air hazard scoring (migration `024_environment_no2.sql`)
 - [x] Dashboard NO2 metric tile when provider value present (iOS + Android)

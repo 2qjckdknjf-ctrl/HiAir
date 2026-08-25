@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from app.core.settings import settings
+from app.services.pollen_smoke import PollenSmokeReading, resolve_pollen_smoke
 from app.models.risk import EnvironmentSnapshot
 
 
@@ -207,6 +208,19 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         shortwave_wm2=weather.get("shortwave_wm2"),
     )
 
+    # Primary pollen/smoke usually arrives with Open-Meteo AQI; secondary fills
+    # only remaining nulls (never overwrites, never invents).
+    pollen_smoke = resolve_pollen_smoke(
+        lat,
+        lon,
+        primary_seed=PollenSmokeReading(
+            pollen_grains_m3=air.get("pollen_grains_m3"),
+            wildfire_pm10=air.get("wildfire_pm10"),
+            pollen_source="openmeteo_cams_pollen" if air.get("pollen_grains_m3") is not None else None,
+            smoke_source="openmeteo_pm10_wildfires" if air.get("wildfire_pm10") is not None else None,
+        ),
+    )
+
     return EnvironmentSnapshot(
         temperature_c=float(weather["temperature_c"]),
         humidity_percent=float(weather["humidity_percent"]),
@@ -220,8 +234,8 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         wind_speed=weather.get("wind_speed"),
         feels_like=weather.get("feels_like"),
         timezone=weather.get("timezone"),
-        pollen_grains_m3=air.get("pollen_grains_m3"),
-        wildfire_pm10=air.get("wildfire_pm10"),
+        pollen_grains_m3=pollen_smoke.pollen_grains_m3,
+        wildfire_pm10=pollen_smoke.wildfire_pm10,
         wbgt_c=wbgt_c,
         wbgt_estimated=wbgt_c is not None,
         shortwave_wm2=weather.get("shortwave_wm2"),

@@ -53,6 +53,9 @@ class Settings:
     weather_api_key: str = os.getenv("WEATHER_API_KEY", "")
     aqi_api_provider: str = os.getenv("AQI_API_PROVIDER", "openmeteo")
     aqi_api_key: str = os.getenv("AQI_API_KEY", "")
+    pollen_smoke_primary_provider: str = os.getenv("POLLEN_SMOKE_PRIMARY_PROVIDER", "openmeteo_cams")
+    pollen_smoke_secondary_provider: str = os.getenv("POLLEN_SMOKE_SECONDARY_PROVIDER", "")
+    ambee_api_key: str = os.getenv("AMBEE_API_KEY", "")
     environment_cache_ttl_seconds: int = int(os.getenv("ENVIRONMENT_CACHE_TTL_SECONDS", "900"))
     # Protected envs default fail-closed (no synthetic sample air data).
     # Dev/test keep sample fallback unless explicitly disabled.

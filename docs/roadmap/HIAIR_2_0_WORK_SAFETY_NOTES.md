@@ -31,7 +31,9 @@ Occupational heat safety layer for worksites and B2B integrations — clearly se
 
 ## Still open
 
-- [ ] WBGT provider / on-site sensor ingestion
+- [x] Work site registry API (`/api/work/sites`)
+- [x] Instrument WBGT ingest (`/api/work/sites/{id}/wbgt-readings`) preferred over meteo estimate
+- [ ] Multi-org B2B admin / API keys / crew scheduling
 - [ ] Site registry and multi-site dashboards
 - [ ] Crew scheduling integrations
 - [ ] B2B admin API keys and org tenancy

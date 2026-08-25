@@ -21,7 +21,7 @@ HiAir stores:
 | Provider | Pros | Cons | Verdict |
 |----------|------|------|---------|
 | Open-Meteo CAMS | Free, already in stack, honest nulls | Pollen Europe-only | **Selected** |
-| Ambee / Tomorrow.io pollen | Broader commercial coverage | Paid API key, new vendor | Defer |
+| Ambee pollen | Broader commercial coverage | Paid API key | **Optional secondary** (`POLLEN_SMOKE_SECONDARY_PROVIDER=ambee`, fill-nulls only) |
 | NOAA HMS smoke polygons | High-quality NA smoke | GIS ingest complexity, NA-centric | Future enhancement |
 | Infer smoke from PM2.5 alone | Always available | False positives (urban pollution ≠ wildfire) | **Rejected** (honesty) |
 
@@ -35,3 +35,10 @@ HiAir stores:
 
 - Berlin: grass/ragweed pollen present; `pm10_wildfires=0` → smoke **available** (low).
 - Los Angeles: pollen null; `pm10_wildfires` null → pollen/smoke **unavailable**.
+
+## Secondary provider wiring (2026-08-25)
+
+- Interface: `app.services.pollen_smoke`
+- Primary: Open-Meteo CAMS (always)
+- Secondary: Ambee when `AMBEE_API_KEY` set and `POLLEN_SMOKE_SECONDARY_PROVIDER=ambee`
+- Merge rule: fill null pollen/smoke fields only — never overwrite CAMS values, never invent
