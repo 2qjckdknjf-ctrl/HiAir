@@ -305,6 +305,7 @@ struct AuthView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(viewModel.loading)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Auth.signInAppleButton)
 
                         Button(session.l("auth.sign_in_google")) {
                             Task { @MainActor in
@@ -313,6 +314,7 @@ struct AuthView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(viewModel.loading)
+                        .accessibilityIdentifier(HiAirAccessibilityID.Auth.signInGoogleButton)
 
                         HStack(spacing: HiAirSpacing.md) {
                             Link(session.l("paywall.terms"), destination: URL(string: "https://hiair.io/terms/")!)
@@ -342,6 +344,22 @@ struct AuthView: View {
                                                 : HiAirColors.Cta.gradientStart.opacity(0.12)
                                         )
                                 )
+                                .accessibilityIdentifier(
+                                    viewModel.statusIsError
+                                        ? HiAirAccessibilityID.Auth.errorBanner
+                                        : "auth.status"
+                                )
+                        } else if !session.authNotice.isEmpty {
+                            Text(session.authNotice)
+                                .font(HiAirTypography.bodyMD)
+                                .foregroundStyle(HiAirColors.Feedback.errorSoft)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: HiAirRadius.md)
+                                        .fill(HiAirColors.Feedback.errorSoft.opacity(0.12))
+                                )
+                                .accessibilityIdentifier(HiAirAccessibilityID.Auth.errorBanner)
                         }
                     }
                     .hiAirContentWidth(for: width)

@@ -8,6 +8,8 @@ enum HiAirAccessibilityID {
         static let passwordField = "auth.password"
         static let logInButton = "auth.log_in"
         static let signUpButton = "auth.sign_up"
+        static let signInAppleButton = "auth.sign_in_apple"
+        static let signInGoogleButton = "auth.sign_in_google"
         static let errorBanner = "auth.error"
     }
 
