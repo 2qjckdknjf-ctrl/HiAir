@@ -22,6 +22,14 @@ def _no_alert_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _no_quiet_hours(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.alert_decision_engine._in_quiet_hours",
+        lambda local_hour, start, end: False,
+    )
+
+
 def build_profile(profile_type: ProfileType = ProfileType.ADULT_DEFAULT) -> UserProfileContext:
     return UserProfileContext(
         profile_id="profile-1",
@@ -92,10 +100,6 @@ def test_alert_evaluate_respects_dedup(monkeypatch) -> None:
         "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
         lambda dedupe_key, within_hours=4: True,
     )
-    monkeypatch.setattr(
-        "app.services.alert_orchestrator._is_quiet_hours",
-        lambda start_hour, end_hour, now_hour: False,
-    )
 
     decision = evaluate_alert(
         build_profile(),
@@ -127,10 +131,6 @@ def test_alert_high_risk_returns_high_severity(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
         lambda dedupe_key, within_hours=4: False,
-    )
-    monkeypatch.setattr(
-        "app.services.alert_orchestrator._is_quiet_hours",
-        lambda start_hour, end_hour, now_hour: False,
     )
 
     decision = evaluate_alert(
@@ -177,10 +177,6 @@ def test_alert_suppresses_during_cooldown(monkeypatch) -> None:
         "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
         lambda profile_id, cooldown_minutes=60, *, alert_type=None: 25,
     )
-    monkeypatch.setattr(
-        "app.services.alert_orchestrator._is_quiet_hours",
-        lambda start_hour, end_hour, now_hour: False,
-    )
 
     decision = evaluate_alert(
         build_profile(),
@@ -213,10 +209,6 @@ def test_alert_respects_personal_threshold(monkeypatch) -> None:
         "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
         lambda dedupe_key, within_hours=4: False,
     )
-    monkeypatch.setattr(
-        "app.services.alert_orchestrator._is_quiet_hours",
-        lambda start_hour, end_hour, now_hour: False,
-    )
 
     decision = evaluate_alert(
         build_profile(),
@@ -248,10 +240,6 @@ def test_alert_legacy_medium_history_maps_to_medium_severity(monkeypatch) -> Non
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
         lambda dedupe_key, within_hours=4: False,
-    )
-    monkeypatch.setattr(
-        "app.services.alert_orchestrator._is_quiet_hours",
-        lambda start_hour, end_hour, now_hour: False,
     )
 
     decision = evaluate_alert(
@@ -296,10 +284,6 @@ def test_evaluate_alert_passes_per_type_cooldown(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
         fake_minutes,
-    )
-    monkeypatch.setattr(
-        "app.services.alert_orchestrator._is_quiet_hours",
-        lambda start_hour, end_hour, now_hour: False,
     )
 
     evaluate_alert(
