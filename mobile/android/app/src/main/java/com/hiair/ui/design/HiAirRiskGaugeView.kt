@@ -112,12 +112,47 @@ class HiAirRiskGaugeView @JvmOverloads constructor(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val widthDp = context.resources.configuration.screenWidthDp
-        val targetDp = HiAirScreenMetrics.heroOrbDp(widthDp).coerceAtLeast(220)
+        val mode = HiAirScreenMetrics.layoutMode(widthDp)
+        val targetDp = when (mode) {
+            HiAirLayoutMode.COMPACT, HiAirLayoutMode.STANDARD ->
+                minOf(HiAirScreenMetrics.heroOrbDp(widthDp), 200)
+            HiAirLayoutMode.TABLET ->
+                minOf(HiAirScreenMetrics.heroOrbDp(widthDp), 185)
+            HiAirLayoutMode.EXPANDED ->
+                minOf(HiAirScreenMetrics.heroOrbDp(widthDp), 210)
+        }
         val min = V2Ui.dp(context, targetDp)
         val size = resolveSize(min, widthMeasureSpec).coerceAtMost(resolveSize(min, heightMeasureSpec))
-        setMeasuredDimension(size, size)
+        val exact = MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY)
         val orbSize = (size * 0.72f).toInt()
         orbView.layoutParams = LayoutParams(orbSize, orbSize, Gravity.CENTER)
+        measureChild(
+            orbView,
+            MeasureSpec.makeMeasureSpec(orbSize, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(orbSize, MeasureSpec.EXACTLY),
+        )
+        measureChild(
+            centerColumn,
+            MeasureSpec.makeMeasureSpec(size, MeasureSpec.AT_MOST),
+            MeasureSpec.makeMeasureSpec(size, MeasureSpec.AT_MOST),
+        )
+        setMeasuredDimension(size, size)
+        // Keep FrameLayout child bookkeeping consistent for layout.
+        measureChildren(exact, exact)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        val width = right - left
+        val height = bottom - top
+        val cx = width / 2
+        val cy = height / 2
+        val orbHalf = orbView.measuredWidth / 2
+        orbView.layout(cx - orbHalf, cy - orbHalf, cx + orbHalf, cy + orbHalf)
+        val colHalfW = centerColumn.measuredWidth / 2
+        val colHalfH = centerColumn.measuredHeight / 2
+        centerColumn.layout(cx - colHalfW, cy - colHalfH, cx + colHalfW, cy + colHalfH)
+        // Score/status must paint above the decorative orb bitmap.
+        centerColumn.bringToFront()
     }
 
     override fun onDraw(canvas: Canvas) {

@@ -9,25 +9,20 @@ import android.widget.TextView
 import com.hiair.ui.theme.V2Ui
 
 object HiAirResponsiveLayout {
-    fun screenWidthDp(context: Context): Int = context.resources.configuration.screenWidthDp
-
-    fun layoutMode(context: Context): HiAirLayoutMode =
-        HiAirScreenMetrics.layoutMode(screenWidthDp(context))
-
-    fun availableContentWidthPx(context: Context, parentHorizontalPaddingPx: Int = 0): Int {
-        val widthDp = screenWidthDp(context)
-        val maxPx = V2Ui.dp(context, HiAirScreenMetrics.contentMaxWidthDp(widthDp))
-        val insetPx = parentHorizontalPaddingPx.coerceAtLeast(0) * 2
-        val screenPx = (context.resources.displayMetrics.widthPixels - insetPx).coerceAtLeast(0)
-        return minOf(maxPx, screenPx)
+    fun windowSnapshot(context: Context): HiAirWindowLayoutSnapshot {
+        val activity = context as android.app.Activity
+        return HiAirWindowLayout.snapshotForActivity(activity)
     }
 
-    fun applyContentWidth(view: View, context: Context, parentHorizontalPaddingPx: Int = 0) {
-        val targetPx = availableContentWidthPx(context, parentHorizontalPaddingPx)
-        val params = view.layoutParams
-            ?: android.view.ViewGroup.LayoutParams(targetPx, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
-        params.width = targetPx
-        view.layoutParams = params
+    fun screenWidthDp(context: Context): Int = windowSnapshot(context).innerAvailableWidthDp
+
+    fun layoutMode(context: Context): HiAirLayoutMode = windowSnapshot(context).layoutMode
+
+    fun availableContentWidthPx(context: Context): Int =
+        windowSnapshot(context).finalContentWidthPx
+
+    fun applyContentWidth(view: View, context: Context) {
+        HiAirWindowLayout.applyContentWidth(view, windowSnapshot(context))
     }
 
     fun sectionSpacingPx(context: Context): Int {
@@ -36,11 +31,10 @@ object HiAirResponsiveLayout {
     }
 
     fun constrainedButtonLayoutParams(context: Context): LinearLayout.LayoutParams {
-        val widthDp = screenWidthDp(context)
-        val horizontalPad = V2Ui.dp(context, HiAirScreenMetrics.horizontalPaddingDp(widthDp)) * 2
+        val snapshot = windowSnapshot(context)
         val maxWidth = minOf(
             V2Ui.dp(context, HiAirScreenMetrics.ctaMaxWidthDp),
-            availableContentWidthPx(context, horizontalPad / 2),
+            snapshot.finalContentWidthPx,
         )
         return LinearLayout.LayoutParams(
             maxWidth,
@@ -52,17 +46,28 @@ object HiAirResponsiveLayout {
     }
 
     fun readingColumnLayoutParams(context: Context): LinearLayout.LayoutParams {
+        val snapshot = windowSnapshot(context)
         val maxWidth = minOf(
             V2Ui.dp(context, HiAirScreenMetrics.readingColumnMaxDp),
-            availableContentWidthPx(context),
+            snapshot.finalContentWidthPx,
         )
         return LinearLayout.LayoutParams(maxWidth, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.CENTER_HORIZONTAL
         }
     }
 
-    fun gridColumns(context: Context, maxColumns: Int = 4): Int =
-        HiAirScreenMetrics.gridColumnCount(screenWidthDp(context), maxColumns)
+    fun gridColumns(context: Context, maxColumns: Int = 4): Int {
+        val snapshot = windowSnapshot(context)
+        val requested = HiAirScreenMetrics.gridColumnCount(snapshot.innerAvailableWidthDp, maxColumns)
+        return HiAirGridLayout.resolveColumnCount(
+            availableRowWidthPx = snapshot.finalContentWidthPx,
+            requestedColumns = requested,
+            gapDp = HiAirSpacing.sm,
+            minItemWidthDp = HiAirGridLayout.MIN_CARD_WIDTH_DP,
+            fontScale = snapshot.fontScale,
+            densityDpi = context.resources.displayMetrics.densityDpi.toFloat(),
+        )
+    }
 
     fun addGridRows(
         host: LinearLayout,
@@ -70,10 +75,12 @@ object HiAirResponsiveLayout {
         columnCount: Int,
         views: List<View>,
         gapDp: Int = HiAirSpacing.sm,
+        padPartialLastRow: Boolean = false,
     ) {
         if (views.isEmpty()) return
         val columns = columnCount.coerceAtLeast(1)
-        views.chunked(columns).forEach { rowViews ->
+        views.chunked(columns).forEachIndexed { rowIndex, rowViews ->
+            val isLastPartial = rowViews.size < columns && rowIndex == views.chunked(columns).lastIndex
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
@@ -93,12 +100,10 @@ object HiAirResponsiveLayout {
                     },
                 )
             }
-            val pad = columns - rowViews.size
-            repeat(pad) {
-                row.addView(
-                    View(context),
-                    LinearLayout.LayoutParams(0, 0, 1f),
-                )
+            if (padPartialLastRow && isLastPartial) {
+                repeat(columns - rowViews.size) {
+                    row.addView(View(context), LinearLayout.LayoutParams(0, 0, 1f))
+                }
             }
             host.addView(row)
         }

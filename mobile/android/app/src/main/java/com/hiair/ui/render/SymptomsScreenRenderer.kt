@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import com.hiair.StoreScreenshotMode
+import com.hiair.StoreScreenshotMockSeeder
 import com.hiair.ui.design.HiAirColors
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirSpacing
@@ -28,8 +29,10 @@ internal object SymptomsScreenRenderer {
         val rootShell = ctx.rootShell
         val bodyContainer = ctx.bodyContainer
 
-        val seeded = StoreScreenshotMode.active && rootShell.symptomLogViewModel.state.taxonomy != null
-        if (seeded) {
+        if (StoreScreenshotMode.active) {
+            if (rootShell.symptomLogViewModel.state.taxonomy == null) {
+                StoreScreenshotMockSeeder.apply(rootShell)
+            }
             SymptomsDeepGlassLayout.render(ctx, rootShell.symptomLogViewModel.state)
             return
         }

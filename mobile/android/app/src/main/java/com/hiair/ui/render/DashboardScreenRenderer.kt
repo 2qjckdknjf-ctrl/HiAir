@@ -14,29 +14,29 @@ import com.hiair.ui.DashboardViewModel
 import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirRiskStyle
+import com.hiair.ui.design.HiAirSpacing
+import com.hiair.ui.design.HiAirV4Presentation
+import com.hiair.ui.design.markGeometry
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
 import java.util.Locale
 
 internal object DashboardScreenRenderer {
     fun render(ctx: RenderContext) {
+        val ctx = ctx.withStoreContentRoot("dashboard")
         val activity = ctx.activity
         (activity as? WearableHealthHost)?.syncWearablesIfPermitted()
         val bodyContainer = ctx.bodyContainer
+        val rootShell = ctx.rootShell
+
+        if (com.hiair.StoreScreenshotMode.active &&
+            rootShell.dashboardViewModel.state.status != DashboardStatus.SUCCESS
+        ) {
+            com.hiair.StoreScreenshotMockSeeder.apply(rootShell)
+        }
 
         ctx.titleView.text = ctx.l("dashboard.greeting_neutral")
-        if (HiAirComponents.shouldShowCompactBrandHeader()) {
-            bodyContainer.addView(
-                HiAirComponents.brandHeader(
-                    activity,
-                    compact = true,
-                    showOrb = true,
-                    orbSizeDp = 44,
-                ),
-            )
-        } else {
-            bodyContainer.addView(buildLocationHeader(ctx, state = ctx.rootShell.dashboardViewModel.state))
-        }
+        HiAirV4Presentation.applyTitleAxisAlignment(ctx.titleView, activity)
 
         when (ctx.rootShell.dashboardViewModel.state.status) {
             DashboardStatus.INITIAL -> {
@@ -53,6 +53,7 @@ internal object DashboardScreenRenderer {
     }
 
     private fun triggerLoad(ctx: RenderContext, isRetry: Boolean) {
+        if (ctx.presentationOnly || com.hiair.StoreScreenshotMode.active) return
         val rootShell = ctx.rootShell
         val activity = ctx.activity
         val startLoad = Runnable {
@@ -153,6 +154,13 @@ internal object DashboardScreenRenderer {
         val activity = ctx.activity
         val bodyContainer = ctx.bodyContainer
         val level = state.riskLevel ?: return
+        val useSplit = HiAirV4Presentation.shouldUseLandscapeSplit(activity)
+
+        val canvas = HiAirV4Presentation.boundedCanvasHost(activity)
+        bodyContainer.addView(canvas)
+        if (!HiAirComponents.shouldShowCompactBrandHeader()) {
+            canvas.addView(buildLocationHeader(ctx, state))
+        }
 
         val riskGauge = HiAirComponents.riskGaugeView(
             activity,
@@ -172,22 +180,60 @@ internal object DashboardScreenRenderer {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        bodyContainer.addView(
-            HiAirComponents.cardContainer(activity).apply {
-                addView(HiAirComponents.sectionTitle(activity, ctx.l("dashboard.current_risk_title")))
-                addView(riskGauge)
-                addView(HiAirComponents.riskSpectrumBarView(activity, state.riskScore ?: DashboardViewModel.scoreForLevel(level)))
-                addView(riskDetail)
-                dataSourceLabel(ctx, state)?.let { addView(it) }
-            }
-        )
+        val heroCard = HiAirComponents.cardContainer(activity).apply {
+            layoutParams = DashboardResponsiveLayout.heroCardLayoutParams(ctx)
+            gravity = Gravity.CENTER_HORIZONTAL
+            markGeometry(com.hiair.ui.accessibility.HiAirGeometryMarkers.DASHBOARD_HERO)
+            addView(HiAirComponents.sectionTitle(activity, ctx.l("dashboard.current_risk_title")).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            })
+            addView(
+                riskGauge.apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply { gravity = Gravity.CENTER_HORIZONTAL }
+                },
+            )
+            addView(HiAirComponents.riskSpectrumBarView(activity, state.riskScore ?: DashboardViewModel.scoreForLevel(level)))
+            addView(riskDetail)
+            dataSourceLabel(ctx, state)?.let { addView(it) }
+        }
 
-        weatherAqiRow(ctx, state)?.let { bodyContainer.addView(it) }
-        hazardsCard(ctx, state)?.let { bodyContainer.addView(it) }
-        familyRiskCard(ctx, state)?.let { bodyContainer.addView(it) }
-        protectedDayCard(ctx, state)?.let { bodyContainer.addView(it) }
+        if (useSplit) {
+            val topRow = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+            }
+            heroCard.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.92f)
+            val sideColumn = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.08f).apply {
+                    marginStart = V2Ui.dp(activity, HiAirSpacing.md)
+                }
+            }
+            DashboardResponsiveLayout.weatherAqiSection(ctx, state)?.let { sideColumn.addView(it) }
+            sideColumn.addView(DashboardResponsiveLayout.recommendationsSection(ctx, state))
+            if (state.safeWindows.isNotEmpty()) {
+                sideColumn.addView(DashboardResponsiveLayout.safeWindowsSection(ctx, state))
+            }
+            topRow.addView(heroCard)
+            topRow.addView(sideColumn)
+            canvas.addView(topRow)
+        } else {
+            canvas.addView(heroCard)
+            DashboardResponsiveLayout.weatherAqiSection(ctx, state)?.let { canvas.addView(it) }
+        }
+
+        hazardsCard(ctx, state)?.let { canvas.addView(it) }
+        familyRiskCard(ctx, state)?.let { canvas.addView(it) }
+        protectedDayCard(ctx, state)?.let { canvas.addView(it) }
         if (state.wearableConnected) {
-            bodyContainer.addView(
+            canvas.addView(
                 HealthTodayMetricsRenderer.render(
                     ctx = ctx,
                     summaryRaw = state.healthSummaryRaw,
@@ -196,27 +242,27 @@ internal object DashboardScreenRenderer {
                 ),
             )
         } else {
-            bodyContainer.addView(wearableCard(ctx, state))
+            canvas.addView(wearableCard(ctx, state))
         }
-        bodyContainer.addView(actionsCard(ctx, state))
-        bodyContainer.addView(safeWindowsCard(ctx, state))
+        if (!useSplit) {
+            canvas.addView(DashboardResponsiveLayout.recommendationsSection(ctx, state))
+        }
+        if (!useSplit) {
+            canvas.addView(DashboardResponsiveLayout.safeWindowsSection(ctx, state))
+        }
 
-        bodyContainer.addView(
-            HiAirComponents.primaryButton(activity, ctx.l("dashboard.recompute")).apply {
-                setOnClickListener {
-                    ctx.rootShell.dashboardViewModel.markLoading()
-                    ctx.rerender()
-                    triggerLoad(ctx, isRetry = false)
-                }
-            }
+        canvas.addView(
+            DashboardResponsiveLayout.boundedPrimaryCta(ctx, ctx.l("dashboard.recompute")) {
+                ctx.rootShell.dashboardViewModel.markLoading()
+                ctx.rerender()
+                triggerLoad(ctx, isRetry = false)
+            },
         )
-        bodyContainer.addView(
-            HiAirComponents.secondaryButton(activity, ctx.l("dashboard.log_symptoms")).apply {
-                setOnClickListener {
-                    ctx.rootShell.openSymptoms()
-                    ctx.rerender()
-                }
-            }
+        canvas.addView(
+            DashboardResponsiveLayout.boundedSecondaryCta(ctx, ctx.l("dashboard.log_symptoms")) {
+                ctx.rootShell.openSymptoms()
+                ctx.rerender()
+            },
         )
         attachAtmosphericOverlay(ctx, state)
     }
@@ -374,7 +420,7 @@ internal object DashboardScreenRenderer {
     private fun hazardTypeLabel(ctx: RenderContext, hazard: String): String {
         val key = when (hazard.lowercase()) {
             "heat" -> "hazards.type.heat"
-            "air" -> "hazards.type.air"
+            "air", "aqi" -> "hazards.type.air"
             "uv" -> "hazards.type.uv"
             "pollen" -> "hazards.type.pollen"
             "smoke" -> "hazards.type.smoke"
@@ -406,22 +452,22 @@ internal object DashboardScreenRenderer {
         }
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             addView(
                 V2Ui.styledSecondaryText(activity, locality).apply {
                     textSize = 13f
                     setTextColor(Tokens.Cta.start)
+                    gravity = Gravity.CENTER
                 },
             )
             addView(
                 V2Ui.styledSecondaryText(activity, " · ${ctx.l("planner.freshness.live")}").apply {
                     textSize = 13f
+                    gravity = Gravity.CENTER
                 },
             )
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
+            // Keep location chrome on the same visual axis as the centered hero orb.
+            layoutParams = DashboardResponsiveLayout.heroCardLayoutParams(ctx).apply {
                 bottomMargin = V2Ui.dp(activity, 8)
             }
         }

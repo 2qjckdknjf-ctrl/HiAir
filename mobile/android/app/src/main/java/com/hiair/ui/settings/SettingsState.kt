@@ -51,6 +51,7 @@ data class SettingsState(
     val subscriptionStatus: String = "inactive",
     val isPremium: Boolean = false,
     val showPaywall: Boolean = false,
+    val paywallSelectedPlanId: String = "yearly",
     val paywallStatusText: String = "",
     val aiSummaryHours: Int = 24,
     val aiSummaryText: String = "-",
@@ -1090,6 +1091,10 @@ class SettingsViewModel(
 
     fun dismissPaywall() {
         state = state.copy(showPaywall = false)
+    }
+
+    fun setPaywallSelectedPlanId(planId: String) {
+        state = state.copy(paywallSelectedPlanId = planId)
     }
 
     fun setPaywallStatus(message: String) {

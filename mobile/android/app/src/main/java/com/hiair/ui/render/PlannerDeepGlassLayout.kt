@@ -5,12 +5,16 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.hiair.StoreScreenshotMode
+import com.hiair.ui.accessibility.HiAirGeometryMarkers
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.HiAirGridLayout
+import com.hiair.ui.design.HiAirLayoutMode
 import com.hiair.ui.design.HiAirResponsiveLayout
 import com.hiair.ui.design.HiAirRiskStyle
 import com.hiair.ui.design.HiAirSpacing
 import com.hiair.ui.design.Tokens
-import com.hiair.ui.planner.DailyPlannerViewModel
+import com.hiair.ui.design.markGeometry
 import com.hiair.ui.planner.PlannerState
 import com.hiair.ui.theme.V2Ui
 import java.util.Calendar
@@ -28,27 +32,41 @@ internal object PlannerDeepGlassLayout {
         val selected: Boolean = false,
     )
 
+    private fun useTightStoreViewport(ctx: RenderContext): Boolean {
+        if (!StoreScreenshotMode.active) return false
+        val activity = ctx.activity
+        val mode = HiAirResponsiveLayout.layoutMode(activity)
+        return mode == HiAirLayoutMode.COMPACT ||
+            (com.hiair.ui.design.HiAirV4Presentation.isLandscape(activity) &&
+                (mode == HiAirLayoutMode.TABLET || mode == HiAirLayoutMode.EXPANDED))
+    }
+
     fun render(ctx: RenderContext) {
+        val ctx = ctx.withStoreContentRoot("planner")
         val activity = ctx.activity
         val body = ctx.bodyContainer
         val state = ctx.rootShell.plannerViewModel.state
         val ru = ctx.rootShell.settingsViewModel.state.preferredLanguage.startsWith("ru")
 
         ctx.titleView.text = ctx.l("title.planner")
-        body.addView(buildLocationChrome(ctx))
-        body.addView(
-            HiAirResponsiveLayout.sectionLabel(
-                activity,
-                ctx.l("title.planner"),
-                ctx.l("planner.subtitle"),
-            ),
+        com.hiair.ui.design.HiAirV4Presentation.applyTitleAxisAlignment(ctx.titleView, activity)
+
+        val canvas = com.hiair.ui.design.HiAirV4Presentation.boundedCanvasHost(activity)
+        body.addView(canvas)
+        canvas.addView(buildLocationChrome(ctx))
+        val tight = useTightStoreViewport(ctx)
+        canvas.addView(
+            V2Ui.styledSecondaryText(activity, ctx.l("planner.subtitle")).apply {
+                textSize = if (tight) 12f else 13f
+                gravity = Gravity.CENTER_HORIZONTAL
+            },
         )
-        body.addView(buildSummaryRow(ctx, state, ru))
-        body.addView(buildChartCard(ctx, state, ru))
-        body.addView(buildDayPartSection(ctx, state, ru))
-        body.addView(buildUtilityRow(ctx, state, ru))
-        body.addView(buildActionsSection(ctx, state, ru))
-        body.addView(buildFooterActions(ctx, state))
+        canvas.addView(buildSummaryRow(ctx, state, ru))
+        canvas.addView(buildChartCard(ctx, state, ru))
+        canvas.addView(buildDayPartSection(ctx, state, ru))
+        canvas.addView(buildUtilityRow(ctx, state, ru))
+        canvas.addView(buildActionsSection(ctx, state, ru))
+        canvas.addView(buildFooterActions(ctx, state))
     }
 
     private fun buildLocationChrome(ctx: RenderContext): LinearLayout {
@@ -56,18 +74,21 @@ internal object PlannerDeepGlassLayout {
         val ru = ctx.rootShell.settingsViewModel.state.preferredLanguage.startsWith("ru")
         val day = Calendar.getInstance().getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, Locale.getDefault())
         val locality = if (ru) "Барселона" else "Barcelona"
+        val tight = useTightStoreViewport(ctx)
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
             addView(V2Ui.styledSecondaryText(activity, "$locality • $day").apply {
-                textSize = 13f
+                textSize = if (tight) 12f else 13f
                 setTextColor(Tokens.Cta.start)
+                gravity = Gravity.CENTER
             })
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
-                bottomMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = V2Ui.dp(activity, if (tight) HiAirSpacing.xxs else HiAirSpacing.sm)
             }
         }
     }
@@ -79,7 +100,6 @@ internal object PlannerDeepGlassLayout {
             ?: if (ru) "18:40–20:20" else "18:40–20:20"
         val ventilation = state.ventilationWindows.firstOrNull()
             ?: if (ru) "21:00–22:30" else "21:00–22:30"
-        val columns = HiAirResponsiveLayout.gridColumns(activity, maxColumns = 3).coerceAtLeast(1)
         val tiles = listOf(
             summaryTile(
                 ctx,
@@ -103,8 +123,11 @@ internal object PlannerDeepGlassLayout {
                 HiAirComponents.riskAccentHex("moderate"),
             ),
         )
-        val host = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        HiAirResponsiveLayout.addGridRows(host, activity, columns, tiles)
+        val host = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            markGeometry(HiAirGeometryMarkers.PLANNER_SUMMARY_GRID)
+        }
+        HiAirGridLayout.addAdaptiveGridRows(host, activity, requestedColumns = 3, tiles)
         return HiAirComponents.cardContainer(activity).apply { addView(host) }
     }
 
@@ -116,19 +139,20 @@ internal object PlannerDeepGlassLayout {
         accentHex: String,
     ): LinearLayout {
         val activity = ctx.activity
+        val tight = useTightStoreViewport(ctx)
         return HiAirComponents.cardContainer(activity).apply {
             orientation = LinearLayout.VERTICAL
-            addView(V2Ui.styledSecondaryText(activity, label).apply { textSize = 12f })
+            addView(V2Ui.styledSecondaryText(activity, label).apply { textSize = if (tight) 11f else 12f })
             addView(
                 TextView(activity).apply {
                     text = value
-                    textSize = 20f
+                    textSize = if (tight) 17f else 20f
                     setTypeface(typeface, Typeface.BOLD)
                     setTextColor(Tokens.Text.primary)
                 },
             )
             addView(V2Ui.styledSecondaryText(activity, caption).apply {
-                textSize = 11f
+                textSize = if (tight) 10f else 11f
                 setTextColor(HiAirRiskStyle.colorForLevel("moderate"))
             })
         }
@@ -136,7 +160,11 @@ internal object PlannerDeepGlassLayout {
 
     private fun buildChartCard(ctx: RenderContext, state: PlannerState, ru: Boolean): View {
         val activity = ctx.activity
-        val card = HiAirComponents.cardContainer(activity)
+        val card = HiAirComponents.cardContainer(activity).markGeometry(HiAirGeometryMarkers.PLANNER_CHART).apply {
+            layoutParams = HiAirResponsiveLayout.readingColumnLayoutParams(activity).apply {
+                width = LinearLayout.LayoutParams.MATCH_PARENT
+            }
+        }
         card.addView(
             V2Ui.styledBodyText(activity, if (ru) "Качество воздуха 24 ч" else "24-hour air quality").apply {
                 textSize = 16f
@@ -150,20 +178,32 @@ internal object PlannerDeepGlassLayout {
             addView(selectorChip(ctx, if (ru) "Пыльца" else "Pollen", selected = false))
         }
         card.addView(selector)
-        val strip = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.BOTTOM
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                V2Ui.dp(activity, 96),
-            ).apply {
-                topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
-            }
+        val chart = PlannerHourlyChartView(activity)
+        val tight = useTightStoreViewport(ctx)
+        val chartHeightDp = when {
+            tight && com.hiair.ui.design.HiAirV4Presentation.isLandscape(ctx.activity) -> 48
+            tight -> 56
+            com.hiair.ui.design.HiAirV4Presentation.isLandscape(ctx.activity) -> 64
+            com.hiair.ui.design.HiAirResponsiveLayout.layoutMode(ctx.activity) == com.hiair.ui.design.HiAirLayoutMode.COMPACT -> 72
+            else -> 88
         }
-        renderHeatStrip(activity, strip, state.hourly.ifEmpty { demoHourly() })
-        card.addView(strip)
-        state.peakLine.takeIf { it.isNotBlank() }?.let {
-            card.addView(V2Ui.styledSecondaryText(activity, it).apply { textSize = 12f })
+        chart.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            V2Ui.dp(activity, chartHeightDp),
+        ).apply {
+            topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
+        }
+        val hourly = if (com.hiair.StoreScreenshotMode.active) {
+            demoHourly()
+        } else {
+            state.hourly.ifEmpty { demoHourly() }
+        }
+        chart.bindHourlyRisks(hourly.map { it.substringAfterLast(":", "moderate").trim() })
+        card.addView(chart)
+        if (!tight) {
+            state.peakLine.takeIf { it.isNotBlank() }?.let {
+                card.addView(V2Ui.styledSecondaryText(activity, it).apply { textSize = 12f })
+            }
         }
         return card
     }
@@ -191,15 +231,18 @@ internal object PlannerDeepGlassLayout {
         val cards = dayParts(ru).map { part ->
             dayPartCard(ctx, part)
         }
-        val columns = when (HiAirResponsiveLayout.layoutMode(activity)) {
+        val requestedColumns = when (com.hiair.ui.design.HiAirResponsiveLayout.layoutMode(activity)) {
             com.hiair.ui.design.HiAirLayoutMode.COMPACT,
             com.hiair.ui.design.HiAirLayoutMode.STANDARD,
             -> 2
             com.hiair.ui.design.HiAirLayoutMode.TABLET -> 2
             com.hiair.ui.design.HiAirLayoutMode.EXPANDED -> 4
         }
-        val host = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        HiAirResponsiveLayout.addGridRows(host, activity, columns, cards, gapDp = HiAirSpacing.sm)
+        val host = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            markGeometry(HiAirGeometryMarkers.PLANNER_DAYPART_GRID)
+        }
+        HiAirGridLayout.addAdaptiveGridRows(host, activity, requestedColumns, cards, gapDp = HiAirSpacing.sm)
         return host
     }
 
@@ -241,24 +284,28 @@ internal object PlannerDeepGlassLayout {
 
     private fun dayPartCard(ctx: RenderContext, part: DayPartCard): LinearLayout {
         val activity = ctx.activity
-        return HiAirComponents.cardContainer(activity).apply {
-            if (part.selected) {
-                background = HiAirComponents.tileBackground(activity, selected = true)
-            }
+        val tight = useTightStoreViewport(ctx)
+        val emphasis = if (part.selected) {
+            com.hiair.ui.design.HiAirV4Glass.Emphasis.SELECTED
+        } else {
+            com.hiair.ui.design.HiAirV4Glass.Emphasis.DEFAULT
+        }
+        return com.hiair.ui.design.HiAirV4Glass.sectionCard(activity, emphasis).apply {
             addView(V2Ui.styledBodyText(activity, part.title).apply {
                 setTypeface(typeface, Typeface.BOLD)
+                if (tight) textSize = 14f
             })
-            addView(V2Ui.styledSecondaryText(activity, part.window).apply { textSize = 12f })
+            addView(V2Ui.styledSecondaryText(activity, part.window).apply { textSize = if (tight) 11f else 12f })
             addView(
                 TextView(activity).apply {
                     text = part.level
-                    textSize = 11f
+                    textSize = if (tight) 10f else 11f
                     setTypeface(typeface, Typeface.BOLD)
                     setTextColor(HiAirRiskStyle.colorForLevel(part.level.lowercase(Locale.ROOT)))
                 },
             )
-            addView(V2Ui.styledBodyText(activity, "${part.temp} · ${part.aqi}").apply { textSize = 13f })
-            addView(V2Ui.styledSecondaryText(activity, part.note).apply { textSize = 12f })
+            addView(V2Ui.styledBodyText(activity, "${part.temp} · ${part.aqi}").apply { textSize = if (tight) 12f else 13f })
+            addView(V2Ui.styledSecondaryText(activity, part.note).apply { textSize = if (tight) 11f else 12f })
         }
     }
 
@@ -270,19 +317,17 @@ internal object PlannerDeepGlassLayout {
             utilityCard(ctx, ctx.l("planner.window.ventilation"), vent, if (ru) "Хороший обмен" else "Good air exchange"),
             utilityCard(ctx, if (ru) "Гидратация" else "Hydration", hydration, if (ru) "Следующее напоминание 12:00" else "Next reminder at 12:00"),
         )
-        val host = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        HiAirResponsiveLayout.addGridRows(
-            host,
-            activity,
-            HiAirResponsiveLayout.gridColumns(activity, maxColumns = 2).coerceAtMost(2),
-            tiles,
-        )
+        val host = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            markGeometry(HiAirGeometryMarkers.PLANNER_UTILITY_ROW)
+        }
+        HiAirGridLayout.addAdaptiveGridRows(host, activity, requestedColumns = 2, tiles)
         return host.apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
-                topMargin = V2Ui.dp(activity, HiAirSpacing.md)
+                topMargin = V2Ui.dp(activity, if (useTightStoreViewport(ctx)) HiAirSpacing.sm else HiAirSpacing.md)
             }
         }
     }
@@ -327,11 +372,11 @@ internal object PlannerDeepGlassLayout {
                 if (ru) "Напомнить" else "Set reminder",
             ),
         )
-        HiAirResponsiveLayout.addGridRows(
+        HiAirGridLayout.addAdaptiveGridRows(
             host,
             activity,
-            HiAirResponsiveLayout.gridColumns(activity, maxColumns = 2).coerceAtMost(2),
-            actions,
+            requestedColumns = 2,
+            views = actions,
         )
         return host
     }
@@ -364,6 +409,7 @@ internal object PlannerDeepGlassLayout {
         )
         group.addView(
             HiAirComponents.primaryButton(activity, ctx.l("planner.apply")).apply {
+                markGeometry(HiAirGeometryMarkers.PLANNER_FOOTER_CTA)
                 setOnClickListener {
                     ctx.rootShell.openDashboard()
                     ctx.rerender()
@@ -373,36 +419,17 @@ internal object PlannerDeepGlassLayout {
         return group
     }
 
-    private fun renderHeatStrip(activity: android.app.Activity, container: LinearLayout, hourly: List<String>) {
-        container.removeAllViews()
-        hourly.take(24).forEachIndexed { index, item ->
-            val risk = item.substringAfter(":", "moderate").trim()
-            container.addView(View(activity).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    V2Ui.dp(activity, if (index % 3 == 0) 72 else 48),
-                    1f,
-                ).apply {
-                    marginEnd = V2Ui.dp(activity, 1)
-                }
-                background = V2Ui.cardBackground(
-                    activity,
-                    fillHex = HiAirComponents.riskAccentHex(risk),
-                    strokeHex = HiAirComponents.riskAccentHex(risk),
-                    radiusDp = 2,
-                )
-            })
-        }
-    }
-
     private fun demoHourly(): List<String> {
-        return (6..23).map { hour ->
-            val risk = when {
-                hour in 12..16 -> "high"
-                hour in 18..20 -> "low"
-                else -> "moderate"
+        return (0..23).map { hour ->
+            val risk = when (hour) {
+                in 6..9 -> "low"
+                in 10..13 -> "moderate"
+                in 14..17 -> "high"
+                in 18..20 -> "low"
+                in 21..23 -> "moderate"
+                else -> "low"
             }
             String.format(Locale.US, "%02d:00", hour) + ":$risk"
-        } + listOf("00:00:low", "03:00:low")
+        }
     }
 }

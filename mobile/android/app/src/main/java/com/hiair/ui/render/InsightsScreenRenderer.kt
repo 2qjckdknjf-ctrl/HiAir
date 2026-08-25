@@ -9,6 +9,8 @@ import com.hiair.StoreScreenshotMode
 import com.hiair.network.ApiClient
 import com.hiair.network.ApiHttpException
 import com.hiair.network.AppConfig
+import com.hiair.ui.accessibility.HiAirGeometryMarkers
+import com.hiair.ui.design.markGeometry
 import com.hiair.ui.design.HiAirResponsiveLayout
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.insights.InsightsProgressContract
@@ -28,6 +30,8 @@ internal object InsightsScreenRenderer {
     private const val TARGET_DAYS = 7
     @Volatile
     private var selectedWindowDays: Int = 30
+    @Volatile
+    private var lastViewData: InsightsViewData? = null
 
     private data class InsightCardData(
         val title: String,
@@ -58,6 +62,7 @@ internal object InsightsScreenRenderer {
     )
 
     fun render(ctx: RenderContext) {
+        val ctx = ctx.withStoreContentRoot("insights")
         val activity = ctx.activity
         val rootShell = ctx.rootShell
         val bodyContainer = ctx.bodyContainer
@@ -149,6 +154,7 @@ internal object InsightsScreenRenderer {
                     ),
                 )
             }
+            lastViewData = viewData
         }
 
         val initialPaint: (InsightsViewData?, String?) -> Unit = { data, error -> paint(data, error) }
@@ -156,7 +162,11 @@ internal object InsightsScreenRenderer {
             paint(storeScreenshotDemoData(ctx), null)
             return
         }
-        load(ctx, contentHost, initialPaint)
+        if (ctx.presentationOnly && lastViewData != null) {
+            paint(lastViewData, null)
+        } else {
+            load(ctx, contentHost, initialPaint)
+        }
 
         bodyContainer.addView(
             HiAirComponents.primaryButton(activity, ctx.l("insights.refresh")).apply {
@@ -170,6 +180,7 @@ internal object InsightsScreenRenderer {
         contentHost: LinearLayout,
         paint: (InsightsViewData?, String?) -> Unit,
     ) {
+        if (ctx.presentationOnly) return
         val activity = ctx.activity
         val rootShell = ctx.rootShell
         val unavailable = ctx.l("common.unavailable")
@@ -576,7 +587,10 @@ internal object InsightsScreenRenderer {
         onWindowChanged: () -> Unit,
     ): LinearLayout {
         val activity = ctx.activity
-        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val section = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            markGeometry(HiAirGeometryMarkers.INSIGHTS_SELECTOR)
+        }
         section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.window.title")))
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -621,7 +635,10 @@ internal object InsightsScreenRenderer {
 
     private fun buildTrendsSection(ctx: RenderContext, trends: List<InsightCardData>): LinearLayout {
         val activity = ctx.activity
-        val section = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val section = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            markGeometry(HiAirGeometryMarkers.INSIGHTS_TRENDS)
+        }
         section.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.section.trends")))
         if (trends.isEmpty()) {
             section.addView(V2Ui.styledSecondaryText(activity, ctx.l("insights.section.trends.empty")))
@@ -692,7 +709,7 @@ internal object InsightsScreenRenderer {
         val unavailable = ctx.l("common.unavailable")
         val denominator = InsightsProgressContract.denominatorForWindow(selectedWindowDays)
         val clampedDays = InsightsProgressContract.clampLoggedDays(loggedDays, denominator)
-        val card = HiAirComponents.cardContainer(activity)
+        val card = HiAirComponents.cardContainer(activity).markGeometry(HiAirGeometryMarkers.INSIGHTS_PROGRESS)
         card.addView(HiAirComponents.sectionHeader(activity, ctx.l("insights.progress_title")))
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL

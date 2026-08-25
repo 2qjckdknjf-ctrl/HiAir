@@ -46,11 +46,11 @@ object HiAirScreenMetrics {
 
     fun heroOrbDp(widthDp: Int): Int {
         return when (layoutMode(widthDp)) {
-            HiAirLayoutMode.COMPACT -> 260
-            HiAirLayoutMode.STANDARD -> 280
-            HiAirLayoutMode.TABLET -> 320
-            HiAirLayoutMode.EXPANDED -> 360
-        }.coerceIn(220, 420)
+            HiAirLayoutMode.COMPACT -> 220
+            HiAirLayoutMode.STANDARD -> 240
+            HiAirLayoutMode.TABLET -> 260
+            HiAirLayoutMode.EXPANDED -> 280
+        }.coerceIn(180, 320)
     }
 
     fun horizontalPaddingDp(widthDp: Int): Int {

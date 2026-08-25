@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import com.hiair.ui.design.HiAirComponents
+import com.hiair.ui.design.markGeometry
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.family.FamilyRiskParser
 import com.hiair.ui.theme.V2Ui
@@ -24,6 +25,7 @@ import java.util.Locale
 
 internal object SettingsScreenRenderer {
     fun render(ctx: RenderContext) {
+        val ctx = ctx.withStoreContentRoot("settings")
         if (StoreScreenshotMode.active) {
             renderStoreScreenshot(ctx)
             return
@@ -36,47 +38,129 @@ internal object SettingsScreenRenderer {
         val rootShell = ctx.rootShell
         val state = rootShell.settingsViewModel.state
         val bodyContainer = ctx.bodyContainer
+        val mode = com.hiair.ui.design.HiAirResponsiveLayout.layoutMode(activity)
 
         ctx.titleView.text = ctx.l("title.settings")
-        bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply { textSize = 13f })
+        com.hiair.ui.design.HiAirV4Presentation.applyTitleAxisAlignment(ctx.titleView, activity)
+
+        val canvas = com.hiair.ui.design.HiAirV4Presentation.boundedCanvasHost(activity)
+        bodyContainer.addView(canvas)
+
+        val header = V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply {
+            textSize = 13f
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        canvas.addView(header)
 
         val accountCard = HiAirComponents.cardContainer(activity).apply {
+            markGeometry(com.hiair.ui.accessibility.HiAirGeometryMarkers.SETTINGS_ACCOUNT)
             addView(sectionTitle(ctx, "auth.title"))
             addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
             addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.premium_active")))
         }
-        bodyContainer.addView(accountCard)
 
         val wearableConnected = state.wearableStatus.contains("connected", ignoreCase = true) ||
             state.wearableStatus.contains("подключ", ignoreCase = true)
         val wearablesCard = HiAirComponents.cardContainer(activity).apply {
+            markGeometry(com.hiair.ui.accessibility.HiAirGeometryMarkers.SETTINGS_HEALTH)
             addView(sectionTitle(ctx, "settings.wearables.title"))
             addView(V2Ui.styledSecondaryText(activity, state.wearableStatus))
             if (wearableConnected) {
-                addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")))
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
+                        layoutParams = com.hiair.ui.design.HiAirResponsiveLayout.constrainedButtonLayoutParams(activity)
+                    },
+                )
             } else {
-                addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")))
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
+                        layoutParams = com.hiair.ui.design.HiAirResponsiveLayout.constrainedButtonLayoutParams(activity)
+                    },
+                )
             }
         }
-        bodyContainer.addView(wearablesCard)
 
-        val prefsCard = HiAirComponents.cardContainer(activity).apply {
+        val prefsNotifications = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle(ctx, "settings.notifications"))
             addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.push")))
+        }
+
+        val prefsSubscription = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle(ctx, "settings.subscription"))
             addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.premium_active")))
             addView(sectionTitle(ctx, "settings.profile"))
             addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.persona_adult")))
         }
-        bodyContainer.addView(prefsCard)
 
-        val securityCard = HiAirComponents.glassAccentContainer(activity).apply {
+        val securityCard = com.hiair.ui.design.HiAirV4Glass.sectionCard(
+            activity,
+            com.hiair.ui.design.HiAirV4Glass.Emphasis.DESTRUCTIVE,
+        ).apply {
+            markGeometry(com.hiair.ui.accessibility.HiAirGeometryMarkers.SETTINGS_DESTRUCTIVE)
             addView(sectionTitle(ctx, "settings.security_privacy"))
-            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy_export")))
-            addView(V2Ui.spacer(activity, 12))
-            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")))
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy_export")).apply {
+                    layoutParams = com.hiair.ui.design.HiAirResponsiveLayout.constrainedButtonLayoutParams(activity)
+                },
+            )
+            addView(V2Ui.spacer(activity, 8))
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
+                    layoutParams = com.hiair.ui.design.HiAirResponsiveLayout.constrainedButtonLayoutParams(activity)
+                    setTextColor(Tokens.Feedback.errorSoft)
+                },
+            )
         }
-        bodyContainer.addView(securityCard)
+
+        val snapshot = com.hiair.ui.design.HiAirResponsiveLayout.windowSnapshot(activity)
+        val useTwoColumn = com.hiair.ui.design.HiAirScreenMetrics.allowsTwoColumn(snapshot.rawWindowWidthDp)
+        if (useTwoColumn) {
+            fun settingsRow(left: android.view.View, right: android.view.View): LinearLayout {
+                return LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    )
+                    val leftCol = LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    val rightCol = LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            marginStart = V2Ui.dp(activity, com.hiair.ui.design.HiAirSpacing.md)
+                        }
+                    }
+                    leftCol.addView(left)
+                    rightCol.addView(right)
+                    addView(leftCol)
+                    addView(rightCol)
+                }
+            }
+            val host = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                markGeometry(com.hiair.ui.accessibility.HiAirGeometryMarkers.SETTINGS_SECTIONS)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+            }
+            host.addView(settingsRow(accountCard, prefsNotifications))
+            host.addView(V2Ui.spacer(activity, com.hiair.ui.design.HiAirSpacing.sm))
+            host.addView(settingsRow(wearablesCard, prefsSubscription))
+            host.addView(V2Ui.spacer(activity, com.hiair.ui.design.HiAirSpacing.sm))
+            securityCard.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            host.addView(securityCard)
+            canvas.addView(host)
+        } else {
+            listOf(accountCard, wearablesCard, prefsNotifications, prefsSubscription, securityCard).forEach {
+                canvas.addView(it)
+            }
+        }
     }
 
     private fun sectionTitle(ctx: RenderContext, key: String): TextView {

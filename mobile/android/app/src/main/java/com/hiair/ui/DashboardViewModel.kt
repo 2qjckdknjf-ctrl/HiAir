@@ -127,7 +127,7 @@ class DashboardViewModel(
             hazardsOverallScore = 55,
             hazardLines = listOf(
                 HazardLine("heat", "moderate", 55, true),
-                HazardLine("aqi", "low", 25, true),
+                HazardLine("air", "low", 25, true),
             ),
             protectedDayStatus = "",
         )

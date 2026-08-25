@@ -16,9 +16,21 @@ class MainScreenRenderer(
     private val overlayContainer: FrameLayout,
     private val persistSession: () -> Unit,
     private val clearSession: () -> Unit,
-    private val rerender: () -> Unit
+    private val rerender: () -> Unit,
 ) {
-    private val ctx = RenderContext(
+    @Volatile
+    private var presentationOnly: Boolean = false
+
+    fun runPresentationOnly(block: () -> Unit) {
+        presentationOnly = true
+        try {
+            block()
+        } finally {
+            presentationOnly = false
+        }
+    }
+
+    private fun ctx(): RenderContext = RenderContext(
         activity = activity,
         rootShell = rootShell,
         titleView = titleView,
@@ -26,22 +38,23 @@ class MainScreenRenderer(
         overlayContainer = overlayContainer,
         persistSession = persistSession,
         clearSession = clearSession,
-        rerender = rerender
+        rerender = rerender,
+        presentationOnly = presentationOnly,
     )
 
     fun renderFirstRun(onboardingStore: OnboardingStore) {
-        FirstRunOnboardingRenderer.render(ctx, onboardingStore) { rerender() }
+        FirstRunOnboardingRenderer.render(ctx(), onboardingStore) { rerender() }
     }
 
-    fun renderDashboard() = DashboardScreenRenderer.render(ctx)
+    fun renderDashboard() = DashboardScreenRenderer.render(ctx())
 
-    fun renderPlanner() = PlannerScreenRenderer.render(ctx)
+    fun renderPlanner() = PlannerScreenRenderer.render(ctx())
 
-    fun renderInsights() = InsightsScreenRenderer.render(ctx)
+    fun renderInsights() = InsightsScreenRenderer.render(ctx())
 
-    fun renderSymptoms() = SymptomsScreenRenderer.render(ctx)
+    fun renderSymptoms() = SymptomsScreenRenderer.render(ctx())
 
-    fun renderSettings() = SettingsScreenRenderer.render(ctx)
+    fun renderSettings() = SettingsScreenRenderer.render(ctx())
 
-    fun renderPaywall(paywall: SubscriptionPaywallController) = PaywallScreenRenderer.render(ctx, paywall)
+    fun renderPaywall(paywall: SubscriptionPaywallController) = PaywallScreenRenderer.render(ctx(), paywall)
 }

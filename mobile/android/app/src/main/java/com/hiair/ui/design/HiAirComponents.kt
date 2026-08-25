@@ -19,7 +19,9 @@ object HiAirComponents {
     fun pageBackground(): GradientDrawable = TimeOfDayBackground.pageGradient()
 
     fun horizontalPaddingDp(context: Context): Int {
-        return HiAirScreenMetrics.horizontalPaddingDp(context.resources.configuration.screenWidthDp)
+        val activity = context as? android.app.Activity ?: return HiAirSpacing.md
+        val provisional = HiAirWindowLayout.fromActivity(activity, parentHorizontalPaddingEachSideDp = 0)
+        return HiAirScreenMetrics.horizontalPaddingDp(provisional.safeAvailableWidthDp)
     }
 
     fun inputField(context: Context, hint: String): EditText {
