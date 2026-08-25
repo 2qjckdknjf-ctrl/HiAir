@@ -139,6 +139,86 @@ def test_retain_live_only_metrics_keeps_pollen_and_smoke() -> None:
     assert merged.wildfire_pm10 == 8.5
 
 
+def test_overlay_forecast_current_retains_live_pollen_and_smoke() -> None:
+    from app.models.air import EnvironmentalInput
+    from app.models.forecast import (
+        EnvironmentalDataKind,
+        EnvironmentalForecast,
+        EnvironmentalForecastPoint,
+        ForecastFreshness,
+        ForecastQuality,
+        MetricProvenance,
+    )
+    from app.services.forecast.mapping import overlay_forecast_current
+
+    live = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=28.0,
+        feels_like=29.0,
+        pollen_grains_m3=55.0,
+        wildfire_pm10=12.0,
+        source="live",
+        timestamp="2026-07-15T08:00:00+02:00",
+    )
+    current = EnvironmentalForecastPoint(
+        timestamp="2026-07-15T08:00:00+02:00",
+        timezone="Europe/Madrid",
+        lat=41.39,
+        lon=2.17,
+        temperature_c=31.0,
+        apparent_temperature_c=32.0,
+        relative_humidity_pct=40.0,
+        wind_speed_mps=2.0,
+        uv_index=5.0,
+        aqi=50,
+        pm25_ugm3=12.0,
+        pm10_ugm3=20.0,
+        ozone_ugm3=35.0,
+        provenance=MetricProvenance(
+            provider="openmeteo",
+            product="test",
+            fetched_at="2026-07-15T08:00:00+02:00",
+            kind=EnvironmentalDataKind.FORECAST,
+        ),
+        missing_metrics=[],
+        quality=ForecastQuality.COMPLETE,
+    )
+    forecast = EnvironmentalForecast(
+        current=current,
+        hourly=[current],
+        timezone="Europe/Madrid",
+        lat=41.39,
+        lon=2.17,
+        generated_at="2026-07-15T08:00:00+02:00",
+        fetched_at="2026-07-15T08:00:00+02:00",
+        freshness=ForecastFreshness.LIVE,
+        quality=ForecastQuality.COMPLETE,
+        sources=["openmeteo"],
+        missing_metrics=[],
+    )
+    merged = overlay_forecast_current(live, forecast)
+    assert merged.temperature == 31.0
+    assert merged.pollen_grains_m3 == 55.0
+    assert merged.wildfire_pm10 == 12.0
+
+
+def test_overlay_forecast_current_noop_without_forecast() -> None:
+    from app.models.air import EnvironmentalInput
+    from app.services.forecast.mapping import overlay_forecast_current
+
+    live = EnvironmentalInput(
+        lat=41.39,
+        lon=2.17,
+        temperature=28.0,
+        feels_like=29.0,
+        pollen_grains_m3=55.0,
+        source="live",
+        timestamp="2026-07-15T08:00:00+02:00",
+    )
+    assert overlay_forecast_current(live, None) is live
+
+
 class _FakeClient:
     def __init__(self, payload: dict) -> None:
         self._payload = payload

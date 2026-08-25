@@ -12,7 +12,7 @@ import app.services.wearable_service as wearable_service
 from app.models.air import RiskLevel
 from app.models.family import FamilyMemberRiskLine, FamilyRiskOverviewResponse
 from app.services.air_score import RISK_LEVEL_TO_SCORE
-from app.services.forecast.mapping import forecast_to_hourly_inputs
+from app.services.forecast.mapping import forecast_to_hourly_inputs, overlay_forecast_current
 from app.services.forecast.service import get_forecast
 
 _RISK_ORDER = {
@@ -46,6 +46,7 @@ def _assess_member_risk(*, owner_user_id: str, link) -> FamilyMemberRiskLine:
     try:
         environment = air_environment_service.load_environment(profile)
         forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         personal_load = wearable_service.build_personal_load_input(owner_user_id, environment)
         risk = air_risk_engine.evaluate_risk(

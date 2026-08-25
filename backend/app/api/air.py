@@ -20,6 +20,7 @@ from app.services.forecast.mapping import (
     apply_freshness_source,
     forecast_point_to_environmental,
     forecast_to_hourly_inputs,
+    overlay_forecast_current,
     retain_live_only_metrics,
 )
 from app.services.forecast.service import get_forecast
@@ -228,6 +229,7 @@ def get_day_plan(
         profile = _resolve_profile_for_user(profileId, user_id)
         environment = air_environment_service.load_environment(profile)
         forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         personal_load = wearable_service.build_personal_load_input(user_id, environment)
         return air_risk_engine.build_day_plan(

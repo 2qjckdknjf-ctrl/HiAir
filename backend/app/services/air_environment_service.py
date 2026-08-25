@@ -208,17 +208,24 @@ def load_environment(
     *,
     force_live: bool = False,
     force_refresh: bool = False,
+    lat: float | None = None,
+    lon: float | None = None,
 ) -> EnvironmentalInput:
-    """Load environmental input for a profile using the cache → live → sample chain."""
+    """Load environmental input using the cache → live → sample chain.
+
+    Optional ``lat``/``lon`` override profile home (e.g. saved-place activity plans).
+    """
+    resolved_lat = profile.home_lat if lat is None else lat
+    resolved_lon = profile.home_lon if lon is None else lon
     snapshot = resolve_environment_snapshot(
-        profile.home_lat,
-        profile.home_lon,
+        resolved_lat,
+        resolved_lon,
         prefer_live=True,
         force_refresh=force_refresh or force_live,
     )
     return _snapshot_to_environmental(
         snapshot,
-        profile.home_lat,
-        profile.home_lon,
+        resolved_lat,
+        resolved_lon,
         profile.timezone,
     )

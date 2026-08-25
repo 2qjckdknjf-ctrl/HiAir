@@ -69,6 +69,27 @@ def retain_live_only_metrics(
     )
 
 
+def overlay_forecast_current(
+    live: EnvironmentalInput,
+    forecast: EnvironmentalForecast | None,
+) -> EnvironmentalInput:
+    """Merge forecast.current onto live env, retaining CAMS pollen/smoke honesty."""
+    if forecast is None or forecast.current is None:
+        return live
+    mapped = forecast_point_to_environmental(forecast.current)
+    if mapped is None:
+        return live
+    freshness = (
+        forecast.freshness.value
+        if hasattr(forecast.freshness, "value")
+        else str(forecast.freshness)
+    )
+    return apply_freshness_source(
+        retain_live_only_metrics(mapped, live),
+        freshness,
+    )
+
+
 def forecast_point_to_snapshot(point: EnvironmentalForecastPoint, source: str) -> EnvironmentSnapshot | None:
     if (
         point.temperature_c is None

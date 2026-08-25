@@ -19,7 +19,7 @@ import app.services.air_environment_service as air_environment_service
 import app.services.air_risk_engine as air_risk_engine
 import app.services.places_repository as places_repository
 import app.services.wearable_service as wearable_service
-from app.services.forecast.mapping import forecast_to_hourly_inputs
+from app.services.forecast.mapping import forecast_to_hourly_inputs, overlay_forecast_current
 from app.services.forecast.service import get_forecast
 
 router = APIRouter(prefix="/planner", tags=["planner"])
@@ -128,8 +128,10 @@ def create_activity_plan(
                 raise HTTPException(status_code=404, detail="Saved place not found")
             lat = place.lat
             lon = place.lon
-        environment = air_environment_service.load_environment(profile)
+        # Environment must match the place used for forecast/hourly windows.
+        environment = air_environment_service.load_environment(profile, lat=lat, lon=lon)
         forecast = air_api._load_forecast_or_none(lat, lon)
+        environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         personal_load = wearable_service.build_personal_load_input(user_id, environment)
         return activity_plan_engine.build_activity_plan(
