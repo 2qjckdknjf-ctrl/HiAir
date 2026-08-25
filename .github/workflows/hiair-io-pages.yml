@@ -6,11 +6,48 @@ on:
     paths:
       - "web/**"
       - "infra/cloudflare/**"
+      - "scripts/ops/generate_web_seo_content.py"
+      - "scripts/ops/check_web_seo.py"
+      - "scripts/ops/check_web_local_routes.py"
+      - ".github/workflows/hiair-io-pages.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - "infra/cloudflare/**"
+      - "scripts/ops/generate_web_seo_content.py"
+      - "scripts/ops/check_web_seo.py"
+      - "scripts/ops/check_web_local_routes.py"
       - ".github/workflows/hiair-io-pages.yml"
   workflow_dispatch:
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate search content
+        run: python3 scripts/ops/generate_web_seo_content.py
+
+      - name: Fail if generator created a web diff
+        run: git diff --exit-code -- web
+
+      - name: Validate SEO integrity
+        run: python3 scripts/ops/check_web_seo.py
+
+      - name: Smoke local static routes
+        run: python3 scripts/ops/check_web_local_routes.py
+
+      - name: Syntax-check web scripts
+        run: |
+          python3 -m py_compile scripts/ops/generate_web_seo_content.py scripts/ops/check_web_seo.py scripts/ops/check_web_local_routes.py
+          node --check web/js/main.js
+
   deploy:
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -26,6 +63,7 @@ jobs:
       - name: Generate and validate search content
         run: |
           python3 scripts/ops/generate_web_seo_content.py
+          git diff --exit-code -- web
           python3 scripts/ops/check_web_seo.py
 
       - name: Deploy to Cloudflare Pages
