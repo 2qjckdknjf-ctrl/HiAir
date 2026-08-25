@@ -75,28 +75,58 @@ class LocationController(
             onComplete()
             return
         }
+        var delivered = false
+        val completeOnce = {
+            if (!delivered) {
+                delivered = true
+                onComplete()
+            }
+        }
+        fusedClient.lastLocation
+            .addOnSuccessListener { last ->
+                if (last != null && GeoCoordinates.isUsableForLaunch(last)) {
+                    applyLocation(last, LocationSource.CACHED)
+                    completeOnce()
+                }
+                requestCurrentLocation(completeOnce)
+            }
+            .addOnFailureListener {
+                requestCurrentLocation(completeOnce)
+            }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestCurrentLocation(completeOnce: () -> Unit) {
+        if (!hasPermission()) {
+            completeOnce()
+            return
+        }
         val token = CancellationTokenSource()
         fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, token.token)
             .addOnSuccessListener { location ->
                 if (location != null && GeoCoordinates.isValid(location)) {
-                    val applied = settingsViewModel.applyDeviceLocation(location.latitude, location.longitude)
-                    if (applied) {
-                        ProductAnalytics.track(
-                            "location_fetch_success",
-                            mapOf(
-                                "source" to LocationSource.DEVICE.raw,
-                                "accuracy_bucket" to GeoCoordinates.accuracyBucket(location),
-                            )
-                        )
-                    }
+                    applyLocation(location, LocationSource.DEVICE)
                 } else {
                     ProductAnalytics.track("location_fetch_failed", mapOf("reason" to "invalid_coordinate"))
                 }
-                onComplete()
+                completeOnce()
             }
             .addOnFailureListener {
                 ProductAnalytics.track("location_fetch_failed", mapOf("reason" to "error"))
-                onComplete()
+                completeOnce()
             }
+    }
+
+    private fun applyLocation(location: android.location.Location, source: LocationSource) {
+        val applied = settingsViewModel.applyDeviceLocation(location.latitude, location.longitude)
+        if (applied) {
+            ProductAnalytics.track(
+                "location_fetch_success",
+                mapOf(
+                    "source" to source.raw,
+                    "accuracy_bucket" to GeoCoordinates.accuracyBucket(location),
+                )
+            )
+        }
     }
 }

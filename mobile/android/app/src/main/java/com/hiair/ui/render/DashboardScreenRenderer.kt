@@ -80,8 +80,14 @@ internal object DashboardScreenRenderer {
             }.start()
         }
         val host = activity as? LocationBootstrapHost
+        val hasProfile = rootShell.settingsViewModel.state.profileId.isNotBlank()
         if (host != null && !rootShell.settingsViewModel.hasValidLocation()) {
-            host.bootstrapLocation { startLoad.run() }
+            if (hasProfile) {
+                startLoad.run()
+                host.bootstrapLocation { }
+            } else {
+                host.bootstrapLocation { startLoad.run() }
+            }
         } else {
             startLoad.run()
         }

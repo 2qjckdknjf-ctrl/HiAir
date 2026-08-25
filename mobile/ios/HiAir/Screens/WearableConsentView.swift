@@ -128,7 +128,8 @@ struct WearableConsentView: View {
             healthService.startBackgroundHealthSync(
                 userId: userId,
                 accessToken: accessToken,
-                profileId: profileId
+                profileId: profileId,
+                forceRestart: true
             )
             return
         }

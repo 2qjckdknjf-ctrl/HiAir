@@ -117,10 +117,10 @@ class WearableHealthController(
         if (userId.isBlank() || !healthService.isHealthConnectAvailable()) return
         // Fail closed: OS permissions alone are not enough; consent must match this account.
         if (!healthService.hasDurableConsentFor(userId)) return
+        if (syncJob?.isActive == true) return
         val generation = connectGeneration
         val accountGeneration = healthService.accountGeneration
         val syncGeneration = healthService.syncGeneration
-        syncJob?.cancel()
         syncJob = activity.lifecycleScope.launch {
             if (generation != connectGeneration) return@launch
             val granted = withContext(Dispatchers.IO) {

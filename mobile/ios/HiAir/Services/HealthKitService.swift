@@ -38,7 +38,7 @@ struct HealthKitDiagnostics: Equatable {
     let buildNumber: String
 }
 
-struct HealthMetricSnapshot: Equatable {
+struct HealthMetricSnapshot: Equatable, Sendable {
     let metricType: String
     let unit: String
     let valueAvg: Double?
@@ -51,7 +51,7 @@ struct HealthMetricSnapshot: Equatable {
     let hrvMethod: String?
 }
 
-struct HealthSleepSnapshot: Equatable {
+struct HealthSleepSnapshot: Equatable, Sendable {
     let totalMinutes: Int?
     let inBedMinutes: Int?
     let awakeMinutes: Int?
@@ -86,7 +86,6 @@ final class HealthKitService: ObservableObject {
     private var syncGeneration: UInt64 = 0
     /// Authenticated HiAir user that owns current connection/consent presentation state.
     private(set) var boundUserId: String = ""
-    private let healthQueryTimeoutSeconds: TimeInterval = 12
     /// Overridable for unit tests (default 60s).
     var authorizationTimeoutNanoseconds: UInt64 = 60_000_000_000
     /// Overridable for unit tests (default 45s collect).
@@ -475,170 +474,18 @@ final class HealthKitService: ObservableObject {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
         let end = Date()
-        var snapshots: [HealthMetricSnapshot] = []
+        let store = self.store
         let tiers = enabledTiers
-        let tier1 = tiers.contains(1)
-        let tier2 = tiers.contains(2)
-        let tier3 = tiers.contains(3)
-
-        if tier1 {
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .stepCount, metric: "steps", unit: HKUnit.count(), unitName: "count", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .distanceWalkingRunning, metric: "distance_walking_running", unit: HKUnit.meter(), unitName: "m", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .activeEnergyBurned, metric: "active_energy", unit: HKUnit.kilocalorie(), unitName: "kcal", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .basalEnergyBurned, metric: "basal_energy", unit: HKUnit.kilocalorie(), unitName: "kcal", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .appleExerciseTime, metric: "exercise_minutes", unit: HKUnit.minute(), unitName: "min", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .appleStandTime, metric: "stand_minutes", unit: HKUnit.minute(), unitName: "min", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectCumulative(
-                id: .flightsClimbed, metric: "flights_climbed", unit: HKUnit.count(), unitName: "count", start: start, end: end
-            ))
-            snapshots.append(contentsOf: await collectWorkoutAggregates(start: start, end: end))
-        }
-
-        if tier2 {
-            if let hr = await collectDiscreteStats(
-                id: .heartRate,
-                metric: "heart_rate",
-                unit: HKUnit.count().unitDivided(by: .minute()),
-                unitName: "bpm",
-                start: start,
-                end: end
-            ) { snapshots.append(hr) }
-
-            if let resting = await collectLatest(
-                id: .restingHeartRate,
-                metric: "resting_heart_rate",
-                unit: HKUnit.count().unitDivided(by: .minute()),
-                unitName: "bpm",
-                start: calendar.date(byAdding: .day, value: -1, to: start) ?? start,
-                end: end
-            ) { snapshots.append(resting) }
-
-            if let walking = await collectLatest(
-                id: .walkingHeartRateAverage,
-                metric: "walking_heart_rate_avg",
-                unit: HKUnit.count().unitDivided(by: .minute()),
-                unitName: "bpm",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end
-            ) { snapshots.append(walking) }
-
-            if let hrv = await collectDiscreteStats(
-                id: .heartRateVariabilitySDNN,
-                metric: "hrv_sdnn",
-                unit: HKUnit.secondUnit(with: .milli),
-                unitName: "ms",
-                start: start,
-                end: end,
-                hrvMethod: "sdnn"
-            ) { snapshots.append(hrv) }
-
-            if let vo2 = await collectLatest(
-                id: .vo2Max,
-                metric: "vo2_max",
-                unit: HKUnit(from: "ml/kg*min"),
-                unitName: "ml_kg_min",
-                start: calendar.date(byAdding: .day, value: -90, to: start) ?? start,
-                end: end
-            ) { snapshots.append(vo2) }
-
-            if let mindfulness = await collectMindfulnessMinutes(start: start, end: end) {
-                snapshots.append(mindfulness)
-            }
-
-            if let speed = await collectLatest(
-                id: .walkingSpeed,
-                metric: "walking_speed",
-                unit: HKUnit.meter().unitDivided(by: .second()),
-                unitName: "m_s",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end
-            ) { snapshots.append(speed) }
-
-            if let stepLength = await collectLatest(
-                id: .walkingStepLength,
-                metric: "walking_step_length",
-                unit: HKUnit.meter(),
-                unitName: "m",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end
-            ) { snapshots.append(stepLength) }
-
-            if let asymmetry = await collectLatest(
-                id: .walkingAsymmetryPercentage,
-                metric: "walking_asymmetry",
-                unit: HKUnit.percent(),
-                unitName: "percent",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end,
-                scale: 100
-            ) { snapshots.append(asymmetry) }
-
-            if let doubleSupport = await collectLatest(
-                id: .walkingDoubleSupportPercentage,
-                metric: "walking_double_support",
-                unit: HKUnit.percent(),
-                unitName: "percent",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end,
-                scale: 100
-            ) { snapshots.append(doubleSupport) }
-        }
-
-        if tier3 {
-            if let rr = await collectDiscreteStats(
-                id: .respiratoryRate,
-                metric: "respiratory_rate",
-                unit: HKUnit.count().unitDivided(by: .minute()),
-                unitName: "breaths_per_min",
-                start: start,
-                end: end
-            ) { snapshots.append(rr) }
-
-            if let spo2 = await collectDiscreteStats(
-                id: .oxygenSaturation,
-                metric: "oxygen_saturation",
-                unit: HKUnit.percent(),
-                unitName: "percent",
-                start: start,
-                end: end,
-                scale: 100
-            ) { snapshots.append(spo2) }
-
-            if let bodyTemp = await collectLatest(
-                id: .bodyTemperature,
-                metric: "body_temperature",
-                unit: HKUnit.degreeCelsius(),
-                unitName: "celsius",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end
-            ) { snapshots.append(bodyTemp) }
-
-            if let wrist = await collectLatest(
-                id: .appleSleepingWristTemperature,
-                metric: "wrist_temperature",
-                unit: HKUnit.degreeCelsius(),
-                unitName: "celsius",
-                start: calendar.date(byAdding: .day, value: -7, to: start) ?? start,
-                end: end
-            ) { snapshots.append(wrist) }
-        }
-
-        let sleep = tier1 ? await collectSleep(for: start) : nil
-        latestSnapshots = snapshots
-        latestSleep = sleep
-        return (snapshots, sleep)
+        let collected = await HealthKitQueryEngine.collectToday(
+            store: store,
+            tiers: tiers,
+            start: start,
+            end: end,
+            calendar: calendar
+        )
+        latestSnapshots = collected.0
+        latestSleep = collected.1
+        return collected
     }
 
     // MARK: - Sync
@@ -746,8 +593,15 @@ final class HealthKitService: ObservableObject {
 
     /// Canonical public entry — all Views must use this (not ad-hoc sync Tasks).
     /// Spawns a single MainActor coordinator Task; cancel/replace is generation-gated.
-    func startBackgroundHealthSync(userId: String, accessToken: String, profileId: String?) {
-        guard let generation = beginHealthSyncGeneration(userId: userId) else { return }
+    /// Duplicate starts for the same in-flight user are joined so dashboard reloads
+    /// cannot restart a 20+ query HealthKit collect.
+    func startBackgroundHealthSync(
+        userId: String,
+        accessToken: String,
+        profileId: String?,
+        forceRestart: Bool = false
+    ) {
+        guard let generation = beginHealthSyncGeneration(userId: userId, forceRestart: forceRestart) else { return }
         let expectedUserId = userId
         let token = accessToken
         let profile = profileId
@@ -770,7 +624,7 @@ final class HealthKitService: ObservableObject {
     /// Scheduled via a detached hop so the XCTest caller task cannot
     /// pre-cancel the coordinator through structured-concurrency inheritance.
     func runHealthSyncForTests(userId: String, accessToken: String, profileId: String?) async {
-        guard let generation = beginHealthSyncGeneration(userId: userId) else { return }
+        guard let generation = beginHealthSyncGeneration(userId: userId, forceRestart: true) else { return }
         let token = accessToken
         let profile = profileId
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -795,7 +649,7 @@ final class HealthKitService: ObservableObject {
         }
     }
 
-    private func beginHealthSyncGeneration(userId: String) -> UInt64? {
+    private func beginHealthSyncGeneration(userId: String, forceRestart: Bool) -> UInt64? {
         guard hasDurableConsent(for: userId) else {
             ProductAnalytics.track("health_sync_blocked", properties: ["reason": "consent_missing", "stage": "start"])
             return nil
@@ -806,6 +660,9 @@ final class HealthKitService: ObservableObject {
             return nil
         default:
             break
+        }
+        if !forceRestart, let existing = syncInFlight, !existing.isCancelled {
+            return nil
         }
         // Single-flight: cancel prior task and drop the handle immediately so a
         // cancelled/completed stale Task cannot look "in flight" before the
@@ -1176,347 +1033,7 @@ final class HealthKitService: ObservableObject {
     }
 
     func fetchHourlyActivitySummary() async -> [(hourStart: Date, steps: Int, hrAvg: Double?, hrMax: Double?)] {
-        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return [] }
-        let calendar = Calendar.current
-        let now = Date()
-        var results: [(Date, Int, Double?, Double?)] = []
-        for offset in 0..<24 {
-            guard let hourStart = calendar.date(
-                byAdding: .hour,
-                value: -offset,
-                to: calendar.dateInterval(of: .hour, for: now)?.start ?? now
-            ) else { continue }
-            guard let hourEnd = calendar.date(byAdding: .hour, value: 1, to: hourStart) else { continue }
-            let predicate = HKQuery.predicateForSamples(withStart: hourStart, end: hourEnd, options: .strictStartDate)
-            let steps = await sumQuantity(type: stepType, unit: .count(), predicate: predicate) ?? 0
-            var hrAvg: Double?
-            var hrMax: Double?
-            if let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) {
-                let hrSamples = await fetchQuantitySamples(type: hrType, predicate: predicate)
-                if !hrSamples.isEmpty {
-                    let unit = HKUnit.count().unitDivided(by: .minute())
-                    let values = hrSamples.map { $0.quantity.doubleValue(for: unit) }
-                    hrAvg = values.reduce(0, +) / Double(values.count)
-                    hrMax = values.max()
-                }
-            }
-            results.append((hourStart, Int(steps.rounded()), hrAvg, hrMax))
-        }
-        return results
-    }
-
-    // MARK: - Private collectors
-
-    private func collectCumulative(
-        id: HKQuantityTypeIdentifier,
-        metric: String,
-        unit: HKUnit,
-        unitName: String,
-        start: Date,
-        end: Date
-    ) async -> [HealthMetricSnapshot] {
-        guard let type = HKQuantityType.quantityType(forIdentifier: id) else {
-            return [HealthMetricSnapshot(
-                metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "unsupported", hrvMethod: nil
-            )]
-        }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        let total = await sumQuantity(type: type, unit: unit, predicate: predicate)
-        if let total {
-            return [HealthMetricSnapshot(
-                metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: total, sampleCount: 1, qualityState: "ok", hrvMethod: nil
-            )]
-        }
-        return [HealthMetricSnapshot(
-            metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-            valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "no_records", hrvMethod: nil
-        )]
-    }
-
-    private func collectDiscreteStats(
-        id: HKQuantityTypeIdentifier,
-        metric: String,
-        unit: HKUnit,
-        unitName: String,
-        start: Date,
-        end: Date,
-        hrvMethod: String? = nil,
-        scale: Double = 1
-    ) async -> HealthMetricSnapshot? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: id) else {
-            return HealthMetricSnapshot(
-                metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "unsupported", hrvMethod: hrvMethod
-            )
-        }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        let samples = await fetchQuantitySamples(type: type, predicate: predicate)
-        guard !samples.isEmpty else {
-            return HealthMetricSnapshot(
-                metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "no_records", hrvMethod: hrvMethod
-            )
-        }
-        let values = samples.map { $0.quantity.doubleValue(for: unit) * scale }
-        return HealthMetricSnapshot(
-            metricType: metric,
-            unit: unitName,
-            valueAvg: values.reduce(0, +) / Double(values.count),
-            valueMin: values.min(),
-            valueMax: values.max(),
-            valueLatest: values.last,
-            valueTotal: nil,
-            sampleCount: values.count,
-            qualityState: "ok",
-            hrvMethod: hrvMethod
-        )
-    }
-
-    private func collectLatest(
-        id: HKQuantityTypeIdentifier,
-        metric: String,
-        unit: HKUnit,
-        unitName: String,
-        start: Date,
-        end: Date,
-        scale: Double = 1
-    ) async -> HealthMetricSnapshot? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: id) else {
-            return HealthMetricSnapshot(
-                metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "unsupported", hrvMethod: nil
-            )
-        }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        let samples = await fetchQuantitySamples(type: type, predicate: predicate)
-        guard let latest = samples.last else {
-            return HealthMetricSnapshot(
-                metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "no_records", hrvMethod: nil
-            )
-        }
-        let value = latest.quantity.doubleValue(for: unit) * scale
-        return HealthMetricSnapshot(
-            metricType: metric,
-            unit: unitName,
-            valueAvg: value,
-            valueMin: nil,
-            valueMax: nil,
-            valueLatest: value,
-            valueTotal: nil,
-            sampleCount: 1,
-            qualityState: "ok",
-            hrvMethod: nil
-        )
-    }
-
-    private func collectMindfulnessMinutes(start: Date, end: Date) async -> HealthMetricSnapshot? {
-        guard let mindfulType else {
-            return HealthMetricSnapshot(
-                metricType: "mindfulness_minutes",
-                unit: "min",
-                valueAvg: nil,
-                valueMin: nil,
-                valueMax: nil,
-                valueLatest: nil,
-                valueTotal: nil,
-                sampleCount: 0,
-                qualityState: "unsupported",
-                hrvMethod: nil
-            )
-        }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: mindfulType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: nil
-            ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKCategorySample]) ?? [])
-            }
-            store.execute(query)
-        }
-        guard !samples.isEmpty else {
-            return HealthMetricSnapshot(
-                metricType: "mindfulness_minutes",
-                unit: "min",
-                valueAvg: nil,
-                valueMin: nil,
-                valueMax: nil,
-                valueLatest: nil,
-                valueTotal: nil,
-                sampleCount: 0,
-                qualityState: "no_records",
-                hrvMethod: nil
-            )
-        }
-        let totalMinutes = samples.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) / 60.0 }
-        return HealthMetricSnapshot(
-            metricType: "mindfulness_minutes",
-            unit: "min",
-            valueAvg: nil,
-            valueMin: nil,
-            valueMax: nil,
-            valueLatest: nil,
-            valueTotal: totalMinutes,
-            sampleCount: samples.count,
-            qualityState: "ok",
-            hrvMethod: nil
-        )
-    }
-
-    private func collectWorkoutAggregates(start: Date, end: Date) async -> [HealthMetricSnapshot] {
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        let workouts: [HKWorkout] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: workoutType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: nil
-            ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKWorkout]) ?? [])
-            }
-            store.execute(query)
-        }
-        if workouts.isEmpty {
-            return [
-                HealthMetricSnapshot(
-                    metricType: "workout_count", unit: "count", valueAvg: nil, valueMin: nil, valueMax: nil,
-                    valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "no_records", hrvMethod: nil
-                ),
-            ]
-        }
-        let totalMinutes = workouts.reduce(0.0) { $0 + $1.duration / 60.0 }
-        return [
-            HealthMetricSnapshot(
-                metricType: "workout_count", unit: "count", valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: Double(workouts.count), sampleCount: workouts.count,
-                qualityState: "ok", hrvMethod: nil
-            ),
-            HealthMetricSnapshot(
-                metricType: "workout_duration", unit: "min", valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: totalMinutes, sampleCount: workouts.count,
-                qualityState: "ok", hrvMethod: nil
-            ),
-        ]
-    }
-
-    private func collectSleep(for dayStart: Date) async -> HealthSleepSnapshot? {
-        guard let sleepType else {
-            return HealthSleepSnapshot(
-                totalMinutes: nil, inBedMinutes: nil, awakeMinutes: nil, coreLightMinutes: nil,
-                deepMinutes: nil, remMinutes: nil, sleepStart: nil, sleepEnd: nil, qualityState: "unsupported"
-            )
-        }
-        // Sleep night typically ends on this morning: look back 24h from noon.
-        let calendar = Calendar.current
-        let windowStart = calendar.date(byAdding: .hour, value: -36, to: dayStart) ?? dayStart
-        let windowEnd = calendar.date(byAdding: .hour, value: 12, to: dayStart) ?? Date()
-        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd, options: .strictStartDate)
-        let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
-            ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKCategorySample]) ?? [])
-            }
-            store.execute(query)
-        }
-        guard !samples.isEmpty else {
-            return HealthSleepSnapshot(
-                totalMinutes: nil, inBedMinutes: nil, awakeMinutes: nil, coreLightMinutes: nil,
-                deepMinutes: nil, remMinutes: nil, sleepStart: nil, sleepEnd: nil, qualityState: "no_records"
-            )
-        }
-
-        var awake = 0.0
-        var coreLight = 0.0
-        var deep = 0.0
-        var rem = 0.0
-        var inBed = 0.0
-        var asleepStart: Date?
-        var asleepEnd: Date?
-
-        for sample in samples {
-            let minutes = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
-            guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { continue }
-            switch value {
-            case .awake:
-                awake += minutes
-            case .asleepCore, .asleepUnspecified:
-                coreLight += minutes
-                asleepStart = asleepStart.map { min($0, sample.startDate) } ?? sample.startDate
-                asleepEnd = asleepEnd.map { max($0, sample.endDate) } ?? sample.endDate
-            case .asleepDeep:
-                deep += minutes
-                asleepStart = asleepStart.map { min($0, sample.startDate) } ?? sample.startDate
-                asleepEnd = asleepEnd.map { max($0, sample.endDate) } ?? sample.endDate
-            case .asleepREM:
-                rem += minutes
-                asleepStart = asleepStart.map { min($0, sample.startDate) } ?? sample.startDate
-                asleepEnd = asleepEnd.map { max($0, sample.endDate) } ?? sample.endDate
-            case .inBed:
-                inBed += minutes
-            default:
-                // Includes awakeInBed / future cases without failing compilation on older SDKs.
-                if sample.value == HKCategoryValueSleepAnalysis.awake.rawValue {
-                    awake += minutes
-                }
-            }
-        }
-        let total = coreLight + deep + rem
-        let hasStages = deep > 0 || rem > 0 || coreLight > 0
-        let quality = hasStages ? (deep > 0 || rem > 0 ? "ok" : "partial") : (total > 0 ? "partial" : "no_records")
-        return HealthSleepSnapshot(
-            totalMinutes: total > 0 ? Int(total.rounded()) : nil,
-            inBedMinutes: inBed > 0 ? Int(inBed.rounded()) : nil,
-            awakeMinutes: awake > 0 ? Int(awake.rounded()) : nil,
-            coreLightMinutes: coreLight > 0 ? Int(coreLight.rounded()) : nil,
-            deepMinutes: deep > 0 ? Int(deep.rounded()) : nil,
-            remMinutes: rem > 0 ? Int(rem.rounded()) : nil,
-            sleepStart: asleepStart,
-            sleepEnd: asleepEnd,
-            qualityState: quality
-        )
-    }
-
-    private func sumQuantity(type: HKQuantityType, unit: HKUnit, predicate: NSPredicate) async -> Double? {
-        await withCheckedContinuation { continuation in
-            let query = HKStatisticsQuery(
-                quantityType: type,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum
-            ) { _, stats, error in
-                if let error {
-                    let ns = error as NSError
-                    if ns.domain == "com.apple.healthkit", ns.code == 6 {
-                        continuation.resume(returning: nil)
-                        return
-                    }
-                }
-                let value = stats?.sumQuantity()?.doubleValue(for: unit)
-                continuation.resume(returning: value)
-            }
-            store.execute(query)
-        }
-    }
-
-    private func fetchQuantitySamples(type: HKQuantityType, predicate: NSPredicate) async -> [HKQuantitySample] {
-        await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: type,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
-            ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
-            }
-            store.execute(query)
-        }
+        let store = self.store
+        return await HealthKitQueryEngine.hourlyActivity(store: store)
     }
 }

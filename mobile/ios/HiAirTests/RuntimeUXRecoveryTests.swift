@@ -633,7 +633,7 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
     }
 
     @MainActor
-    func testDuplicateStartReplacesGeneration() async {
+    func testDuplicateStartJoinsExistingGeneration() async {
         let service = await seedConnected("user-a")
         service.testCollectHandler = { ([], nil) }
         let hold = CollectProbe()
@@ -644,8 +644,31 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
         service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
         let firstGeneration = service.syncGenerationForTests
         service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
-        let secondGeneration = service.syncGenerationForTests
-        XCTAssertGreaterThan(secondGeneration, firstGeneration)
+        XCTAssertEqual(service.syncGenerationForTests, firstGeneration)
+        XCTAssertTrue(service.hasSyncInFlightForTests)
+        service.cancelPendingSync()
+        hold.allowFinish()
+        await awaitSyncIdle(service)
+    }
+
+    @MainActor
+    func testForceRestartReplacesGeneration() async {
+        let service = await seedConnected("user-a")
+        service.testCollectHandler = { ([], nil) }
+        let hold = CollectProbe()
+        service.testBeforeUploadHook = {
+            hold.markEntered()
+            await hold.waitUntilReleasedOrCancelled()
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        let firstGeneration = service.syncGenerationForTests
+        service.startBackgroundHealthSync(
+            userId: "user-a",
+            accessToken: "token",
+            profileId: nil,
+            forceRestart: true
+        )
+        XCTAssertGreaterThan(service.syncGenerationForTests, firstGeneration)
         service.cancelPendingSync()
         hold.allowFinish()
         await awaitSyncIdle(service)
