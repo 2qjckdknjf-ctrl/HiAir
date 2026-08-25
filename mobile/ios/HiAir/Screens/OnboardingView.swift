@@ -131,6 +131,9 @@ struct OnboardingView: View {
             return
         }
         if isLastStep {
+            guard AccountEligibility.isEligible(dateOfBirth: dateOfBirth) else {
+                return
+            }
             session.persona = personaSelection
             session.dateOfBirth = dateOfBirth
             session.finishOnboarding()
@@ -266,10 +269,13 @@ struct OnboardingView: View {
             Text(session.l("onboarding.date_of_birth.body"))
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
+            Text(session.l("onboarding.age_requirement"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.secondaryText)
             DatePicker(
                 session.l("settings.date_of_birth"),
                 selection: $dateOfBirth,
-                in: ...Date(),
+                in: ...AccountEligibility.youngestAllowedBirthDate,
                 displayedComponents: .date
             )
             .environment(\.locale, Locale(identifier: {
@@ -324,10 +330,6 @@ struct OnboardingView: View {
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
             }
-            Button(session.l("onboarding.permissions.later")) {
-                step += 1
-            }
-            .buttonStyle(HiAirSecondaryButtonStyle())
         }
     }
 
@@ -358,10 +360,6 @@ struct OnboardingView: View {
             default:
                 EmptyView()
             }
-            Button(session.l("wearable.consent.skip")) {
-                step += 1
-            }
-            .buttonStyle(HiAirSecondaryButtonStyle())
         }
     }
 
