@@ -270,6 +270,10 @@ final class SettingsViewModel: ObservableObject {
             statusText = l("settings.user_id_required")
             return
         }
+        guard AccountEligibility.isEligible(dateOfBirth: dateOfBirth) else {
+            statusText = l("onboarding.age_requirement")
+            return
+        }
         loading = true
         defer { loading = false }
         do {
@@ -980,11 +984,13 @@ private struct AITrendMiniChart: View {
 
 struct SettingsView: View {
     @EnvironmentObject var session: AppSession
+    @EnvironmentObject var subscriptionService: SubscriptionService
     @StateObject private var viewModel = SettingsViewModel()
     @State private var showingGuide = false
     @State private var showingAIGuide = false
     @State private var showWearableConsent = false
     @State private var showDeleteAccountConfirm = false
+    @State private var restoreMessage = ""
     private let appleDeletionCoordinator = AppleSignInCoordinator()
 
     var body: some View {
@@ -1067,7 +1073,7 @@ struct SettingsView: View {
                     DatePicker(
                         session.l("settings.date_of_birth"),
                         selection: $viewModel.dateOfBirth,
-                        in: ...Date(),
+                        in: ...AccountEligibility.youngestAllowedBirthDate,
                         displayedComponents: .date
                     )
                     .environment(\.locale, Locale(identifier: Self.localeIdentifier(for: session.preferredLanguage)))
@@ -1124,6 +1130,22 @@ struct SettingsView: View {
                     }
                     .buttonStyle(HiAirGradientButtonStyle())
                     .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
+                    Button(session.l("settings.restore_purchases")) {
+                        Task { await restorePurchases() }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .disabled(viewModel.loading || subscriptionService.isPurchaseInProgress)
+                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.restorePurchases)
+                    Button(session.l("settings.manage_subscription")) {
+                        Task { await subscriptionService.showManageSubscriptions() }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.manageSubscription)
+                    if !restoreMessage.isEmpty {
+                        Text(restoreMessage)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
                     #if DEBUG
                     if !UITestBootstrap.hidesDebugOperatorChrome {
                     DisclosureGroup(session.l("settings.subscription_dev")) {
@@ -1266,6 +1288,23 @@ struct SettingsView: View {
                         showingAIGuide = true
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
+                    if let supportURL = URL(string: "mailto:hello@hiair.io") {
+                        Link(session.l("settings.support_email"), destination: supportURL)
+                            .font(AuroraTokens.Typography.bodyMD)
+                            .accessibilityIdentifier(HiAirAccessibilityID.Settings.supportEmail)
+                    }
+                    if let siteURL = URL(string: "https://hiair.io") {
+                        Link(session.l("settings.support_site"), destination: siteURL)
+                            .font(AuroraTokens.Typography.bodyMD)
+                    }
+                    if let termsURL = URL(string: "https://hiair.io/terms/") {
+                        Link(session.l("paywall.terms"), destination: termsURL)
+                            .font(AuroraTokens.Typography.bodyMD)
+                    }
+                    if let privacyURL = URL(string: "https://hiair.io/privacy/") {
+                        Link(session.l("paywall.privacy"), destination: privacyURL)
+                            .font(AuroraTokens.Typography.bodyMD)
+                    }
                     Button(session.l("settings.onboarding_reopen")) {
                         session.showOnboardingFromSettings = true
                     }
@@ -1639,6 +1678,25 @@ struct SettingsView: View {
             Button(session.l("settings.cancel"), role: .cancel) {}
         } message: {
             Text(session.l("settings.delete_account_confirm_body"))
+        }
+    }
+
+    private func restorePurchases() async {
+        guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
+            restoreMessage = session.l("paywall.auth_required")
+            return
+        }
+        do {
+            let status = try await subscriptionService.restorePurchases(
+                userId: session.userId,
+                accessToken: session.accessToken
+            )
+            session.applyEntitlement(status.entitlement)
+            restoreMessage = (status.entitlement?.isPremium == true || session.isPremium)
+                ? session.l("paywall.restore_success")
+                : session.l("paywall.restore_nothing")
+        } catch {
+            restoreMessage = session.l("paywall.generic_error")
         }
     }
 

@@ -204,11 +204,15 @@ final class AuthViewModel: ObservableObject {
         statusText = session.l("auth.working")
         defer { loading = false }
         do {
-            try await supabaseAuth.signInWithGoogle()
+            let authSession = try await supabaseAuth.signInWithGoogle()
+            completeSignIn(authSession, session: session)
+        } catch OAuthSignInError.cancelled {
             statusIsError = false
-            statusText = session.l("auth.oauth_continue")
+            statusText = session.l("auth.cancelled")
         } catch let failure as SupabaseAuthFailure {
             showError(oauthFailureMessage(failure.message, provider: "Google", session: session), session: session)
+        } catch is URLError {
+            showError(session.l("auth.backend_unreachable"), session: session)
         } catch {
             showError(session.l("auth.fail"), session: session)
         }
@@ -309,6 +313,16 @@ struct AuthView: View {
                         }
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(viewModel.loading)
+
+                        HStack(spacing: HiAirSpacing.md) {
+                            Link(session.l("paywall.terms"), destination: URL(string: "https://hiair.io/terms/")!)
+                            Link(session.l("paywall.privacy"), destination: URL(string: "https://hiair.io/privacy/")!)
+                        }
+                        .font(HiAirTypography.caption)
+
+                        Text(session.l("auth.legal"))
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
 
                         if !viewModel.statusText.isEmpty {
                             Text(viewModel.statusText)

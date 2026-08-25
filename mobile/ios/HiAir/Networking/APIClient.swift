@@ -81,7 +81,9 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
     private let anonKey: String
     private let redirectURI: String
     private var pendingOAuthCodeVerifier: String?
+    private var lastOAuthSession: SupabaseAuthSession?
     private let appleSignIn = AppleSignInCoordinator()
+    private let oauthWebSession: OAuthWebSessionStarting
 
     /// Production singleton — reads Supabase config from the app bundle / process env.
     private convenience init() {
@@ -183,12 +185,14 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         urlSession: URLSession,
         supabaseURL: URL?,
         anonKey: String,
-        redirectURI: String = "hiair://auth/callback"
+        redirectURI: String = "hiair://auth/callback",
+        oauthWebSession: OAuthWebSessionStarting? = nil
     ) {
         self.urlSession = urlSession
         self.supabaseURL = supabaseURL
         self.anonKey = anonKey
         self.redirectURI = redirectURI
+        self.oauthWebSession = oauthWebSession ?? SystemOAuthWebSession()
     }
 
     func restoreSessionIfNeeded() async throws -> SupabaseAuthSession? {
@@ -247,7 +251,7 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         return session
     }
 
-    func signInWithGoogle() async throws {
+    func signInWithGoogle() async throws -> SupabaseAuthSession {
         try await openOAuth(provider: "google")
     }
 
@@ -299,15 +303,19 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
     }
 
     func handleCallbackURL(_ url: URL) async -> Bool {
+        await sessionFromCallbackURL(url) != nil
+    }
+
+    private func sessionFromCallbackURL(_ url: URL) async -> SupabaseAuthSession? {
         guard url.scheme?.lowercased() == "hiair", url.host?.lowercased() == "auth" else {
-            return false
+            return nil
         }
 
         let params = Self.parseAuthURLParams(url)
         if let error = params["error"] ?? params["error_code"] {
             let description = params["error_description"] ?? params["msg"] ?? error
             notifyOAuthFailed(description)
-            return false
+            return nil
         }
 
         if let code = params["code"], !code.isEmpty {
@@ -318,7 +326,7 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
               let refreshToken = params["refresh_token"]
         else {
             notifyOAuthFailed("Missing OAuth tokens in callback.")
-            return false
+            return nil
         }
         return finalizeOAuthSession(
             accessToken: accessToken,
@@ -328,10 +336,13 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         )
     }
 
-    private func exchangeOAuthCode(_ code: String) async -> Bool {
+    private func exchangeOAuthCode(_ code: String) async -> SupabaseAuthSession? {
+        if pendingOAuthCodeVerifier == nil, let existing = lastOAuthSession {
+            return existing
+        }
         guard let verifier = pendingOAuthCodeVerifier, !verifier.isEmpty else {
             notifyOAuthFailed("OAuth state expired. Try again.")
-            return false
+            return nil
         }
         pendingOAuthCodeVerifier = nil
         do {
@@ -345,14 +356,15 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
                 ]
             )
             let session = try parseSession(from: data, fallbackEmail: "")
+            lastOAuthSession = session
             notifySessionChanged(session)
-            return true
+            return session
         } catch let failure as SupabaseAuthFailure {
             notifyOAuthFailed(failure.message)
-            return false
+            return nil
         } catch {
             notifyOAuthFailed("OAuth sign-in failed.")
-            return false
+            return nil
         }
     }
 
@@ -361,11 +373,11 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         refreshToken: String,
         userId: String?,
         email: String
-    ) -> Bool {
+    ) -> SupabaseAuthSession? {
         let resolvedUserId = userId ?? userIdFromAccessToken(accessToken) ?? ""
         guard !resolvedUserId.isEmpty else {
             notifyOAuthFailed("OAuth user id missing.")
-            return false
+            return nil
         }
         let session = SupabaseAuthSession(
             userId: resolvedUserId,
@@ -373,11 +385,12 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
             accessToken: accessToken,
             refreshToken: refreshToken
         )
+        lastOAuthSession = session
         notifySessionChanged(session)
-        return true
+        return session
     }
 
-    private func openOAuth(provider: String) async throws {
+    private func openOAuth(provider: String) async throws -> SupabaseAuthSession {
         guard let base = supabaseURL else {
             APIInvalidURLDiagnostics.record(
                 source: .supabaseBaseMissing,
@@ -391,6 +404,7 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         let verifier = Self.randomURLSafeString(length: 64)
         let challenge = Self.pkceChallenge(for: verifier)
         pendingOAuthCodeVerifier = verifier
+        lastOAuthSession = nil
 
         var components = URLComponents(url: base.appending(path: "/auth/v1/authorize"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -404,9 +418,15 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
             throw APIError.invalidURL
         }
 
-        await MainActor.run {
-            UIApplication.shared.open(target)
+        let callbackScheme = URL(string: redirectURI)?.scheme ?? "hiair"
+        let callbackURL = try await oauthWebSession.start(
+            url: target,
+            callbackScheme: callbackScheme
+        )
+        guard let session = await sessionFromCallbackURL(callbackURL) else {
+            throw SupabaseAuthFailure(message: "OAuth sign-in failed.")
         }
+        return session
     }
 
     private static func parseAuthURLParams(_ url: URL) -> [String: String] {

@@ -48,16 +48,12 @@ struct WearableConsentView: View {
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
                     #endif
                     HStack(spacing: 10) {
-                        Button(session.l("wearable.consent.skip")) {
-                            onComplete?()
-                            if !fromOnboarding { dismiss() }
-                        }
-                        .buttonStyle(HiAirSecondaryButtonStyle())
                         Button(connectButtonTitle) {
                             Task { await connect() }
                         }
                         .buttonStyle(HiAirGradientButtonStyle())
                         .disabled(working)
+                        .accessibilityIdentifier("wearable.consent.continue")
                     }
                 }
                 .v2Card()
@@ -77,7 +73,7 @@ struct WearableConsentView: View {
         case .systemAuthorized where working:
             return session.l("wearable.consent.saving")
         default:
-            return working ? session.l("common.loading") : session.l("wearable.consent.connect")
+            return working ? session.l("common.loading") : session.l("onboarding.permissions.allow")
         }
     }
 
