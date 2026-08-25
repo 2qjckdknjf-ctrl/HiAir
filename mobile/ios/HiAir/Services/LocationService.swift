@@ -11,6 +11,8 @@ enum LocationSource: String, Equatable {
 
 enum GeoCoordinates {
     static let maxAgeSeconds: TimeInterval = 300
+    /// Cached GPS is good enough to paint the dashboard; waiting 20s for a fresh fix is not.
+    static let launchCacheMaxAgeSeconds: TimeInterval = 1_800
     static let maxHorizontalAccuracyMeters = CLLocationDistance(5000)
 
     static func isValid(lat: Double, lon: Double) -> Bool {
@@ -23,7 +25,7 @@ enum GeoCoordinates {
         return true
     }
 
-    static func isValid(_ location: CLLocation) -> Bool {
+    static func isValid(_ location: CLLocation, maxAge: TimeInterval = maxAgeSeconds) -> Bool {
         guard isValid(lat: location.coordinate.latitude, lon: location.coordinate.longitude) else {
             return false
         }
@@ -31,10 +33,14 @@ enum GeoCoordinates {
               location.horizontalAccuracy <= maxHorizontalAccuracyMeters else {
             return false
         }
-        guard abs(location.timestamp.timeIntervalSinceNow) <= maxAgeSeconds else {
+        guard abs(location.timestamp.timeIntervalSinceNow) <= maxAge else {
             return false
         }
         return true
+    }
+
+    static func isUsableForLaunch(_ location: CLLocation) -> Bool {
+        isValid(location, maxAge: launchCacheMaxAgeSeconds)
     }
 
     static func accuracyBucket(for location: CLLocation) -> String {
@@ -149,7 +155,7 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
 
     override init() {
         manager = CLLocationManager()
-        locationTimeoutSeconds = 20
+        locationTimeoutSeconds = 8
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
@@ -157,7 +163,7 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
         previousAuthorizationStatus = authorizationStatus
     }
 
-    init(manager: CLLocationManager, timeoutSeconds: TimeInterval = 20) {
+    init(manager: CLLocationManager, timeoutSeconds: TimeInterval = 8) {
         self.manager = manager
         self.locationTimeoutSeconds = timeoutSeconds
         super.init()
@@ -227,6 +233,11 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
             throw LocationServiceError.underlying("unknown authorization")
         }
 
+        if let cached = manager.location, GeoCoordinates.isUsableForLaunch(cached) {
+            serviceState = .success
+            return cached
+        }
+
         serviceState = .locating
         return try await withCheckedThrowingContinuation { continuation in
             if isFetchInFlight {
@@ -237,7 +248,8 @@ final class LocationService: NSObject, ObservableObject, LocationProviding {
             locationContinuation = continuation
             timeoutTask?.cancel()
             timeoutTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(self?.locationTimeoutSeconds ?? 20) * 1_000_000_000)
+                let timeout = self?.locationTimeoutSeconds ?? 8
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 await MainActor.run {
                     guard let self, self.locationContinuation != nil || !self.fetchWaiters.isEmpty else { return }
                     self.finishLocationFetch(with: .failure(LocationServiceError.timeout))

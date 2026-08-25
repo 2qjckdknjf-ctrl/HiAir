@@ -380,7 +380,8 @@ struct OnboardingView: View {
                 healthService.startBackgroundHealthSync(
                     userId: userId,
                     accessToken: accessToken,
-                    profileId: profileId
+                    profileId: profileId,
+                    forceRestart: true
                 )
                 step += 1
             } catch {
@@ -405,7 +406,8 @@ struct OnboardingView: View {
             healthService.startBackgroundHealthSync(
                 userId: userId,
                 accessToken: accessToken,
-                profileId: profileId
+                profileId: profileId,
+                forceRestart: true
             )
             step += 1
         } catch {

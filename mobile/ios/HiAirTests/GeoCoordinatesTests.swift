@@ -37,4 +37,26 @@ final class GeoCoordinatesTests: XCTestCase {
         )
         XCTAssertFalse(GeoCoordinates.isValid(location))
     }
+
+    func testLaunchCacheAcceptsRecentEnoughFix() {
+        let location = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 48.85, longitude: 2.35),
+            altitude: 0,
+            horizontalAccuracy: 40,
+            verticalAccuracy: 0,
+            timestamp: Date(timeIntervalSinceNow: -600)
+        )
+        XCTAssertTrue(GeoCoordinates.isUsableForLaunch(location))
+    }
+
+    func testLaunchCacheRejectsVeryOldFix() {
+        let location = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 48.85, longitude: 2.35),
+            altitude: 0,
+            horizontalAccuracy: 40,
+            verticalAccuracy: 0,
+            timestamp: Date(timeIntervalSinceNow: -2_400)
+        )
+        XCTAssertFalse(GeoCoordinates.isUsableForLaunch(location))
+    }
 }
