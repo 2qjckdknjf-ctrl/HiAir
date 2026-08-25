@@ -13,7 +13,9 @@
 | `dev-20260824-v4-visual-4` | 12/12 PASS | 12/12 PASS | **6/12 PASS** | **No** — stale |
 | `dev-20260825-v4-visual-4b` | 12/12 PASS | 12/12 PASS | **9/12 PASS** | **No** — superseded |
 | `dev-20260825-v4-visual-4c` | **12/12 PASS** | **12/12 PASS** | **12/12 PASS** | **Yes** — matches committed presentation |
-| `20260825-phone-en-v4c` | **8/8 PASS** | **PASS** | **PENDING** | **Yes** — semantic phone matrix post-commit |
+| `20260825-phone-en-v4c-v3` | **8/8 PASS** | **8/8 PASS** | **8/8 PASS** | **Yes** — phone matrix with shelf crop |
+| `20260825-tablet-en-v4c` | **8/8 PASS** | **8/8 PASS** | **8/8 PASS** | **Yes** — tablet matrix with shelf crop |
+| `20260825-phone-en-v4c` | 8/8 PASS | PASS | **PENDING** | **No** — superseded by v4c-v3 |
 
 ## Verification (complete)
 
@@ -27,7 +29,9 @@
 | `test_android_capture_manifest.py` | **PASS** (11/11) |
 | Device gates (geometry, cold-start) | **PASS** (21/21 — `.evidence/android-device-gates/20260825-post-commit-v2/`) |
 | Targeted visual v4c | **SEMANTIC 12/12 + VISUAL 12/12** |
-| Full Phone EN capture | **SEMANTIC 8/8 PASS** |
+| Full Phone EN capture | **SEMANTIC 8/8 + VISUAL 8/8** |
+| Full Tablet EN capture | **SEMANTIC 8/8 + VISUAL 8/8** |
+| Geometry matrix | **PASS** (8/8 — `20260825-post-commit-v4`) |
 
 ## Root cause fixes (closed)
 

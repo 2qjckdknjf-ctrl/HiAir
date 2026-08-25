@@ -10,7 +10,9 @@
 | State | Semantic | Shelf | Visual | Applies to committed code? |
 |-------|----------|-------|--------|----------------------------|
 | `dev-20260825-v4-visual-4c` | **12/12 PASS** | **12/12 PASS** | **12/12 PASS** | **Yes** |
-| `20260825-phone-en-v4c` | **8/8 PASS** (semantic) | **PASS** | **PENDING** | **Yes** |
+| `20260825-phone-en-v4c-v3` | **8/8 PASS** | **8/8 PASS** | **8/8 PASS** | **Yes** |
+| `20260825-tablet-en-v4c` | **8/8 PASS** | **8/8 PASS** | **8/8 PASS** | **Yes** |
+| `20260825-phone-en-v4c` | 8/8 PASS (semantic) | PASS | **PENDING** | **No** — superseded |
 | Prior catalogs (v3/v4/4b) | PASS | PASS | 2–9/12 visual | **No** — frozen/stale |
 
 All presentation + capture tooling committed in 6 atomic commits (`b9e04bd0…a2d6da7d`).

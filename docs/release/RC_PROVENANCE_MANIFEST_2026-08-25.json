@@ -1,7 +1,7 @@
 {
   "manifest_kind": "hiair_store_ready_rc_provenance",
   "generated_at": "2026-08-25T00:21:42Z",
-  "manifest_generated_from_sha": "7d90e5dfacb35d63366e731a3428b50fad511c37",
+  "manifest_generated_from_sha": "8c84bffaeb62b58bab6a5d8f499fcd14850f6ca3",
   "rc_source_sha": "7d90e5dfacb35d63366e731a3428b50fad511c37",
   "branch": "cursor/store-ready-hardening-2026-08-22",
   "verdict": "CODE-READY / EXTERNAL ACTIONS REQUIRED",
@@ -7559,10 +7559,24 @@
       "visual_gate": "12/12 PASS"
     },
     {
-      "id": "android-phone-en-v4c",
-      "path": ".evidence/android-screenshots/20260825-phone-en-v4c",
+      "id": "android-phone-en-v4c-v3",
+      "path": ".evidence/android-screenshots/20260825-phone-en-v4c-v3",
       "semantic_gate": "8/8 PASS",
-      "visual_gate": "PENDING"
+      "shelf_gate": "8/8 PASS",
+      "visual_gate": "8/8 PASS"
+    },
+    {
+      "id": "android-tablet-en-v4c",
+      "path": ".evidence/android-screenshots/20260825-tablet-en-v4c",
+      "semantic_gate": "8/8 PASS",
+      "shelf_gate": "8/8 PASS",
+      "visual_gate": "8/8 PASS"
+    },
+    {
+      "id": "android-geometry-matrix-v4",
+      "path": ".evidence/android-geometry-matrix/20260825-post-commit-v4",
+      "overall": "PASS",
+      "profiles": 8
     },
     {
       "id": "android-device-gates-post-commit",
@@ -7571,5 +7585,5 @@
       "gates": 21
     }
   ],
-  "manifest_payload_sha256": "6bbd0edfb97b081503d4744cde210c00c87736297099abaefde4541e270a139c"
+  "manifest_payload_sha256": "f98e97419f0666c2ad2cb2bf09d3c994d445de341e4f2907f639b09dbdbbff8c"
 }

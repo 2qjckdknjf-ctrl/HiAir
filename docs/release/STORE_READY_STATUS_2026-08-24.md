@@ -12,8 +12,10 @@
 | JVM (assembleDebug, bundleRelease, unit, lint) | **PASS** | device-gates JVM stage |
 | Capture shelf regression | **PASS** (6/6) | `scripts/ops/test_android_capture_shelf.py` |
 | Device gates | **PASS** (21/21) | `.evidence/android-device-gates/20260825-post-commit-v2/` |
+| Geometry matrix | **PASS** (8/8) | `.evidence/android-geometry-matrix/20260825-post-commit-v4/` |
 | Targeted visual 12-shot | **SEMANTIC 12/12 + VISUAL 12/12** | `.evidence/android-targeted-visual/dev-20260825-v4-visual-4c/` |
-| Full Phone EN 8-screen | **SEMANTIC PASS** (post-commit) | `.evidence/android-screenshots/20260825-phone-en-v4c/` |
+| Full Phone EN 8-screen | **SEMANTIC 8/8 + VISUAL 8/8** | `.evidence/android-screenshots/20260825-phone-en-v4c-v3/` |
+| Full Tablet EN 8-screen | **SEMANTIC 8/8 + VISUAL 8/8** | `.evidence/android-screenshots/20260825-tablet-en-v4c/` |
 | RC provenance manifest | **GENERATED** (clean tracked tree) | `docs/release/RC_PROVENANCE_MANIFEST_2026-08-25.json` (`rc_source_sha=7d90e5df`) |
 
 ## Corrected this pass
