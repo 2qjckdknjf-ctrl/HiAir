@@ -56,6 +56,16 @@ def _with_meteo_wbgt_if_missing(snapshot: EnvironmentSnapshot) -> EnvironmentSna
     return snapshot.model_copy(update={"wbgt_c": wbgt_c, "wbgt_estimated": True})
 
 
+def _cache_missing_post_migration_fields(snapshot: EnvironmentSnapshot) -> bool:
+    """True when a geo-cache row predates pollen/smoke/WBGT persistence."""
+    return (
+        snapshot.pollen_grains_m3 is None
+        and snapshot.wildfire_pm10 is None
+        and snapshot.wbgt_c is None
+        and snapshot.shortwave_wm2 is None
+    )
+
+
 def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
     """Return an honesty-labeled snapshot from a DB row, or None if unusable."""
     original_source = str(cached.source or "").strip().lower()
@@ -134,7 +144,12 @@ def resolve_environment_snapshot(
         if cached_row is not None:
             honest = _honest_cached_snapshot(cached_row)
             if honest is not None and honest.source == SOURCE_CACHED:
-                return honest
+                # Pre-migration cache rows lack pollen/smoke/WBGT columns entirely;
+                # do not keep serving them for the full TTL — refresh live once.
+                if _cache_missing_post_migration_fields(cached_row):
+                    pass
+                else:
+                    return honest
             if honest is not None and honest.source == SOURCE_SAMPLE:
                 deferred_sample = honest
 

@@ -24,6 +24,10 @@ def _cached_snapshot() -> EnvironmentSnapshot:
         pm25=13.0,
         ozone=45.0,
         source="live",
+        # Mark as post-migration so cache-first path does not force a live refresh.
+        shortwave_wm2=120.0,
+        wbgt_c=18.5,
+        wbgt_estimated=True,
     )
 
 
@@ -232,3 +236,43 @@ def test_honest_cached_snapshot_fills_missing_meteo_wbgt(monkeypatch) -> None:
     assert honest.source == "cached"
     assert honest.wbgt_c == 27.5
     assert honest.wbgt_estimated is True
+
+
+def test_resolve_refreshes_live_when_cache_lacks_post_migration_fields(monkeypatch) -> None:
+    live = EnvironmentSnapshot(
+        temperature_c=33.0,
+        humidity_percent=30.0,
+        aqi=46,
+        pm25=5.0,
+        ozone=80.0,
+        source="live",
+        pollen_grains_m3=2.3,
+        wildfire_pm10=0.1,
+        wbgt_c=26.5,
+        wbgt_estimated=True,
+        shortwave_wm2=700.0,
+    )
+    stale = EnvironmentSnapshot(
+        temperature_c=32.0,
+        humidity_percent=35.0,
+        aqi=50,
+        pm25=6.0,
+        ozone=70.0,
+        source="live",
+    )
+    monkeypatch.setattr(air_environment_service, "fetch_live_snapshot", lambda lat, lon: live)
+    monkeypatch.setattr(
+        air_repository,
+        "get_latest_environment_snapshot",
+        lambda lat, lon, max_age_seconds: stale,
+    )
+    monkeypatch.setattr(
+        air_repository,
+        "save_resolved_environment_snapshot",
+        lambda snapshot, lat, lon: "ok",
+    )
+
+    result = air_environment_service.resolve_environment_snapshot(41.39, 2.17)
+    assert result.source == "live"
+    assert result.pollen_grains_m3 == 2.3
+    assert result.wbgt_c == 26.5
