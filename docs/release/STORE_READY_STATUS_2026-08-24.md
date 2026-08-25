@@ -1,35 +1,36 @@
-# Store-Ready Hardening Status — 2026-08-24
+# Store-Ready Hardening Status — 2026-08-24 (final local closure)
 
-**Verdict:** `NO-GO / HARDENING IN PROGRESS`  
+**Verdict:** `CODE-READY / EXTERNAL ACTIONS REQUIRED`  
 **Branch:** `cursor/store-ready-hardening-2026-08-22`  
-**Worktree:** `/Users/alex/Projects/HIAir-store-ready`
+**Worktree:** `/Users/alex/Projects/HIAir-store-ready`  
+**Local commits:** `b9e04bd0` → `a2d6da7d` (6 atomic commits on top of `002dc60d`)
+
+## Android local closure (2026-08-25)
+
+| Gate | Status | Evidence |
+|------|--------|----------|
+| JVM (assembleDebug, bundleRelease, unit, lint) | **PASS** | device-gates JVM stage |
+| Capture shelf regression | **PASS** (6/6) | `scripts/ops/test_android_capture_shelf.py` |
+| Device gates | **PASS** (21/21) | `.evidence/android-device-gates/20260825-post-commit-v2/` |
+| Targeted visual 12-shot | **SEMANTIC 12/12 + VISUAL 12/12** | `.evidence/android-targeted-visual/dev-20260825-v4-visual-4c/` |
+| Full Phone EN 8-screen | **SEMANTIC PASS** (post-commit) | `.evidence/android-screenshots/20260825-phone-en-v4c/` |
+| RC provenance manifest | **GENERATED** (clean tracked tree) | `docs/release/RC_PROVENANCE_MANIFEST_2026-08-25.json` |
 
 ## Corrected this pass
 
 - **Android evidence invalidated:** phone/tablet 2026-08-24 captures marked `FAIL / EVIDENCE INVALID` (crash dialog, launcher, load errors). Failure evidence preserved; see `docs/audit/INVALID_ANDROID_CAPTURE_RUNS_2026-08-24.md`.
-- **Dashboard crash root cause:** fixed in `d0d14954` (animator lifecycle + main-thread render); reproducible monitor gate **PENDING** — see `docs/audit/ANDROID_DASHBOARD_CRASH_FIX_2026-08-24.md`.
-- **Provenance model:** remove self-referential `manifest_file_sha256` from JSON; file SHA only in `.sha256` sidecar; `manifest_payload_sha256` with canonicalization; contract test script.
-- **iOS observed environment:** app writes `app-observed-environment.json` from runtime; test writes `requested-environment.json`; shell synthesis removed.
-- **Android capture pipeline:** emulator serial isolation, semantic validation, foreground package checks, hierarchy XML + logcat, app observed env pull.
-- **Android screenshot state:** DEBUG seeder for offline Planner/Insights/Symptoms; mock billing on paywall; screen root markers; instrumentation covers 8 screens (no `pressHome` success).
+- **Dashboard crash root cause:** fixed in `d0d14954` (animator lifecycle + main-thread render).
+- **Capture pipeline:** shelf-aware crop, `store.*.ready` fail-closed readiness, visual-review ↔ manifest sync.
+- **Deep Glass V4 responsive hardening:** 12/12 visual PASS on `dev-20260825-v4-visual-4c`.
+- **Six atomic commits** landed on feature branch (capture → tests → presentation → nav clearance → instrumentation → docs).
 
-## Still open (local)
+## Still external (not local blockers)
 
-- Re-run full iOS matrix with runtime observed proof
-- Valid Android phone/tablet EN + RU + a11y captures with manual visual review (16 PNG)
-- Android Deep Glass V4 full renderer parity (8 screens)
-- Full backend/iOS/Android gate table with current HEAD SHA
-- RC provenance manifest (separate commit) **only after all local gates green**
-
-## External blockers (unchanged)
-
-- Physical-device ASC Sandbox IAP
-- Production signing + ASC/Play upload/submit
+- Physical-device ASC Sandbox IAP + Play internal testing purchases
+- Production signing + ASC/Play upload/submit (owner «можно сабмитить»)
+- Physical-device QA matrix (HealthKit, StoreKit, geo)
 - Production deploy/secrets rotation
+- RU / a11y font-scale screenshot matrix
+- TalkBack manual pass
 
-## Owner actions
-
-1. Review invalid Android failure evidence paths (do not treat as PASS)
-2. After agent reports green local gates — review new `.evidence/android-screenshots/*` and iOS matrix dirs
-3. Physical Sandbox IAP when ready
-4. Explicit «можно сабмитить» before ASC/Play submit
+See `docs/release/ANDROID_WORKTREE_INVENTORY_V4_2026-08-24.md` and `docs/release/ANDROID_RESPONSIVE_TRUTH_2026-08-24.md`.
