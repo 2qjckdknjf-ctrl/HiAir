@@ -1,5 +1,6 @@
 package com.hiair.ui
 
+import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.network.ApiClient
 import com.hiair.network.AppConfig
@@ -69,6 +70,8 @@ data class DashboardState(
     val exposureReducedMarked: Boolean = false,
     val highRiskAvoidedMarked: Boolean = false,
     val protectedDayStatus: String = "",
+    val travelActive: Boolean = false,
+    val travelPlaceName: String? = null,
 )
 
 class DashboardViewModel(
@@ -151,6 +154,7 @@ class DashboardViewModel(
                 userId,
                 accessToken,
             )
+            state = withTravel(state, userId, accessToken)
         } catch (error: Exception) {
             val offline = isOffline(error)
             state = DashboardState(
@@ -245,6 +249,26 @@ class DashboardViewModel(
             is SocketException,
             is IOException -> true
             else -> false
+        }
+    }
+
+
+    private fun withTravel(
+        base: DashboardState,
+        userId: String,
+        accessToken: String?,
+    ): DashboardState {
+        return try {
+            val session = SettingsViewModel.parseTravelSession(
+                apiClient.getTravelSession(userId, accessToken),
+            )
+            if (!session.active) base
+            else base.copy(
+                travelActive = true,
+                travelPlaceName = session.placeName,
+            )
+        } catch (_: Exception) {
+            base
         }
     }
 

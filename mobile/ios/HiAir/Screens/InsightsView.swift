@@ -385,6 +385,15 @@ struct InsightsView: View {
                     Text(adaptationProtectedDaysLine(snapshot.protectedDays))
                         .font(AuroraTokens.Typography.bodyMD)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
+                } else {
+                    Text(session.l("insights.adaptation.protected.empty"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                }
+                if snapshot.reasonCodes.contains("association_not_causation") {
+                    Text(session.l("insights.adaptation.association_not_causation"))
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                 }
             }
             .v2Card()

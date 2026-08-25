@@ -6,6 +6,7 @@ import app.services.entitlement_service as entitlement_service
 from app.models.briefing import BriefingScheduleResponse, BriefingScheduleUpdateRequest
 import app.services.air_repository as air_repository
 import app.services.briefing_repository as briefing_repository
+import app.services.travel_location as travel_location
 
 router = APIRouter(prefix="/briefings", tags=["briefings"])
 
@@ -39,4 +40,5 @@ def _resolve_timezone(user_id: str) -> str:
     profile = air_repository.get_profile_context(profile_ids[0])
     if profile is None:
         return "UTC"
+    profile = travel_location.apply_travel_location_override(user_id, profile)
     return profile.timezone or "UTC"

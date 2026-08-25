@@ -106,6 +106,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var workWorkload = "moderate"
     @Published var workSiteRiskText = ""
     @Published var workSiteRiskProxyOnly = false
+    @Published var workSiteRiskWbgtEstimated = false
     @Published var workSiteRiskLoading = false
     @Published var familyMembers: [FamilyMemberLink] = []
     @Published var familyRiskByLinkId: [String: FamilyMemberRiskLine] = [:]
@@ -370,6 +371,7 @@ final class SettingsViewModel: ObservableObject {
             travelSession = session
             selectedTravelPlaceId = placeId
             travelStatusText = l("settings.travel.started")
+            NotificationCenter.default.post(name: .hiairTravelSessionDidChange, object: nil)
         } catch {
             travelStatusText = l("settings.travel.start_failed")
         }
@@ -383,6 +385,7 @@ final class SettingsViewModel: ObservableObject {
             let session = try await apiClient.clearTravelSession(userId: userId, accessToken: accessToken)
             travelSession = session
             travelStatusText = l("settings.travel.ended")
+            NotificationCenter.default.post(name: .hiairTravelSessionDidChange, object: nil)
         } catch {
             travelStatusText = l("settings.travel.end_failed")
         }
@@ -460,9 +463,19 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func loadWorkSiteRisk() async {
-        guard !userId.isEmpty,
-              let lat = profileHomeLat,
-              let lon = profileHomeLon else {
+        guard !userId.isEmpty else {
+            workSiteRiskText = l("settings.work.no_location")
+            return
+        }
+        let lat: Double
+        let lon: Double
+        if let travel = travelSession, travel.active, let tLat = travel.lat, let tLon = travel.lon {
+            lat = tLat
+            lon = tLon
+        } else if let homeLat = profileHomeLat, let homeLon = profileHomeLon {
+            lat = homeLat
+            lon = homeLon
+        } else {
             workSiteRiskText = l("settings.work.no_location")
             return
         }
@@ -479,6 +492,8 @@ final class SettingsViewModel: ObservableObject {
             )
             let assessment = response.assessment
             workSiteRiskProxyOnly = assessment.reasonCodes.contains("heat_index_proxy_only")
+            workSiteRiskWbgtEstimated = assessment.reasonCodes.contains("wbgt_estimated_from_meteo")
+                || assessment.reasonCodes.contains("not_instrument_wbgt")
             let workRest = String(
                 format: l("settings.work.work_rest"),
                 assessment.workRest.workMinutes,
@@ -492,6 +507,7 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             workSiteRiskText = l("settings.work.load_failed")
             workSiteRiskProxyOnly = false
+            workSiteRiskWbgtEstimated = false
         }
     }
 
@@ -1399,6 +1415,11 @@ struct SettingsView: View {
                     }
                     if viewModel.workSiteRiskProxyOnly {
                         Text(session.l("settings.work.proxy_disclaimer"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    if viewModel.workSiteRiskWbgtEstimated {
+                        Text(session.l("settings.work.wbgt_estimated_disclaimer"))
                             .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from app.models.air import (
     AlertDecision,
@@ -69,7 +70,11 @@ def evaluate_alert(
 ) -> AlertDecision:
     lang = normalize_language(language)
     user_settings = settings_repository.get_user_settings(profile.user_id)
-    now_hour = datetime.now(timezone.utc).hour
+    try:
+        tz = ZoneInfo(profile.timezone or "UTC")
+    except Exception:
+        tz = ZoneInfo("UTC")
+    now_hour = datetime.now(tz).hour
     if not user_settings.push_alerts_enabled:
         return AlertDecision(
             shouldSend=False,

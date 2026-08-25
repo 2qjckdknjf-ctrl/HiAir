@@ -57,3 +57,24 @@ def test_no_travel_keeps_home() -> None:
     same = apply_travel_location_override("user-1", profile)
     assert same.home_lat == 55.75
     assert same.home_lon == 37.62
+
+
+def test_null_place_timezone_resolves_from_coords(monkeypatch) -> None:
+    place = places_repository.create_place(
+        user_id="user-1",
+        payload=SavedPlaceCreateRequest(
+            name="NoTZ",
+            placeType=PlaceType.VACATION,
+            lat=41.39,
+            lon=2.17,
+            timezone=None,
+        ),
+    )
+    travel_repository.start_travel_session("user-1", place_id=place.id, until=None)
+    monkeypatch.setattr(
+        "app.services.travel_location.resolve_timezone_for_coords",
+        lambda lat, lon: "Europe/Madrid",
+    )
+    overridden = apply_travel_location_override("user-1", _profile())
+    assert overridden.home_lat == 41.39
+    assert overridden.timezone == "Europe/Madrid"

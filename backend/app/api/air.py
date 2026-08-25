@@ -17,11 +17,8 @@ import app.services.settings_repository as settings_repository
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
 from app.services.forecast.mapping import (
-    apply_freshness_source,
-    forecast_point_to_environmental,
     forecast_to_hourly_inputs,
     overlay_forecast_current,
-    retain_live_only_metrics,
 )
 from app.services.forecast.service import get_forecast
 import app.services.travel_location as travel_location
@@ -105,13 +102,7 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
     sources = None
     generated_at = None
     if forecast is not None:
-        if forecast.current is not None:
-            mapped = forecast_point_to_environmental(forecast.current)
-            if mapped is not None:
-                environment = apply_freshness_source(
-                    retain_live_only_metrics(mapped, environment),
-                    forecast.freshness.value,
-                )
+        environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast)
         freshness = forecast.freshness.value
         data_quality = forecast.quality.value
@@ -178,13 +169,7 @@ def get_hazards(
         sources = None
         generated_at = None
         if forecast is not None:
-            if forecast.current is not None:
-                mapped = forecast_point_to_environmental(forecast.current)
-                if mapped is not None:
-                    environment = apply_freshness_source(
-                        retain_live_only_metrics(mapped, environment),
-                        forecast.freshness.value,
-                    )
+            environment = overlay_forecast_current(environment, forecast)
             freshness = forecast.freshness.value
             data_quality = forecast.quality.value
             sources = forecast.sources
@@ -262,13 +247,8 @@ def get_recommendations(
         environment = air_environment_service.load_environment(profile)
         forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
-        if forecast is not None and forecast.current is not None:
-            mapped = forecast_point_to_environmental(forecast.current)
-            if mapped is not None:
-                environment = apply_freshness_source(
-                    retain_live_only_metrics(mapped, environment),
-                    forecast.freshness.value,
-                )
+        if forecast is not None:
+            environment = overlay_forecast_current(environment, forecast)
         personal_load = wearable_service.build_personal_load_input(user_id, environment)
         risk = air_risk_engine.evaluate_risk(
             profile,

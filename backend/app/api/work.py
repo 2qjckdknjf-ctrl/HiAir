@@ -8,6 +8,7 @@ from app.api.deps import get_current_user_id
 from app.models.work_safety import SiteRiskResponse, WorkloadCategory, WorkSafetyEnvironmentInput
 import app.services.air_environment_service as air_environment_service
 import app.services.work_safety_engine as work_safety_engine
+import app.services.travel_repository as travel_repository
 
 router = APIRouter(prefix="/work", tags=["work"])
 
@@ -41,8 +42,11 @@ def get_site_risk(
     lon: float = Query(ge=-180, le=180),
     workload: WorkloadCategory = Query(default=WorkloadCategory.MODERATE),
     acclimatized: bool = Query(default=True),
-    _user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> SiteRiskResponse:
+    travel = travel_repository.get_travel_session(user_id)
+    if travel.active and travel.lat is not None and travel.lon is not None:
+        lat, lon = travel.lat, travel.lon
     env, source = _environment_for_site(lat, lon)
     assessment = work_safety_engine.assess_site_risk(
         env,

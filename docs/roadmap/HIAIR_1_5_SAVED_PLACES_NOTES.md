@@ -30,3 +30,10 @@
 - [x] Mobile 402 limit message when adding places (iOS + Android)
 - [x] Travel mode — temporary location override via saved place (`/api/travel/session`)
 - [x] Mobile Settings travel toggle UI (iOS + Android)
+- [x] Dashboard travel thin card when session active (iOS + Android)
+- [x] Briefing / AI report / dashboard overview honor travel coords
+- [x] Travel timezone fallback when saved place timezone is null (Open-Meteo resolve)
+- [x] Android createPlace sends device timezone
+- [x] Dashboard overview uses travel override + shared forecast overlay
+- [x] Work site-risk prefers active travel coordinates server-side
+

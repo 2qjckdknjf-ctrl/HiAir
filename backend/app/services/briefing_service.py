@@ -14,25 +14,39 @@ import app.services.health_analytics_service as health_analytics_service
 import app.services.notification_dispatcher as notification_dispatcher
 import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
+import app.services.travel_location as travel_location
 import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
 from app.models.air import SafeWindowType
 from app.services.forecast.mapping import (
-    apply_freshness_source,
-    forecast_point_to_environmental,
     forecast_to_hourly_inputs,
-    retain_live_only_metrics,
+    overlay_forecast_current,
 )
 from app.services.forecast.service import get_forecast
+
+
+def _resolve_dispatch_timezone(user_id: str, fallback: str) -> str:
+    """Prefer active travel / profile timezone over stale schedule row."""
+    try:
+        profile_ids = briefing_repository.get_user_profile_ids(user_id)
+        if not profile_ids:
+            return fallback or "UTC"
+        profile = air_repository.get_profile_context(profile_ids[0])
+        if profile is None:
+            return fallback or "UTC"
+        profile = travel_location.apply_travel_location_override(user_id, profile)
+        return profile.timezone or fallback or "UTC"
+    except Exception:
+        return fallback or "UTC"
 
 
 def get_due_briefings(now_utc: datetime | None = None) -> list[dict[str, str]]:
     now = now_utc or datetime.now(UTC)
     due: list[dict[str, str]] = []
     for item in briefing_repository.list_enabled_schedules():
-        timezone_name = str(item["timezone"] or "UTC")
-        local_time = str(item["local_time"] or "07:30")
         user_id = str(item["user_id"])
+        timezone_name = _resolve_dispatch_timezone(user_id, str(item["timezone"] or "UTC"))
+        local_time = str(item["local_time"] or "07:30")
         if not _is_due(now_utc=now, local_time=local_time, timezone_name=timezone_name, last_sent_at=item["last_sent_at"]):
             continue
         due.append({"user_id": user_id, "timezone": timezone_name, "local_time": local_time})
@@ -48,6 +62,7 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
     profile = air_repository.get_profile_context(profile_id)
     if profile is None:
         return "HiAir morning briefing: profile is missing.", None, "no_profile_context"
+    profile = travel_location.apply_travel_location_override(user_id, profile)
 
     user_settings = settings_repository.get_user_settings(user_id)
     environment = air_environment_service.load_environment(profile)
@@ -56,13 +71,7 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
     try:
         forecast = get_forecast(profile.home_lat, profile.home_lon)
         hourly_points = forecast_to_hourly_inputs(forecast)
-        if forecast.current is not None:
-            mapped = forecast_point_to_environmental(forecast.current)
-            if mapped is not None:
-                environment = apply_freshness_source(
-                    retain_live_only_metrics(mapped, environment),
-                    forecast.freshness.value,
-                )
+        environment = overlay_forecast_current(environment, forecast)
     except Exception:
         hourly_points = []
     personal_load = wearable_service.build_personal_load_input(user_id, environment)

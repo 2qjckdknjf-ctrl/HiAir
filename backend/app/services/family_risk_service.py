@@ -8,7 +8,6 @@ import app.services.air_environment_service as air_environment_service
 import app.services.air_repository as air_repository
 import app.services.air_risk_engine as air_risk_engine
 import app.services.family_repository as family_repository
-import app.services.wearable_service as wearable_service
 from app.models.air import RiskLevel
 from app.models.family import FamilyMemberRiskLine, FamilyRiskOverviewResponse
 from app.services.air_score import RISK_LEVEL_TO_SCORE
@@ -48,11 +47,11 @@ def _assess_member_risk(*, owner_user_id: str, link) -> FamilyMemberRiskLine:
         forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
         environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
-        personal_load = wearable_service.build_personal_load_input(owner_user_id, environment)
+        # Member risk is environmental/profile-type only — never apply caregiver wearable load.
         risk = air_risk_engine.evaluate_risk(
             profile,
             environment,
-            personal_load,
+            None,
             hourly_points=hourly_points,
         )
         level = risk.overallRisk.value

@@ -594,6 +594,9 @@ struct DailyPlannerView: View {
             )
             session.markChecklistItem("hourly", done: true)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .hiairTravelSessionDidChange)) { _ in
+            session.locationRevision += 1
+        }
         .onChange(of: session.locationRevision) { _ in
             Task {
                 guard !session.profileId.isEmpty else { return }

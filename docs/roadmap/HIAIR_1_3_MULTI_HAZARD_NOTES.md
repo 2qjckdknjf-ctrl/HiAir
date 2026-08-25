@@ -13,7 +13,7 @@ Expand from heat + air quality into a modular personal environmental safety laye
 - `GET /api/air/hazards?profileId=` — additive surface; no premium gate
 - Engine: `backend/app/services/hazard_engine.py`
 - Models: `backend/app/models/hazard.py`
-- Hazard modules: heat, air, UV (from real `EnvironmentalInput`); dust from direct PM10 when available; pollen, smoke return `unavailable` / `provider_not_configured` until dedicated providers exist
+- Hazard modules: heat, air, UV (from real `EnvironmentalInput`); dust from direct PM10 when available; pollen/smoke from Open-Meteo CAMS when in coverage, else honest `unavailable` (never synthesized)
 - Aggregation uses **available hazards only**; never synthesizes missing metrics
 
 ## Mobile (additive)

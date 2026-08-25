@@ -8,6 +8,7 @@ data class WorkSiteRiskSnapshot(
     val workMinutes: Int,
     val restMinutes: Int,
     val proxyOnly: Boolean,
+    val wbgtEstimated: Boolean,
     val summaryLine: String,
 )
 
@@ -19,6 +20,12 @@ object WorkSiteRiskParser {
         val reasonCodes = assessment.optJSONArray("reasonCodes")
         val proxyOnly = reasonCodes?.let { array ->
             (0 until array.length()).any { array.optString(it) == "heat_index_proxy_only" }
+        } ?: false
+        val wbgtEstimated = reasonCodes?.let { array ->
+            (0 until array.length()).any {
+                val code = array.optString(it)
+                code == "wbgt_estimated_from_meteo" || code == "not_instrument_wbgt"
+            }
         } ?: false
         val riskLevel = assessment.optString("riskLevel", "unknown")
         val workMinutes = workRest.optInt("workMinutes", 0)
@@ -38,6 +45,7 @@ object WorkSiteRiskParser {
             workMinutes = workMinutes,
             restMinutes = restMinutes,
             proxyOnly = proxyOnly,
+            wbgtEstimated = wbgtEstimated,
             summaryLine = summaryLine,
         )
     }

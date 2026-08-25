@@ -19,6 +19,7 @@ import app.services.air_environment_service as air_environment_service
 import app.services.air_risk_engine as air_risk_engine
 import app.services.places_repository as places_repository
 import app.services.wearable_service as wearable_service
+import app.services.travel_location as travel_location
 from app.services.forecast.mapping import forecast_to_hourly_inputs, overlay_forecast_current
 from app.services.forecast.service import get_forecast
 
@@ -48,18 +49,21 @@ def daily_planner(
         home_lat=lat,
         home_lon=lon,
     )
+    profile_context = travel_location.apply_travel_location_override(user_id, profile_context)
+    effective_lat = profile_context.home_lat
+    effective_lon = profile_context.home_lon
     try:
         air_environment_service.load_environment(profile_context)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
 
     try:
-        forecast = get_forecast(lat, lon, hours=max(24, hours))
+        forecast = get_forecast(effective_lat, effective_lon, hours=max(24, hours))
     except RuntimeError:
         return DailyPlannerResponse(
             persona=normalized_persona,
-            base_lat=lat,
-            base_lon=lon,
+            base_lat=effective_lat,
+            base_lon=effective_lon,
             hourly=[],
             safe_windows=[],
             timezone=profile_context.timezone,
@@ -90,8 +94,8 @@ def daily_planner(
 
     return DailyPlannerResponse(
         persona=normalized_persona,
-        base_lat=lat,
-        base_lon=lon,
+        base_lat=effective_lat,
+        base_lon=effective_lon,
         hourly=hourly,
         safe_windows=safe_windows,
         timezone=forecast.timezone,

@@ -179,6 +179,8 @@ internal object DashboardScreenRenderer {
 
         airMetricsCard(ctx, state)?.let { bodyContainer.addView(it) }
         hazardsCard(ctx, state)?.let { bodyContainer.addView(it) }
+        locationChip(ctx, state)?.let { bodyContainer.addView(it) }
+        travelCard(ctx, state)?.let { bodyContainer.addView(it) }
         familyRiskCard(ctx, state)?.let { bodyContainer.addView(it) }
         protectedDayCard(ctx, state)?.let { bodyContainer.addView(it) }
         if (state.wearableConnected) {
@@ -277,14 +279,51 @@ internal object DashboardScreenRenderer {
             val unavailableTypes = state.hazardLines.filterNot { it.available }
             if (unavailableTypes.isNotEmpty()) {
                 addView(V2Ui.spacer(activity, 4))
-                addView(
-                    V2Ui.styledSecondaryText(activity, ctx.l("hazards.unavailable_count")
-                        .replace("%d", unavailableTypes.size.toString())).apply { textSize = 12f },
-                )
+                unavailableTypes.forEach { line ->
+                    addView(
+                        metricRow(
+                            ctx,
+                            hazardTypeLabel(ctx, line.hazard),
+                            ctx.l("hazards.level.unavailable"),
+                        ),
+                    )
+                }
             }
             if (overall.equals("unavailable", ignoreCase = true) && state.hazardLines.none { it.available }) {
                 addView(V2Ui.styledSecondaryText(activity, unavailable))
             }
+        }
+    }
+
+
+    private fun locationChip(ctx: RenderContext, state: DashboardState): View? {
+        if (!state.travelActive) return null
+        val activity = ctx.activity
+        val place = state.travelPlaceName?.takeIf { it.isNotBlank() }
+            ?: ctx.l("dashboard.travel.place_fallback")
+        val label = String.format(ctx.l("dashboard.travel.active"), place)
+        return V2Ui.styledSecondaryText(activity, label).apply {
+            textSize = 13f
+            setPadding(0, 0, 0, 8)
+        }
+    }
+
+    private fun travelCard(ctx: RenderContext, state: DashboardState): View? {
+        if (!state.travelActive) return null
+        val activity = ctx.activity
+        val place = state.travelPlaceName?.takeIf { it.isNotBlank() }
+            ?: ctx.l("dashboard.travel.place_fallback")
+        return V2Ui.cardContainer(activity).apply {
+            addView(V2Ui.styledBodyText(activity, ctx.l("dashboard.travel.title")).apply { textSize = 16f })
+            addView(
+                V2Ui.styledSecondaryText(
+                    activity,
+                    String.format(ctx.l("dashboard.travel.active"), place),
+                ),
+            )
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("dashboard.travel.subtitle")).apply {
+                textSize = 12f
+            })
         }
     }
 

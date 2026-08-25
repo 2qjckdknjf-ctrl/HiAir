@@ -23,6 +23,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var exposureReducedMarked = false
     @Published var highRiskAvoidedMarked = false
     @Published var protectedDayStatus = ""
+    @Published var travelSession: TravelSession?
 
     private let apiClient = APIClient.live()
     private let healthService = HealthKitService.shared
@@ -39,6 +40,7 @@ final class DashboardViewModel: ObservableObject {
         highRiskAvoidedMarked = false
         protectedDayStatus = ""
         familyRiskOverview = nil
+        travelSession = nil
         defer {
             loading = false
             hasLoadedOnce = true
@@ -157,6 +159,10 @@ final class DashboardViewModel: ObservableObject {
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
             morningReport = try? await morningTask
+            travelSession = try? await apiClient.fetchTravelSession(
+                userId: userId,
+                accessToken: accessToken
+            )
         } catch {
             ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "dashboard"])
             loadFailed = true
@@ -345,6 +351,9 @@ struct DashboardView: View {
     }
 
     private var locationLabel: String {
+        if let travel = viewModel.travelSession, travel.active, let name = travel.placeName, !name.isEmpty {
+            return name
+        }
         if let place = session.displayPlaceName, !place.isEmpty {
             return place
         }
@@ -449,6 +458,7 @@ struct DashboardView: View {
                         riskHeroSection(width: width)
                         todaysAirSection
                         hazardsSection
+                        travelSection
                         familyRiskSection
                         protectedDaySection
                         healthMetricsSection
@@ -509,6 +519,9 @@ struct DashboardView: View {
                 success: !viewModel.loadFailed,
                 profilePresent: !session.profileId.isEmpty
             )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .hiairTravelSessionDidChange)) { _ in
+            session.locationRevision += 1
         }
         .onChange(of: session.locationRevision) { _ in
             // Independent coordinate change — ensure still required when profile is empty.
@@ -883,6 +896,29 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
+    @ViewBuilder
+    private var travelSection: some View {
+        if let travel = viewModel.travelSession, travel.active {
+            VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
+                Text(session.l("dashboard.travel.title"))
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Text(
+                    String(
+                        format: session.l("dashboard.travel.active"),
+                        travel.placeName ?? session.l("dashboard.travel.place_fallback")
+                    )
+                )
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
+                Text(session.l("dashboard.travel.subtitle"))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.tertiary)
+            }
+            .v2Card()
+        }
+    }
+
     private var familyRiskSection: some View {
         if let overview = viewModel.familyRiskOverview, !overview.members.isEmpty {
             VStack(alignment: .leading, spacing: HiAirSpacing.sm) {

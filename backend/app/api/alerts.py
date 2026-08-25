@@ -11,6 +11,7 @@ import app.services.observability as observability
 import app.services.notification_dispatcher as notification_dispatcher
 import app.services.notification_repository as notification_repository
 import app.services.settings_repository as settings_repository
+import app.services.travel_location as travel_location
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -26,6 +27,7 @@ def evaluate_alert(
             raise HTTPException(status_code=404, detail="Profile not found")
         if profile.user_id != user_id:
             raise HTTPException(status_code=403, detail="Profile does not belong to user")
+        profile = travel_location.apply_travel_location_override(user_id, profile)
 
         user_settings = settings_repository.get_user_settings(user_id)
         decision = alert_orchestrator.evaluate_alert(

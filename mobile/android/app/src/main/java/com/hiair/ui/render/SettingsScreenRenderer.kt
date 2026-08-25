@@ -690,6 +690,10 @@ internal object SettingsScreenRenderer {
                 activity.runOnUiThread {
                     refreshTravelUi()
                     bindTravelButton()
+                    // Travel changes active location — force dashboard/planner refresh.
+                    rootShell.dashboardViewModel.reset()
+                    rootShell.plannerViewModel.reset()
+                    ctx.rerender()
                 }
             }.start()
         }
@@ -717,6 +721,9 @@ internal object SettingsScreenRenderer {
         val workRiskText = V2Ui.styledBodyText(activity, rootShell.settingsViewModel.state.workSiteRiskText)
         val workProxyDisclaimer = V2Ui.styledSecondaryText(activity, ctx.l("settings.work.proxy_disclaimer")).apply {
             visibility = if (rootShell.settingsViewModel.state.workSiteRiskProxyOnly) View.VISIBLE else View.GONE
+        }
+        val workWbgtEstimatedDisclaimer = V2Ui.styledSecondaryText(activity, ctx.l("settings.work.wbgt_estimated_disclaimer")).apply {
+            visibility = if (rootShell.settingsViewModel.state.workSiteRiskWbgtEstimated) View.VISIBLE else View.GONE
         }
         val workCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.work.title"))
@@ -750,6 +757,8 @@ internal object SettingsScreenRenderer {
                                 workRiskText.text = rootShell.settingsViewModel.state.workSiteRiskText
                                 workProxyDisclaimer.visibility =
                                     if (rootShell.settingsViewModel.state.workSiteRiskProxyOnly) View.VISIBLE else View.GONE
+                                workWbgtEstimatedDisclaimer.visibility =
+                                    if (rootShell.settingsViewModel.state.workSiteRiskWbgtEstimated) View.VISIBLE else View.GONE
                             }
                         }.start()
                     }
@@ -757,6 +766,7 @@ internal object SettingsScreenRenderer {
             )
             addView(workRiskText)
             addView(workProxyDisclaimer)
+            addView(workWbgtEstimatedDisclaimer)
         }
         bodyContainer.addView(workCard)
 

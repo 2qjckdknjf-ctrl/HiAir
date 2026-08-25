@@ -465,6 +465,14 @@ internal object InsightsScreenRenderer {
         } else {
             card.addView(V2Ui.styledSecondaryText(activity, ctx.l("adaptation.protected.empty")))
         }
+        if (snapshot.reasonCodes.any { it == "association_not_causation" }) {
+            card.addView(
+                V2Ui.styledSecondaryText(
+                    activity,
+                    ctx.l("adaptation.association_not_causation"),
+                ).apply { textSize = 12f },
+            )
+        }
         if (snapshot.generatedAt.isNotBlank()) {
             card.addView(
                 V2Ui.styledSecondaryText(

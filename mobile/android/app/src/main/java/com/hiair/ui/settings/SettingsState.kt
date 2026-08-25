@@ -103,6 +103,7 @@ data class SettingsState(
     val workWorkload: String = "moderate",
     val workSiteRiskText: String = "",
     val workSiteRiskProxyOnly: Boolean = false,
+    val workSiteRiskWbgtEstimated: Boolean = false,
     val workSiteRiskLoading: Boolean = false,
     val familyMembers: List<FamilyMemberItem> = emptyList(),
     val familyRiskByLinkId: Map<String, FamilyMemberRiskItem> = emptyMap(),
@@ -757,11 +758,14 @@ class SettingsViewModel(
         }
         state = state.copy(workSiteRiskLoading = true, workSiteRiskText = "")
         try {
+            val travel = state.travelSession
+            val riskLat = if (travel.active && travel.lat != null) travel.lat!! else state.latitude
+            val riskLon = if (travel.active && travel.lon != null) travel.lon!! else state.longitude
             val raw = apiClient.fetchSiteRisk(
                 userId = state.userId,
                 accessToken = state.accessToken.ifBlank { null },
-                lat = state.latitude,
-                lon = state.longitude,
+                lat = riskLat,
+                lon = riskLon,
                 workload = state.workWorkload,
                 acclimatized = true,
             )
@@ -770,12 +774,14 @@ class SettingsViewModel(
                 workSiteRiskLoading = false,
                 workSiteRiskText = parsed.summaryLine,
                 workSiteRiskProxyOnly = parsed.proxyOnly,
+                workSiteRiskWbgtEstimated = parsed.wbgtEstimated,
             )
         } catch (_: Exception) {
             state = state.copy(
                 workSiteRiskLoading = false,
                 workSiteRiskText = l("settings.work.load_failed"),
                 workSiteRiskProxyOnly = false,
+                workSiteRiskWbgtEstimated = false,
             )
         }
     }
@@ -885,6 +891,7 @@ class SettingsViewModel(
                 placeType = placeType,
                 lat = state.latitude,
                 lon = state.longitude,
+                timezone = java.util.TimeZone.getDefault().id,
             )
             val created = parseSavedPlace(raw)
             state = state.copy(

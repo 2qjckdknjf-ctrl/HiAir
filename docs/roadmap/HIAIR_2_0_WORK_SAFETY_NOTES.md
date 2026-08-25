@@ -42,3 +42,4 @@ Occupational heat safety layer for worksites and B2B integrations — clearly se
 - When instrument WBGT is absent, `wbgt_estimate.estimate_outdoor_wbgt_c` derives outdoor WBGT from T/RH/wind/shortwave.
 - Reason codes: `wbgt_estimated_from_meteo`, `not_instrument_wbgt`.
 - Never presented as measured occupational WBGT.
+- [x] Mobile WBGT estimated disclaimer (iOS + Android Settings)
