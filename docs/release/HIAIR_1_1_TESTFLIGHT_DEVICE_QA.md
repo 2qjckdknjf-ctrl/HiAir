@@ -1,13 +1,13 @@
 # HiAir 1.1 — TestFlight / Physical Device QA
 
 **Marketing version:** `1.1`  
-**Build:** `182`  
+**Build:** `242`  
 **Branch tip:** `feat/hiair-1.2-best-time-planner`  
 **API:** `https://api.hiair.io`
 
 ## Build
-- [ ] iOS archive uploaded to TestFlight (`MARKETING_VERSION=1.1`, `CURRENT_PROJECT_VERSION=182`)
-- [ ] Android internal track optional (`versionName=1.1.0`, `versionCode=182`)
+- [x] iOS archive uploaded to TestFlight (`MARKETING_VERSION=1.1`, `CURRENT_PROJECT_VERSION=242`) — Delivery UUID `3a70863d-af22-4a62-8627-018f7cafc6ca`
+- [ ] Android internal track optional (`versionName=1.1.0`, `versionCode=242`)
 
 ## Device checks (physical)
 - [ ] Fresh install login (email + Sign in with Apple)

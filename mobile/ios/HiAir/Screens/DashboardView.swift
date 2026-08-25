@@ -896,7 +896,6 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
-    @ViewBuilder
     private var travelSection: some View {
         if let travel = viewModel.travelSession, travel.active {
             VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
@@ -919,6 +918,7 @@ struct DashboardView: View {
         }
     }
 
+    @ViewBuilder
     private var familyRiskSection: some View {
         if let overview = viewModel.familyRiskOverview, !overview.members.isEmpty {
             VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
