@@ -47,6 +47,9 @@ def _refresh_wrangler_oauth() -> str:
         for line in (proc.stderr or "").splitlines():
             print(line)
         return ""
+    # Prefer the freshly written secret file over a stale CLOUDFLARE_API_TOKEN env.
+    if SECRET_FILE.exists():
+        return SECRET_FILE.read_text(encoding="utf-8").strip().splitlines()[0].strip()
     return _load_token()
 
 
