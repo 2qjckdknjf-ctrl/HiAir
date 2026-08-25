@@ -14,6 +14,7 @@
 		0B19571439FFB543F25751C6 /* HiAirHumanDateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */; };
 		0BE305231C52D1AEC520D24D /* GoogleOAuthWebSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEF2480D532F69E113DE15AA /* GoogleOAuthWebSessionTests.swift */; };
 		0F2C85A156AB3B2CE5167341 /* PaywallScrollSafeAreaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6271A449AEAD56D90FA84F44 /* PaywallScrollSafeAreaUITests.swift */; };
+		0F7A38F02DB5043F971343B0 /* AppleSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F7F0BCCD31EDBA24B74BDA1 /* AppleSignIn.swift */; };
 		109B405F444AF575F03F5933 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */; };
 		116362F5B5F2F56299C94173 /* RuntimeUXRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */; };
 		15B3428B7D5EA741B31BF704 /* RiskModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D318EFA32CAF512F14BCAD /* RiskModels.swift */; };
@@ -59,6 +60,7 @@
 		7642D4EC715458CE46C68EFB /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF8C26F2C4679F0DFB2F62E /* HealthKitService.swift */; };
 		77B0C3A0D969BE57865D3A5A /* UITestBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4DA4D6012AFA1C4003ECBD /* UITestBootstrap.swift */; };
 		77E0A0837CB889643F23BF59 /* RuntimePerformanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B2908A1BCD2026DD269B92 /* RuntimePerformanceProbe.swift */; };
+		7837D1F77705C9D2BC02FEA9 /* AuthPresentationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBED4F6F701C65757527860C /* AuthPresentationAnchor.swift */; };
 		79DDAA28852A36E88E5C25D4 /* SettingsDisconnectLocalFirstTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67847104B8F30C42099F2318 /* SettingsDisconnectLocalFirstTests.swift */; };
 		83C91EF17F575EB1EE6DD355 /* PlaceGeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFCD764FFBC4E01ED44F0E0 /* PlaceGeocodingService.swift */; };
 		841C3D6FD329442C7C057429 /* AtmosphericParticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */; };
@@ -88,6 +90,7 @@
 		C5922BB62ADBFE998F67A0DD /* WearableConsentUIStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC81AD73B87F92F9743D86B /* WearableConsentUIStateTests.swift */; };
 		D7E1D5F55E8D6B828BBA6EA9 /* WearableConsentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D79E40FC4F6A86CB4F8FDC6 /* WearableConsentUITests.swift */; };
 		DC0A682C62C0CFFCEF77D486 /* SupabaseAuthLogoutTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 244924BEC6FD44E41B87A87B /* SupabaseAuthLogoutTransportTests.swift */; };
+		DF06ADECC1313FAEC9BBCE6C /* AppleSignInAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C216E59376C626C71A0768 /* AppleSignInAuthTests.swift */; };
 		E181DAAD698B8A895596F5C9 /* HiAirHumanDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B225391F981853BB27DC62E7 /* HiAirHumanDate.swift */; };
 		E28D30B53EBF55C4AD19399C /* HiAirShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCAAB0F752D4878B739FE9A /* HiAirShadow.swift */; };
 		E3FD1B7D4C89BE80F522389A /* HiAirV2Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E040EF10D98811C8A05BAB8D /* HiAirV2Theme.swift */; };
@@ -181,6 +184,7 @@
 		85A830216F3D632CB7F632E5 /* SymptomTaxonomyDTOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomTaxonomyDTOTests.swift; sourceTree = "<group>"; };
 		8833EA8341D4356991598891 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		8EDE901D8AA8E90B7F88CA47 /* HealthKitTimeoutRaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTimeoutRaceTests.swift; sourceTree = "<group>"; };
+		8F7F0BCCD31EDBA24B74BDA1 /* AppleSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignIn.swift; sourceTree = "<group>"; };
 		913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableStatusPresentation.swift; sourceTree = "<group>"; };
 		93EEF3FD465B8193BE67529E /* HiAirTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		979A9003276BD007D952A744 /* HiAirDeepGlassTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirDeepGlassTokenTests.swift; sourceTree = "<group>"; };
@@ -204,6 +208,7 @@
 		BE2C91E83B123C0F9EC463D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BE41072F28A005F3E32294F4 /* ScreenshotEnvironmentReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotEnvironmentReporter.swift; sourceTree = "<group>"; };
 		C19DE8CB0A73BCBFB52D37CE /* HiAirSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirSpacing.swift; sourceTree = "<group>"; };
+		C2C216E59376C626C71A0768 /* AppleSignInAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInAuthTests.swift; sourceTree = "<group>"; };
 		C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreScreenshotTests.swift; sourceTree = "<group>"; };
 		C4B6014D57E717DDEFDA1D47 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C556E4BD33D299DF71C4B0E6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -232,6 +237,7 @@
 		F189463A81578D7DA02A429B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		F5F4A846E176862AF8006820 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB46A64A9D06988894EB3978 /* HiAirMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirMotion.swift; sourceTree = "<group>"; };
+		FBED4F6F701C65757527860C /* AuthPresentationAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthPresentationAnchor.swift; sourceTree = "<group>"; };
 		FDED16BD25D90EB9CF5D8303 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		FE64CFDB46618584BD806249 /* HiAirTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirTypography.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -367,6 +373,7 @@
 			isa = PBXGroup;
 			children = (
 				A2D7F3A710D505EA46FFC5E8 /* AccountEligibilityTests.swift */,
+				C2C216E59376C626C71A0768 /* AppleSignInAuthTests.swift */,
 				70EAC9352AEDC77C98B4E488 /* AppReviewGuidelineCopyTests.swift */,
 				3CE1D6F2C6C90D8A4CA6C8D7 /* AppSessionTests.swift */,
 				EDFD9AEA8D22717B8485CAC5 /* DailyPlannerSurfaceStateTests.swift */,
@@ -416,6 +423,8 @@
 			children = (
 				14F7B86EEE31F2AEC12EB812 /* AccountDeletionModels.swift */,
 				C556E4BD33D299DF71C4B0E6 /* APIClient.swift */,
+				8F7F0BCCD31EDBA24B74BDA1 /* AppleSignIn.swift */,
+				FBED4F6F701C65757527860C /* AuthPresentationAnchor.swift */,
 				CB60EF06F7BDA353EC3A259B /* OAuthWebSession.swift */,
 			);
 			path = Networking;
@@ -601,6 +610,7 @@
 				A1A1B95988162497D459F6B2 /* AccountEligibilityTests.swift in Sources */,
 				707C0FEF97AC880B4A862C3D /* AppReviewGuidelineCopyTests.swift in Sources */,
 				2F0374CE92BBDF7A80EC07B2 /* AppSessionTests.swift in Sources */,
+				DF06ADECC1313FAEC9BBCE6C /* AppleSignInAuthTests.swift in Sources */,
 				4956D0A5F4D2C2BABC85DF6A /* DailyPlannerSurfaceStateTests.swift in Sources */,
 				E8BD8007A0F000FF990B49F1 /* ForecastDTOTests.swift in Sources */,
 				022C18940F38359470483E2A /* GeoCoordinatesTests.swift in Sources */,
@@ -630,7 +640,9 @@
 				469E899308A7D2A622154EB2 /* AccountDeletionModels.swift in Sources */,
 				FC0E89487DFE36EF6EA81154 /* AccountEligibility.swift in Sources */,
 				EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */,
+				0F7A38F02DB5043F971343B0 /* AppleSignIn.swift in Sources */,
 				841C3D6FD329442C7C057429 /* AtmosphericParticles.swift in Sources */,
+				7837D1F77705C9D2BC02FEA9 /* AuthPresentationAnchor.swift in Sources */,
 				1FCA405F4A8DD8232D2646E9 /* AuthView.swift in Sources */,
 				60600899A0A468E146AD36D5 /* DailyPlannerSurfaceState.swift in Sources */,
 				3FB8472EE51B0BBBBDC834DF /* DailyPlannerView.swift in Sources */,

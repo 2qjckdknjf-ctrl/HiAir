@@ -49,6 +49,7 @@ final class AppSession: ObservableObject {
         static let locationSource = "session.locationSource"
         static let displayPlaceName = "session.displayPlaceName"
         static let dateOfBirth = "session.dateOfBirth"
+        static let appleUserIdentifier = "session.appleUserIdentifier"
     }
 
     private static let birthDateFormatter: DateFormatter = {
@@ -781,6 +782,8 @@ final class AppSession: ObservableObject {
         let ownerUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ownerUserId.isEmpty else { return }
         lastForegroundRefreshAt = now
+        await supabaseAuth.enforceAppleCredentialStateIfNeeded()
+        guard userId.trimmingCharacters(in: .whitespacesAndNewlines) == ownerUserId else { return }
         // New foreground activation opens a new ensure cycle unless prepare is already in flight
         // for this cold-start (join the existing cycle instead of wiping its memo).
         if inFlightPrepare == nil {
@@ -1291,6 +1294,11 @@ final class AppSession: ObservableObject {
         } else {
             credentials.setString(refreshToken, forKey: Keys.refreshToken)
         }
+        // Drop legacy plaintext auth copies once the credential store owns them.
+        defaults.removeObject(forKey: Keys.userId)
+        defaults.removeObject(forKey: Keys.email)
+        defaults.removeObject(forKey: Keys.accessToken)
+        defaults.removeObject(forKey: Keys.refreshToken)
     }
 
     /// Owning logout / auth-expiry durable clear. Caller must hold a current ownership generation.
@@ -1299,10 +1307,12 @@ final class AppSession: ObservableObject {
         credentials.deleteValue(forKey: Keys.email)
         credentials.deleteValue(forKey: Keys.accessToken)
         credentials.deleteValue(forKey: Keys.refreshToken)
+        credentials.deleteValue(forKey: Keys.appleUserIdentifier)
         defaults.removeObject(forKey: Keys.userId)
         defaults.removeObject(forKey: Keys.email)
         defaults.removeObject(forKey: Keys.accessToken)
         defaults.removeObject(forKey: Keys.refreshToken)
+        defaults.removeObject(forKey: Keys.appleUserIdentifier)
         defaults.removeObject(forKey: Keys.profileId)
         defaults.removeObject(forKey: Keys.dateOfBirth)
         defaults.removeObject(forKey: Keys.displayPlaceName)

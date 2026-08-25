@@ -4,6 +4,7 @@ import UIKit
 enum OAuthSignInError: LocalizedError {
     case cancelled
     case callbackMissing
+    case presentationUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -11,6 +12,8 @@ enum OAuthSignInError: LocalizedError {
             return "OAuth sign-in was cancelled."
         case .callbackMissing:
             return "OAuth callback was missing."
+        case .presentationUnavailable:
+            return "OAuth sign-in could not find a window to present from."
         }
     }
 }
@@ -34,6 +37,9 @@ final class SystemOAuthWebSession: NSObject, OAuthWebSessionStarting, ASWebAuthe
         }
         activeSession?.cancel()
         activeSession = nil
+        guard AuthPresentationAnchor.currentWindow() != nil else {
+            throw OAuthSignInError.presentationUnavailable
+        }
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             self.continuation = continuation
@@ -78,23 +84,6 @@ final class SystemOAuthWebSession: NSObject, OAuthWebSessionStarting, ASWebAuthe
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .filter { $0.activationState == .foregroundActive }
-        let windows = scenes.flatMap(\.windows)
-        if let key = windows.first(where: \.isKeyWindow) {
-            return key
-        }
-        if let visible = windows.first(where: { !$0.isHidden && $0.alpha > 0 }) {
-            return visible
-        }
-        if let any = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .flatMap(\.windows)
-            .first
-        {
-            return any
-        }
-        return ASPresentationAnchor()
+        AuthPresentationAnchor.currentWindow() ?? ASPresentationAnchor()
     }
 }

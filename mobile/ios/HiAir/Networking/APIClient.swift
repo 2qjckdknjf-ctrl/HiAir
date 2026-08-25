@@ -1,7 +1,5 @@
-import AuthenticationServices
 import CryptoKit
 import Foundation
-import UIKit
 
 enum APIError: Error {
     case invalidURL
@@ -82,7 +80,9 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
     private let redirectURI: String
     private var pendingOAuthCodeVerifier: String?
     private var lastOAuthSession: SupabaseAuthSession?
-    private let appleSignIn = AppleSignInCoordinator()
+    private let appleSignIn: AppleSignInStarting
+    private let appleCredentialState: AppleIDCredentialStateChecking
+    private let appleUserIdentifiers: AppleUserIdentifierStoring
     private let oauthWebSession: OAuthWebSessionStarting
 
     /// Production singleton — reads Supabase config from the app bundle / process env.
@@ -186,17 +186,36 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         supabaseURL: URL?,
         anonKey: String,
         redirectURI: String = "hiair://auth/callback",
-        oauthWebSession: OAuthWebSessionStarting? = nil
+        oauthWebSession: OAuthWebSessionStarting? = nil,
+        appleSignIn: AppleSignInStarting? = nil,
+        appleCredentialState: AppleIDCredentialStateChecking? = nil,
+        appleUserIdentifiers: AppleUserIdentifierStoring? = nil
     ) {
         self.urlSession = urlSession
         self.supabaseURL = supabaseURL
         self.anonKey = anonKey
         self.redirectURI = redirectURI
         self.oauthWebSession = oauthWebSession ?? SystemOAuthWebSession()
+        self.appleSignIn = appleSignIn ?? AppleSignInCoordinator()
+        self.appleCredentialState = appleCredentialState ?? SystemAppleIDCredentialStateChecker()
+        self.appleUserIdentifiers = appleUserIdentifiers ?? KeychainAppleUserIdentifierStore()
     }
 
     func restoreSessionIfNeeded() async throws -> SupabaseAuthSession? {
-        return nil
+        if await shouldInvalidateAppleSession() {
+            clearAppleLinkedSession()
+            return nil
+        }
+        guard let state = APIClient.getAuthState(), !state.refreshToken.isEmpty else {
+            return nil
+        }
+        return try await refreshSession()
+    }
+
+    func enforceAppleCredentialStateIfNeeded() async {
+        if await shouldInvalidateAppleSession() {
+            clearAppleLinkedSession()
+        }
     }
 
     func signUp(email: String, password: String) async throws -> SupabaseSignUpResult {
@@ -209,6 +228,7 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         )
         let result = try parseSignUpResponse(from: data, fallbackEmail: email)
         if case .session(let session) = result {
+            appleUserIdentifiers.clear()
             notifySessionChanged(session)
         }
         return result
@@ -223,6 +243,7 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
             body: payload
         )
         let session = try parseSession(from: data, fallbackEmail: email)
+        appleUserIdentifiers.clear()
         notifySessionChanged(session)
         return session
     }
@@ -247,12 +268,17 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
             ]
         )
         let session = try parseSession(from: data, fallbackEmail: credential.email ?? "")
+        if !credential.userIdentifier.isEmpty {
+            appleUserIdentifiers.save(credential.userIdentifier)
+        }
         notifySessionChanged(session)
         return session
     }
 
     func signInWithGoogle() async throws -> SupabaseAuthSession {
-        try await openOAuth(provider: "google")
+        let session = try await openOAuth(provider: "google")
+        appleUserIdentifiers.clear()
+        return session
     }
 
     func refreshSession() async throws -> SupabaseAuthSession? {
@@ -298,6 +324,7 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
         let token = APIClient.getAuthState()?.accessToken
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         APIClient.setAuthState(nil)
+        appleUserIdentifiers.clear()
         guard !token.isEmpty else { return }
         await revokeRemoteSession(accessToken: token)
     }
@@ -464,6 +491,22 @@ final class SupabaseAuthService: AuthRemoteSessionRevoking {
 
     private func notifyOAuthFailed(_ message: String) {
         NotificationCenter.default.post(name: Self.sessionOAuthFailed, object: message)
+    }
+
+    private func shouldInvalidateAppleSession() async -> Bool {
+        guard let userID = appleUserIdentifiers.current()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !userID.isEmpty
+        else {
+            return false
+        }
+        let state = await appleCredentialState.state(forUserID: userID)
+        return state == .revoked || state == .transferred
+    }
+
+    private func clearAppleLinkedSession() {
+        appleUserIdentifiers.clear()
+        APIClient.setAuthState(nil)
+        NotificationCenter.default.post(name: Self.sessionDidChange, object: nil)
     }
 
     private func request(
@@ -1999,127 +2042,5 @@ final class APIClient {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
         return try JSONDecoder().decode(CustomSymptomResponseDTO.self, from: data)
-    }
-}
-
-// MARK: - Native Sign in with Apple
-
-enum AppleSignInError: LocalizedError {
-    case missingIdentityToken
-    case missingAuthorizationCode
-    case cancelled
-
-    var errorDescription: String? {
-        switch self {
-        case .missingIdentityToken:
-            return "Apple Sign In did not return an identity token."
-        case .missingAuthorizationCode:
-            return "Apple Sign In did not return an authorization code."
-        case .cancelled:
-            return "Apple Sign In was cancelled."
-        }
-    }
-}
-
-@MainActor
-final class AppleSignInCoordinator: NSObject {
-    private var continuation: CheckedContinuation<(ASAuthorizationAppleIDCredential, String), Error>?
-    private var currentNonce = ""
-
-    func signIn() async throws -> (credential: ASAuthorizationAppleIDCredential, rawNonce: String) {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(ASAuthorizationAppleIDCredential, String), Error>) in
-            self.continuation = continuation
-            currentNonce = Self.randomNonceString()
-            let provider = ASAuthorizationAppleIDProvider()
-            let request = provider.createRequest()
-            request.requestedScopes = [.email, .fullName]
-            request.nonce = Self.sha256(currentNonce)
-
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            controller.delegate = self
-            controller.presentationContextProvider = self
-            controller.performRequests()
-        }
-    }
-
-    func authorizationCodeForAccountDeletion() async throws -> String {
-        let (credential, _) = try await signIn()
-        guard let codeData = credential.authorizationCode,
-              let code = String(data: codeData, encoding: .utf8),
-              !code.isEmpty
-        else {
-            throw AppleSignInError.missingAuthorizationCode
-        }
-        return code
-    }
-
-    private static func randomNonceString(length: Int = 32) -> String {
-        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var result = ""
-        result.reserveCapacity(length)
-        for _ in 0..<length {
-            result.append(charset.randomElement()!)
-        }
-        return result
-    }
-
-    private static func sha256(_ input: String) -> String {
-        let digest = SHA256.hash(data: Data(input.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-}
-
-extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
-    func authorizationController(
-        controller: ASAuthorizationController,
-        didCompleteWithAuthorization authorization: ASAuthorization
-    ) {
-        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            continuation?.resume(throwing: AppleSignInError.missingIdentityToken)
-            continuation = nil
-            return
-        }
-        guard credential.identityToken != nil else {
-            continuation?.resume(throwing: AppleSignInError.missingIdentityToken)
-            continuation = nil
-            return
-        }
-        continuation?.resume(returning: (credential, currentNonce))
-        continuation = nil
-    }
-
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        let nsError = error as NSError
-        if nsError.domain == ASAuthorizationError.errorDomain,
-           nsError.code == ASAuthorizationError.canceled.rawValue {
-            continuation?.resume(throwing: AppleSignInError.cancelled)
-        } else {
-            continuation?.resume(throwing: error)
-        }
-        continuation = nil
-    }
-}
-
-extension AppleSignInCoordinator: ASAuthorizationControllerPresentationContextProviding {
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .filter { $0.activationState == .foregroundActive }
-        let windows = scenes.flatMap(\.windows)
-        if let key = windows.first(where: \.isKeyWindow) {
-            return key
-        }
-        if let visible = windows.first(where: { !$0.isHidden && $0.alpha > 0 }) {
-            return visible
-        }
-        // Last resort: any connected window — empty ASPresentationAnchor() breaks SiwA (error 1000).
-        if let any = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .flatMap(\.windows)
-            .first
-        {
-            return any
-        }
-        return ASPresentationAnchor()
     }
 }

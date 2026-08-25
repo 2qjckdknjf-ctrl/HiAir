@@ -103,29 +103,30 @@ internal object FirstRunOnboardingRenderer {
         card.addView(emailInput)
         card.addView(passwordInput)
         card.addView(
-            HiAirComponents.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
+            HiAirComponents.primaryButton(activity, ctx.l("settings.log_in")).apply {
                 setOnClickListener {
-                    ctx.rootShell.settingsViewModel.setEmail(emailInput.text.toString())
-                    ctx.rootShell.settingsViewModel.setPassword(passwordInput.text.toString())
-                    Thread {
-                        ctx.rootShell.settingsViewModel.signup {
-                            activity.runOnUiThread {
-                                ctx.persistSession()
-                                if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
-                                    currentStep = STEP_VALUE
-                                }
-                                ctx.rerender()
-                            }
-                        }
-                    }.start()
+                    submitAuthLogin(ctx)
                 }
             },
         )
         card.addView(
-            HiAirComponents.secondaryButton(activity, ctx.l("onboarding.auth.open_settings")).apply {
+            HiAirComponents.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
                 setOnClickListener {
-                    ctx.rootShell.openSettings()
-                    ctx.rerender()
+                    submitAuthSignup(ctx)
+                }
+            },
+        )
+        card.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_google")).apply {
+                setOnClickListener {
+                    ctx.rootShell.settingsViewModel.launchGoogleOAuth()
+                }
+            },
+        )
+        card.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_apple")).apply {
+                setOnClickListener {
+                    ctx.rootShell.settingsViewModel.launchAppleOAuth()
                 }
             },
         )
@@ -200,39 +201,17 @@ internal object FirstRunOnboardingRenderer {
             )
         }
 
-        when (currentStep) {
-            STEP_AUTH -> Unit
-            STEP_LOCATION -> {
-                row.addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("onboarding.permissions.later")).apply {
-                        setOnClickListener {
-                            currentStep = STEP_HEALTH
-                            ctx.rerender()
-                        }
-                    },
-                )
-            }
-            STEP_HEALTH -> {
-                row.addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.skip")).apply {
-                        setOnClickListener {
-                            currentStep = STEP_DONE
-                            ctx.rerender()
-                        }
-                    },
-                )
-            }
+        if (currentStep != STEP_AUTH) {
+            row.addView(
+                HiAirComponents.primaryButton(activity, primaryButtonTitle(ctx)).apply {
+                    isEnabled = !authSubmitting
+                    setOnClickListener {
+                        if (authSubmitting) return@setOnClickListener
+                        handlePrimaryAction(ctx, isLoggedIn, onboardingStore, onComplete)
+                    }
+                },
+            )
         }
-
-        row.addView(
-            HiAirComponents.primaryButton(activity, primaryButtonTitle(ctx)).apply {
-                isEnabled = !authSubmitting
-                setOnClickListener {
-                    if (authSubmitting) return@setOnClickListener
-                    handlePrimaryAction(ctx, isLoggedIn, onboardingStore, onComplete)
-                }
-            },
-        )
         return row
     }
 
@@ -314,6 +293,32 @@ internal object FirstRunOnboardingRenderer {
         ctx.rootShell.settingsViewModel.setPassword(password)
         Thread {
             ctx.rootShell.settingsViewModel.login {
+                activity.runOnUiThread {
+                    authSubmitting = false
+                    ctx.persistSession()
+                    if (ctx.rootShell.settingsViewModel.state.userId.isNotBlank()) {
+                        currentStep = STEP_VALUE
+                    }
+                    ctx.rerender()
+                }
+            }
+        }.start()
+    }
+
+    private fun submitAuthSignup(ctx: RenderContext) {
+        val activity = ctx.activity
+        val email = authEmailInput?.text?.toString()?.trim().orEmpty()
+        val password = authPasswordInput?.text?.toString().orEmpty()
+        if (email.isBlank() || password.isBlank()) {
+            return
+        }
+        if (authSubmitting) return
+        authSubmitting = true
+        ctx.rerender()
+        ctx.rootShell.settingsViewModel.setEmail(email)
+        ctx.rootShell.settingsViewModel.setPassword(password)
+        Thread {
+            ctx.rootShell.settingsViewModel.signup {
                 activity.runOnUiThread {
                     authSubmitting = false
                     ctx.persistSession()

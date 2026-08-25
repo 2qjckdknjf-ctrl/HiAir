@@ -41,10 +41,11 @@ final class InfoPlistPackagingTests: XCTestCase {
         XCTAssertFalse(build.contains("$("), "unresolved build number: \(build)")
         XCTAssertFalse(marketing.isEmpty)
         XCTAssertFalse(build.isEmpty)
+        let expectedMarketing = try Self.marketingVersionFromProjectYml()
         XCTAssertEqual(
             marketing,
-            "1.0",
-            "Release product must expand MARKETING_VERSION (1.0) from build settings"
+            expectedMarketing,
+            "product must expand MARKETING_VERSION (\(expectedMarketing)) from build settings"
         )
         XCTAssertNotEqual(build, "1", "Release product must use CURRENT_PROJECT_VERSION, not plist default 1")
 
@@ -78,5 +79,24 @@ final class InfoPlistPackagingTests: XCTestCase {
             }
         }
         throw XCTSkip("HiAir/Info.plist not found relative to test source")
+    }
+
+    private static func marketingVersionFromProjectYml() throws -> String {
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<6 {
+            url.deleteLastPathComponent()
+            let candidate = url.appendingPathComponent("project.yml")
+            guard FileManager.default.fileExists(atPath: candidate.path) else { continue }
+            let text = try String(contentsOf: candidate, encoding: .utf8)
+            for line in text.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("MARKETING_VERSION:") else { continue }
+                let raw = trimmed.replacingOccurrences(of: "MARKETING_VERSION:", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                if !raw.isEmpty { return raw }
+            }
+        }
+        throw XCTSkip("MARKETING_VERSION not found in project.yml")
     }
 }
