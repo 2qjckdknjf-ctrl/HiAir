@@ -26,6 +26,7 @@
 - Auth via `get_current_user_id`; list/create/delete isolated per user
 
 ## Not yet
-- Travel mode
 - [x] Place limits by entitlement tier (free: 3, premium: 25)
 - [x] Mobile 402 limit message when adding places (iOS + Android)
+- [x] Travel mode — temporary location override via saved place (`/api/travel/session`)
+- Mobile Settings travel toggle UI

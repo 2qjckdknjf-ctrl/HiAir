@@ -31,6 +31,7 @@ from app.api.settings import router as settings_router
 from app.api.subscriptions import router as subscriptions_router
 from app.api.symptoms import router as symptoms_router
 from app.api.thresholds import router as thresholds_router
+from app.api.travel import router as travel_router
 from app.api.validation import router as validation_router
 from app.api.waitlist import router as waitlist_router
 from app.api.wearables import router as wearables_router
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router, prefix="/api")
     app.include_router(planner_router, prefix="/api")
     app.include_router(places_router, prefix="/api")
+    app.include_router(travel_router, prefix="/api")
     app.include_router(family_router, prefix="/api")
     app.include_router(environment_router, prefix="/api")
     app.include_router(risk_router, prefix="/api")

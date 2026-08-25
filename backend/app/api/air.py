@@ -18,6 +18,7 @@ import app.services.wearable_repository as wearable_repository
 import app.services.wearable_service as wearable_service
 from app.services.forecast.mapping import apply_freshness_source, forecast_point_to_environmental, forecast_to_hourly_inputs
 from app.services.forecast.service import get_forecast
+import app.services.travel_location as travel_location
 
 router = APIRouter(prefix="/air", tags=["air"])
 
@@ -28,7 +29,7 @@ def _resolve_profile_for_user(profile_id: str, user_id: str):
         raise HTTPException(status_code=404, detail="Profile not found")
     if profile.user_id != user_id:
         raise HTTPException(status_code=403, detail="Profile does not belong to user")
-    return profile
+    return travel_location.apply_travel_location_override(user_id, profile)
 
 
 def _health_context_for_ai(user_id: str, profile_id: str, language: str) -> list[str]:

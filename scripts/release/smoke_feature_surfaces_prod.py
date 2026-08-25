@@ -103,12 +103,19 @@ def main() -> int:
         ("family-members", "/api/family/members"),
         ("family-risk-overview", "/api/family/risk-overview"),
         ("places-list", "/api/places"),
+        ("travel-session", "/api/travel/session"),
         ("hazards", f"/api/air/hazards?{urllib.parse.urlencode({'profileId': profile_id})}"),
     ]:
         status, body = _request("GET", f"{base}{path}", headers=auth)
         if status != 200:
             print(f"{name}: FAIL status={status} body={body}")
             return 1
+        if name == "travel-session":
+            if not isinstance(body, dict) or "active" not in body:
+                print(f"travel-session: FAIL missing active key body={body!r}")
+                return 1
+            print(f"travel-session: OK active={body.get('active')}")
+            continue
         print(f"{name}: OK")
 
     risk_query = urllib.parse.urlencode({"profileId": profile_id})
