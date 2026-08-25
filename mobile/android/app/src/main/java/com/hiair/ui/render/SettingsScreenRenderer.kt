@@ -38,7 +38,6 @@ internal object SettingsScreenRenderer {
         val rootShell = ctx.rootShell
         val state = rootShell.settingsViewModel.state
         val bodyContainer = ctx.bodyContainer
-        val mode = com.hiair.ui.design.HiAirResponsiveLayout.layoutMode(activity)
 
         ctx.titleView.text = ctx.l("title.settings")
         com.hiair.ui.design.HiAirV4Presentation.applyTitleAxisAlignment(ctx.titleView, activity)
@@ -150,11 +149,12 @@ internal object SettingsScreenRenderer {
             host.addView(V2Ui.spacer(activity, com.hiair.ui.design.HiAirSpacing.sm))
             host.addView(settingsRow(wearablesCard, prefsSubscription))
             host.addView(V2Ui.spacer(activity, com.hiair.ui.design.HiAirSpacing.sm))
-            securityCard.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+            host.addView(
+                settingsRow(
+                    android.widget.Space(activity),
+                    securityCard,
+                ),
             )
-            host.addView(securityCard)
             canvas.addView(host)
         } else {
             listOf(accountCard, wearablesCard, prefsNotifications, prefsSubscription, securityCard).forEach {

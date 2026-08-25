@@ -18,6 +18,7 @@ SCREENS_JSON="${OUT}/screens-partial.json"
 SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 ADB="${SDK}/platform-tools/adb"
 SOURCE_SHA="$(git -C "${ROOT}" rev-parse HEAD)"
+DIRTY="$(git -C "${ROOT}" status --porcelain | shasum -a 256 | awk '{print $1}')"
 EXPECTED_PACKAGE="com.hiair"
 
 SCREENS=(
@@ -188,37 +189,59 @@ PY
 
 capture_screen() {
   local screen="$1" filename="$2" marker="$3"
+  local shot_id="${filename%.png}"
+  local raw_png="${OUT}/${shot_id}.raw.png"
+  local app_png="${OUT}/${shot_id}.app.png"
   local png="${OUT}/${filename}"
-  local xml="${OUT}/${filename%.png}.xml"
-  local log="${OUT}/${filename%.png}.logcat.txt"
-  local launch="${OUT}/${filename%.png}.launch.txt"
+  local xml="${OUT}/${shot_id}.xml"
+  local log="${OUT}/${shot_id}.logcat.txt"
+  local launch="${OUT}/${shot_id}.launch.txt"
+  local window_dump="${OUT}/${shot_id}.window.txt"
   local stamp pid fg_pkg validation_json detected_marker errors fatal
 
   stamp="$("${ADB_S[@]}" shell date +%s 2>/dev/null | tr -d '\r')"
   "${ADB_S[@]}" logcat -c >/dev/null 2>&1 || true
   "${ADB_S[@]}" shell am force-stop com.hiair >/dev/null 2>&1 || true
-  sleep 1
+  sleep 2
 
-  start_out="$("${ADB_S[@]}" shell am start -W -n com.hiair/.AppMainActivity \
-    -e HIAIR_STORE_SHOTS 1 \
-    -e HIAIR_SCREEN "${screen}" \
-    -e HIAIR_SHOT_LANGUAGE "${LANGUAGE}" \
-    -e HIAIR_CAPTURE_RUN_ID "${RUN_ID}" \
-    -e HIAIR_CAPTURE_OUT "${DEVICE_CAPTURE_OUT}" 2>&1)" || true
-  printf '%s\n' "${start_out}" > "${launch}"
+  launch_activity() {
+    start_out="$("${ADB_S[@]}" shell am start -W -n com.hiair/.AppMainActivity \
+      -e HIAIR_STORE_SHOTS 1 \
+      -e HIAIR_SCREEN "${screen}" \
+      -e HIAIR_SHOT_LANGUAGE "${LANGUAGE}" \
+      -e HIAIR_CAPTURE_RUN_ID "${RUN_ID}" \
+      -e HIAIR_CAPTURE_OUT "${DEVICE_CAPTURE_OUT}" 2>&1)" || true
+    printf '%s\n' "${start_out}" > "${launch}"
+    grep -q "Status: ok" <<<"${start_out}"
+  }
 
-  if ! grep -q "Status: ok" <<<"${start_out}"; then
+  if ! launch_activity; then
     FAILURE_REASON="launch failed screen=${screen}"
-    echo "[android-shots] ${FAILURE_REASON}: ${start_out}" >&2
+    echo "[android-shots] ${FAILURE_REASON}: $(cat "${launch}")" >&2
     return 1
   fi
 
-  pid=""
-  for _ in $(seq 1 80); do
-    pid="$("${ADB_S[@]}" shell pidof com.hiair 2>/dev/null | tr -d '\r' || true)"
-    [[ -n "${pid}" ]] && break
-    sleep 0.5
-  done
+  wait_for_pid() {
+    local attempt pid_out=""
+    for attempt in $(seq 1 100); do
+      pid_out="$("${ADB_S[@]}" shell pidof com.hiair 2>/dev/null | tr -d '\r' || true)"
+      [[ -n "${pid_out}" ]] && { echo "${pid_out}"; return 0; }
+      sleep 0.5
+    done
+    return 1
+  }
+
+  pid="$(wait_for_pid || true)"
+  if [[ -z "${pid}" ]]; then
+    echo "[android-shots] process missing after first launch screen=${screen}; retrying once" >&2
+    sleep 2
+    if ! launch_activity; then
+      FAILURE_REASON="launch retry failed screen=${screen}"
+      echo "[android-shots] ${FAILURE_REASON}" >&2
+      return 1
+    fi
+    pid="$(wait_for_pid || true)"
+  fi
   if [[ -z "${pid}" ]]; then
     FAILURE_REASON="process missing screen=${screen}"
     echo "[android-shots] ${FAILURE_REASON}" >&2
@@ -246,7 +269,9 @@ capture_screen() {
 
   "${ADB_S[@]}" shell uiautomator dump /sdcard/window_dump.xml >/dev/null
   "${ADB_S[@]}" pull /sdcard/window_dump.xml "${xml}" >/dev/null
-  "${ADB_S[@]}" exec-out screencap -p > "${png}"
+  "${ADB_S[@]}" exec-out screencap -p > "${raw_png}"
+  cp "${raw_png}" "${png}"
+  "${ADB_S[@]}" shell dumpsys window windows >"${window_dump}" 2>/dev/null || true
   "${ADB_S[@]}" shell logcat -d -t "${stamp}" > "${log}" 2>/dev/null || true
 
   if grep -q "FATAL EXCEPTION" "${log}"; then
@@ -255,11 +280,31 @@ capture_screen() {
     return 1
   fi
 
-  if ! python3 "${OPS}/android_capture_validate_cli.py" "${xml}" "${marker}" "${fg_pkg}" >/dev/null 2>"${OUT}/${filename%.png}.validate.err"; then
+  if ! python3 "${OPS}/android_capture_validate_cli.py" "${xml}" "${marker}" "${fg_pkg}" >/dev/null 2>"${OUT}/${shot_id}.validate.err"; then
     FAILURE_REASON="semantic validation failed screen=${screen}"
-    cat "${OUT}/${filename%.png}.validate.err" >&2 || true
+    cat "${OUT}/${shot_id}.validate.err" >&2 || true
     return 1
   fi
+
+  if ! python3 "${OPS}/android_capture_persist_evidence.py" \
+    --out-dir "${OUT}" \
+    --shot-id "${shot_id}" \
+    --status "PASS" \
+    --png "${raw_png}" \
+    --xml "${xml}" \
+    --logcat "${log}" \
+    --window-dump "${window_dump}" \
+    --reject-reason "" \
+    --foreground "${fg_pkg}" \
+    --pid "${pid}" \
+    --apk-sha256 "${APK_SHA}" \
+    --source-sha "${SOURCE_SHA}" \
+    --dirty-hash "${DIRTY}" >>"${OUT}/${shot_id}.persist.log" 2>&1; then
+    FAILURE_REASON="shelf or crop failure screen=${screen}"
+    echo "[android-shots] ${FAILURE_REASON}" >&2
+    return 1
+  fi
+  cp "${app_png}" "${png}"
 
   validation_json="$(python3 - <<'PY' "${OPS}" "${xml}" "${marker}" "${fg_pkg}"
 import json, sys
@@ -274,13 +319,17 @@ print(json.dumps(result.to_dict()))
 PY
 )"
 
-  python3 - <<'PY' "${SCREENS_JSON}" "${screen}" "${filename}" "${marker}" "${fg_pkg}" "${pid}" "${launch}" \
-    "${xml}" "${log}" "${png}" "${validation_json}"
+  python3 - <<'PY' "${SCREENS_JSON}" "${screen}" "${filename}" "${shot_id}" "${marker}" "${fg_pkg}" "${pid}" "${launch}" \
+    "${xml}" "${log}" "${png}" "${app_png}" "${raw_png}" "${validation_json}"
 import hashlib, json, sys
 from pathlib import Path
-screens_path, screen, filename, marker, fg, pid, launch, xml, log, png, validation_json = sys.argv[1:]
+(
+    screens_path, screen, filename, shot_id, marker, fg, pid, launch,
+    xml, log, png, app_png, raw_png, validation_json,
+) = sys.argv[1:]
 screens = json.loads(Path(screens_path).read_text(encoding="utf-8"))
 validation = json.loads(validation_json)
+out_dir = Path(png).parent
 entry = {
     "filename": filename,
     "expected_screen": screen,
@@ -296,6 +345,9 @@ entry = {
     "logcat_path": log,
     "logcat_sha256": hashlib.sha256(Path(log).read_bytes()).hexdigest(),
     "png_path": png,
+    "app_png_path": app_png,
+    "raw_png_path": raw_png,
+    "capture_meta_path": str(out_dir / f"{shot_id}.capture_meta.json"),
     "png_sha256": hashlib.sha256(Path(png).read_bytes()).hexdigest(),
     "visual_review_result": "PENDING",
 }
