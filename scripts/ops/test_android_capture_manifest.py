@@ -10,7 +10,12 @@ from pathlib import Path
 OPS = Path(__file__).resolve().parent
 sys.path.insert(0, str(OPS))
 
-from android_capture_lib import compute_aggregate_status, provenance_ready  # noqa: E402
+from android_capture_lib import (  # noqa: E402
+    compute_aggregate_status,
+    provenance_ready,
+    sync_visual_review_to_manifest,
+    visual_review_is_complete,
+)
 
 
 def _screen(*, semantic: bool = True, visual: str = "PENDING") -> dict:
@@ -141,6 +146,30 @@ class AggregateStatusTests(unittest.TestCase):
         self.assertEqual(semantic, "PASS")
         self.assertEqual(visual, "PASS")
         self.assertEqual(blockers, [])
+
+
+class VisualReviewSyncTests(unittest.TestCase):
+    def test_sync_manifest_from_completed_review(self) -> None:
+        manifest = {
+            "shots": [
+                {"id": "phone-planner", "status": "PASS", "visual_review": "PENDING"},
+                {"id": "phone-planner-end-scroll", "status": "PASS", "visual_review": "PENDING"},
+            ],
+        }
+        review = {
+            "visual_gate": "12/12 PASS",
+            "shelf_gate": "12/12 PASS",
+            "reviewed_at": "2026-08-25T01:47:00Z",
+            "shots": [{"id": "phone-planner", "visual_result": "PASS"}],
+        }
+        sync_visual_review_to_manifest(manifest, review)
+        self.assertEqual(manifest["visual_review"], "12/12 PASS")
+        self.assertEqual(manifest["shots"][0]["visual_review"], "PASS")
+        self.assertEqual(manifest["shots"][1]["visual_review"], "SUPPLEMENTAL")
+
+    def test_complete_review_detection(self) -> None:
+        self.assertTrue(visual_review_is_complete({"visual_gate": "12/12 PASS"}))
+        self.assertFalse(visual_review_is_complete({"visual_gate": "PENDING MANUAL REVIEW"}))
 
 
 if __name__ == "__main__":
