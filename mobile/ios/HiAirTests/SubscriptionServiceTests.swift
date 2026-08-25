@@ -89,6 +89,29 @@ final class SubscriptionServiceTests: XCTestCase {
         let generic = service.userFacingMessage(for: .server(statusCode: 503), language: "en")
         XCTAssertTrue(generic.localizedCaseInsensitiveContains("unavailable"))
     }
+
+    func testAppAccountTokenFromUUIDUserId() {
+        let userId = "E621E1F8-C36C-495A-93FC-0C247A3E6E5F"
+        XCTAssertEqual(
+            SubscriptionService.appAccountToken(from: userId),
+            UUID(uuidString: userId)
+        )
+    }
+
+    func testAppAccountTokenFromOpaqueUserIdIsStable() {
+        let first = SubscriptionService.appAccountToken(from: "hiair-user-42")
+        let second = SubscriptionService.appAccountToken(from: "hiair-user-42")
+        XCTAssertNotNil(first)
+        XCTAssertEqual(first, second)
+        XCTAssertNotEqual(first, SubscriptionService.appAccountToken(from: "other-user"))
+    }
+
+    func testPurchaseOptionsAttachAppAccountToken() {
+        let userId = UUID().uuidString
+        let options = SubscriptionService.purchaseOptions(for: userId)
+        XCTAssertFalse(options.isEmpty)
+        XCTAssertNotNil(SubscriptionService.appAccountToken(from: userId))
+    }
 }
 
 private final class MockProductFetcher: StoreProductFetching, @unchecked Sendable {

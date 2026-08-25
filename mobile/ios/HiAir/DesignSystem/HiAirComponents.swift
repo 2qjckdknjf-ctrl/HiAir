@@ -9,8 +9,7 @@ struct HiAirBackgroundView: View {
 
     var body: some View {
         ZStack {
-            HiAirGradients.timeOfDay(for: date)
-                .ignoresSafeArea()
+            HiAirAtmosphericBackground(date: date, atmosphereTint: atmosphereTint)
             if showAtmosphere {
                 HiAirAtmosphericLayer(tint: atmosphereTint)
             }
@@ -195,11 +194,16 @@ struct HiAirGradientButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 4)
             .background(HiAirGradients.cta())
-            .clipShape(RoundedRectangle(cornerRadius: HiAirRadius.md, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: HiAirRadius.cta, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: HiAirRadius.cta, style: .continuous)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    .blendMode(.screen)
+            )
             .shadow(color: HiAirShadow.ctaGlow, radius: HiAirShadow.ctaRadius, x: 0, y: HiAirShadow.ctaYOffset)
             .opacity(configuration.isPressed ? 0.92 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(HiAirMotion.springSnappy, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? HiAirMotion.pressScale : 1.0)
+            .animation(.easeOut(duration: HiAirMotion.press), value: configuration.isPressed)
     }
 }
 
@@ -210,42 +214,36 @@ struct HiAirSecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(HiAirColors.Text.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 4)
-            .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
+            .hiAirGlassSurface(prominence: .active, cornerRadius: HiAirRadius.cta)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(HiAirMotion.springSnappy, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? HiAirMotion.pressScale : 1.0)
+            .animation(.easeOut(duration: HiAirMotion.press), value: configuration.isPressed)
     }
 }
 
 // MARK: - Cards
 
 struct HiAirCard<Content: View>: View {
-    @ViewBuilder let content: Content
+    var prominence: HiAirGlassProminence = .standard
     var padding: CGFloat = HiAirSpacing.md
+    var glow: Color = HiAirColors.Spectrum.cyan
+    @ViewBuilder let content: Content
 
     var body: some View {
         content
             .padding(padding)
-            .background(cardBackground)
-    }
-
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: HiAirRadius.lg, style: .continuous)
-            .fill(TimeOfDayBackground.surfacePrimary().opacity(0.94))
-            .overlay(
-                RoundedRectangle(cornerRadius: HiAirRadius.lg, style: .continuous)
-                    .stroke(HiAirColors.Overlay.borderSoft, lineWidth: 1)
-            )
+            .hiAirGlassSurface(prominence: prominence, glow: glow)
     }
 }
 
 struct HiAirGlassCard<Content: View>: View {
+    var prominence: HiAirGlassProminence = .standard
     @ViewBuilder let content: Content
 
     var body: some View {
         content
             .padding(HiAirSpacing.md)
-            .hiAirLiquidGlass(cornerRadius: HiAirRadius.lg, variant: .regular)
+            .hiAirGlassSurface(prominence: prominence)
             .hiAirLiquidGlassMaterialize()
     }
 }
@@ -566,10 +564,13 @@ extension View {
     }
 
     func hiAirInputSurface() -> some View {
-        hiAirLiquidGlass(cornerRadius: HiAirRadius.sm + 4, variant: .clear)
+        hiAirGlassSurface(prominence: .compact, cornerRadius: HiAirRadius.sm + 4)
     }
 
     func hiAirPageBackground() -> some View {
-        background(HiAirGradients.timeOfDay().ignoresSafeArea())
+        background {
+            HiAirAtmosphericBackground()
+                .ignoresSafeArea()
+        }
     }
 }

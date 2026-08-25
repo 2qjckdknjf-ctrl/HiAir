@@ -25,6 +25,7 @@ internal object DashboardScreenRenderer {
         val bodyContainer = ctx.bodyContainer
 
         ctx.titleView.text = ctx.l("dashboard.greeting_neutral")
+        HiAirComponents.hidePageTitle(ctx.titleView)
         bodyContainer.addView(
             HiAirComponents.brandHeader(
                 activity,
@@ -33,6 +34,18 @@ internal object DashboardScreenRenderer {
                 orbSizeDp = 44,
             )
         )
+        bodyContainer.addView(
+            V2Ui.styledBodyText(activity, ctx.l("dashboard.greeting_neutral")).apply {
+                textSize = 26f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(com.hiair.ui.design.HiAirColors.Text.primary)
+            }
+        )
+        bodyContainer.addView(V2Ui.spacer(activity, 4))
+        bodyContainer.addView(
+            V2Ui.styledSecondaryText(activity, ctx.l("auth.subtitle")).apply { textSize = 14f }
+        )
+        bodyContainer.addView(V2Ui.spacer(activity, 12))
 
         when (ctx.rootShell.dashboardViewModel.state.status) {
             DashboardStatus.INITIAL -> {
@@ -472,6 +485,22 @@ internal object DashboardScreenRenderer {
                 V2Ui.styledBodyText(activity, value).apply {
                     textSize = 13f
                     setTextColor(Tokens.Text.primary)
+                }
+            )
+        }
+    }
+
+    private fun metricTile(ctx: RenderContext, label: String, value: String): View {
+        val activity = ctx.activity
+        return HiAirComponents.cardContainer(activity).apply {
+            addView(
+                V2Ui.styledSecondaryText(activity, label).apply { textSize = 11f }
+            )
+            addView(
+                V2Ui.styledBodyText(activity, value).apply {
+                    textSize = 22f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    setTextColor(com.hiair.ui.design.HiAirColors.Text.primary)
                 }
             )
         }

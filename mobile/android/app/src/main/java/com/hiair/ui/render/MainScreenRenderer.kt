@@ -16,7 +16,8 @@ class MainScreenRenderer(
     private val overlayContainer: FrameLayout,
     private val persistSession: () -> Unit,
     private val clearSession: () -> Unit,
-    private val rerender: () -> Unit
+    private val rerender: () -> Unit,
+    private val restorePurchases: () -> Unit = {},
 ) {
     private val ctx = RenderContext(
         activity = activity,
@@ -26,7 +27,8 @@ class MainScreenRenderer(
         overlayContainer = overlayContainer,
         persistSession = persistSession,
         clearSession = clearSession,
-        rerender = rerender
+        rerender = rerender,
+        restorePurchases = restorePurchases,
     )
 
     fun renderFirstRun(onboardingStore: OnboardingStore) {

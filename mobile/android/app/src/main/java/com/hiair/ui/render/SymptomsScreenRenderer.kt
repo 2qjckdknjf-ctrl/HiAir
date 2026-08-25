@@ -26,8 +26,11 @@ internal object SymptomsScreenRenderer {
         val activity = ctx.activity
         val bodyContainer = ctx.bodyContainer
 
-        bodyContainer.addView(HiAirComponents.brandHeader(activity))
-        ctx.titleView.text = ctx.l("title.symptoms")
+        bodyContainer.addView(HiAirComponents.screenWordmark(activity, ctx.l("nav.symptoms")))
+        HiAirComponents.hidePageTitle(ctx.titleView)
+        bodyContainer.addView(
+            V2Ui.styledBodyText(activity, ctx.l("title.symptoms")).apply { textSize = 22f }
+        )
         bodyContainer.addView(
             V2Ui.styledSecondaryText(activity, ctx.l("symptoms.subtitle")).apply { textSize = 13f },
         )

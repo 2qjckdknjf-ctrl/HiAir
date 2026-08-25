@@ -42,7 +42,7 @@ internal object FirstRunOnboardingRenderer {
             currentStep = STEP_AUTH
         }
 
-        ctx.titleView.text = ctx.l("onboarding.title")
+        HiAirComponents.hidePageTitle(ctx.titleView)
         ctx.bodyContainer.addView(
             HiAirComponents.brandHeader(
                 activity,
@@ -120,6 +120,21 @@ internal object FirstRunOnboardingRenderer {
             },
         )
         card.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_google")).apply {
+                setOnClickListener {
+                    ctx.rootShell.settingsViewModel.launchGoogleOAuth()
+                }
+            },
+        )
+        card.addView(V2Ui.styledSecondaryText(activity, ctx.l("auth.legal")).apply {
+            textSize = 12f
+            setTextColor(Tokens.Text.tertiary)
+        })
+        card.addView(V2Ui.styledSecondaryText(activity, ctx.l("onboarding.date_of_birth.body")).apply {
+            textSize = 12f
+            setTextColor(Tokens.Text.tertiary)
+        })
+        card.addView(
             HiAirComponents.secondaryButton(activity, ctx.l("onboarding.auth.open_settings")).apply {
                 setOnClickListener {
                     ctx.rootShell.openSettings()
@@ -138,6 +153,11 @@ internal object FirstRunOnboardingRenderer {
         card.addView(bulletRow(ctx, ctx.l("onboarding.problem.pm25")))
         card.addView(bulletRow(ctx, ctx.l("onboarding.problem.ozone")))
         card.addView(bulletRow(ctx, ctx.l("onboarding.problem.sensitive")))
+        card.addView(V2Ui.spacer(activity, 8))
+        card.addView(V2Ui.styledSecondaryText(activity, ctx.l("onboarding.date_of_birth.body")).apply {
+            textSize = 12f
+            setTextColor(Tokens.Text.tertiary)
+        })
     }
 
     private fun renderLocationStep(ctx: RenderContext, card: LinearLayout) {
@@ -198,30 +218,6 @@ internal object FirstRunOnboardingRenderer {
             )
         }
 
-        when (currentStep) {
-            STEP_AUTH -> Unit
-            STEP_LOCATION -> {
-                row.addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("onboarding.permissions.later")).apply {
-                        setOnClickListener {
-                            currentStep = STEP_HEALTH
-                            ctx.rerender()
-                        }
-                    },
-                )
-            }
-            STEP_HEALTH -> {
-                row.addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.skip")).apply {
-                        setOnClickListener {
-                            currentStep = STEP_DONE
-                            ctx.rerender()
-                        }
-                    },
-                )
-            }
-        }
-
         row.addView(
             HiAirComponents.primaryButton(activity, primaryButtonTitle(ctx)).apply {
                 setOnClickListener {
@@ -237,7 +233,7 @@ internal object FirstRunOnboardingRenderer {
             STEP_AUTH -> ctx.l("settings.log_in")
             STEP_VALUE -> ctx.l("onboarding.next")
             STEP_LOCATION -> ctx.l("onboarding.permissions.allow")
-            STEP_HEALTH -> ctx.l("wearable.consent.connect")
+            STEP_HEALTH -> ctx.l("onboarding.permissions.allow")
             STEP_DONE -> ctx.l("onboarding.open_forecast")
             else -> ctx.l("onboarding.next")
         }

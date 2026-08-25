@@ -1,5 +1,8 @@
 package com.hiair.ui.render
 
+import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
@@ -30,8 +33,8 @@ internal object SettingsScreenRenderer {
         val persistSession = ctx.persistSession
         val clearSession = ctx.clearSession
 
-        bodyContainer.addView(HiAirComponents.brandHeader(activity, tagline = ctx.l("auth.subtitle"), showOrb = true, orbSizeDp = 96))
-        titleView.text = ctx.l("title.settings")
+        bodyContainer.addView(HiAirComponents.screenWordmark(activity, ctx.l("nav.settings")))
+        HiAirComponents.hidePageTitle(titleView)
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply { textSize = 13f })
         val emailInput = HiAirComponents.inputField(activity, ctx.l("settings.email"))
         val passwordInput = HiAirComponents.inputField(activity, ctx.l("settings.password"))
@@ -326,20 +329,27 @@ internal object SettingsScreenRenderer {
         }
         val deleteAccountButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
             setOnClickListener {
-                statusText.text = ctx.l("common.loading")
-                Thread {
-                    val deleted = rootShell.settingsViewModel.deleteAccount()
-                    val updated = rootShell.settingsViewModel.state
-                    activity.runOnUiThread {
-                        if (deleted) {
-                            clearSession()
-                            emailInput.setText("")
-                            passwordInput.setText("")
-                        }
-                        privacyExportSummary.text = updated.privacyExportSummary
-                        statusText.text = updated.statusText
+                AlertDialog.Builder(activity)
+                    .setTitle(ctx.l("settings.delete_account_confirm_title"))
+                    .setMessage(ctx.l("settings.delete_account_warning"))
+                    .setNegativeButton(ctx.l("common.close"), null)
+                    .setPositiveButton(ctx.l("settings.delete_account_confirm")) { _, _ ->
+                        statusText.text = ctx.l("common.loading")
+                        Thread {
+                            val deleted = rootShell.settingsViewModel.deleteAccount()
+                            val updated = rootShell.settingsViewModel.state
+                            activity.runOnUiThread {
+                                if (deleted) {
+                                    clearSession()
+                                    emailInput.setText("")
+                                    passwordInput.setText("")
+                                }
+                                privacyExportSummary.text = updated.privacyExportSummary
+                                statusText.text = updated.statusText
+                            }
+                        }.start()
                     }
-                }.start()
+                    .show()
             }
         }
         val loadAiSummaryButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.load_ai_summary")).apply {
@@ -384,12 +394,6 @@ internal object SettingsScreenRenderer {
             addView(HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_google")).apply {
                 setOnClickListener {
                     rootShell.settingsViewModel.launchGoogleOAuth()
-                    statusText.text = ctx.l("auth.oauth_continue")
-                }
-            })
-            addView(HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_apple")).apply {
-                setOnClickListener {
-                    rootShell.settingsViewModel.launchAppleOAuth()
                     statusText.text = ctx.l("auth.oauth_continue")
                 }
             })
@@ -882,10 +886,51 @@ internal object SettingsScreenRenderer {
                 ctx.rerender()
             }
         }
-
-        val premiumStatusText = V2Ui.styledBodyText(activity, ctx.l("settings.premium_active")).apply {
-            visibility = if (rootShell.settingsViewModel.state.isPremium) View.VISIBLE else View.GONE
+        val restorePurchasesButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.restore_purchases")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("paywall.restoring")
+                ctx.restorePurchases()
+            }
         }
+        val manageSubscriptionButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.manage_subscription")).apply {
+            setOnClickListener {
+                runCatching {
+                    activity.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/account/subscriptions"),
+                        )
+                    )
+                }
+            }
+        }
+        val supportEmailButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.support_email")).apply {
+            setOnClickListener {
+                runCatching {
+                    activity.startActivity(
+                        Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:hello@hiair.io"))
+                    )
+                }
+            }
+        }
+        val websiteHelpButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.website_help")).apply {
+            setOnClickListener {
+                runCatching {
+                    activity.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://hiair.io"))
+                    )
+                }
+            }
+        }
+
+        val premiumStatusText = V2Ui.styledBodyText(
+            activity,
+            if (rootShell.settingsViewModel.state.isPremium) {
+                ctx.l("settings.premium_active")
+            } else {
+                ctx.l("settings.premium_inactive")
+            },
+        )
 
         val subscriptionCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.subscription"))
@@ -893,6 +938,8 @@ internal object SettingsScreenRenderer {
             if (!rootShell.settingsViewModel.state.isPremium) {
                 addView(upgradePremiumButton)
             }
+            addView(restorePurchasesButton)
+            addView(manageSubscriptionButton)
             if (BuildConfig.DEBUG) {
                 addView(subscriptionSpinner)
                 addView(loadPlansButton)
@@ -902,6 +949,35 @@ internal object SettingsScreenRenderer {
             }
         }
         bodyContainer.addView(subscriptionCard)
+
+        val helpCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.help"))
+            addView(supportEmailButton)
+            addView(websiteHelpButton)
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("paywall.terms")).apply {
+                    setOnClickListener {
+                        runCatching {
+                            activity.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://hiair.io/terms/"))
+                            )
+                        }
+                    }
+                }
+            )
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("paywall.privacy")).apply {
+                    setOnClickListener {
+                        runCatching {
+                            activity.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://hiair.io/privacy/"))
+                            )
+                        }
+                    }
+                }
+            )
+        }
+        bodyContainer.addView(helpCard)
 
         val advancedAiContainer = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL

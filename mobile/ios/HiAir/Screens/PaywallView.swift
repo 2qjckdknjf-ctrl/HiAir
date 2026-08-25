@@ -1,12 +1,47 @@
+import SafariServices
 import StoreKit
 import SwiftUI
 
 struct PaywallView: View {
+    var body: some View {
+        Group {
+            if #available(iOS 17.0, *) {
+                PaywallPurchaseEnvironment { perform in
+                    PaywallContent(performPurchase: perform)
+                }
+            } else {
+                PaywallContent(performPurchase: { product, options in
+                    try await product.purchase(options: options)
+                })
+            }
+        }
+    }
+}
+
+@available(iOS 17.0, *)
+private struct PaywallPurchaseEnvironment<Content: View>: View {
+    @Environment(\.purchase) private var purchase
+    let content: (@escaping SubscriptionService.StoreKitPurchase) -> Content
+
+    init(content: @escaping (@escaping SubscriptionService.StoreKitPurchase) -> Content) {
+        self.content = content
+    }
+
+    var body: some View {
+        content { product, options in
+            try await purchase(product, options: options)
+        }
+    }
+}
+
+private struct PaywallContent: View {
+    let performPurchase: SubscriptionService.StoreKitPurchase
     @EnvironmentObject var session: AppSession
     @EnvironmentObject var subscriptionService: SubscriptionService
     @Environment(\.dismiss) private var dismiss
     @State private var purchasingProductId: String?
     @State private var statusMessage = ""
+    @State private var safariURL: URL?
 
     private var purchaseBusy: Bool {
         purchasingProductId != nil || subscriptionService.isPurchaseInProgress
@@ -14,8 +49,8 @@ struct PaywallView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                ScrollView {
+            HiAirAdaptiveLayout { width, _ in
+            ScrollView {
                     VStack(alignment: .leading, spacing: HiAirSpacing.lg) {
                         HiAirBrandHeader(
                             title: session.l("paywall.title"),
@@ -25,9 +60,7 @@ struct PaywallView: View {
                             compact: false
                         )
 
-                        comparisonCard
-                        examplesCard
-                        benefitsCard
+                        requiredSubscriptionFacts
                         catalogContent
 
                         Button(session.l("paywall.restore")) {
@@ -36,15 +69,22 @@ struct PaywallView: View {
                         .buttonStyle(HiAirSecondaryButtonStyle())
                         .disabled(purchaseBusy)
 
-                        Text(session.l("paywall.disclaimer"))
+                        Text(session.l("paywall.legal_auto_renew"))
                             .font(HiAirTypography.caption)
                             .foregroundStyle(HiAirColors.Text.secondary)
 
-                        HStack(spacing: HiAirSpacing.md) {
-                            Link(session.l("paywall.terms"), destination: URL(string: "https://hiair.io/terms/")!)
-                            Link(session.l("paywall.privacy"), destination: URL(string: "https://hiair.io/privacy/")!)
+                        Button(session.l("settings.manage_subscription")) {
+                            Task { await subscriptionService.showManageSubscriptions() }
                         }
-                        .font(HiAirTypography.caption)
+                        .font(HiAirTypography.bodyMD)
+
+                        comparisonCard
+                        examplesCard
+                        benefitsCard
+
+                        Text(session.l("paywall.disclaimer"))
+                            .font(HiAirTypography.caption)
+                            .foregroundStyle(HiAirColors.Text.secondary)
 
                         if !statusMessage.isEmpty {
                             Text(statusMessage)
@@ -52,17 +92,9 @@ struct PaywallView: View {
                                 .foregroundStyle(HiAirColors.Text.secondary)
                         }
                     }
-                    .padding()
-                }
-
-                if purchaseBusy {
-                    Color.black.opacity(0.25)
-                        .ignoresSafeArea()
-                        .allowsHitTesting(true)
-                    ProgressView(session.l("paywall.purchasing"))
-                        .padding()
-                        .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
-                }
+                    .hiAirContentWidth(for: width)
+                    .hiAirScreenPadding(for: width)
+                    .padding(.bottom, HiAirSpacing.xl)
             }
             .navigationTitle(session.l("paywall.nav_title"))
             .toolbar {
@@ -72,12 +104,102 @@ struct PaywallView: View {
                         .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
                 }
             }
+            .interactiveDismissDisabled(purchaseBusy)
             .onAppear {
                 SubscriptionDiagnostics.log("paywall_appeared", resultType: "\(subscriptionService.catalogState)")
                 subscriptionService.loadProducts()
             }
+            .onChange(of: session.isPremium) { isPremium in
+                if isPremium { dismiss() }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .sheet(isPresented: Binding(
+                get: { safariURL != nil },
+                set: { if !$0 { safariURL = nil } }
+            )) {
+                if let safariURL {
+                    PaywallSafariView(url: safariURL)
+                        .ignoresSafeArea()
+                }
+            }
+            }
         }
+        .preferredColorScheme(.dark)
         .hiAirPageBackground()
+        .interactiveDismissDisabled(purchaseBusy)
+        .accessibilityIdentifier(HiAirAccessibilityID.Paywall.root)
+    }
+
+    private var termsURL: URL { URL(string: "https://hiair.io/terms/")! }
+    private var privacyURL: URL { URL(string: "https://hiair.io/privacy/")! }
+
+    private var requiredSubscriptionFacts: some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.md) {
+            HiAirSectionHeader(title: session.l("paywall.required_info"))
+            subscriptionFactRow(
+                product: subscriptionService.monthlyProduct,
+                fallbackTitle: session.l("paywall.offer_title_monthly"),
+                length: session.l("paywall.length_month")
+            )
+            subscriptionFactRow(
+                product: subscriptionService.yearlyProduct,
+                fallbackTitle: session.l("paywall.offer_title_yearly"),
+                length: session.l("paywall.length_year")
+            )
+            Text(session.l("paywall.service_period"))
+                .font(HiAirTypography.caption)
+                .foregroundStyle(HiAirColors.Text.secondary)
+            HStack(spacing: HiAirSpacing.md) {
+                policyButton(session.l("paywall.terms"), url: termsURL)
+                policyButton(session.l("paywall.privacy"), url: privacyURL)
+            }
+        }
+        .v2Card()
+        .accessibilityIdentifier(HiAirAccessibilityID.Paywall.legalCopy)
+    }
+
+    private func policyButton(_ title: String, url: URL) -> some View {
+        Button(title) { safariURL = url }
+            .font(HiAirTypography.bodyMD)
+            .foregroundStyle(HiAirColors.Spectrum.cyan)
+    }
+
+    private func subscriptionFactRow(product: Product?, fallbackTitle: String, length: String) -> some View {
+        // Always use ASC-style offer titles so monthly/yearly stay distinct even when
+        // StoreKit displayName is the shared group name "HiAir Premium".
+        let price = resolvedDisplayPrice(product, yearly: length == session.l("paywall.length_year"))
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(fallbackTitle)
+                .font(HiAirTypography.titleMD)
+                .foregroundStyle(HiAirColors.Text.primary)
+            Text(length)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
+            Text(price)
+                .font(HiAirTypography.titleMD)
+                .foregroundStyle(HiAirColors.Text.primary)
+            if let perMonth = yearlyPerMonthPrice(product) {
+                Text(String(format: session.l("paywall.price_per_month"), perMonth))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func resolvedDisplayPrice(_ product: Product?, yearly: Bool) -> String {
+        if let product, !product.displayPrice.isEmpty {
+            return product.displayPrice
+        }
+        return session.l("paywall.price_pending")
+    }
+
+    private func yearlyPerMonthPrice(_ product: Product?) -> String? {
+        guard let product, product.id == StoreProductIDs.yearly else { return nil }
+        guard let period = product.subscription?.subscriptionPeriod, period.unit == .year else { return nil }
+        let monthly = product.price / Decimal(12)
+        return monthly.formatted(product.priceFormatStyle)
     }
 
     private var comparisonCard: some View {
@@ -118,8 +240,8 @@ struct PaywallView: View {
     private var catalogContent: some View {
         switch subscriptionService.catalogState {
         case .idle, .loading:
-            ProgressView(session.l("paywall.loading"))
-                .frame(maxWidth: .infinity)
+            // Fact card already shows title/length/price; avoid a second loading spinner on iPad.
+            EmptyView()
         case .loaded, .purchasing:
             if let monthly = subscriptionService.monthlyProduct {
                 planOffer(product: monthly, titleKey: "paywall.plan_monthly", subscribeKey: "paywall.subscribe_monthly")
@@ -177,22 +299,29 @@ struct PaywallView: View {
     private func planOffer(product: Product, titleKey: String, subscribeKey: String) -> some View {
         let isPurchasing = purchasingProductId == product.id
         let disabledReason = subscribeDisabledReason(for: product)
+        let yearly = product.id == StoreProductIDs.yearly
+        let length = yearly ? session.l("paywall.length_year") : session.l("paywall.length_month")
 
         VStack(alignment: .leading, spacing: HiAirSpacing.sm) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.l(titleKey))
-                        .font(HiAirTypography.titleMD)
-                        .foregroundStyle(HiAirColors.Text.primary)
-                    Text(product.description)
-                        .font(HiAirTypography.caption)
-                        .foregroundStyle(HiAirColors.Text.secondary)
-                }
-                Spacer()
-                Text(product.displayPrice)
-                    .font(HiAirTypography.titleMD)
-                    .foregroundStyle(HiAirColors.Text.primary)
-            }
+            Text(planDisplayTitle(product: product, titleKey: titleKey))
+                .font(HiAirTypography.titleMD)
+                .foregroundStyle(HiAirColors.Text.primary)
+            Text(length)
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
+                .accessibilityIdentifier(
+                    yearly
+                        ? HiAirAccessibilityID.Paywall.lengthYearly
+                        : HiAirAccessibilityID.Paywall.lengthMonthly
+                )
+            Text(product.displayPrice)
+                .font(HiAirTypography.titleMD)
+                .foregroundStyle(HiAirColors.Text.primary)
+                .accessibilityIdentifier(
+                    yearly
+                        ? HiAirAccessibilityID.Paywall.priceYearly
+                        : HiAirAccessibilityID.Paywall.priceMonthly
+                )
 
             Button {
                 handleSubscribeTap(product: product, disabledReason: disabledReason)
@@ -202,6 +331,11 @@ struct PaywallView: View {
             }
             .buttonStyle(HiAirGradientButtonStyle())
             .disabled(disabledReason != nil)
+            .accessibilityIdentifier(
+                yearly
+                    ? HiAirAccessibilityID.Paywall.subscribeYearly
+                    : HiAirAccessibilityID.Paywall.subscribeMonthly
+            )
         }
         .padding()
         .v2Card()
@@ -232,6 +366,20 @@ struct PaywallView: View {
         .padding(HiAirSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .hiAirTileSurface()
+    }
+
+    private func planDisplayTitle(product: Product, titleKey: String) -> String {
+        let fallback = session.l(titleKey)
+        let name = product.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return fallback }
+        let lower = name.lowercased()
+        let distinguishesPeriod =
+            lower.contains("month") || lower.contains("year")
+            || lower.contains("месяц") || lower.contains("год")
+            || lower.contains("mensual") || lower.contains("anual")
+            || lower.contains("mensile") || lower.contains("annuale")
+            || lower.contains("mensuel") || lower.contains("annuel")
+        return distinguishesPeriod ? name : fallback
     }
 
     private func subscribeDisabledReason(for product: Product) -> String? {
@@ -280,7 +428,8 @@ struct PaywallView: View {
             let status = try await subscriptionService.purchase(
                 product,
                 userId: session.userId,
-                accessToken: session.accessToken
+                accessToken: session.accessToken,
+                performPurchase: performPurchase
             )
             session.applyEntitlement(status.entitlement)
             if status.entitlement?.isPremium == true || session.isPremium {
@@ -315,6 +464,9 @@ struct PaywallView: View {
         } catch SubscriptionServiceError.purchaseInProgress {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "in_progress")
             statusMessage = session.l("paywall.purchase_in_progress")
+        } catch SubscriptionServiceError.purchaseSceneUnavailable {
+            RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "scene_unavailable")
+            statusMessage = session.l("paywall.generic_error")
         } catch let error as APIError {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "api")
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
@@ -356,4 +508,14 @@ struct PaywallView: View {
             statusMessage = session.l("paywall.generic_error")
         }
     }
+}
+
+private struct PaywallSafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }

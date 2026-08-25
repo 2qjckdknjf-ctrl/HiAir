@@ -27,20 +27,21 @@ enum TimeOfDayPhase {
         }
     }
 
+    /// Deep Glass navy family with a slight time-of-day bias — never a light sky.
     var colors: [Color] {
         switch self {
         case .dawn:
-            return [Color(hex: 0x1A1530), Color(hex: 0x2B2050)]
+            return [HiAirColors.Surface.bg0, Color(hex: 0x16102C)]
         case .morning:
-            return [Color(hex: 0x1B2845), Color(hex: 0x2A4373)]
+            return [HiAirColors.Surface.bg0, HiAirColors.Surface.bg2]
         case .midday:
-            return [Color(hex: 0x1F3260), Color(hex: 0x2E4A8A)]
+            return [HiAirColors.Surface.bg1, Color(hex: 0x10244A)]
         case .afternoon:
-            return [Color(hex: 0x2A2547), Color(hex: 0x3D2F5C)]
+            return [HiAirColors.Surface.bg0, Color(hex: 0x14142E)]
         case .evening:
-            return [Color(hex: 0x1A1A35), Color(hex: 0x25193D)]
+            return [HiAirColors.Surface.bg0, Color(hex: 0x120E28)]
         case .night:
-            return [Color(hex: 0x0E1226), Color(hex: 0x181D38)]
+            return [HiAirColors.Surface.bg0, HiAirColors.Surface.bg1]
         }
     }
 }
