@@ -33,7 +33,9 @@
 - With consent but no synced aggregates → empty baselines, `no_wearable_aggregates`
 
 ## Not yet
-- Wire baselines into alert thresholds and activity planner weighting
+- [x] Wire baselines into alert thresholds (one-step more sensitive when recovery strain vs personal baselines)
+- [x] Wire sleep-vs-7d-baseline into personal load (feeds activity planner weighting)
+- Travel-mode place override remains under 1.5
 
 ## Mobile follow-through (user-initiated)
 - Planner "Mark workout moved" records `workout_moved` via `POST /api/insights/protected-day-events` (iOS + Android)

@@ -768,7 +768,7 @@ HiAir reaches the intended 10/10 product state when:
 | 1.3 Multi-Hazard | Dust (PM10) + NO2 live env/hazard scoring DEPLOYED; pollen/smoke open; prod smoke PASS |
 | 1.4 Alert Decision Engine | Threshold gate + suppress telemetry + 60min cooldown DEPLOYED (`POST /api/alerts/decide`) |
 | 1.5 Saved Places | Backend + family Postgres + Dashboard risk card DEPLOYED; prod smoke PASS |
-| 1.6 Personal Adaptation | Backend + Insights + protected-day marks DEPLOYED; prod smoke PASS |
+| 1.6 Personal Adaptation | Baselines → alert sensitivity + planner load (sleep/RHR/HRV) DEPLOYED pending |
 | 2.0 Work / B2B Safety | Backend + Settings UI DEPLOYED (`GET /api/work/site-risk`; Heat Index ≠ WBGT) |
 
 Notes:

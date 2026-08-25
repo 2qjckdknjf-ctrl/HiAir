@@ -11,6 +11,7 @@ from app.models.air import (
 from app.models.settings import UserSettingsResponse
 from app.services.air_recommendation_engine import generate_recommendation
 from app.services.alert_orchestrator import evaluate_alert
+from app.services.personal_load_engine import PersonalLoadInput
 import pytest
 
 
@@ -19,6 +20,10 @@ def _no_alert_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.services.alert_orchestrator.air_repository.minutes_until_alert_cooldown_elapsed",
         lambda profile_id, cooldown_minutes=60, *, alert_type=None: 0,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.wearable_service.build_personal_load_input",
+        lambda user_id, environment=None: PersonalLoadInput(consent_active=False),
     )
 
 
@@ -309,3 +314,49 @@ def test_evaluate_alert_passes_per_type_cooldown(monkeypatch) -> None:
     )
     assert captured["alert_type"] == "risk_increase"
     assert captured["cooldown_minutes"] == 45
+
+
+def test_evaluate_alert_boosts_threshold_from_personal_baselines(monkeypatch) -> None:
+    """very_high setting + resting-HR strain → effective high → HIGH risk may send."""
+
+    def fake_settings(_: str) -> UserSettingsResponse:
+        return UserSettingsResponse(
+            user_id="user-1",
+            push_alerts_enabled=True,
+            alert_threshold="very_high",
+            default_persona="adult",
+            quiet_hours_start=23,
+            quiet_hours_end=6,
+            profile_based_alerting=True,
+            preferred_language="en",
+        )
+
+    monkeypatch.setattr("app.services.alert_orchestrator.settings_repository.get_user_settings", fake_settings)
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.get_latest_risk_assessment",
+        lambda _: {"overall_risk": "moderate"},
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.air_repository.find_recent_alert_by_dedupe_key",
+        lambda dedupe_key, within_hours=4: False,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator._is_quiet_hours",
+        lambda start_hour, end_hour, now_hour: False,
+    )
+    monkeypatch.setattr(
+        "app.services.alert_orchestrator.wearable_service.build_personal_load_input",
+        lambda user_id, environment=None: PersonalLoadInput(
+            resting_heart_rate=82,
+            resting_heart_rate_baseline_7d=68,
+            consent_active=True,
+        ),
+    )
+
+    # Without boost, very_high would suppress HIGH; with baseline strain → send.
+    decision = evaluate_alert(
+        build_profile(),
+        build_risk(RiskLevel.HIGH),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+    )
+    assert decision.shouldSend is True

@@ -14,11 +14,14 @@ from app.models.alert_decision import (
 )
 from app.services.localization import normalize_language, t
 from app.services.risk_level_contract import normalize_air_level_value
+import app.services.adaptation_sensitivity as adaptation_sensitivity
 import app.services.air_repository as air_repository
 import app.services.alert_cooldown as alert_cooldown
 import app.services.alert_decision_engine as alert_decision_engine
 import app.services.observability as observability
+import app.services.personal_load_engine as personal_load_engine
 import app.services.settings_repository as settings_repository
+import app.services.wearable_service as wearable_service
 
 
 def _severity_from_risk_level(level: str) -> AlertSeverity:
@@ -106,6 +109,16 @@ def evaluate_alert(
         else DecisionReason.SIGNIFICANT_CHANGE
     )
     cooldown_minutes = alert_cooldown.cooldown_minutes_for_alert_type(alert_type.value)
+    # 1.6: when personal baselines show recovery strain, alert one step earlier.
+    try:
+        load_input = wearable_service.build_personal_load_input(profile.user_id)
+        load_result = personal_load_engine.compute_personal_load_score(load_input)
+    except Exception:
+        load_result = None
+    effective_threshold, _boost_reasons = adaptation_sensitivity.effective_alert_threshold(
+        user_settings.alert_threshold,
+        load_result,
+    )
     gate = alert_decision_engine.decide_alert(
         AlertCandidate(
             alertType=alert_type.value,
@@ -123,7 +136,7 @@ def evaluate_alert(
             alreadySentFingerprint=already_sent,
             fingerprint=dedupe_key,
             actionable=current_level in ("high", "very_high") or alert_type == AlertType.RISK_INCREASE,
-            personalThresholdMet=_personal_threshold_met(user_settings.alert_threshold, current_level),
+            personalThresholdMet=_personal_threshold_met(effective_threshold, current_level),
         )
     )
     observability.record_alert_decision(
