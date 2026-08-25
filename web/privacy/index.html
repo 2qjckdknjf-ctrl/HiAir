@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Privacy Policy — HiAir</title>
+    <meta name="description" content="How HiAir collects, uses, protects and deletes account, location, wellness, wearable and subscription data." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://hiair.io/privacy/" />
+    <meta name="theme-color" content="#0b1730" />
+    <link rel="icon" type="image/png" sizes="40x40" href="/favicon-40.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/glass.css" />
   </head>
@@ -15,7 +22,10 @@
         <div class="lg__tint" aria-hidden="true"></div>
         <div class="lg__sheen" aria-hidden="true"></div>
         <div class="lg__content legal-header-glass">
-      <a class="logo" href="/">HiAir</a>
+      <a class="brand brand--legal" href="/" aria-label="HiAir home">
+        <img class="brand__mark" src="/assets/brand/logo-mark.png" alt="" aria-hidden="true" />
+        <img class="brand__wordmark" src="/assets/brand/wordmark-light.png" alt="HiAir" />
+      </a>
       <nav>
         <a href="/">Home</a>
         <a href="/terms/">Terms</a>
@@ -25,61 +35,72 @@
     </header>
     <main class="prose">
       <h1>Privacy Policy</h1>
-      <p><em>Draft for closed beta — requires legal review before public launch.</em></p>
+      <p><em>Effective date: 14 August 2026. This policy explains what HiAir collects and why.</em></p>
 
-      <h2>1. Scope</h2>
+      <h2>1. Who we are</h2>
       <p>
-        HiAir is a wellness assistant for heat and air quality awareness. It does not
-        provide medical diagnosis or treatment.
+        HiAir is a wellness assistant for outdoor heat and air quality. It does not provide
+        medical diagnosis or treatment. Controller contact: <a href="mailto:hello@hiair.io">hello@hiair.io</a>.
       </p>
 
       <h2>2. Data we collect</h2>
       <ul>
-        <li>Account data: email, Supabase auth user id</li>
-        <li>Profile data: persona type, sensitivity settings, optional location coordinates</li>
-        <li>Wellness logs: symptom logs, risk scores, recommendations, AI explanation events</li>
-        <li>Device and push data: notification tokens and delivery attempt logs</li>
-        <li>Operational telemetry: request metadata (path, status, latency, request id)</li>
+        <li>Account: email and authentication identifiers for email, Sign in with Apple, or Google via Supabase</li>
+        <li>Profile: persona, optional date of birth (13+), language, and optional location when you allow it</li>
+        <li>Private wellness logs: symptom journal, risk scores, and recommendations, not shared with other users</li>
+        <li>Apple Health / Health Connect: only after you continue and grant system permission; daily/hourly aggregates, not raw sensor streams; HiAir does not write health data back</li>
+        <li>Purchases: App Store / Play transaction identifiers needed to unlock Premium</li>
+        <li>Device and push tokens if you enable notifications</li>
+        <li>Operational logs: path, status, latency, and request id; no advertising ID</li>
       </ul>
 
       <h2>3. Why we process data</h2>
       <ul>
-        <li>Generate personalized risk insights and recommendations</li>
-        <li>Deliver important wellness alerts</li>
-        <li>Maintain reliability, security, and abuse prevention</li>
-        <li>Improve product quality during beta testing</li>
+        <li>Provide personalized outdoor-risk and wellness guidance</li>
+        <li>Deliver optional alerts you enable</li>
+        <li>Verify subscriptions and keep the service secure</li>
+        <li>Provide optional AI explanations of already-computed risk; no advertising or sale of data</li>
       </ul>
 
-      <h2>4. Legal basis (GDPR-oriented draft)</h2>
+      <h2>4. Legal basis</h2>
       <ul>
-        <li>Consent for optional sensitive-like wellness inputs</li>
-        <li>Legitimate interest for service operation, security, and debugging</li>
-        <li>Contractual necessity for account and app functionality</li>
+        <li>Contract: account, core app features, and paid Premium</li>
+        <li>Consent: location, HealthKit / Health Connect, and optional wellness inputs</li>
+        <li>Legitimate interest: security, abuse prevention, and reliability</li>
       </ul>
 
-      <h2>5. Data retention</h2>
+      <h2>5. Sharing</h2>
       <p>
-        Beta data is retained only as long as needed for testing and support. Users can
-        request deletion of account-linked data through in-app privacy controls.
+        We use processors that help run the service: Supabase (authentication/database),
+        Cloudflare (hosting/API), Open-Meteo (weather/air quality), OpenAI (optional
+        explanations), and Apple/Google for sign-in and store billing. We do not sell
+        personal data, use it for third-party advertising, or track you across apps.
       </p>
 
-      <h2>6. Data sharing</h2>
+      <h2>6. Retention and deletion</h2>
       <p>
-        We use infrastructure providers (hosting, database, authentication, optional AI
-        explanation) under data processing agreements. We do not sell personal data.
+        We keep account-linked data while the account is active. In Settings you can export
+        your data or delete your account. Deletion removes HiAir-stored personal data that
+        we are not legally required to retain. Store subscriptions continue until you
+        cancel them with Apple or Google.
       </p>
 
       <h2>7. Your rights</h2>
       <p>
-        Depending on your jurisdiction, you may request access, correction, export, or
-        deletion of your data. Use in-app export and delete-account flows or contact
-        support when available.
+        Depending on your region you may request access, correction, export, or deletion.
+        Use the in-app export/delete controls or email <a href="mailto:hello@hiair.io">hello@hiair.io</a>.
       </p>
 
-      <h2>8. Contact</h2>
-      <p>Official support and legal contact will be published before public rollout.</p>
+      <h2>8. Children</h2>
+      <p>HiAir accounts are for users 13 and older. A “children outdoor” persona is guidance for an adult account holder, not a child account.</p>
+
+      <h2>9. Contact</h2>
+      <p><a href="mailto:hello@hiair.io">hello@hiair.io</a> · <a href="https://hiair.io">https://hiair.io</a> · <a href="/terms/">Terms of Service</a></p>
     </main>
     <footer>
+      <a class="footer-brand-lockup" href="/" aria-label="HiAir home">
+        <img src="/assets/brand/mono-light.png" alt="HiAir" />
+      </a>
       <nav>
         <a href="/">Home</a>
         <a href="/terms/">Terms of Service</a>

@@ -23,6 +23,11 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Generate and validate search content
+        run: |
+          python3 scripts/ops/generate_web_seo_content.py
+          python3 scripts/ops/check_web_seo.py
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
