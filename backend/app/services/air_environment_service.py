@@ -39,6 +39,23 @@ def _snapshot_to_environmental(
     )
 
 
+def _with_meteo_wbgt_if_missing(snapshot: EnvironmentSnapshot) -> EnvironmentSnapshot:
+    """Fill meteo WBGT on cache rows written before WBGT columns existed."""
+    if snapshot.wbgt_c is not None:
+        return snapshot
+    from app.services.wbgt_estimate import estimate_outdoor_wbgt_c
+
+    wbgt_c = estimate_outdoor_wbgt_c(
+        snapshot.temperature_c,
+        snapshot.humidity_percent,
+        wind_speed_ms=snapshot.wind_speed,
+        shortwave_wm2=snapshot.shortwave_wm2,
+    )
+    if wbgt_c is None:
+        return snapshot
+    return snapshot.model_copy(update={"wbgt_c": wbgt_c, "wbgt_estimated": True})
+
+
 def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
     """Return an honesty-labeled snapshot from a DB row, or None if unusable."""
     original_source = str(cached.source or "").strip().lower()
@@ -46,44 +63,48 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
     # serve synthetic air data under a live/cache honesty label.
     if original_source in (SOURCE_SAMPLE, "mock"):
         if settings.environment_allow_sample_fallback:
-            return EnvironmentSnapshot(
-                temperature_c=cached.temperature_c,
-                humidity_percent=cached.humidity_percent,
-                aqi=cached.aqi,
-                pm25=cached.pm25,
-                ozone=cached.ozone,
-                source=SOURCE_SAMPLE,
-                pm10=cached.pm10,
-                no2=cached.no2,
-                uv=cached.uv,
-                wind_speed=cached.wind_speed,
-                feels_like=cached.feels_like,
-                timezone=cached.timezone,
-                pollen_grains_m3=cached.pollen_grains_m3,
-                wildfire_pm10=cached.wildfire_pm10,
-                wbgt_c=cached.wbgt_c,
-                wbgt_estimated=cached.wbgt_estimated,
-                shortwave_wm2=cached.shortwave_wm2,
+            return _with_meteo_wbgt_if_missing(
+                EnvironmentSnapshot(
+                    temperature_c=cached.temperature_c,
+                    humidity_percent=cached.humidity_percent,
+                    aqi=cached.aqi,
+                    pm25=cached.pm25,
+                    ozone=cached.ozone,
+                    source=SOURCE_SAMPLE,
+                    pm10=cached.pm10,
+                    no2=cached.no2,
+                    uv=cached.uv,
+                    wind_speed=cached.wind_speed,
+                    feels_like=cached.feels_like,
+                    timezone=cached.timezone,
+                    pollen_grains_m3=cached.pollen_grains_m3,
+                    wildfire_pm10=cached.wildfire_pm10,
+                    wbgt_c=cached.wbgt_c,
+                    wbgt_estimated=cached.wbgt_estimated,
+                    shortwave_wm2=cached.shortwave_wm2,
+                )
             )
         return None
-    return EnvironmentSnapshot(
-        temperature_c=cached.temperature_c,
-        humidity_percent=cached.humidity_percent,
-        aqi=cached.aqi,
-        pm25=cached.pm25,
-        ozone=cached.ozone,
-        source=SOURCE_CACHED,
-        pm10=cached.pm10,
-        no2=cached.no2,
-        uv=cached.uv,
-        wind_speed=cached.wind_speed,
-        feels_like=cached.feels_like,
-        timezone=cached.timezone,
-        pollen_grains_m3=cached.pollen_grains_m3,
-        wildfire_pm10=cached.wildfire_pm10,
-        wbgt_c=cached.wbgt_c,
-        wbgt_estimated=cached.wbgt_estimated,
-        shortwave_wm2=cached.shortwave_wm2,
+    return _with_meteo_wbgt_if_missing(
+        EnvironmentSnapshot(
+            temperature_c=cached.temperature_c,
+            humidity_percent=cached.humidity_percent,
+            aqi=cached.aqi,
+            pm25=cached.pm25,
+            ozone=cached.ozone,
+            source=SOURCE_CACHED,
+            pm10=cached.pm10,
+            no2=cached.no2,
+            uv=cached.uv,
+            wind_speed=cached.wind_speed,
+            feels_like=cached.feels_like,
+            timezone=cached.timezone,
+            pollen_grains_m3=cached.pollen_grains_m3,
+            wildfire_pm10=cached.wildfire_pm10,
+            wbgt_c=cached.wbgt_c,
+            wbgt_estimated=cached.wbgt_estimated,
+            shortwave_wm2=cached.shortwave_wm2,
+        )
     )
 
 
@@ -119,7 +140,7 @@ def resolve_environment_snapshot(
 
     try:
         live = fetch_live_snapshot(lat, lon)
-        return EnvironmentSnapshot(
+        resolved = EnvironmentSnapshot(
             temperature_c=live.temperature_c,
             humidity_percent=live.humidity_percent,
             aqi=live.aqi,
@@ -138,6 +159,12 @@ def resolve_environment_snapshot(
             wbgt_estimated=live.wbgt_estimated,
             shortwave_wm2=live.shortwave_wm2,
         )
+        try:
+            air_repository.save_resolved_environment_snapshot(resolved, lat=lat, lon=lon)
+        except Exception:
+            # Cache write must never fail the live response.
+            pass
+        return resolved
     except Exception:
         pass
 

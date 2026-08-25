@@ -208,3 +208,27 @@ def test_resolve_sample_disabled_raises_when_unavailable(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="sample fallback is disabled"):
         air_environment_service.resolve_environment_snapshot(41.39, 2.17)
+
+
+def test_honest_cached_snapshot_fills_missing_meteo_wbgt(monkeypatch) -> None:
+    import app.services.wbgt_estimate as wbgt_estimate
+    from app.models.risk import EnvironmentSnapshot
+
+    monkeypatch.setattr(wbgt_estimate, "estimate_outdoor_wbgt_c", lambda *a, **k: 27.5)
+
+    cached = EnvironmentSnapshot(
+        temperature_c=33.0,
+        humidity_percent=40.0,
+        aqi=50,
+        pm25=8.0,
+        ozone=40.0,
+        source="live",
+        wind_speed=2.0,
+        wbgt_c=None,
+        wbgt_estimated=False,
+    )
+    honest = air_environment_service._honest_cached_snapshot(cached)
+    assert honest is not None
+    assert honest.source == "cached"
+    assert honest.wbgt_c == 27.5
+    assert honest.wbgt_estimated is True

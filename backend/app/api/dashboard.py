@@ -20,6 +20,7 @@ from app.services.forecast.mapping import (
     apply_freshness_source,
     forecast_point_to_environmental,
     forecast_to_hourly_inputs,
+    retain_live_only_metrics,
 )
 from app.services.forecast.service import get_forecast
 
@@ -83,17 +84,27 @@ def dashboard_overview(
         ozone=snapshot.ozone,
         source=snapshot.source,
         pm10=snapshot.pm10,
+        no2=snapshot.no2,
         uv=snapshot.uv,
         wind_speed=snapshot.wind_speed,
         feels_like=snapshot.feels_like,
         timezone=snapshot.timezone,
+        pollen_grains_m3=snapshot.pollen_grains_m3,
+        wildfire_pm10=snapshot.wildfire_pm10,
+        wbgt_c=snapshot.wbgt_c,
+        wbgt_estimated=snapshot.wbgt_estimated,
+        shortwave_wm2=snapshot.shortwave_wm2,
     )
     forecast = _forecast_bundle(lat, lon)
     hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
     if forecast is not None and forecast.current is not None:
         mapped = forecast_point_to_environmental(forecast.current)
         if mapped is not None:
-            mapped = apply_freshness_source(mapped, forecast.freshness.value)
+            live_air = to_air_environment(environment, lat, lon)
+            mapped = apply_freshness_source(
+                retain_live_only_metrics(mapped, live_air),
+                forecast.freshness.value,
+            )
             environment = EnvironmentSnapshot(
                 temperature_c=mapped.temperature,
                 humidity_percent=mapped.humidity if mapped.humidity is not None else environment.humidity_percent,
@@ -102,10 +113,17 @@ def dashboard_overview(
                 ozone=mapped.ozone,
                 source=mapped.source,
                 pm10=mapped.pm10,
+                no2=mapped.no2,
                 uv=mapped.uv,
                 wind_speed=mapped.wind_speed,
                 feels_like=mapped.feels_like,
-                timezone=mapped.timezone,
+                timezone=mapped.timezone or environment.timezone,
+                pollen_grains_m3=mapped.pollen_grains_m3,
+                wildfire_pm10=mapped.wildfire_pm10,
+                # Forecast points do not carry WBGT — keep live meteo estimate.
+                wbgt_c=environment.wbgt_c,
+                wbgt_estimated=environment.wbgt_estimated,
+                shortwave_wm2=environment.shortwave_wm2,
             )
     profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
     air_environment = to_air_environment(environment, lat, lon)
