@@ -1,85 +1,62 @@
-/* HiAir Liquid Glass — navigation & accent layer (Aurora Calm) */
-
+/* HiAir Deep Glass v4 material */
 :root {
   --lg-radius: var(--radius-xl, 28px);
   --lg-radius-nav: var(--radius-pill, 999px);
-  --lg-tint: rgba(255, 255, 255, 0.55);
-  --lg-tint-strong: rgba(255, 255, 255, 0.78);
-  --lg-tint-clear: rgba(255, 255, 255, 0.35);
-  --lg-sheen-top: rgba(255, 255, 255, 0.65);
-  --lg-sheen-bottom: rgba(255, 255, 255, 0.12);
-  --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-gentle: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-body.legal {
-  --lg-tint: rgba(14, 18, 32, 0.62);
-  --lg-tint-strong: rgba(14, 18, 32, 0.82);
-  --lg-tint-clear: rgba(255, 255, 255, 0.08);
-  --lg-sheen-top: rgba(255, 255, 255, 0.22);
-  --lg-sheen-bottom: rgba(255, 255, 255, 0.06);
+  --lg-tint: rgba(8, 18, 33, 0.62);
+  --lg-tint-strong: rgba(8, 18, 33, 0.82);
+  --lg-tint-clear: rgba(8, 18, 33, 0.46);
+  --lg-sheen-top: rgba(255, 255, 255, 0.12);
+  --lg-sheen-bottom: rgba(26, 232, 255, 0.08);
 }
 
 .lg {
   position: relative;
   border-radius: var(--lg-radius);
   isolation: isolate;
-  box-shadow:
-    0 1px 1px rgba(15, 23, 42, 0.04),
-    0 8px 28px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 18px 48px rgba(1, 6, 12, 0.3);
 }
 
-.lg__refraction {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  backdrop-filter: blur(4px) url(#lg-refraction);
-  -webkit-backdrop-filter: blur(14px);
-  contain: layout style paint;
-}
-
-@supports not (backdrop-filter: blur(1px) url(#x)) {
-  .lg__refraction {
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-}
-
-.lg__tint {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--lg-tint);
-}
-
+.lg__refraction,
+.lg__tint,
 .lg__sheen {
   position: absolute;
   inset: 0;
   border-radius: inherit;
+}
+
+.lg__refraction {
+  contain: layout style paint;
+  backdrop-filter: blur(22px) url(#lg-refraction);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+@supports not (backdrop-filter: blur(1px) url(#x)) {
+  .lg__refraction {
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+}
+
+.lg__tint {
+  background: var(--lg-tint);
+  border: 1px solid var(--rim, rgba(33, 215, 255, 0.33));
+}
+
+.lg__sheen {
   pointer-events: none;
   overflow: hidden;
   box-shadow:
-    inset 0 1px 1px var(--lg-sheen-top),
-    inset 0 -1px 1px var(--lg-sheen-bottom);
+    inset 0 1px 0 var(--lg-sheen-top),
+    inset 0 -1px 0 var(--lg-sheen-bottom),
+    inset 0 0 0 1px rgba(244, 247, 255, 0.04);
 }
 
 .lg__sheen::after {
   content: "";
   position: absolute;
-  inset: -50%;
-  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.45) 50%, transparent 60%);
-  transform: translateX(-120%);
-}
-
-.lg--interactive:hover .lg__sheen::after {
-  animation: lg-sweep 0.9s var(--ease-gentle);
-}
-
-@keyframes lg-sweep {
-  to {
-    transform: translateX(120%);
-  }
+  inset: -45%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
+  transform: translateX(-130%);
 }
 
 .lg__content {
@@ -96,8 +73,15 @@ body.legal {
 }
 
 .lg--soft .lg__refraction {
-  backdrop-filter: blur(6px) url(#lg-refraction-soft);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(22px) url(#lg-refraction-soft);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+@supports not (backdrop-filter: blur(1px) url(#x)) {
+  .lg--soft .lg__refraction {
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
 }
 
 .lg--nav {
@@ -105,40 +89,50 @@ body.legal {
 }
 
 .lg--interactive {
-  transition: transform 0.25s var(--ease-bouncy), box-shadow 0.25s var(--ease-snappy);
+  transition: transform 130ms var(--ease-snappy, cubic-bezier(0.22, 1, 0.36, 1)), box-shadow 130ms var(--ease-snappy, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .lg--interactive:hover {
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 20px 54px rgba(1, 6, 12, 0.36);
 }
 
 .lg--interactive:active {
-  transform: scale(0.98);
+  transform: scale(0.978);
+}
+
+.lg--interactive:hover .lg__sheen::after {
+  animation: lg-sweep 900ms var(--ease-snappy, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .lg--glow .lg__sheen {
-  background: radial-gradient(
-    140px 140px at var(--gx, 50%) var(--gy, 50%),
-    rgba(255, 255, 255, 0.35),
-    transparent 70%
-  );
+  background: radial-gradient(180px 180px at var(--gx, 50%) var(--gy, 50%), rgba(26, 232, 255, 0.14), transparent 72%);
+}
+
+.lg--enter {
+  animation: lg-materialize 270ms var(--ease-snappy, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.lg--float {
+  animation: lg-float 6s ease-in-out infinite;
+}
+
+@keyframes lg-sweep {
+  to {
+    transform: translateX(130%);
+  }
 }
 
 @keyframes lg-materialize {
   from {
     opacity: 0;
-    filter: blur(12px);
-    transform: scale(0.94);
+    transform: scale(0.985);
+    filter: blur(10px);
   }
   to {
     opacity: 1;
-    filter: blur(0);
     transform: scale(1);
+    filter: blur(0);
   }
-}
-
-.lg--enter {
-  animation: lg-materialize 0.55s var(--ease-snappy) both;
 }
 
 @keyframes lg-float {
@@ -151,72 +145,19 @@ body.legal {
   }
 }
 
-.lg--float {
-  animation: lg-float 6s ease-in-out infinite;
-}
-
-/* Compact glass for inputs & secondary buttons */
-.lg-input,
-.btn-glass {
-  position: relative;
-  isolation: isolate;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.lg-input__refraction,
-.btn-glass__refraction {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.lg-input__tint,
-.btn-glass__tint {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--lg-tint-clear);
-  border: 1px solid rgba(26, 39, 68, 0.1);
-}
-
-.lg-input__content {
-  position: relative;
-  z-index: 1;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .lg--enter,
   .lg--float {
     animation: none;
-    opacity: 1;
-    filter: none;
-    transform: none;
   }
 
-  .lg--interactive {
-    transition: opacity 0.2s linear;
+  .lg--interactive,
+  .lg__sheen::after {
+    transition: none;
+    animation: none;
   }
 
   .lg--interactive:active {
     transform: none;
-  }
-
-  .lg--interactive:hover .lg__sheen::after {
-    animation: none;
-  }
-}
-
-@media (max-width: 480px) {
-  .lg__refraction {
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-
-  .lg--soft .lg__refraction {
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(12px);
   }
 }
