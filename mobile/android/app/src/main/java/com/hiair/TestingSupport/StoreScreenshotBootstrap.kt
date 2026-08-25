@@ -11,6 +11,18 @@ object StoreScreenshotBootstrap {
     const val EXTRA_CAPTURE_RUN_ID = "HIAIR_CAPTURE_RUN_ID"
     const val EXTRA_CAPTURE_OUT = "HIAIR_CAPTURE_OUT"
 
+    private fun bundleString(extras: android.os.Bundle, key: String): String? {
+        extras.getString(key)?.takeIf { it.isNotBlank() }?.let { return it }
+        return extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
+    }
+
+    private fun bundleFlag(extras: android.os.Bundle, key: String): Boolean {
+        bundleString(extras, key)?.let { value ->
+            if (value == "1" || value.equals("true", ignoreCase = true)) return true
+        }
+        return extras.getInt(key, 0) == 1
+    }
+
     fun apply(
         intent: Intent?,
         rootShell: RootShellViewModel,
@@ -18,13 +30,13 @@ object StoreScreenshotBootstrap {
     ) {
         if (!BuildConfig.DEBUG) return
         val extras = intent?.extras ?: return
-        if (extras.getString(EXTRA_STORE_SHOTS) != "1") return
+        if (!bundleFlag(extras, EXTRA_STORE_SHOTS)) return
 
-        val screen = extras.getString(EXTRA_SCREEN)?.lowercase()
-        val runId = extras.getString(EXTRA_CAPTURE_RUN_ID)
+        val screen = bundleString(extras, EXTRA_SCREEN)?.lowercase()
+        val runId = bundleString(extras, EXTRA_CAPTURE_RUN_ID)
         StoreScreenshotMode.activate(screen, runId)
 
-        extras.getString(EXTRA_LANGUAGE)?.takeIf { it.isNotBlank() }?.let { lang ->
+        bundleString(extras, EXTRA_LANGUAGE)?.let { lang ->
             rootShell.settingsViewModel.setPreferredLanguage(lang)
         }
 
@@ -43,7 +55,7 @@ object StoreScreenshotBootstrap {
                 onboardingStore.resetForStoreScreenshot()
                 FirstRunOnboardingRenderer.prepareStoreScreenshotWelcome()
                 rootShell.settingsViewModel.seedStoreScreenshotOnboarding(
-                    extras.getString(EXTRA_LANGUAGE)?.ifBlank { "en" } ?: "en",
+                    bundleString(extras, EXTRA_LANGUAGE)?.ifBlank { "en" } ?: "en",
                 )
                 rootShell.openDashboard()
             }
@@ -58,5 +70,18 @@ object StoreScreenshotBootstrap {
             onboardingStore.setCompleted(true)
             StoreScreenshotMockSeeder.apply(rootShell)
         }
+    }
+
+    /** Re-bootstrap store-shot state when activity receives a new capture intent. */
+    fun reapplyIfNeeded(
+        intent: Intent?,
+        rootShell: RootShellViewModel,
+        onboardingStore: OnboardingStore,
+    ): Boolean {
+        if (!BuildConfig.DEBUG) return false
+        val extras = intent?.extras ?: return false
+        if (!bundleFlag(extras, EXTRA_STORE_SHOTS)) return false
+        apply(intent, rootShell, onboardingStore)
+        return true
     }
 }

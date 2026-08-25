@@ -1,6 +1,7 @@
 package com.hiair
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -11,14 +12,19 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.hiair.OnboardingStore
+import com.hiair.StoreScreenshotBootstrap
+import com.hiair.StoreScreenshotMode
+import com.hiair.StoreScreenshotReadiness
 import com.hiair.ui.i18n.AndroidL10n
 import com.hiair.ui.navigation.AppScreen
 import com.hiair.ui.navigation.RootShellViewModel
 import com.hiair.ui.design.HiAirComponents
-import com.hiair.ui.design.HiAirResponsiveLayout
+import com.hiair.ui.design.HiAirScreenMetrics
+import com.hiair.ui.design.HiAirWindowLayout
 import com.hiair.ui.design.TimeOfDayBackground
 import com.hiair.ui.design.Tokens
+import com.hiair.ui.design.markGeometry
+import com.hiair.ui.accessibility.HiAirGeometryMarkers
 import com.hiair.network.ApiClient
 import com.hiair.network.SupabaseAuthService
 import com.hiair.billing.SubscriptionPaywallController
@@ -31,8 +37,8 @@ import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.render.FirstRunOnboardingRenderer
 import kotlinx.coroutines.launch
 import com.hiair.ui.accessibility.HiAirScreenMarkers
+import com.hiair.ui.design.HiAirV4Presentation
 import com.hiair.ui.design.HiAirLiquidGlass
-import com.hiair.ui.design.HiAirScreenMetrics
 import androidx.annotation.VisibleForTesting
 import com.hiair.ui.theme.V2Ui
 
@@ -42,7 +48,11 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var sessionStore: SessionStore
     private lateinit var onboardingStore: OnboardingStore
     private lateinit var titleView: TextView
+    private lateinit var contentFrame: FrameLayout
     private lateinit var bodyContainer: LinearLayout
+    private lateinit var bodyHost: LinearLayout
+    private lateinit var contentScroll: ScrollView
+    private var scrollYBeforeReflow: Int = 0
     private lateinit var overlayContainer: FrameLayout
     private lateinit var screenRenderer: MainScreenRenderer
     private val paywallController = SubscriptionPaywallController(rootShell.settingsViewModel)
@@ -53,6 +63,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var settingsButton: Button
     private lateinit var navShell: FrameLayout
     private lateinit var navRow: LinearLayout
+    private var storeScreenshotLayoutCommitted = false
     private lateinit var supabaseAuth: SupabaseAuthService
     private lateinit var healthConnectService: HealthConnectService
     private lateinit var wearableHealthController: WearableHealthController
@@ -138,28 +149,37 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             textSize = 30f
             setTextColor(Tokens.Text.primary)
             setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
         }
         root.addView(titleView)
 
-        val contentFrame = FrameLayout(this).apply {
+        val contentFrameView = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f,
             )
+            markGeometry(HiAirGeometryMarkers.LAYOUT_CONTENT_FRAME)
         }
+        contentFrame = contentFrameView
         val scroll = ScrollView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
             )
             clipToPadding = false
+            markGeometry(HiAirGeometryMarkers.LAYOUT_CONTENT_SCROLL)
         }
+        contentScroll = scroll
         bodyContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(12), 0, dp(108))
+            markGeometry(HiAirGeometryMarkers.LAYOUT_BODY_CONTAINER)
         }
-        val bodyHost = LinearLayout(this).apply {
+        val bodyHostView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = android.view.Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(
@@ -168,7 +188,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             )
             addView(bodyContainer)
         }
-        scroll.addView(bodyHost)
+        bodyHost = bodyHostView
+        scroll.addView(bodyHostView)
         overlayContainer = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -177,14 +198,15 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             isClickable = false
             isFocusable = false
         }
-        contentFrame.addView(scroll)
-        contentFrame.addView(overlayContainer)
-        root.addView(contentFrame)
+        contentFrameView.addView(scroll)
+        contentFrameView.addView(overlayContainer)
+        root.addView(contentFrameView)
 
         navRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             val p = dp(8)
             setPadding(p, p, p, p + dp(4))
+            markGeometry(HiAirGeometryMarkers.NAV_ROW)
         }
         val lang = rootShell.settingsViewModel.state.preferredLanguage
         dashboardButton = V2Ui.navButton(this, AndroidL10n.t("nav.dashboard", lang)) {
@@ -221,6 +243,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             )
+            markGeometry(HiAirGeometryMarkers.NAV_BAR)
         }
         root.addView(navShell)
 
@@ -242,12 +265,14 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         paywallController.onEntitlementUpdated = { renderCurrentScreen() }
 
         setContentView(root)
+        attachNavTailPaddingListener()
         FirstRunOnboardingRenderer.resetStepForSession(
             rootShell.settingsViewModel.state.userId.isNotBlank() &&
                 rootShell.settingsViewModel.state.accessToken.isNotBlank(),
         )
         StoreScreenshotBootstrap.apply(intent, rootShell, onboardingStore)
         renderCurrentScreen()
+        scheduleStoreScreenshotLayoutPassIfNeeded()
         if (StoreScreenshotMode.active) {
             ScreenshotEnvironmentReporter.reportIfNeeded(
                 context = this,
@@ -301,37 +326,85 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        updateResponsiveChrome()
+        scrollYBeforeReflow = contentScroll.scrollY
+        screenRenderer.runPresentationOnly {
+            renderCurrentScreen()
+        }
+        contentScroll.post { contentScroll.scrollTo(0, scrollYBeforeReflow) }
+        if (StoreScreenshotMode.active) {
+            scheduleStoreScreenshotLayoutPassIfNeeded()
+        } else {
+            updateResponsiveChrome()
+        }
+    }
+
+    private var navTailPaddingListenerAttached = false
+
+    private fun attachNavTailPaddingListener() {
+        if (navTailPaddingListenerAttached) return
+        navTailPaddingListenerAttached = true
+        navShell.viewTreeObserver.addOnGlobalLayoutListener(
+            object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    if (navShell.height <= 0) return
+                    val tailPad = HiAirV4Presentation.scrollTailPaddingPx(this@AppMainActivity, navShell)
+                    if (bodyContainer.paddingBottom != tailPad) {
+                        bodyContainer.setPadding(0, dp(12), 0, tailPad)
+                    }
+                }
+            },
+        )
     }
 
     private fun updateResponsiveChrome() {
-        val horizontalPad = HiAirComponents.horizontalPaddingDp(this)
-        HiAirResponsiveLayout.applyContentWidth(bodyContainer, this, horizontalPad)
-        val widthDp = resources.configuration.screenWidthDp
-        val navMaxPx = V2Ui.dp(this, HiAirScreenMetrics.navBarMaxWidthDp.coerceAtMost(widthDp))
+        val snapshot = HiAirWindowLayout.snapshotForActivity(this)
+        HiAirWindowLayout.applyContentWidth(bodyContainer, snapshot)
+        val navMaxPx = V2Ui.dp(this, HiAirScreenMetrics.navBarMaxWidthDp.coerceAtMost(snapshot.innerAvailableWidthDp))
         val navParams = navShell.layoutParams as LinearLayout.LayoutParams
-        navParams.width = minOf(navMaxPx, resources.displayMetrics.widthPixels)
+        navParams.width = minOf(navMaxPx, snapshot.safeAvailableWidthPx).coerceAtLeast(0)
         navParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
         navShell.layoutParams = navParams
+        HiAirV4Presentation.applyTitleAxisAlignment(titleView, this)
+        val tailPad = HiAirV4Presentation.scrollTailPaddingPx(this, navShell)
+        bodyContainer.setPadding(0, dp(12), 0, tailPad)
+    }
+
+    private fun applyStoreScreenshotScrollContract() {
+        val centerPortraitOnboarding = StoreScreenshotMode.active &&
+            StoreScreenshotMode.targetScreen == "onboarding" &&
+            HiAirV4Presentation.shouldCenterOnboardingPortrait(this)
+        contentScroll.isFillViewport = centerPortraitOnboarding
+        val hostHeight = if (centerPortraitOnboarding) {
+            FrameLayout.LayoutParams.MATCH_PARENT
+        } else {
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        }
+        (bodyHost.layoutParams as FrameLayout.LayoutParams).height = hostHeight
+        bodyContainer.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            if (centerPortraitOnboarding) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT,
+        )
     }
 
     private fun renderCurrentScreen() {
+        StoreScreenshotReadiness.clear(bodyContainer)
         bodyContainer.removeAllViews()
         overlayContainer.removeAllViews()
         updateResponsiveChrome()
+        applyStoreScreenshotScrollContract()
         syncNavLabels()
         syncNavSelection()
         updateChromeVisibility()
         if (rootShell.settingsViewModel.state.showPaywall) {
             screenRenderer.renderPaywall(paywallController)
-            applyStoreScreenshotScreenMarker()
+            publishStoreScreenshotReadiness()
             return
         }
         if (!onboardingStore.isCompleted() &&
             rootShell.state.currentScreen == com.hiair.ui.navigation.AppScreen.DASHBOARD
         ) {
             screenRenderer.renderFirstRun(onboardingStore)
-            applyStoreScreenshotScreenMarker()
+            publishStoreScreenshotReadiness()
             return
         }
         when (rootShell.state.currentScreen) {
@@ -341,7 +414,98 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             AppScreen.SYMPTOMS -> screenRenderer.renderSymptoms()
             AppScreen.SETTINGS -> screenRenderer.renderSettings()
         }
-        applyStoreScreenshotScreenMarker()
+        publishStoreScreenshotReadiness()
+        if (StoreScreenshotMode.active) {
+            bodyContainer.post {
+                logStoreScreenshotLayoutTrace("renderCurrentScreen")
+                publishStoreScreenshotReadiness()
+            }
+        }
+    }
+
+    private fun scheduleStoreScreenshotLayoutPassIfNeeded() {
+        if (!StoreScreenshotMode.active) return
+        bodyContainer.post {
+            if (storeScreenshotLayoutCommitted) {
+                publishStoreScreenshotReadiness()
+                return@post
+            }
+            if (bodyContainer.width <= 0 || bodyContainer.height <= 0) {
+                bodyContainer.viewTreeObserver.addOnGlobalLayoutListener(
+                    object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                        override fun onGlobalLayout() {
+                            if (bodyContainer.width <= 0 || bodyContainer.height <= 0) return
+                            bodyContainer.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                            commitStoreScreenshotLayoutPass()
+                        }
+                    },
+                )
+                return@post
+            }
+            commitStoreScreenshotLayoutPass()
+        }
+    }
+
+    private fun commitStoreScreenshotLayoutPass() {
+        if (!StoreScreenshotMode.active || storeScreenshotLayoutCommitted) return
+        storeScreenshotLayoutCommitted = true
+        updateResponsiveChrome()
+        if (bodyContainer.childCount == 0) {
+            renderCurrentScreen()
+        } else {
+            bodyContainer.requestLayout()
+        }
+        bodyContainer.post {
+            logStoreScreenshotLayoutTrace("commitStoreScreenshotLayoutPass")
+            publishStoreScreenshotReadiness()
+        }
+    }
+
+    private fun logStoreScreenshotLayoutTrace(stage: String) {
+        if (!BuildConfig.DEBUG || !StoreScreenshotMode.active) return
+        val root = contentFrame.rootView
+        val contentLoc = IntArray(2)
+        val navLoc = IntArray(2)
+        contentFrame.getLocationOnScreen(contentLoc)
+        navShell.getLocationOnScreen(navLoc)
+        Log.d(
+            TAG_STORE_LAYOUT,
+            buildString {
+                append("stage=$stage ")
+                append("renderer=entered ")
+                append("bodyChildCount=${bodyContainer.childCount} ")
+                append("bodyMeasured=${bodyContainer.measuredWidth}x${bodyContainer.measuredHeight} ")
+                append("contentFrameMeasured=${contentFrame.measuredWidth}x${contentFrame.measuredHeight} ")
+                append("contentScrollMeasured=${contentScroll.measuredWidth}x${contentScroll.measuredHeight} ")
+                append("navShellMeasured=${navShell.measuredWidth}x${navShell.measuredHeight} ")
+                append("navRowMeasured=${navRow.measuredWidth}x${navRow.measuredHeight} ")
+                append("rootMeasured=${root.measuredWidth}x${root.measuredHeight} ")
+                append("contentFrameBounds=[${contentLoc[0]},${contentLoc[1]}][")
+                append(contentLoc[0] + contentFrame.width)
+                append(',')
+                append(contentLoc[1] + contentFrame.height)
+                append("] ")
+                append("navShellBounds=[${navLoc[0]},${navLoc[1]}][")
+                append(navLoc[0] + navShell.width)
+                append(',')
+                append(navLoc[1] + navShell.height)
+                append(']')
+            },
+        )
+    }
+
+    private fun publishStoreScreenshotReadiness() {
+        if (!StoreScreenshotMode.active) return
+        StoreScreenshotReadiness.publish(
+            targetScreen = StoreScreenshotMode.targetScreen,
+            bodyContainer = bodyContainer,
+            titleView = titleView,
+            rootShell = rootShell,
+            navShell = navShell,
+            contentFrame = contentFrame,
+            contentScroll = contentScroll,
+            navRow = navRow,
+        )
     }
 
     private fun isAuthenticated(): Boolean {
@@ -351,30 +515,6 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     private fun shouldShowMainNavigation(): Boolean {
         return isAuthenticated() && onboardingStore.isCompleted()
-    }
-
-    private fun applyStoreScreenshotScreenMarker() {
-        if (!StoreScreenshotMode.active) return
-        val marker = when (StoreScreenshotMode.targetScreen) {
-            "navigation" -> HiAirScreenMarkers.NAVIGATION
-            "onboarding" -> HiAirScreenMarkers.ONBOARDING
-            "paywall" -> HiAirScreenMarkers.PAYWALL
-            else -> HiAirScreenMarkers.forScreen(StoreScreenshotMode.targetScreen)
-        } ?: when {
-            rootShell.settingsViewModel.state.showPaywall -> HiAirScreenMarkers.PAYWALL
-            !onboardingStore.isCompleted() -> HiAirScreenMarkers.ONBOARDING
-            else -> when (rootShell.state.currentScreen) {
-                AppScreen.DASHBOARD -> HiAirScreenMarkers.DASHBOARD
-                AppScreen.PLANNER -> HiAirScreenMarkers.PLANNER
-                AppScreen.INSIGHTS -> HiAirScreenMarkers.INSIGHTS
-                AppScreen.SYMPTOMS -> HiAirScreenMarkers.SYMPTOMS
-                AppScreen.SETTINGS -> HiAirScreenMarkers.SETTINGS
-            }
-        }
-        bodyContainer.contentDescription = marker
-        if (StoreScreenshotMode.targetScreen == "navigation" && navShell.visibility == android.view.View.VISIBLE) {
-            navShell.contentDescription = HiAirScreenMarkers.NAVIGATION
-        }
     }
 
     private fun updateChromeVisibility() {
@@ -412,7 +552,33 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     internal fun bodyContainerForTests(): LinearLayout = bodyContainer
 
     @VisibleForTesting
+    internal fun contentFrameForTests(): FrameLayout = contentFrame
+
+    @VisibleForTesting
+    internal fun contentScrollForTests(): ScrollView = contentScroll
+
+    @VisibleForTesting
+    internal fun navRowForTests(): LinearLayout = navRow
+
+    @VisibleForTesting
+    internal fun titleViewForTests(): TextView = titleView
+
+    @VisibleForTesting
+    internal fun rootViewForTests(): android.view.View = contentFrame.rootView
+
+    @VisibleForTesting
+    internal fun rootShellForTests(): com.hiair.ui.navigation.RootShellViewModel = rootShell
+
+    @VisibleForTesting
     internal fun navShellForTests(): FrameLayout = navShell
+
+    companion object {
+        const val TAG_STORE_LAYOUT = "HiAirStoreLayout"
+    }
+
+    @VisibleForTesting
+    internal fun windowLayoutSnapshotForTests(): com.hiair.ui.design.HiAirWindowLayoutSnapshot =
+        HiAirWindowLayout.snapshotForActivity(this)
 
     override fun requestWearableConnect(onComplete: () -> Unit) {
         val state = rootShell.settingsViewModel.state
@@ -450,6 +616,12 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (StoreScreenshotBootstrap.reapplyIfNeeded(intent, rootShell, onboardingStore)) {
+            storeScreenshotLayoutCommitted = false
+            renderCurrentScreen()
+            scheduleStoreScreenshotLayoutPassIfNeeded()
+            return
+        }
         val oauthSession = supabaseAuth.consumeOAuthCallback(intent) ?: return
         rootShell.settingsViewModel.setEmail(oauthSession.email)
         rootShell.settingsViewModel.setUserId(oauthSession.userId)

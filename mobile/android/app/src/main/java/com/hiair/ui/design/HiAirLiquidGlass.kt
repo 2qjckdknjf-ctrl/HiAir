@@ -63,24 +63,20 @@ object HiAirLiquidGlass {
         context: Context,
         navBackground: android.graphics.drawable.Drawable,
         content: android.view.View,
-    ): android.widget.FrameLayout {
-        val shell = android.widget.FrameLayout(context)
+    ): ContentMeasuredGlassFrameLayout {
+        val shell = ContentMeasuredGlassFrameLayout(context)
         val blurLayer = android.view.View(context).apply {
             background = navBackground
-            layoutParams = android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-            )
+            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            isClickable = false
+            isFocusable = false
         }
         applyNavigationBlur(blurLayer)
-        shell.addView(blurLayer)
-        shell.addView(
-            content,
-            android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
-            ),
+        content.layoutParams = android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
         )
+        shell.setGlassLayers(blurLayer, content)
         return shell
     }
 

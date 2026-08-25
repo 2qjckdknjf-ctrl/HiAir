@@ -43,6 +43,7 @@ android {
         targetSdk = 36
         versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 189
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
