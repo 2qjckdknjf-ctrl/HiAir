@@ -14,7 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
-TODAY = "2026-08-25"
+PUBLISHED_DATE = "2026-08-25"
+CONTENT_DATE = "2026-08-26"
 
 
 PAGES = [
@@ -82,13 +83,13 @@ PAGES = [
               <li>Consider heat and the intensity of your planned activity.</li>
               <li>Follow local authority guidance during smoke or pollution events.</li>
             </ul>
-            <p class="source-note">Primary reference: <a href="https://www.airnow.gov/aqi/aqi-basics/" rel="noopener">AirNow — AQI Basics</a>.</p>
+            <p class="source-note">Primary reference: <a href="https://www.airnow.gov/aqi/aqi-basics/" rel="noopener noreferrer">AirNow — AQI Basics</a>.</p>
           </section>
         """,
     },
     {
         "path": "guides/exercise-in-heat",
-        "title": "Exercise in Hot Weather: Plan a Safer Time | HiAir",
+        "title": "Exercise in Hot Weather: Choose a Better Window | HiAir",
         "description": "A practical guide to choosing an outdoor workout window using heat, humidity, air quality, timing and your own response.",
         "eyebrow": "Outdoor activity guide",
         "heading": "Plan outdoor exercise around more than temperature",
@@ -109,7 +110,7 @@ PAGES = [
             <div class="callout"><strong>Emergency warning:</strong> HiAir is not an emergency service. Symptoms of heat illness require appropriate professional or emergency help.</div>
             <h2>How HiAir approaches the decision</h2>
             <p>HiAir combines available environmental signals with your activity context and sensitivity settings, then explains why a time window looks better or worse. Missing forecast data stays missing; it is not silently invented.</p>
-            <p class="source-note">Primary references: <a href="https://www.cdc.gov/heat-health/risk-factors/heat-and-athletes.html" rel="noopener">CDC — Heat and Athletes</a> and <a href="https://www.who.int/news-room/fact-sheets/detail/climate-change-heat-and-health" rel="noopener">WHO — Heat and health</a>.</p>
+            <p class="source-note">Primary references: <a href="https://www.cdc.gov/heat-health/risk-factors/heat-and-athletes.html" rel="noopener noreferrer">CDC — Heat and Athletes</a> and <a href="https://www.who.int/news-room/fact-sheets/detail/climate-change-heat-and-health" rel="noopener noreferrer">WHO — Heat and health</a>.</p>
           </section>
         """,
     },
@@ -137,7 +138,7 @@ PAGES = [
               <li><strong>Uncertain data:</strong> avoid presenting a precise “best hour” as fact.</li>
             </ul>
             <div class="callout"><strong>Safety comes first:</strong> window security, children, local fire guidance and building-specific ventilation requirements can override general suggestions.</div>
-            <p class="source-note">Primary references: <a href="https://www.epa.gov/indoor-air-quality-iaq/biological-contaminants-and-indoor-air-quality" rel="noopener">US EPA — Indoor air and ventilation</a> and <a href="https://www.who.int/news-room/fact-sheets/detail/climate-change-heat-and-health" rel="noopener">WHO — Heat and health</a>.</p>
+            <p class="source-note">Primary references: <a href="https://www.epa.gov/indoor-air-quality-iaq/biological-contaminants-and-indoor-air-quality" rel="noopener noreferrer">US EPA — Indoor air and ventilation</a> and <a href="https://www.who.int/news-room/fact-sheets/detail/climate-change-heat-and-health" rel="noopener noreferrer">WHO — Heat and health</a>.</p>
           </section>
         """,
     },
@@ -180,7 +181,7 @@ PAGES = [
           <section class="content-section prose-content">
             <h2>Before you head out</h2>
             <p>Check the current local alert, the hourly trend and how you feel. Hot-weather exercise increases the risk of dehydration and heat-related illness. If you feel faint or weak, stop activity and move to a cool place.</p>
-            <p class="source-note">Reference: <a href="https://www.cdc.gov/heat-health/risk-factors/heat-and-athletes.html" rel="noopener">CDC — Heat and Athletes</a>.</p>
+            <p class="source-note">Reference: <a href="https://www.cdc.gov/heat-health/risk-factors/heat-and-athletes.html" rel="noopener noreferrer">CDC — Heat and Athletes</a>.</p>
           </section>
         """,
     },
@@ -279,8 +280,8 @@ def structured_data(page: dict[str, str]) -> str:
         "publisher": {"@type": "Organization", "name": "HiAir", "url": "https://hiair.io/"},
     }
     if page["kind"] == "Article":
-        data["datePublished"] = TODAY
-        data["dateModified"] = TODAY
+        data["datePublished"] = PUBLISHED_DATE
+        data["dateModified"] = CONTENT_DATE
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -301,6 +302,8 @@ def render(page: dict[str, str]) -> str:
     <meta property="og:title" content="{page['title']}" />
     <meta property="og:description" content="{page['description']}" />
     <meta property="og:image" content="https://hiair.io/icon-1024.png" />
+    <meta property="og:image:alt" content="HiAir mark" />
+    <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{page['title']}" />
     <meta name="twitter:description" content="{page['description']}" />
@@ -355,13 +358,13 @@ def render(page: dict[str, str]) -> str:
           <p>Join the HiAir early-access list for iOS and Android availability in your region.</p>
           <a class="btn btn-primary" href="/#waitlist">Join early access</a>
         </section>
-        <p class="review-date">Last reviewed {TODAY}. Wellness guidance only — not medical advice.</p>
+        <p class="review-date">Last reviewed {CONTENT_DATE}. Wellness guidance only — not medical advice.</p>
       </div>
     </main>
     <footer class="site-footer">
       <div class="container">
         <div class="footer-grid">
-          <div class="footer-brand"><a class="footer-brand-lockup" href="/"><img src="/assets/brand/mono-light.png" alt="HiAir" /></a><p>Breathe better. Live better. Personalized heat and air wellness for everyday life.</p></div>
+          <div class="footer-brand"><a class="footer-brand-lockup" href="/" aria-label="HiAir home"><img src="/assets/brand/mono-light.png" alt="HiAir" /></a><p>Breathe better. Live better. Personalized heat and air wellness for everyday life.</p></div>
           <div class="footer-links"><h2>Explore</h2><ul><li><a href="/guides/">Guides</a></li><li><a href="/methodology/">Methodology</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul></div>
           <div class="footer-links"><h2>Legal</h2><ul><li><a href="/privacy/">Privacy Policy</a></li><li><a href="/terms/">Terms of Service</a></li><li><a href="mailto:hello@hiair.io">hello@hiair.io</a></li></ul></div>
         </div>
@@ -383,7 +386,7 @@ def main() -> None:
     urls = ["https://hiair.io/", *(f"https://hiair.io/{page['path']}/" for page in PAGES), "https://hiair.io/privacy/", "https://hiair.io/terms/"]
     sitemap = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for url in urls:
-        sitemap.extend(("  <url>", f"    <loc>{url}</loc>", f"    <lastmod>{TODAY}</lastmod>", "  </url>"))
+        sitemap.extend(("  <url>", f"    <loc>{url}</loc>", f"    <lastmod>{CONTENT_DATE}</lastmod>", "  </url>"))
     sitemap.append("</urlset>")
     (WEB / "sitemap.xml").write_text("\n".join(sitemap) + "\n", encoding="utf-8")
 
