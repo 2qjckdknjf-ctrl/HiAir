@@ -763,13 +763,13 @@ HiAir reaches the intended 10/10 product state when:
 
 | Release | Status |
 |---------|--------|
-| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `408ec1c3`) — device QA pending |
-| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `408ec1c3`) — device QA pending |
-| 1.3 Multi-Hazard | Dust + NO2 + Open-Meteo pollen/smoke scoring (honest null outside coverage); prod smoke PASS |
+| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `65eb7726`) — device QA pending |
+| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `65eb7726`) — device QA pending |
+| 1.3 Multi-Hazard | Dust + NO2 + Open-Meteo pollen/smoke scoring (honest null outside coverage); prod smoke PASS (`65eb7726`) |
 | 1.4 Alert Decision Engine | Threshold gate + suppress telemetry + 60min cooldown DEPLOYED (`POST /api/alerts/decide`) |
 | 1.5 Saved Places | Places + family + travel API DEPLOYED (prod smoke PASS); mobile travel Settings UI |
 | 1.6 Personal Adaptation | Baselines → alert sensitivity + planner load (sleep/RHR/HRV) DEPLOYED (`71067f35`) |
-| 2.0 Work / B2B Safety | Backend + Settings UI DEPLOYED; meteo-estimated WBGT labeled (`wbgt_estimated_from_meteo`) when instrument WBGT absent |
+| 2.0 Work / B2B Safety | Backend + Settings UI DEPLOYED; meteo-estimated WBGT labeled (`wbgt_estimated_from_meteo`) when instrument WBGT absent; prod smoke honesty PASS |
 
 Notes:
 - `docs/roadmap/HIAIR_1_2_BEST_TIME_ACTIVITY_PLANNER.md`
