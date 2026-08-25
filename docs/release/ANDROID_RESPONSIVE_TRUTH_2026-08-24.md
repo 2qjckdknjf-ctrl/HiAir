@@ -25,7 +25,7 @@
 | `compileDebugAndroidTestSources` | **PASS** |
 | `test_android_capture_shelf.py` | **PASS** (6/6) |
 | `test_android_capture_manifest.py` | **PASS** (11/11) |
-| Device gates (geometry, cold-start) | **PASS** (21/21) |
+| Device gates (geometry, cold-start) | **PASS** (21/21 — `.evidence/android-device-gates/20260825-post-commit-v2/`) |
 | Targeted visual v4c | **SEMANTIC 12/12 + VISUAL 12/12** |
 | Full Phone EN capture | **SEMANTIC 8/8 PASS** |
 
@@ -53,7 +53,7 @@
 
 ## Provenance
 
-- `rc_source_sha`: set in `RC_PROVENANCE_MANIFEST_2026-08-25.json` after clean-tree capture
+- `rc_source_sha`: `7d90e5df` in `docs/release/RC_PROVENANCE_MANIFEST_2026-08-25.json`
 - `.evidence/` remains gitignored output; paths referenced in RC manifest `evidence_runs`
 
 ## External next
