@@ -34,6 +34,12 @@ class EnvironmentSnapshot(BaseModel):
     wind_speed: float | None = None
     feels_like: float | None = None
     timezone: str | None = None
+    pollen_grains_m3: float | None = None
+    wildfire_pm10: float | None = None
+    # Estimated outdoor WBGT from meteo (never instrument WBGT).
+    wbgt_c: float | None = None
+    wbgt_estimated: bool = False
+    shortwave_wm2: float | None = None
 
 
 class RiskEstimateRequest(BaseModel):

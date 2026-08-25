@@ -69,7 +69,10 @@ def _fetch_openmeteo_weather(lat: float, lon: float) -> dict[str, Any]:
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": "temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,uv_index",
+        "current": (
+            "temperature_2m,relative_humidity_2m,apparent_temperature,"
+            "wind_speed_10m,uv_index,shortwave_radiation"
+        ),
         "wind_speed_unit": "ms",
         "timezone": "auto",
     }
@@ -88,6 +91,7 @@ def _fetch_openmeteo_weather(lat: float, lon: float) -> dict[str, Any]:
         "feels_like": _optional_float(current.get("apparent_temperature")),
         "wind_speed": _optional_float(current.get("wind_speed_10m")),
         "uv": _optional_float(current.get("uv_index")),
+        "shortwave_wm2": _optional_float(current.get("shortwave_radiation")),
         "timezone": payload.get("timezone"),
     }
 
@@ -116,7 +120,25 @@ def _fetch_waqi(lat: float, lon: float) -> dict[str, Any]:
         "pm25": pm25,
         "ozone": ozone,
         "pm10": _iaqi(iaqi, "pm10"),
+        "pollen_grains_m3": None,
+        "wildfire_pm10": None,
     }
+
+
+def _max_pollen_grains(current: dict[str, Any]) -> float | None:
+    species = (
+        "alder_pollen",
+        "birch_pollen",
+        "grass_pollen",
+        "mugwort_pollen",
+        "olive_pollen",
+        "ragweed_pollen",
+    )
+    values = [_optional_float(current.get(name)) for name in species]
+    present = [value for value in values if value is not None]
+    if not present:
+        return None
+    return max(present)
 
 
 def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
@@ -124,7 +146,11 @@ def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": "us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide",
+        "current": (
+            "us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,pm10_wildfires,"
+            "alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,"
+            "olive_pollen,ragweed_pollen"
+        ),
         "timezone": "auto",
     }
     with httpx.Client(timeout=10.0) as client:
@@ -143,6 +169,8 @@ def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
         "ozone": ozone,
         "pm10": _optional_float(current.get("pm10")),
         "no2": _optional_float(current.get("nitrogen_dioxide")),
+        "pollen_grains_m3": _max_pollen_grains(current),
+        "wildfire_pm10": _optional_float(current.get("pm10_wildfires")),
     }
 
 
@@ -170,6 +198,15 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         weather = weather_future.result()
         air = aqi_future.result()
 
+    from app.services.wbgt_estimate import estimate_outdoor_wbgt_c
+
+    wbgt_c = estimate_outdoor_wbgt_c(
+        float(weather["temperature_c"]),
+        float(weather["humidity_percent"]),
+        wind_speed_ms=weather.get("wind_speed"),
+        shortwave_wm2=weather.get("shortwave_wm2"),
+    )
+
     return EnvironmentSnapshot(
         temperature_c=float(weather["temperature_c"]),
         humidity_percent=float(weather["humidity_percent"]),
@@ -183,4 +220,9 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         wind_speed=weather.get("wind_speed"),
         feels_like=weather.get("feels_like"),
         timezone=weather.get("timezone"),
+        pollen_grains_m3=air.get("pollen_grains_m3"),
+        wildfire_pm10=air.get("wildfire_pm10"),
+        wbgt_c=wbgt_c,
+        wbgt_estimated=wbgt_c is not None,
+        shortwave_wm2=weather.get("shortwave_wm2"),
     )

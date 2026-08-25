@@ -13,20 +13,22 @@ router = APIRouter(prefix="/work", tags=["work"])
 
 
 def _environment_for_site(lat: float, lon: float) -> tuple[WorkSafetyEnvironmentInput, str | None]:
-    """Load environment; map consumer heat index only — never infer WBGT."""
+    """Load environment; prefer estimated meteo WBGT when available, else heat index."""
     try:
         snapshot = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     feels_like = snapshot.feels_like if snapshot.feels_like is not None else snapshot.temperature_c
-    wbgt_c = getattr(snapshot, "wbgt_c", None)
+    wbgt_c = snapshot.wbgt_c
+    wbgt_estimated = bool(snapshot.wbgt_estimated and wbgt_c is not None)
 
     return (
         WorkSafetyEnvironmentInput(
             lat=lat,
             lon=lon,
             wbgt_c=wbgt_c,
+            wbgt_estimated=wbgt_estimated,
             heat_index_c=feels_like,
         ),
         snapshot.source,

@@ -31,6 +31,8 @@ def _snapshot_to_environmental(
         no2=snapshot.no2,
         uv=snapshot.uv,
         wind_speed=snapshot.wind_speed,
+        pollen_grains_m3=snapshot.pollen_grains_m3,
+        wildfire_pm10=snapshot.wildfire_pm10,
         source=snapshot.source,
         timestamp=datetime.now(timezone.utc).isoformat(),
         timezone=snapshot.timezone or timezone_name,
@@ -57,6 +59,11 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
                 wind_speed=cached.wind_speed,
                 feels_like=cached.feels_like,
                 timezone=cached.timezone,
+                pollen_grains_m3=cached.pollen_grains_m3,
+                wildfire_pm10=cached.wildfire_pm10,
+                wbgt_c=cached.wbgt_c,
+                wbgt_estimated=cached.wbgt_estimated,
+                shortwave_wm2=cached.shortwave_wm2,
             )
         return None
     return EnvironmentSnapshot(
@@ -72,6 +79,11 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
         wind_speed=cached.wind_speed,
         feels_like=cached.feels_like,
         timezone=cached.timezone,
+        pollen_grains_m3=cached.pollen_grains_m3,
+        wildfire_pm10=cached.wildfire_pm10,
+        wbgt_c=cached.wbgt_c,
+        wbgt_estimated=cached.wbgt_estimated,
+        shortwave_wm2=cached.shortwave_wm2,
     )
 
 
@@ -120,6 +132,11 @@ def resolve_environment_snapshot(
             wind_speed=live.wind_speed,
             feels_like=live.feels_like,
             timezone=live.timezone,
+            pollen_grains_m3=live.pollen_grains_m3,
+            wildfire_pm10=live.wildfire_pm10,
+            wbgt_c=live.wbgt_c,
+            wbgt_estimated=live.wbgt_estimated,
+            shortwave_wm2=live.shortwave_wm2,
         )
     except Exception:
         pass

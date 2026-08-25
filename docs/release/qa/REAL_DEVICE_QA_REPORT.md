@@ -1,5 +1,17 @@
 # Real Device QA Report
 
+
+## Continuation checkpoint (2026-08-25)
+
+Status: **BLOCKED — no physical device connected**
+
+Automated this session:
+- Backend unit tests for pollen/smoke + WBGT estimate PASS
+- iOS Simulator runtimes present (iOS 26.x) but **not** physical-device certification
+- `adb devices`: no physical Android attached
+
+Physical matrix remains BLOCKED until a signed candidate is exercised on real iPhone + Android hardware.
+
 ## TestFlight 149 physical checkpoint (2026-07-29) — STOPPED FOR FIXES
 
 Status: **FAILED_P1_CONNECTION — HARDENING IN PROGRESS**
@@ -213,3 +225,10 @@ Prefer **TestFlight build 103** against production.
 7. Android: install signed release APK → Health Connect matrix.
 
 Never paste exact health values, coordinates, receipts, or Apple IDs into docs.
+
+### Simulator launch smoke (2026-08-25)
+
+- Device: iPhone 16e Simulator (iOS 26.2) — **not** physical certification
+- Maestro `mobile/ios/maestro/01_launch_smoke.yaml`: **PASS** (app launches, HiAir visible)
+- Physical iOS/Android matrices: still **BLOCKED** (no hardware attached / `adb` empty)
+

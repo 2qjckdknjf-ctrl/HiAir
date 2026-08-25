@@ -93,3 +93,18 @@ def test_heavier_workload_lowers_wbgt_tolerance() -> None:
 
     assert moderate_load.riskLevel == RiskLevel.MODERATE
     assert heavy_load.riskLevel == RiskLevel.HIGH
+
+
+def test_estimated_wbgt_is_labeled() -> None:
+    env = WorkSafetyEnvironmentInput(
+        lat=25.2,
+        lon=55.27,
+        wbgt_c=28.0,
+        wbgt_estimated=True,
+        heat_index_c=36.0,
+    )
+    result = assess_site_risk(env, WorkloadCategory.MODERATE, acclimatized=True)
+    assert result.wbgtC == 28.0
+    assert "wbgt_assessment" in result.reasonCodes
+    assert "wbgt_estimated_from_meteo" in result.reasonCodes
+    assert "not_instrument_wbgt" in result.reasonCodes

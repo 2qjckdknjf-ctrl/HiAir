@@ -81,3 +81,19 @@ python3 scripts/release/sync_github_env_secrets.py \
 ```
 
 Prefer **custom token in `.env.local`** over OAuth refresh for production stability.
+
+
+## Automated Custom Token (preferred)
+
+1. In Cloudflare Dashboard create a one-time **Create Additional Tokens** bootstrap token.
+2. Locally:
+
+```bash
+export CLOUDFLARE_BOOTSTRAP_TOKEN='...'
+export CLOUDFLARE_ACCOUNT_ID='864f04d729c24f574a228558b40d7b82'
+python3 scripts/ops/create_cloudflare_custom_deploy_token.py
+python3 scripts/ops/rotate_cloudflare_github_token.py
+python3 scripts/ops/verify_cloudflare_deploy_token.py
+```
+
+3. Revoke the bootstrap token after the long-lived deploy token is verified.

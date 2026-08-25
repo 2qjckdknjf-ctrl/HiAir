@@ -36,3 +36,9 @@ Expand from heat + air quality into a modular personal environmental safety laye
 - [x] Dashboard NO2 metric tile when provider value present (iOS + Android)
 - [x] Production smoke on `api.hiair.io` (via `smoke_feature_surfaces_prod.py`)
 - [ ] Merge Personal Environmental Risk with existing risk engine output
+
+
+## Pollen / smoke (2026-08-25)
+- Provider: Open-Meteo CAMS (`docs/research/HIAIR_POLLEN_SMOKE_PROVIDER_RESEARCH.md`)
+- Fields: `pollen_grains_m3`, `wildfire_pm10`
+- Outside coverage → unavailable (never synthesized)

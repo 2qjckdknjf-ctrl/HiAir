@@ -24,11 +24,16 @@ class WorkRestRecommendation(BaseModel):
 
 
 class WorkSafetyEnvironmentInput(BaseModel):
-    """Minimal occupational assessment inputs; WBGT is optional and must not be inferred."""
+    """Occupational assessment inputs.
+
+    Prefer measured WBGT. Estimated meteo WBGT is allowed only when labeled via
+    ``wbgt_estimated=True`` and must never be presented as instrument WBGT.
+    """
 
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
     wbgt_c: float | None = None
+    wbgt_estimated: bool = False
     heat_index_c: float | None = None
 
 

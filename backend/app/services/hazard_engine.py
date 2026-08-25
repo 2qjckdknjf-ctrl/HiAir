@@ -183,12 +183,74 @@ def score_uv(environment: EnvironmentalInput, profile: UserProfileContext) -> Ha
     )
 
 
-def score_pollen(_environment: EnvironmentalInput, _profile: UserProfileContext) -> HazardScore:
-    return _unavailable(HazardType.POLLEN)
+def score_pollen(environment: EnvironmentalInput, profile: UserProfileContext) -> HazardScore:
+    if environment.pollen_grains_m3 is None:
+        return _unavailable(HazardType.POLLEN, "pollen_unavailable")
+
+    grains = environment.pollen_grains_m3
+    reasons: list[str] = ["openmeteo_cams_pollen"]
+    # CAMS-inspired grains/m³ bands (max species).
+    if grains >= 150:
+        level = HazardLevel.VERY_HIGH
+        reasons.append("pollen_very_high")
+    elif grains >= 50:
+        level = HazardLevel.HIGH
+        reasons.append("pollen_high")
+    elif grains >= 10:
+        level = HazardLevel.MODERATE
+        reasons.append("pollen_moderate")
+    else:
+        level = HazardLevel.LOW
+        reasons.append("pollen_low")
+
+    if profile.profile_type in (ProfileType.ASTHMA_SENSITIVE, ProfileType.ALLERGY_SENSITIVE):
+        reasons.append("profile_respiratory_sensitivity")
+        if HAZARD_LEVEL_ORDER[level] < HAZARD_LEVEL_ORDER[HazardLevel.MODERATE]:
+            level = HazardLevel.MODERATE
+
+    return HazardScore(
+        hazard=HazardType.POLLEN,
+        level=level,
+        score=RISK_LEVEL_TO_SCORE[level.value],
+        available=True,
+        reasonCodes=reasons,
+    )
 
 
-def score_smoke(_environment: EnvironmentalInput, _profile: UserProfileContext) -> HazardScore:
-    return _unavailable(HazardType.SMOKE)
+def score_smoke(environment: EnvironmentalInput, profile: UserProfileContext) -> HazardScore:
+    if environment.wildfire_pm10 is None:
+        return _unavailable(HazardType.SMOKE, "smoke_unavailable")
+
+    smoke = environment.wildfire_pm10
+    reasons: list[str] = ["openmeteo_pm10_wildfires"]
+    if smoke >= 100:
+        level = HazardLevel.VERY_HIGH
+        reasons.append("wildfire_smoke_very_high")
+    elif smoke >= 50:
+        level = HazardLevel.HIGH
+        reasons.append("wildfire_smoke_high")
+    elif smoke >= 20:
+        level = HazardLevel.MODERATE
+        reasons.append("wildfire_smoke_moderate")
+    elif smoke >= 5:
+        level = HazardLevel.MODERATE
+        reasons.append("wildfire_smoke_elevated")
+    else:
+        level = HazardLevel.LOW
+        reasons.append("wildfire_smoke_low")
+
+    if profile.profile_type in (ProfileType.ASTHMA_SENSITIVE, ProfileType.ALLERGY_SENSITIVE, ProfileType.CHILD, ProfileType.ELDERLY):
+        reasons.append("profile_smoke_sensitivity")
+        if HAZARD_LEVEL_ORDER[level] < HAZARD_LEVEL_ORDER[HazardLevel.MODERATE] and smoke >= 5:
+            level = HazardLevel.MODERATE
+
+    return HazardScore(
+        hazard=HazardType.SMOKE,
+        level=level,
+        score=RISK_LEVEL_TO_SCORE[level.value],
+        available=True,
+        reasonCodes=reasons,
+    )
 
 
 def score_dust(environment: EnvironmentalInput, profile: UserProfileContext) -> HazardScore:
