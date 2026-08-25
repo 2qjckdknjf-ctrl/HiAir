@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 from psycopg.errors import UndefinedTable
@@ -84,18 +86,39 @@ def _load_forecast_or_none(lat: float, lon: float, force_refresh: bool = False):
         return None
 
 
-def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> CurrentRiskResponse:
+def _load_environment_and_forecast(profile, force_refresh: bool = False):
+    """Fetch snapshot and hourly forecast in parallel; singleflight coalesces duplicates."""
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        env_future = pool.submit(
+            air_environment_service.load_environment,
+            profile,
+            force_refresh=force_refresh,
+        )
+        forecast_future = pool.submit(
+            _load_forecast_or_none,
+            profile.home_lat,
+            profile.home_lon,
+            force_refresh,
+        )
+        environment = env_future.result()
+        forecast = forecast_future.result()
+    return environment, forecast
+
+
+def _compute_and_persist(
+    profile_id: str,
+    user_id: str,
+    force_live: bool,
+    *,
+    allow_llm: bool = False,
+) -> CurrentRiskResponse:
     profile = _resolve_profile_for_user(profile_id, user_id)
     user_settings = settings_repository.get_user_settings(user_id)
     language = user_settings.preferred_language
     try:
-        environment = air_environment_service.load_environment(
-            profile,
-            force_refresh=force_live,
-        )
+        environment, forecast = _load_environment_and_forecast(profile, force_refresh=force_live)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
-    forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon, force_refresh=force_live)
     hourly_points = []
     freshness = None
     data_quality = None
@@ -122,9 +145,8 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
         assessment_id = air_repository.save_risk_assessment(profile.profile_id, snapshot_id, risk)
     else:
         assessment_id = None
-    # Skip premium health-analytics prefetch on the dashboard critical path —
-    # LLM still receives risk + recommendation facts; Insights/morning report
-    # keep the richer health context.
+    # Dashboard GET must not wait on OpenAI (up to 8s). Morning report / Insights
+    # still call the LLM; pull-to-refresh (recompute) may opt in.
     explanation, explanation_source = ai_explanation_service.generate_explanation(
         profile,
         risk,
@@ -132,6 +154,7 @@ def _compute_and_persist(profile_id: str, user_id: str, force_live: bool) -> Cur
         language=language,
         risk_assessment_id=assessment_id,
         health_context=None,
+        allow_llm=allow_llm,
     )
     if assessment_id is not None:
         air_repository.save_recommendation(
@@ -162,8 +185,7 @@ def get_hazards(
 ) -> HazardsResponse:
     try:
         profile = _resolve_profile_for_user(profileId, user_id)
-        environment = air_environment_service.load_environment(profile)
-        forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        environment, forecast = _load_environment_and_forecast(profile)
         freshness = None
         data_quality = None
         sources = None
@@ -212,8 +234,7 @@ def get_day_plan(
     try:
         entitlement_service.require_feature(user_id, "extended_forecast", "extended_forecast_enabled")
         profile = _resolve_profile_for_user(profileId, user_id)
-        environment = air_environment_service.load_environment(profile)
-        forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        environment, forecast = _load_environment_and_forecast(profile)
         environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         personal_load = wearable_service.build_personal_load_input(user_id, environment)
@@ -244,8 +265,7 @@ def get_recommendations(
     try:
         profile = _resolve_profile_for_user(profileId, user_id)
         user_settings = settings_repository.get_user_settings(user_id)
-        environment = air_environment_service.load_environment(profile)
-        forecast = _load_forecast_or_none(profile.home_lat, profile.home_lon)
+        environment, forecast = _load_environment_and_forecast(profile)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         if forecast is not None:
             environment = overlay_forecast_current(environment, forecast)
@@ -281,6 +301,11 @@ def recompute_risk(
     user_id: str = Depends(get_current_user_id),
 ) -> CurrentRiskResponse:
     try:
-        return _compute_and_persist(payload.profileId, user_id, force_live=payload.forceRefresh)
+        return _compute_and_persist(
+            payload.profileId,
+            user_id,
+            force_live=payload.forceRefresh,
+            allow_llm=True,
+        )
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc

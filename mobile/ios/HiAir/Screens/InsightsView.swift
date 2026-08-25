@@ -229,10 +229,7 @@ struct InsightsView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                    Text(session.l("tab.insights"))
-                        .font(AuroraTokens.Typography.displayLG)
-                        .foregroundStyle(HiAirV2Theme.primaryText)
-                        .accessibilityAddTraits(.isHeader)
+                    HiAirScreenWordmark(suffix: session.l("tab.insights"), suffixUsesGradient: true)
 
                     if session.profileId.isEmpty {
                         ProfileBootstrapCard(
@@ -288,11 +285,12 @@ struct InsightsView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .padding(.bottom, HiAirSpacing.tabBarClearance)
             }
         }
         .hiAirPageBackground()
-        .task {
+        .task(id: session.selectedTab) {
+            guard session.selectedTab == 2 else { return }
             if UITestBootstrap.disableAutoProfileBootstrap {
                 return
             }

@@ -5,6 +5,9 @@ from app.models.air import EnvironmentalInput, UserProfileContext
 from app.models.risk import EnvironmentSnapshot
 import app.services.air_repository as air_repository
 from app.services.environment_service import build_sample_snapshot, fetch_live_snapshot
+from app.services.singleflight import SingleFlight
+
+_LIVE_ENV_FLIGHT = SingleFlight()
 
 SOURCE_LIVE = "live"
 SOURCE_CACHED = "cached"
@@ -54,16 +57,6 @@ def _with_meteo_wbgt_if_missing(snapshot: EnvironmentSnapshot) -> EnvironmentSna
     if wbgt_c is None:
         return snapshot
     return snapshot.model_copy(update={"wbgt_c": wbgt_c, "wbgt_estimated": True})
-
-
-def _cache_missing_post_migration_fields(snapshot: EnvironmentSnapshot) -> bool:
-    """True when a geo-cache row predates pollen/smoke/WBGT persistence."""
-    return (
-        snapshot.pollen_grains_m3 is None
-        and snapshot.wildfire_pm10 is None
-        and snapshot.wbgt_c is None
-        and snapshot.shortwave_wm2 is None
-    )
 
 
 def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
@@ -144,17 +137,17 @@ def resolve_environment_snapshot(
         if cached_row is not None:
             honest = _honest_cached_snapshot(cached_row)
             if honest is not None and honest.source == SOURCE_CACHED:
-                # Pre-migration cache rows lack pollen/smoke/WBGT columns entirely;
-                # do not keep serving them for the full TTL — refresh live once.
-                if _cache_missing_post_migration_fields(cached_row):
-                    pass
-                else:
-                    return honest
+                # Serve core metrics immediately. Missing pollen/smoke/WBGT stay
+                # null (honest) — do not block the dashboard on a live refresh.
+                return honest
             if honest is not None and honest.source == SOURCE_SAMPLE:
                 deferred_sample = honest
 
     try:
-        live = fetch_live_snapshot(lat, lon)
+        live = _LIVE_ENV_FLIGHT.do(
+            f"{round(lat, 2)}:{round(lon, 2)}",
+            lambda: fetch_live_snapshot(lat, lon),
+        )
         resolved = EnvironmentSnapshot(
             temperature_c=live.temperature_c,
             humidity_percent=live.humidity_percent,

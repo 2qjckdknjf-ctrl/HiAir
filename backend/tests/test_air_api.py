@@ -180,14 +180,54 @@ def test_air_recommendations_returns_payload(monkeypatch) -> None:
     assert body["recommendation"]["headline"]
 
 
+def test_compute_and_persist_skips_llm_on_dashboard_get(monkeypatch) -> None:
+    captured: dict = {}
+    monkeypatch.setattr(air_api.air_repository, "get_profile_context", lambda profile_id: _sample_profile())
+    monkeypatch.setattr(air_api.travel_location, "apply_travel_location_override", lambda user_id, profile: profile)
+    monkeypatch.setattr(
+        air_api.settings_repository,
+        "get_user_settings",
+        lambda user_id: type("Settings", (), {"preferred_language": "en"})(),
+    )
+    monkeypatch.setattr(
+        air_api,
+        "_load_environment_and_forecast",
+        lambda profile, force_refresh=False: (_sample_environment(), None),
+    )
+    monkeypatch.setattr(air_api.wearable_service, "build_personal_load_input", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        air_api.air_risk_engine,
+        "evaluate_risk",
+        lambda profile, environment, personal_load=None, hourly_points=None: _sample_risk(),
+    )
+    monkeypatch.setattr(
+        air_api.air_recommendation_engine,
+        "generate_recommendation",
+        lambda profile, risk, language: _sample_recommendation(),
+    )
+    monkeypatch.setattr(air_api.air_repository, "save_environment_snapshot", lambda environment: "snap-1")
+    monkeypatch.setattr(air_api.air_repository, "save_risk_assessment", lambda *args, **kwargs: "assess-1")
+    monkeypatch.setattr(air_api.air_repository, "save_recommendation", lambda **kwargs: None)
+
+    def _explain(*args, **kwargs):
+        captured.update(kwargs)
+        return "Use safer windows.", "template_fallback"
+
+    monkeypatch.setattr(air_api.ai_explanation_service, "generate_explanation", _explain)
+    result = air_api._compute_and_persist("profile-1", "user-1", False)
+    assert captured.get("allow_llm") is False
+    assert result.explanationSource == "template_fallback"
+
+
 def test_air_recompute_risk_uses_payload(monkeypatch) -> None:
     _enable_auth(monkeypatch)
 
     called = {}
 
-    def _compute(profile_id: str, user_id: str, force_live: bool) -> CurrentRiskResponse:
+    def _compute(profile_id: str, user_id: str, force_live: bool, *, allow_llm: bool = False) -> CurrentRiskResponse:
         called["profile_id"] = profile_id
         called["force_live"] = force_live
+        called["allow_llm"] = allow_llm
         return CurrentRiskResponse(
             profileId=profile_id,
             assessedAt="2026-05-20T11:00:00Z",
@@ -209,3 +249,4 @@ def test_air_recompute_risk_uses_payload(monkeypatch) -> None:
     assert response.status_code == 200
     assert called["profile_id"] == "profile-1"
     assert called["force_live"] is True
+    assert called["allow_llm"] is True

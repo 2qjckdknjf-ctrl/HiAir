@@ -6,9 +6,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
+
+
+def _ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
 
 
 def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, dict | list | str]:
@@ -16,20 +27,29 @@ def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, dict | l
     if headers:
         merged.update(headers)
     req = urllib.request.Request(url, headers=merged, method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = resp.read().decode("utf-8")
-            try:
-                return resp.status, json.loads(body)
-            except json.JSONDecodeError:
-                return resp.status, body
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
         try:
-            payload: dict | list | str = json.loads(body)
-        except json.JSONDecodeError:
-            payload = body
-        return exc.code, payload
+            with urllib.request.urlopen(req, timeout=60, context=_ssl_context()) as resp:
+                body = resp.read().decode("utf-8")
+                try:
+                    return resp.status, json.loads(body)
+                except json.JSONDecodeError:
+                    return resp.status, body
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            try:
+                payload: dict | list | str = json.loads(body)
+            except json.JSONDecodeError:
+                payload = body
+            return exc.code, payload
+        except (TimeoutError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt < 3:
+                time.sleep(8 * attempt)
+                continue
+            raise
+    raise last_error or RuntimeError(f"GET failed: {url}")
 
 
 def main() -> int:

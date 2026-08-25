@@ -10,6 +10,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var actions: [String] = []
     @Published var nearestSafeWindow = ""
     @Published var safeWindowLabels: [String] = []
+    @Published var safeWindowModels: [AirSafeWindow] = []
     @Published var environmental: AirEnvironmentalInput?
     @Published var hazardsResponse: HazardsResponse?
     @Published var familyRiskOverview: FamilyRiskOverviewResponse?
@@ -52,6 +53,7 @@ final class DashboardViewModel: ObservableObject {
             actions = []
             nearestSafeWindow = ""
             safeWindowLabels = []
+            safeWindowModels = []
             environmental = nil
             hazardsResponse = nil
             familyRiskOverview = nil
@@ -64,30 +66,13 @@ final class DashboardViewModel: ObservableObject {
         }
         do {
             ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "dashboard"])
-            // Phase 1: risk only — paints hero as soon as current-risk returns.
-            async let riskTask = apiClient.fetchCurrentRisk(
+            // Phase 1: only current-risk. Starting enrichments via async let here
+            // saturates the API container and Open-Meteo before the hero can paint.
+            let result = try await apiClient.fetchCurrentRisk(
                 profileId: profileId,
                 userId: userId,
                 accessToken: accessToken
             )
-            async let hazardsTask = apiClient.fetchHazards(
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken
-            )
-            async let familyRiskTask = apiClient.fetchFamilyRiskOverview(
-                userId: userId,
-                accessToken: accessToken
-            )
-            async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
-            async let summaryTask = apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
-            async let morningTask = apiClient.fetchAIReport(
-                kind: "morning",
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken
-            )
-            let result = try await riskTask
             // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
             let live = healthService.connectionState
             switch live {
@@ -104,6 +89,7 @@ final class DashboardViewModel: ObservableObject {
             environmental = result.environmental
             freshness = result.freshness ?? result.environmental.source
             dataQuality = result.dataQuality ?? ""
+            safeWindowModels = result.risk.safeWindows
             let locale = Locale(identifier: language)
             let zone = HiAirHumanDate.timeZone(identifier: result.environmental.timezone)
             safeWindowLabels = result.risk.safeWindows.map { window in
@@ -153,13 +139,30 @@ final class DashboardViewModel: ObservableObject {
                 ]
             )
 
-            // Phase 2: optional enrichments (must not delay first useful UI).
+            // Phase 2: start only after hero paint so they cannot starve current-risk.
+            async let hazardsTask = apiClient.fetchHazards(
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken
+            )
+            async let familyRiskTask = apiClient.fetchFamilyRiskOverview(
+                userId: userId,
+                accessToken: accessToken
+            )
+            async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            async let summaryTask = apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
+            async let travelTask = apiClient.fetchTravelSession(
+                userId: userId,
+                accessToken: accessToken
+            )
             hazardsResponse = try? await hazardsTask
             familyRiskOverview = try? await familyRiskTask
             wearableToday = try? await wearableTask
             healthSummary = try? await summaryTask
-            morningReport = try? await morningTask
-            travelSession = try? await apiClient.fetchTravelSession(
+            travelSession = try? await travelTask
+            morningReport = try? await apiClient.fetchAIReport(
+                kind: "morning",
+                profileId: profileId,
                 userId: userId,
                 accessToken: accessToken
             )
@@ -172,6 +175,7 @@ final class DashboardViewModel: ObservableObject {
             actions = []
             nearestSafeWindow = ""
             safeWindowLabels = []
+            safeWindowModels = []
             environmental = nil
             hazardsResponse = nil
             familyRiskOverview = nil
@@ -434,8 +438,7 @@ struct DashboardView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                    dashboardHeader
-                    greetingSection
+                    homeChrome
                     emptyStateSections
 
                     if viewModel.loading && !viewModel.hasLoadedOnce {
@@ -454,9 +457,10 @@ struct DashboardView: View {
                         )
                         .v2Card()
                     } else if showLiveRiskContent {
-                        aiSummarySection
-                        riskHeroSection(width: width)
-                        todaysAirSection
+                        environmentalRiskCard(width: width)
+                        weatherAQIRow
+                        recommendationsCard
+                        outdoorWindowCard
                         hazardsSection
                         travelSection
                         familyRiskSection
@@ -464,7 +468,6 @@ struct DashboardView: View {
                         healthMetricsSection
                         wearableLoadSection
                         quickActionsSection
-                        safeWindowsSection
                     }
 
                     if showStarterChecklist {
@@ -473,7 +476,7 @@ struct DashboardView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .padding(.bottom, HiAirSpacing.tabBarClearance)
             }
             .refreshable {
                 session.beginExplicitProfileEnsureCycle()
@@ -534,6 +537,10 @@ struct DashboardView: View {
             viewModel.wearableConnectionState = newState
         }
         .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { notification in
+            if let context = notification.object as? ProfileLocationUpdateContext,
+               context.source == .placeNameResolved {
+                return
+            }
             // Re-evaluate skip inside the Task so a stale post after account switch cannot
             // suppress ensure for the newly signed-in user.
             Task {
@@ -584,9 +591,29 @@ struct DashboardView: View {
         )
     }
 
+    private func dg(_ key: String) -> String {
+        HiAirDeepGlassCopy.t(key, lang: session.preferredLanguage)
+    }
+
+    private var greetingName: String {
+        let local = session.email.split(separator: "@").first.map(String.init) ?? ""
+        let token = local.split(separator: ".").first.map(String.init) ?? local
+        guard token.count >= 2, token.allSatisfy({ $0.isLetter || $0.isNumber }) else { return "" }
+        return token.prefix(1).uppercased() + token.dropFirst().lowercased()
+    }
+
+    private var riskLevelLabel: String {
+        switch viewModel.riskLevel.lowercased() {
+        case "low": return dg("spectrum.low")
+        case "high": return dg("spectrum.high")
+        case "very_high", "very high": return dg("spectrum.very_high")
+        default: return dg("spectrum.moderate")
+        }
+    }
+
     @ViewBuilder
-    private var dashboardHeader: some View {
-        HStack(spacing: HiAirSpacing.xs) {
+    private var homeChrome: some View {
+        HStack(spacing: 10) {
             Button {
                 Task {
                     if locationService.authorizationStatus == .denied || locationService.authorizationStatus == .restricted {
@@ -600,51 +627,208 @@ struct DashboardView: View {
                     Image(systemName: "location.fill")
                     Text(locationLabel)
                 }
-                .font(HiAirTypography.caption)
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .hiAirChipSurface()
+                .font(HiAirTypography.caption.weight(.semibold))
+                .foregroundStyle(HiAirColors.Text.primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .hiAirGlassSurface(prominence: .compact, cornerRadius: HiAirRadius.chip)
             }
+            .buttonStyle(.plain)
 
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(viewModel.loading ? HiAirColors.Risk.moderate : HiAirColors.Risk.low)
-                    .frame(width: 6, height: 6)
-                Text(freshnessLabel)
-                    .font(HiAirTypography.caption)
-                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-            }
             Spacer()
-            Button {
-                session.selectedTab = 4
-            } label: {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-            }
-            .accessibilityLabel(session.l("dashboard.profile_button"))
+            HiAirLivePill(
+                isLive: !viewModel.loading && viewModel.environmental != nil,
+                label: freshnessLabel
+            )
+            Image("HiAirWordmark")
+                .renderingMode(.original)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(height: 22)
+                .accessibilityLabel("HiAir")
+        }
+
+        VStack(alignment: .leading, spacing: 6) {
+            greetingText
+                .font(HiAirTypography.displayLG)
+                .accessibilityAddTraits(.isHeader)
+            Text(dg("tagline.smarter"))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
         }
     }
 
-    @ViewBuilder
-    private var greetingSection: some View {
-        HiAirBrandHeader(
-            title: "HiAir",
-            subtitle: nil,
-            showOrb: true,
-            orbSize: 44,
-            compact: true
-        )
-        Text(todayHumanDate)
-            .font(HiAirTypography.caption)
-            .foregroundStyle(HiAirColors.Text.tertiary)
+    private var greetingText: Text {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let hello: String
+        if hour < 12 {
+            hello = dg("greeting.morning")
+        } else if hour < 18 {
+            hello = dg("greeting.afternoon")
+        } else {
+            hello = dg("greeting.evening")
+        }
+        if greetingName.isEmpty {
+            return Text(hello).foregroundColor(HiAirColors.Text.primary)
+        }
+        return Text(hello + ", ").foregroundColor(HiAirColors.Text.primary)
+            + Text(greetingName).foregroundColor(HiAirColors.Spectrum.violet)
+    }
 
-        let greeting = viewModel.headline.trimmingCharacters(in: .whitespacesAndNewlines)
-        Text(greeting.isEmpty || greeting == "-" ? session.l("dashboard.greeting_neutral") : greeting)
-            .font(HiAirTypography.displayLG)
-            .foregroundStyle(HiAirColors.Text.primary)
-            .accessibilityAddTraits(.isHeader)
+    @ViewBuilder
+    private func environmentalRiskCard(width: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: HiAirSpacing.md) {
+            HStack {
+                Label(dg("env_risk"), systemImage: "checkmark.shield")
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                infoButton("dashboard.current_risk_title")
+            }
+            HStack {
+                Spacer()
+                HiAirDeepGlassOrb(
+                    score: riskScore ?? 0,
+                    levelLabel: riskLevelLabel,
+                    riskLevel: viewModel.riskLevel,
+                    diameter: min(width * 0.58, 240)
+                )
+                Spacer()
+            }
+            HiAirRiskSpectrumBar(score: riskScore ?? 45, lang: session.preferredLanguage)
+        }
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .hero, glow: riskColor)
+    }
+
+    @ViewBuilder
+    private var weatherAQIRow: some View {
+        if let env = viewModel.environmental {
+            HStack(spacing: 12) {
+                HiAirGlassMetricTile(
+                    title: dg("weather"),
+                    value: String(format: "%.0f°C", env.temperature),
+                    subtitle: dg("outdoor_now"),
+                    footnote: weatherFootnote(env),
+                    icon: (env.uv ?? 0) >= 5 ? "sun.max.fill" : "cloud.sun.fill",
+                    accent: HiAirColors.Risk.moderate
+                )
+                HiAirGlassMetricTile(
+                    title: dg("aqi"),
+                    value: env.aqi.map { "\($0)" } ?? session.l("common.unavailable"),
+                    subtitle: env.aqi.map(aqiStatusLabel) ?? session.l("dashboard.hazards.unavailable"),
+                    footnote: env.pm25.map { String(format: "PM2.5 %.0f µg/m³", $0) } ?? "PM2.5 —",
+                    icon: "aqi.medium",
+                    accent: aqiAccent(env.aqi ?? 0)
+                )
+            }
+            .onAppear { ProductAnalytics.track("risk_breakdown_viewed") }
+        }
+    }
+
+    private func weatherFootnote(_ env: AirEnvironmentalInput) -> String {
+        let humidity = env.humidity.map { String(format: "%.0f%%", $0) } ?? "—"
+        return String(
+            format: "%@ %.0f° · %@ %@",
+            dg("feels"),
+            env.feelsLike,
+            dg("humidity"),
+            humidity
+        )
+    }
+
+    private func aqiAccent(_ aqi: Int) -> Color {
+        if aqi <= 50 { return HiAirColors.Risk.low }
+        if aqi <= 100 { return HiAirColors.Risk.moderate }
+        if aqi <= 150 { return HiAirColors.Risk.high }
+        return HiAirColors.Risk.veryHigh
+    }
+
+    private func aqiStatusLabel(_ aqi: Int) -> String {
+        if aqi <= 50 { return dg("good") }
+        if aqi <= 100 { return dg("spectrum.moderate") }
+        if aqi <= 150 { return dg("spectrum.high") }
+        return dg("spectrum.very_high")
+    }
+
+    @ViewBuilder
+    private var recommendationsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(dg("recommendations"), systemImage: "leaf.fill")
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                Button(dg("view_all")) {
+                    session.selectedTab = 1
+                    session.markChecklistItem("recommendations", done: true)
+                }
+                .font(HiAirTypography.caption.weight(.semibold))
+                .foregroundStyle(HiAirColors.Spectrum.cyan)
+            }
+            let items = viewModel.actions.isEmpty ? [riskReason] : Array(viewModel.actions.prefix(2))
+            ForEach(Array(items.enumerated()), id: \.offset) { index, text in
+                Button {
+                    session.selectedTab = 1
+                    session.markChecklistItem("recommendations", done: true)
+                } label: {
+                    HiAirRecommendationRow(
+                        icon: index == 0 ? "facemask" : "leaf.fill",
+                        text: text,
+                        accent: index == 0 ? HiAirColors.Spectrum.electricBlue : HiAirColors.Spectrum.violet
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Spectrum.violet)
+    }
+
+    @ViewBuilder
+    private var outdoorWindowCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(dg("outdoor_window"), systemImage: "clock.fill")
+                    .font(HiAirTypography.titleMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                Spacer()
+                Text(dg("today"))
+                    .font(HiAirTypography.caption.weight(.semibold))
+                    .foregroundStyle(HiAirColors.Spectrum.cyan)
+            }
+            HiAirOutdoorWindowBar(
+                segments: outdoorSegments,
+                summary: dg("best_window_prefix") + " ",
+                highlightRange: nearestWindowRange,
+                todayLabel: ""
+            )
+        }
+        .padding(HiAirSpacing.md)
+        .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Risk.low)
+    }
+
+    private var outdoorSegments: [Color] {
+        let buckets = [(6, 9), (9, 12), (12, 15), (15, 18), (18, 21), (21, 24)]
+        let base = HiAirRiskStyle.color(for: viewModel.riskLevel)
+        return buckets.map { start, end in
+            let inWindow = viewModel.safeWindowModels.contains { window in
+                guard let windowStart = HiAirDeepGlassTime.hour(from: window.start),
+                      let windowEnd = HiAirDeepGlassTime.hour(from: window.end)
+                else { return false }
+                return windowStart < end && windowEnd > start
+            }
+            return inWindow ? HiAirColors.Risk.low : base
+        }
+    }
+
+    private var nearestWindowRange: String {
+        if let first = viewModel.nearestSafeWindow.split(separator: ":").last {
+            let trimmed = first.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return viewModel.nearestSafeWindow
     }
 
     @ViewBuilder

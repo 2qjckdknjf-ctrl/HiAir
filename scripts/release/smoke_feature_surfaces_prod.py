@@ -6,11 +6,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from uuid import uuid4
+
+
+def _ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
 
 
 def _request(
@@ -29,7 +39,7 @@ def _request(
         merged["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=payload, headers=merged, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
             raw = resp.read().decode("utf-8")
             try:
                 return resp.status, json.loads(raw)

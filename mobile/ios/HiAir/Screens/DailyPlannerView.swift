@@ -385,20 +385,28 @@ final class DailyPlannerViewModel: ObservableObject {
 struct DailyPlannerView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DailyPlannerViewModel()
+    @State private var selectedDate = Date()
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                Text(session.l("planner.title"))
-                    .font(AuroraTokens.Typography.displayLG)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
+                HStack(alignment: .center) {
+                    HiAirScreenWordmark(suffix: plannerSuffix)
+                    Button {
+                        session.showPaywall = viewModel.premiumLocked
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(HiAirColors.Text.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(session.l("planner.subtitle"))
+                }
 
-                Text(session.l("planner.subtitle"))
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                HiAirDateStrip(selected: selectedDate) { selectedDate = $0 }
 
-                if !viewModel.statusText.isEmpty && !viewModel.premiumLocked {
+                if !viewModel.statusText.isEmpty && !viewModel.premiumLocked && viewModel.hourlyItems.isEmpty {
                     Text(viewModel.statusText)
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -453,84 +461,8 @@ struct DailyPlannerView: View {
                     )
                 }
 
-                if !viewModel.hourlyItems.isEmpty && viewModel.forecastAvailable {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.l("planner.hourly"))
-                            .font(AuroraTokens.Typography.titleMD)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(alignment: .bottom, spacing: 3) {
-                                ForEach(Array(viewModel.hourlyItems.prefix(24).enumerated()), id: \.offset) { index, item in
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(color(for: item.overallRisk))
-                                        .frame(width: 4, height: index % 2 == 0 ? 32 : 24)
-                                        .overlay(alignment: .bottom) {
-                                            if index % 6 == 0 {
-                                                Text(humanHour(item.hour))
-                                                    .font(.system(size: 8))
-                                                    .foregroundStyle(HiAirV2Theme.tertiaryText)
-                                                    .offset(y: 11)
-                                            }
-                                        }
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("• \(keyEventLine())")
-                                .font(AuroraTokens.Typography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                            if let firstWindow = viewModel.safeWindows.first {
-                                Text("• \(localizedWindowType(firstWindow.type)): \(humanWindowRange(firstWindow.start, firstWindow.end))")
-                                    .font(AuroraTokens.Typography.bodyMD)
-                                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                            }
-                            if let firstVent = viewModel.ventilationWindows.first {
-                                Text("• \(session.l("planner.ventilation_windows")): \(humanWindowRange(firstVent.start, firstVent.end))")
-                                    .font(AuroraTokens.Typography.bodyMD)
-                                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                            }
-                            if !viewModel.ventilationWindows.isEmpty {
-                                if !viewModel.ventilationWindowMarked {
-                                    Button(session.l("planner.ventilation.mark_used")) {
-                                        Task {
-                                            await viewModel.markVentilationUsed(
-                                                profileId: session.profileId,
-                                                userId: session.userId,
-                                                accessToken: session.accessToken,
-                                                language: session.preferredLanguage,
-                                                onPremiumRequired: { session.showPaywall = true }
-                                            )
-                                        }
-                                    }
-                                    .buttonStyle(HiAirSecondaryButtonStyle())
-                                }
-                                if !viewModel.ventilationMarkStatus.isEmpty {
-                                    Text(viewModel.ventilationMarkStatus)
-                                        .font(AuroraTokens.Typography.caption)
-                                        .foregroundStyle(HiAirV2Theme.secondaryText)
-                                }
-                            }
-                        }
-                    }
-                    .v2Card()
-                } else if !viewModel.safeWindows.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.l("planner.safe_windows"))
-                            .font(AuroraTokens.Typography.titleMD)
-                            .foregroundStyle(HiAirV2Theme.primaryText)
-                        ForEach(viewModel.safeWindows, id: \.start) { window in
-                            Text("\(localizedWindowType(window.type)): \(humanWindowRange(window.start, window.end))")
-                                .font(AuroraTokens.Typography.bodyMD)
-                                .foregroundStyle(HiAirV2Theme.primaryText)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                    }
-                    .v2Card()
+                if !viewModel.hourlyItems.isEmpty || !viewModel.safeWindows.isEmpty {
+                    plannerLiveContent
                 }
 
                 Button(viewModel.loading ? session.l("planner.loading") : session.l("planner.refresh")) {
@@ -564,11 +496,12 @@ struct DailyPlannerView: View {
             }
             .hiAirContentWidth(for: width)
             .hiAirScreenPadding(for: width)
-            .padding(.bottom, HiAirSpacing.xl)
+            .padding(.bottom, HiAirSpacing.tabBarClearance)
             }
         }
         .hiAirPageBackground()
-        .task {
+        .task(id: session.selectedTab) {
+            guard session.selectedTab == 1 else { return }
             if UITestBootstrap.disableAutoProfileBootstrap {
                 if session.profileId.isEmpty {
                     viewModel.statusText = session.l("planner.profile_required")
@@ -609,6 +542,217 @@ struct DailyPlannerView: View {
                 )
             }
         }
+    }
+
+    private var plannerSuffix: String {
+        let title = HiAirDeepGlassCopy.t("planner.title", lang: session.preferredLanguage)
+        if title.hasPrefix("HiAir ") {
+            return String(title.dropFirst(6))
+        }
+        return session.l("tab.planner")
+    }
+
+    @ViewBuilder
+    private var plannerLiveContent: some View {
+        HiAirPlannerSummaryStrip(
+            riskLabel: localizedRisk(peakRisk),
+            riskLevel: peakRisk,
+            outdoorRange: outdoorRangeText,
+            outdoorHint: HiAirDeepGlassCopy.t("low_pollution_uv", lang: session.preferredLanguage),
+            ventilationRange: ventilationRangeText,
+            ventilationHint: HiAirDeepGlassCopy.t("ventilate_hint", lang: session.preferredLanguage),
+            lang: session.preferredLanguage
+        )
+
+        if !viewModel.hourlyItems.isEmpty && viewModel.forecastAvailable {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(HiAirDeepGlassCopy.t("chart_24h", lang: session.preferredLanguage).uppercased())
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HiAirColors.Text.secondary)
+                    Spacer()
+                    Text(HiAirDeepGlassCopy.t("aqi_us", lang: session.preferredLanguage))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(HiAirColors.Text.tertiary)
+                }
+                HiAirHourlyRiskChart(
+                    points: viewModel.hourlyItems,
+                    highlightStartHour: HiAirDeepGlassTime.hour(from: viewModel.safeWindows.first?.start ?? ""),
+                    highlightEndHour: HiAirDeepGlassTime.hour(from: viewModel.safeWindows.first?.end ?? "")
+                )
+                if let first = viewModel.safeWindows.first {
+                    Text("\(HiAirDeepGlassCopy.t("recommended", lang: session.preferredLanguage)): \(humanWindowRange(first.start, first.end))")
+                        .font(HiAirTypography.caption.weight(.semibold))
+                        .foregroundStyle(HiAirColors.Spectrum.cyan)
+                }
+                Text("• \(keyEventLine())")
+                    .font(HiAirTypography.bodyMD)
+                    .foregroundStyle(HiAirColors.Text.primary)
+                if !viewModel.ventilationWindows.isEmpty {
+                    if !viewModel.ventilationWindowMarked {
+                        Button(session.l("planner.ventilation.mark_used")) {
+                            Task {
+                                await viewModel.markVentilationUsed(
+                                    profileId: session.profileId,
+                                    userId: session.userId,
+                                    accessToken: session.accessToken,
+                                    language: session.preferredLanguage,
+                                    onPremiumRequired: { session.showPaywall = true }
+                                )
+                            }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                    }
+                    if !viewModel.ventilationMarkStatus.isEmpty {
+                        Text(viewModel.ventilationMarkStatus)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+            }
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .hero, glow: HiAirColors.Spectrum.cyan)
+        } else if !viewModel.safeWindows.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(session.l("planner.safe_windows"))
+                    .font(AuroraTokens.Typography.titleMD)
+                    .foregroundStyle(HiAirV2Theme.primaryText)
+                ForEach(viewModel.safeWindows, id: \.start) { window in
+                    Text("\(localizedWindowType(window.type)): \(humanWindowRange(window.start, window.end))")
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(HiAirColors.Overlay.subtle, in: RoundedRectangle(cornerRadius: 10))
+                }
+            }
+            .v2Card()
+        }
+
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(dayParts, id: \.title) { part in
+                    HiAirDayPartCard(
+                        title: part.title,
+                        hours: part.hours,
+                        temperature: "",
+                        aqi: localizedRisk(part.risk),
+                        risk: part.risk,
+                        bodyText: part.body,
+                        iconName: part.icon
+                    )
+                    .frame(width: 148, alignment: .topLeading)
+                    .frame(minHeight: 176)
+                }
+            }
+        }
+
+        Text(HiAirDeepGlassCopy.t("recommendations", lang: session.preferredLanguage).uppercased())
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(HiAirColors.Text.secondary)
+
+        HStack(spacing: 10) {
+            HiAirActionHintCard(
+                title: HiAirDeepGlassCopy.t("ventilation", lang: session.preferredLanguage),
+                value: ventilationRangeText,
+                bodyText: HiAirDeepGlassCopy.t("optimal_ventilate", lang: session.preferredLanguage),
+                icon: "wind",
+                action: { session.selectedTab = 0 }
+            )
+            HiAirActionHintCard(
+                title: HiAirDeepGlassCopy.t("hydration", lang: session.preferredLanguage),
+                value: HiAirDeepGlassCopy.t("hydrate_goal_l", lang: session.preferredLanguage),
+                bodyText: HiAirDeepGlassCopy.t("hydrate_goal", lang: session.preferredLanguage),
+                icon: "drop.fill",
+                action: { session.selectedTab = 3 }
+            )
+        }
+    }
+
+    private var peakRisk: String {
+        viewModel.hourlyItems.max(by: { riskWeight($0.overallRisk) < riskWeight($1.overallRisk) })?.overallRisk
+            ?? viewModel.hourlyItems.first?.overallRisk
+            ?? "moderate"
+    }
+
+    private var outdoorRangeText: String {
+        if let first = viewModel.safeWindows.first {
+            return humanWindowRange(first.start, first.end)
+        }
+        return session.l("common.unavailable")
+    }
+
+    private var ventilationRangeText: String {
+        if let first = viewModel.ventilationWindows.first {
+            return humanWindowRange(first.start, first.end)
+        }
+        return session.l("common.unavailable")
+    }
+
+    private struct DayPart {
+        let title: String
+        let hours: String
+        let risk: String
+        let body: String
+        let icon: String
+    }
+
+    private var dayParts: [DayPart] {
+        let lang = session.preferredLanguage
+        return [
+            bucket(
+                title: HiAirDeepGlassCopy.t("morning", lang: lang),
+                hours: "06:00–12:00",
+                icon: "sunrise.fill",
+                range: 6..<12,
+                body: HiAirDeepGlassCopy.t("low_pollution", lang: lang)
+            ),
+            bucket(
+                title: HiAirDeepGlassCopy.t("day", lang: lang),
+                hours: "12:00–18:00",
+                icon: "sun.max.fill",
+                range: 12..<18,
+                body: session.l("planner.hourly")
+            ),
+            bucket(
+                title: HiAirDeepGlassCopy.t("evening", lang: lang),
+                hours: "18:00–22:00",
+                icon: "sunset.fill",
+                range: 18..<22,
+                body: HiAirDeepGlassCopy.t("ventilate_hint", lang: lang)
+            ),
+            bucket(
+                title: HiAirDeepGlassCopy.t("night", lang: lang),
+                hours: "22:00–06:00",
+                icon: "moon.stars.fill",
+                range: nil,
+                body: HiAirDeepGlassCopy.t("low_pollution", lang: lang)
+            ),
+        ]
+    }
+
+    private func bucket(
+        title: String,
+        hours: String,
+        icon: String,
+        range: Range<Int>?,
+        body: String
+    ) -> DayPart {
+        let items: [AirHourlyRiskPoint]
+        if let range {
+            items = viewModel.hourlyItems.filter { point in
+                guard let hour = HiAirDeepGlassTime.hour(from: point.hour) else { return false }
+                return range.contains(hour)
+            }
+        } else {
+            items = viewModel.hourlyItems.filter { point in
+                guard let hour = HiAirDeepGlassTime.hour(from: point.hour) else { return false }
+                return hour >= 22 || hour < 6
+            }
+        }
+        let risk = items.max(by: { riskWeight($0.overallRisk) < riskWeight($1.overallRisk) })?.overallRisk ?? "low"
+        return DayPart(title: title, hours: hours, risk: risk, body: body, icon: icon)
     }
 
     private var activityBestTimeCard: some View {

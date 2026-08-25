@@ -622,10 +622,9 @@ final class APIClient {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
-        configuration.waitsForConnectivity = true
+        configuration.waitsForConnectivity = false
         if UITestBootstrap.isMockAPIEnabled {
             configuration.protocolClasses = [UITestMockAPIProtocol.self] + (configuration.protocolClasses ?? [])
-            configuration.waitsForConnectivity = false
         }
         return URLSession(configuration: configuration)
     }

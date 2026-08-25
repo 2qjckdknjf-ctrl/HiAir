@@ -59,7 +59,7 @@ function containerEnv(env) {
 
 export class HiAirApiContainer extends Container {
   defaultPort = 8080;
-  sleepAfter = "15m";
+  sleepAfter = "45m";
 }
 
 function instanceName(env) {

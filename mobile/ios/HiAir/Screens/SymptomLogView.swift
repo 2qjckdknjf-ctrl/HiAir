@@ -673,7 +673,7 @@ struct SymptomLogView: View {
                 }
                 .hiAirContentWidth(for: width)
                 .hiAirScreenPadding(for: width)
-                .padding(.bottom, HiAirSpacing.xl)
+                .padding(.bottom, HiAirSpacing.tabBarClearance)
             }
             .refreshable {
                 await reloadAll(forceNetwork: true)
@@ -683,7 +683,8 @@ struct SymptomLogView: View {
         .onAppear {
             viewModel.onScreenOpened()
         }
-        .task(id: session.preferredLanguage) {
+        .task(id: "\(session.selectedTab)-\(session.preferredLanguage)") {
+            guard session.selectedTab == 3 else { return }
             await reloadAll(forceNetwork: false)
         }
         .sheet(isPresented: $viewModel.showEntrySheet) {
@@ -718,16 +719,42 @@ struct SymptomLogView: View {
         }
     }
 
+    private var healthSuffix: String {
+        let title = HiAirDeepGlassCopy.t("health.title", lang: session.preferredLanguage)
+        if title.hasPrefix("HiAir ") {
+            return String(title.dropFirst(6))
+        }
+        return session.l("tab.symptoms")
+    }
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(session.l("symptoms.headline"))
-                .font(AuroraTokens.Typography.displayLG)
-                .foregroundStyle(HiAirV2Theme.primaryText)
-                .accessibilityAddTraits(.isHeader)
-            Text(session.l("symptoms.subtitle"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-                .fixedLineSpacing(4)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                HiAirScreenWordmark(
+                    suffix: healthSuffix,
+                    suffixUsesGradient: true
+                )
+                Button {
+                    session.selectedTab = 4
+                } label: {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(HiAirColors.Spectrum.cyan)
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .stroke(HiAirColors.Spectrum.cyan.opacity(0.8), lineWidth: 1.2)
+                        )
+                        .shadow(color: HiAirColors.Spectrum.cyan.opacity(0.35), radius: 6)
+                }
+                .accessibilityLabel(session.l("tab.settings"))
+            }
+            Text(HiAirDeepGlassCopy.t("checkin", lang: session.preferredLanguage))
+                .font(HiAirTypography.displayLG)
+                .foregroundStyle(HiAirColors.Text.primary)
+            Text(HiAirDeepGlassCopy.t("how_feeling", lang: session.preferredLanguage))
+                .font(HiAirTypography.bodyMD)
+                .foregroundStyle(HiAirColors.Text.secondary)
             if viewModel.usingCachedCatalog {
                 Text(session.l("symptoms.cached_offline"))
                     .font(AuroraTokens.Typography.caption)

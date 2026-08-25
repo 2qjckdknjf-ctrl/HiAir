@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 
@@ -79,10 +81,15 @@ def dashboard_overview(
     effective_lon = profile_context.home_lon
 
     try:
-        snapshot = air_environment_service.resolve_environment_snapshot(
-            lat=effective_lat,
-            lon=effective_lon,
-        )
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            snapshot_future = pool.submit(
+                air_environment_service.resolve_environment_snapshot,
+                effective_lat,
+                effective_lon,
+            )
+            forecast_future = pool.submit(_forecast_bundle, effective_lat, effective_lon)
+            snapshot = snapshot_future.result()
+            forecast = forecast_future.result()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     environment = EnvironmentSnapshot(
@@ -104,7 +111,6 @@ def dashboard_overview(
         wbgt_estimated=snapshot.wbgt_estimated,
         shortwave_wm2=snapshot.shortwave_wm2,
     )
-    forecast = _forecast_bundle(effective_lat, effective_lon)
     hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
     if forecast is not None:
         live_air = to_air_environment(environment, effective_lat, effective_lon)
