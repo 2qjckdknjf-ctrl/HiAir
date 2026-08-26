@@ -24,18 +24,27 @@
   const siteNav = document.getElementById("site-nav");
 
   if (navToggle && siteNav) {
-    navToggle.addEventListener("click", function () {
-      const open = siteNav.classList.toggle("is-open");
+    function setNavOpen(open) {
+      siteNav.classList.toggle("is-open", open);
       navToggle.setAttribute("aria-expanded", String(open));
       navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    }
+
+    navToggle.addEventListener("click", function () {
+      setNavOpen(!siteNav.classList.contains("is-open"));
     });
 
     siteNav.querySelectorAll("a").forEach(function (link) {
       link.addEventListener("click", function () {
-        siteNav.classList.remove("is-open");
-        navToggle.setAttribute("aria-expanded", "false");
-        navToggle.setAttribute("aria-label", "Open menu");
+        setNavOpen(false);
       });
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && siteNav.classList.contains("is-open")) {
+        setNavOpen(false);
+        navToggle.focus();
+      }
     });
   }
 
@@ -70,8 +79,13 @@
   }
 
   if (form) {
+    let waitlistInFlight = false;
+
     form.addEventListener("submit", async function (event) {
       event.preventDefault();
+      if (waitlistInFlight) {
+        return;
+      }
 
       const emailInput = document.getElementById("waitlist-email");
       const personaSelect = document.getElementById("waitlist-persona");
@@ -84,8 +98,10 @@
         return;
       }
 
+      waitlistInFlight = true;
       if (submitBtn) {
         submitBtn.disabled = true;
+        submitBtn.setAttribute("aria-busy", "true");
         submitBtn.textContent = "Joining…";
       }
       showMessage("", "");
@@ -126,8 +142,10 @@
           "error"
         );
       } finally {
+        waitlistInFlight = false;
         if (submitBtn) {
           submitBtn.disabled = false;
+          submitBtn.removeAttribute("aria-busy");
           submitBtn.textContent = "Join early access";
         }
       }

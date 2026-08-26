@@ -1,0 +1,13 @@
+{
+  "name": "HiAir — Heat & Air Wellness Assistant",
+  "short_name": "HiAir",
+  "description": "Personalized heat and air-quality guidance for everyday outdoor decisions.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#081221",
+  "theme_color": "#0b1730",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon-1024.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}
