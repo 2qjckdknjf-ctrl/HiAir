@@ -145,7 +145,7 @@
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.setAttribute("aria-busy", "true");
-        submitBtn.textContent = "Joining…";
+        submitBtn.textContent = "Sending…";
       }
       showMessage("", "");
 
@@ -300,6 +300,18 @@
     } catch (error) {
       return;
     }
+  }
+
+  var storeLinks = window.HIAIR_STORE_LINKS;
+  if (storeLinks && storeLinks.isPublic && storeLinks.isPublic("ios") && typeof storeLinks.appStoreCampaignUrl === "function") {
+    document.querySelectorAll(".js-app-store-cta").forEach(function (el) {
+      var href = storeLinks.appStoreCampaignUrl(el.getAttribute("data-placement") || "unknown");
+      if (href) {
+        el.setAttribute("href", href);
+        el.setAttribute("target", "_blank");
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+    });
   }
 
   var storeCtas = document.querySelectorAll(".js-app-store-cta");

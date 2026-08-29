@@ -40,6 +40,7 @@ REQUIRED_ROUTES = (
     "/js/store-links.js",
     "/config/store-links.json",
     "/assets/badges/download-on-the-app-store.svg",
+    "/assets/badges/app-store-qr.svg",
 )
 
 

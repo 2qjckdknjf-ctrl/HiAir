@@ -1168,6 +1168,29 @@ body.legal .prose li {
   outline-offset: 4px;
 }
 
+.store-qr {
+  margin: 0;
+  padding: 0.55rem;
+  width: fit-content;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(8, 18, 33, 0.08);
+}
+
+.store-qr img {
+  display: block;
+  width: 140px;
+  height: 140px;
+}
+
+.store-qr figcaption {
+  margin: 0.4rem 0 0;
+  color: #1b2438;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 .download-android-note {
   margin: 0;
   color: var(--text-muted);
