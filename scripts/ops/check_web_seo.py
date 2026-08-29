@@ -237,8 +237,12 @@ def main() -> int:
                 if not href.lower().startswith("mailto:hello@hiair.io"):
                     errors.append(f"{rel}: unexpected mailto {href}")
                 continue
-            if href.startswith(("https://apps.apple.com/", "https://play.google.com/")):
-                errors.append(f"{rel}: public store URL is not verified yet: {href}")
+            if href.startswith("https://play.google.com/"):
+                errors.append(f"{rel}: Google Play URL is not verified yet: {href}")
+                continue
+            if href.startswith("https://apps.apple.com/"):
+                if "id6773610034" not in href:
+                    errors.append(f"{rel}: unexpected App Store URL {href}")
                 continue
             if href.startswith("http://"):
                 errors.append(f"{rel}: insecure external link {href}")

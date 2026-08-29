@@ -151,4 +151,73 @@
       }
     });
   }
+
+  function growthOsEventsUrl() {
+    if (window.GROWTH_OS_EVENTS_URL) {
+      return window.GROWTH_OS_EVENTS_URL;
+    }
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:3001/api/events";
+    }
+    return "";
+  }
+
+  function growthAnonymousId() {
+    var key = "hiair_growth_anon";
+    try {
+      var existing = window.localStorage.getItem(key);
+      if (existing) {
+        return existing;
+      }
+      var created = (window.crypto && window.crypto.randomUUID && window.crypto.randomUUID()) || String(Date.now());
+      window.localStorage.setItem(key, created);
+      return created;
+    } catch (error) {
+      return "anon";
+    }
+  }
+
+  function trackGrowth(name, properties) {
+    var url = growthOsEventsUrl();
+    if (!url) {
+      return;
+    }
+    fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        productSlug: "hiair",
+        anonymousId: growthAnonymousId(),
+        name: name,
+        occurredAt: new Date().toISOString(),
+        properties: properties,
+      }),
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  var storeCtas = document.querySelectorAll(".js-app-store-cta");
+  if (storeCtas.length) {
+    var viewed = {};
+    storeCtas.forEach(function (el) {
+      var placement = el.getAttribute("data-placement") || "unknown";
+      if (!viewed[placement]) {
+        viewed[placement] = true;
+        trackGrowth("app_store_cta.viewed", {
+          page: window.location.pathname,
+          placement: placement,
+          locale: document.documentElement.lang || "en",
+          campaign: "app_store_cta",
+        });
+      }
+      el.addEventListener("click", function () {
+        trackGrowth("app_store_cta.clicked", {
+          page: window.location.pathname,
+          placement: placement,
+          locale: document.documentElement.lang || "en",
+          campaign: "app_store_cta",
+        });
+      });
+    });
+  }
 })();
