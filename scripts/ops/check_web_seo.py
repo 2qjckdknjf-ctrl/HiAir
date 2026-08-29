@@ -28,6 +28,18 @@ PLACEHOLDER_COPY = (
     "Draft for closed beta",
     "Official support and legal contact will be published",
 )
+STALE_PRELAUNCH_PHRASES = (
+    "coming soon",
+    "launching soon",
+    "in development",
+    "under development",
+    "join early access for ios and android",
+    "website under development",
+    "app store coming soon",
+    "play store coming soon",
+    "ios & android coming soon",
+)
+STORE = json.loads((WEB / "config" / "store-links.json").read_text(encoding="utf-8"))
 
 
 class PageParser(HTMLParser):
@@ -190,6 +202,10 @@ def main() -> int:
         for placeholder in PLACEHOLDER_COPY:
             if placeholder in text:
                 errors.append(f"{rel}: public placeholder copy remains")
+        lowered = text.lower()
+        for phrase in STALE_PRELAUNCH_PHRASES:
+            if phrase in lowered:
+                errors.append(f"{rel}: stale pre-launch copy remains: {phrase!r}")
         for pattern in SAFETY_CLAIM_PATTERNS:
             if re.search(pattern, text, flags=re.I):
                 errors.append(f"{rel}: unsafe or overclaiming copy matches {pattern!r}")
@@ -231,6 +247,12 @@ def main() -> int:
                 offers = node.get("offers")
                 if isinstance(offers, dict) and str(offers.get("price", "")).strip() in {"0", "0.00"}:
                     errors.append(f"{rel}: JSON-LD must not advertise a fake free price")
+                operating_system = str(node.get("operatingSystem") or "")
+                if (
+                    "android" in operating_system.lower()
+                    and STORE.get("android", {}).get("status") != "PUBLIC_CONFIRMED"
+                ):
+                    errors.append(f"{rel}: JSON-LD advertises Android before a public Play listing")
 
         for href in parser.links:
             if href.startswith("mailto:"):
@@ -238,11 +260,19 @@ def main() -> int:
                     errors.append(f"{rel}: unexpected mailto {href}")
                 continue
             if href.startswith("https://play.google.com/"):
-                errors.append(f"{rel}: Google Play URL is not verified yet: {href}")
+                if STORE.get("android", {}).get("status") != "PUBLIC_CONFIRMED":
+                    errors.append(f"{rel}: Google Play URL is not verified yet: {href}")
+                elif STORE["android"].get("packageId") and STORE["android"]["packageId"] not in href:
+                    errors.append(f"{rel}: Google Play URL package mismatch: {href}")
                 continue
             if href.startswith("https://apps.apple.com/"):
-                if "id6773610034" not in href:
+                ios = STORE.get("ios") or {}
+                if ios.get("status") != "PUBLIC_CONFIRMED":
+                    errors.append(f"{rel}: App Store URL present but iOS is not public: {href}")
+                elif f"id{ios.get('appId', '')}" not in href:
                     errors.append(f"{rel}: unexpected App Store URL {href}")
+                elif ios.get("url") and not href.startswith(ios["url"]):
+                    errors.append(f"{rel}: App Store URL does not use the canonical listing: {href}")
                 continue
             if href.startswith("http://"):
                 errors.append(f"{rel}: insecure external link {href}")
@@ -300,6 +330,21 @@ def main() -> int:
     js = (WEB / "js" / "main.js").read_text(encoding="utf-8")
     if "https://api.hiair.io" not in js or "/api/waitlist" not in js:
         errors.append("waitlist client does not post to the production waitlist API")
+
+    store_js = WEB / "js" / "store-links.js"
+    if not store_js.is_file():
+        errors.append("web/js/store-links.js is missing")
+    else:
+        store_js_text = store_js.read_text(encoding="utf-8")
+        ios_url = STORE.get("ios", {}).get("url") or ""
+        if ios_url and ios_url not in store_js_text:
+            errors.append("store-links.js does not contain the canonical iOS App Store URL")
+        if STORE.get("ios", {}).get("status") == "PUBLIC_CONFIRMED" and "PUBLIC_CONFIRMED" not in store_js_text:
+            errors.append("store-links.js is missing PUBLIC_CONFIRMED for iOS")
+        if STORE.get("android", {}).get("status") != "PUBLIC_CONFIRMED" and re.search(
+            r'"url":\s*"https://play\.google\.com/store/apps/details', store_js_text
+        ):
+            errors.append("store-links.js must not publish a Google Play details URL while Android is not public")
 
     workflow = (ROOT / ".github" / "workflows" / "hiair-io-pages.yml").read_text(encoding="utf-8")
     validate_match = re.search(r"(?ms)^  validate:(.*?)^  deploy:", workflow)

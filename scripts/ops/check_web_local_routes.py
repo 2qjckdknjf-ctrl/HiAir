@@ -37,6 +37,9 @@ REQUIRED_ROUTES = (
     "/styles.css",
     "/content.css",
     "/js/main.js",
+    "/js/store-links.js",
+    "/config/store-links.json",
+    "/assets/badges/download-on-the-app-store.svg",
 )
 
 

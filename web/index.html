@@ -6,7 +6,7 @@
     <title>HiAir — Heat and air guidance for everyday plans</title>
     <meta
       name="description"
-      content="HiAir combines heat, humidity, air quality and personal sensitivity into simple daily wellness guidance. Join early access for iOS and Android."
+      content="HiAir combines heat, humidity, air quality and personal sensitivity into daily wellness guidance. Download HiAir on the App Store."
     />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://hiair.io/" />
@@ -46,14 +46,16 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
+        "@type": "MobileApplication",
         "name": "HiAir",
         "url": "https://hiair.io/",
         "image": "https://hiair.io/icon-1024.png",
-        "applicationCategory": "LifestyleApplication",
-        "operatingSystem": "iOS, Android",
+        "applicationCategory": "HealthApplication",
+        "operatingSystem": "iOS",
+        "installUrl": "https://apps.apple.com/us/app/hiair/id6773610034",
+        "downloadUrl": "https://apps.apple.com/us/app/hiair/id6773610034",
         "inLanguage": "en",
-        "description": "Wellness assistant for heat and air quality. Not a medical device."
+        "description": "Personal heat and air-quality wellness assistant. Not a medical device."
       }
     </script>
   </head>
@@ -90,7 +92,7 @@
           <a href="/for-families/">Families</a>
           <a href="/for-runners/">Runners</a>
           <a href="/methodology/">Methodology</a>
-          <a class="btn btn-primary js-app-store-cta" data-placement="header" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=header&amp;ct=app_store_cta_header">Download on the App Store</a>
+          <a class="btn btn-primary js-app-store-cta" data-placement="header" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=header&amp;ct=app_store_cta_header" target="_blank" rel="noopener noreferrer">Download on the App Store</a>
         </nav>
           </div>
         </div>
@@ -110,11 +112,13 @@
               outdoor time with more context.
             </p>
             <div class="hero-actions">
-              <a class="btn btn-primary js-app-store-cta" data-placement="hero" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=hero&amp;ct=app_store_cta_hero">Download on the App Store</a>
+              <a class="store-badge js-app-store-cta" data-placement="hero" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=hero&amp;ct=app_store_cta_hero" target="_blank" rel="noopener noreferrer">
+                <img src="/assets/badges/download-on-the-app-store.svg" width="160" height="53" alt="Download on the App Store" />
+              </a>
               <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
             </div>
             <p class="hero-note">
-              Wellness guidance only — not medical advice. iOS is on the App Store. Android waitlist below.
+              Wellness guidance only — not medical advice. Available on the App Store. Android is not publicly listed yet.
             </p>
           </div>
 
@@ -468,14 +472,14 @@
         </div>
       </section>
 
-      <!-- Waitlist -->
-      <section class="section waitlist-section" id="waitlist" aria-labelledby="waitlist-title">
+      <!-- Download -->
+      <section class="section waitlist-section" id="download" aria-labelledby="download-title">
         <div class="container">
           <header class="section-header center">
-            <p class="section-eyebrow">Android / notify</p>
-            <h2 class="section-title" id="waitlist-title">Get notified for Android</h2>
+            <p class="section-eyebrow">Get HiAir</p>
+            <h2 class="section-title" id="download-title">Download HiAir and check your current conditions</h2>
             <p class="section-lead">
-              iOS is available now. Join the list if you want Android availability or a launch email for your region.
+              HiAir helps you understand heat and air-quality conditions and plan your day with personalized wellness guidance.
             </p>
           </header>
           <div class="lg lg--prominent lg--enter waitlist-glass">
@@ -483,12 +487,24 @@
             <div class="lg__tint" aria-hidden="true"></div>
             <div class="lg__sheen" aria-hidden="true"></div>
             <div class="lg__content">
-          <p style="margin: 0 0 16px">
-            <a class="btn btn-primary js-app-store-cta" data-placement="final" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=final&amp;ct=app_store_cta_final">Download on the App Store</a>
-          </p>
+          <div class="download-panel">
+            <div class="download-brand">
+              <img class="download-icon" src="/icon-1024.png" width="72" height="72" alt="" />
+              <div>
+                <p class="download-name">HiAir</p>
+                <p class="download-tagline">Personal heat and air-quality wellness assistant. Available on the App Store for iPhone and iPad.</p>
+              </div>
+            </div>
+            <div class="download-stores">
+              <a class="store-badge js-app-store-cta" data-placement="final" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=final&amp;ct=app_store_cta_final" target="_blank" rel="noopener noreferrer">
+                <img src="/assets/badges/download-on-the-app-store.svg" width="160" height="53" alt="Download on the App Store" />
+              </a>
+              <p class="download-android-note">Android is not publicly listed on Google Play yet.</p>
+            </div>
+          </div>
           <form class="waitlist-form" id="waitlist-form" novalidate>
-            <div class="form-group">
-              <label for="waitlist-email">Email address</label>
+            <div id="waitlist" class="form-group">
+              <label for="waitlist-email">Email me when Android is public</label>
               <input
                 type="email"
                 id="waitlist-email"
@@ -513,7 +529,7 @@
               </select>
             </div>
             <button class="btn btn-primary waitlist-submit" type="submit" id="waitlist-submit">
-              Join early access
+              Notify me about Android
             </button>
             <div
               class="form-message"
@@ -589,13 +605,14 @@
             </div>
             <div class="faq-item">
               <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-answer-access">
-                When will early access be available?
+                Where can I download HiAir?
                 <span class="faq-icon" aria-hidden="true">+</span>
               </button>
               <div class="faq-answer" id="faq-answer-access">
                 <div class="faq-answer-inner">
-                  iOS is publicly listed on the App Store. Use Download on the App Store above.
-                  Android is not released yet — join the waitlist and we will email you when it opens.
+                  HiAir is available on the
+                  <a class="js-app-store-cta" data-placement="faq" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=faq&amp;ct=app_store_cta_faq" target="_blank" rel="noopener noreferrer">App Store</a>
+                  for iPhone and iPad. Android is not publicly listed yet — use the notify form above if you want an email when it opens.
                 </div>
               </div>
             </div>
@@ -636,6 +653,13 @@
             </ul>
           </div>
           <div class="footer-links">
+            <h2>Get the app</h2>
+            <ul>
+              <li><a class="js-app-store-cta" data-placement="footer" href="https://apps.apple.com/us/app/hiair/id6773610034?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta&amp;utm_content=footer&amp;ct=app_store_cta_footer" target="_blank" rel="noopener noreferrer">App Store</a></li>
+              <li><a href="#download">Android notify list</a></li>
+            </ul>
+          </div>
+          <div class="footer-links">
             <h2>Legal</h2>
             <ul>
               <li><a href="/privacy/">Privacy Policy</a></li>
@@ -654,6 +678,7 @@
       </div>
     </footer>
 
+    <script src="/js/store-links.js"></script>
     <script src="/js/main.js" defer></script>
   </body>
 </html>
