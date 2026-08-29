@@ -2,6 +2,7 @@
 # Xcode Cloud: refuse Archive / App Store upload unless this is an explicit
 # iOS release AND iOS app source changed AND marketing version is > live 1.1.
 # Then ensure HiAir.xcodeproj includes all Swift sources and resolve SPM.
+# GitHub Actions iOS CI (simulator, no signing) is the validation path.
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
