@@ -41,12 +41,18 @@ final class InfoPlistPackagingTests: XCTestCase {
         XCTAssertFalse(build.contains("$("), "unresolved build number: \(build)")
         XCTAssertFalse(marketing.isEmpty)
         XCTAssertFalse(build.isEmpty)
+        let expectedMarketing = try Self.marketingVersionFromProjectYml()
         XCTAssertEqual(
             marketing,
-            "1.0",
-            "Release product must expand MARKETING_VERSION (1.0) from build settings"
+            expectedMarketing,
+            "Release product must expand MARKETING_VERSION from project.yml (CFBundleShortVersionString source of truth)"
         )
         XCTAssertNotEqual(build, "1", "Release product must use CURRENT_PROJECT_VERSION, not plist default 1")
+        XCTAssertNotEqual(
+            build,
+            marketing,
+            "CFBundleVersion is independent of CFBundleShortVersionString; a higher build must not imply a new marketing train"
+        )
 
         let supabaseURL = try XCTUnwrap(info?["SUPABASE_URL"] as? String)
         let apiBase = try XCTUnwrap(info?["API_BASE_URL"] as? String)
@@ -66,6 +72,25 @@ final class InfoPlistPackagingTests: XCTestCase {
         XCTAssertNotNil(info?["NSHealthShareUsageDescription"] as? String)
         XCTAssertNotNil(info?["NSHealthUpdateUsageDescription"] as? String)
         XCTAssertNotNil(info?["NSLocationWhenInUseUsageDescription"] as? String)
+    }
+
+    private static func marketingVersionFromProjectYml() throws -> String {
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<8 {
+            url.deleteLastPathComponent()
+            let candidate = url.appendingPathComponent("project.yml")
+            guard FileManager.default.fileExists(atPath: candidate.path) else { continue }
+            let text = try String(contentsOf: candidate, encoding: .utf8)
+            let pattern = #"MARKETING_VERSION:\s*"([^"]+)""#
+            let regex = try NSRegularExpression(pattern: pattern)
+            let range = NSRange(text.startIndex..<text.endIndex, in: text)
+            guard let match = regex.firstMatch(in: text, range: range),
+                  let valueRange = Range(match.range(at: 1), in: text) else {
+                throw XCTSkip("MARKETING_VERSION not found in project.yml")
+            }
+            return String(text[valueRange])
+        }
+        throw XCTSkip("project.yml not found relative to test source")
     }
 
     private static func locateSourceInfoPlist() throws -> URL {

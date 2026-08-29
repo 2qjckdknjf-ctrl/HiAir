@@ -21,7 +21,7 @@
 
 ### A) Xcode Cloud (recommended)
 
-See `docs/release/XCODE_CLOUD_SETUP.md` — push to `main`, workflow **HiAir TestFlight**.
+See `docs/ios/XCODE_CLOUD_RELEASE_POLICY.md`. Do **not** treat a push to `main` as an App Store upload. Workflow **HiAir TestFlight** is release-only.
 
 ### B) Local (Xcode 26+)
 

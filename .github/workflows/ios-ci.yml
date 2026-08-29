@@ -1,6 +1,7 @@
 name: iOS CI
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "mobile/ios/**"
@@ -20,6 +21,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify Xcode Cloud iOS source gate
+        working-directory: ${{ github.workspace }}
+        run: bash mobile/ios/ci_scripts/test_ios_app_source_gate.sh
+
+      - name: Verify Xcode Cloud release-intent and marketing-version gates
+        working-directory: ${{ github.workspace }}
+        run: bash mobile/ios/ci_scripts/test_ios_release_gates.sh
 
       - name: Install XcodeGen
         run: brew install xcodegen
