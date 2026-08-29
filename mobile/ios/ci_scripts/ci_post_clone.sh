@@ -6,6 +6,8 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 GATE="$SCRIPT_DIR/ios_app_source_gate.sh"
+# shellcheck source=ios_release_gates.sh
+. "$SCRIPT_DIR/ios_release_gates.sh"
 REPO="${CI_PRIMARY_REPOSITORY_PATH:-}"
 if [ -z "$REPO" ]; then
   REPO=$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)
@@ -14,27 +16,6 @@ fi
 # Live App Store CFBundleShortVersionString confirmed via iTunes lookup id=6773610034.
 # 1.0.1 and 1.1 must never be uploaded again. Raising CFBundleVersion alone does not
 # satisfy ITMS-90478 / ITMS-90186 / ITMS-90062.
-stale_marketing_version() {
-  case "$1" in
-    1.0|1.0.*|1.1|1.1.0) return 0 ;;
-  esac
-  return 1
-}
-
-explicit_ios_release_start() {
-  case "${CI_START_CONDITION:-}" in
-    manual|manual_rebuild) return 0 ;;
-  esac
-  if [ -n "${CI_TAG:-}" ]; then
-    case "$CI_TAG" in
-      ios-*|v[0-9]*|release-*) return 0 ;;
-    esac
-  fi
-  case "${CI_BRANCH:-}" in
-    release/*) return 0 ;;
-  esac
-  return 1
-}
 
 collect_changed_paths() {
   cd "$REPO"

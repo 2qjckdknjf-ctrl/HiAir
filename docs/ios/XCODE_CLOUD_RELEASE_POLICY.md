@@ -26,8 +26,21 @@ This is the allowed automatic check for iOS source changes, including PRs.
 |------|--------|
 | Current ASC name | `HiAir TestFlight` (configured in App Store Connect / Xcode, not in git) |
 | Purpose | Archive, sign, upload to App Store Connect |
-| Allowed git starts (enforced in `ci_post_clone.sh`) | Manual start, `manual_rebuild`, Git tag `ios-*` / `v*` / `release-*`, branch `release/*` |
+| Allowed git starts (enforced in `ci_post_clone.sh`) | See **ARCHIVE_ALLOWED** below |
 | Forbidden automatic starts | Any branch push, PR open/update, schedule, web/docs/SEO, `ci_scripts`-only |
+
+### ARCHIVE_ALLOWED (exact rule in `ci_post_clone.sh`)
+
+Archive/App Store delivery is allowed only when **all** of these are true:
+
+1. **Release intent** (`explicit_ios_release_start`):
+   - `CI_START_CONDITION` is `manual` or `manual_rebuild`, **or**
+   - `CI_TAG` matches `ios-*`, `v[0-9]*`, or `release-*`, **or**
+   - `CI_BRANCH` matches `release/*`
+2. **iOS app source** changed in the commit/PR diff (`ios_app_source_gate.sh`). `web/`, `docs/`, and `mobile/ios/ci_scripts` alone do **not** count.
+3. **Marketing version > live 1.1** (`stale_marketing_version` is false). Source: `MARKETING_VERSION` in `mobile/ios/project.yml` (that string is `CFBundleShortVersionString`). Rejected: `1.0`, `1.0.*`, `1.1`, `1.1.0`. `CFBundleVersion` / `CURRENT_PROJECT_VERSION` is not consulted.
+
+Otherwise `ci_post_clone.sh` exits 1 and Xcode Cloud does not Archive.
 
 Until the ASC UI is split, the **same** Xcode Cloud workflow may still *start* on web commits. The post-clone script then **exits 1** so Archive does not produce an upload. A red Xcode Cloud check on a web PR is expected and is **not** a GitHub required check.
 
@@ -79,7 +92,7 @@ Must be **greater than 1.1**. Project roadmap next train is **1.2** (`docs/roadm
 
 `main` has **no** classic branch protection and **no** rulesets (`GET .../branches/main/protection` → 404, `rulesets` → `[]`).
 
-**`XCODE_CLOUD_REQUIRED = NO`.**
+**`XCODE_CLOUD_REQUIRED_FOR_MAIN = NO`.** Required status checks: **none**. Rulesets: **none**.
 
 Failed App Store delivery must not block web merges. Do not admin-bypass. Do not make Archive a required check.
 
