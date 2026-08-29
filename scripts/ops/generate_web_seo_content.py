@@ -108,6 +108,78 @@ def content_cta_placement(path: str) -> str:
     return "guide" if path.startswith("guides") else "final"
 
 
+RELATED_READING: dict[str, list[tuple[str, str]]] = {
+    "guides/aqi-explained": [
+        ("/guides/exercise-in-heat/", "Exercise in hot weather"),
+        ("/guides/when-to-open-windows/", "When to open windows"),
+        ("/air-quality-sensitive/", "Personal air-quality guidance"),
+    ],
+    "guides/exercise-in-heat": [
+        ("/guides/aqi-explained/", "What AQI means"),
+        ("/guides/when-to-open-windows/", "When to open windows"),
+        ("/for-runners/", "Heat and air for runners"),
+    ],
+    "guides/when-to-open-windows": [
+        ("/guides/aqi-explained/", "What AQI means"),
+        ("/guides/exercise-in-heat/", "Exercise in hot weather"),
+        ("/for-families/", "Family outdoor planning"),
+    ],
+}
+
+
+def breadcrumb_items(page: dict[str, str]) -> list[tuple[str, str]]:
+    items = [("Home", "https://hiair.io/")]
+    if page["path"].startswith("guides"):
+        items.append(("Guides", "https://hiair.io/guides/"))
+        if page["path"] != "guides":
+            items.append((page["heading"], f"https://hiair.io/{page['path']}/"))
+        return items
+    items.append((page["heading"], f"https://hiair.io/{page['path']}/"))
+    return items
+
+
+def breadcrumbs_html(page: dict[str, str]) -> str:
+    crumbs = breadcrumb_items(page)
+    parts: list[str] = []
+    for index, (label, href) in enumerate(crumbs):
+        if index == len(crumbs) - 1:
+            parts.append(f'<li aria-current="page">{label}</li>')
+        else:
+            parts.append(f'<li><a href="{href}">{label}</a></li>')
+    return (
+        '<nav class="breadcrumbs" aria-label="Breadcrumb"><ol>'
+        + "".join(parts)
+        + "</ol></nav>"
+    )
+
+
+def related_reading_html(page: dict[str, str]) -> str:
+    links = RELATED_READING.get(page["path"])
+    if not links:
+        return ""
+    items = "".join(f'<li><a href="{href}">{label}</a></li>' for href, label in links)
+    return (
+        '<aside class="content-section related-reading" aria-labelledby="related-reading-title">'
+        '<h2 id="related-reading-title">Related reading</h2>'
+        f"<ul>{items}</ul>"
+        "</aside>"
+    )
+
+
+def breadcrumb_jsonld(page: dict[str, str]) -> str:
+    elements = [
+        {
+            "@type": "ListItem",
+            "position": index,
+            "name": label,
+            "item": href,
+        }
+        for index, (label, href) in enumerate(breadcrumb_items(page), start=1)
+    ]
+    data = {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": elements}
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+
 PAGES = [
     {
         "path": "guides",
@@ -251,6 +323,7 @@ PAGES = [
             <p>HiAir accounts are for people aged 13 and older. A family or children-outdoor profile is guidance for the adult account holder; it is not a child account and does not diagnose a child’s condition.</p>
             <h2>Useful before</h2>
             <ul><li>Playground visits and family walks</li><li>School travel and outdoor events</li><li>Sports practice and summer activities</li><li>Ventilating bedrooms and shared spaces</li></ul>
+            <p>For heat, humidity and outdoor air together, read the <a href="/guides/when-to-open-windows/">window-ventilation guide</a> before you plan indoor-outdoor swaps on hot or smoky days.</p>
           </section>
         """,
     },
@@ -271,6 +344,7 @@ PAGES = [
           <section class="content-section prose-content">
             <h2>Before you head out</h2>
             <p>Check the current local alert, the hourly trend and how you feel. Hot-weather exercise increases the risk of dehydration and heat-related illness. If you feel faint or weak, stop activity and move to a cool place.</p>
+            <p>Use the <a href="/guides/exercise-in-heat/">hot-weather exercise guide</a> for a step-by-step pre-workout check that includes AQI, not only temperature.</p>
             <p class="source-note">Reference: <a href="https://www.cdc.gov/heat-health/risk-factors/heat-and-athletes.html" rel="noopener noreferrer">CDC — Heat and Athletes</a>.</p>
           </section>
         """,
@@ -292,6 +366,7 @@ PAGES = [
           <section class="content-section prose-content">
             <h2>What HiAir does not do</h2>
             <p>HiAir does not diagnose asthma, allergies or any other condition. It does not replace local public-health alerts, a clinician or emergency services. It helps you organize environmental information for everyday planning.</p>
+            <p>Start with <a href="/guides/aqi-explained/">what AQI can and cannot tell you</a>, then use sensitivity settings in the app as a planning aid — not as a medical threshold.</p>
             <p><a class="text-link" href="/methodology/">Read how HiAir produces guidance →</a></p>
           </section>
         """,
@@ -334,12 +409,14 @@ PAGES = [
             <ul><li><strong>Calm:</strong> communicate risk without alarmist noise.</li><li><strong>Personal:</strong> use only the context a person chooses to provide.</li><li><strong>Explainable:</strong> show the reasons behind guidance.</li><li><strong>Honest:</strong> never disguise missing data as certainty.</li><li><strong>Private:</strong> minimize collection and keep control with the user.</li></ul>
             <h2>Where HiAir is available</h2>
             <p>HiAir is on the App Store for iPhone and iPad. An Android listing is not public yet. The product focuses on regions where heat and air-quality conditions frequently affect outdoor life.</p>
+            <h2>What we are building</h2>
+            <p>The website explains the same ideas the app uses: personal heat context, air quality, daily planning, and honest gaps in forecast data. Guides stay informational. The App Store listing is the product download path.</p>
           </section>
         """,
     },
     {
         "path": "contact",
-        "title": "Contact HiAir",
+        "title": "Contact HiAir — Product, Privacy, and Partnerships",
         "description": "Contact HiAir for product support, privacy questions, partnerships, media requests, or App Store download help.",
         "eyebrow": "Contact",
         "heading": "Talk with the HiAir team",
@@ -351,6 +428,10 @@ PAGES = [
             <a class="resource-card" href="mailto:hello@hiair.io?subject=HiAir%20partnership"><span class="resource-card__label">Growth</span><h2>Partnerships</h2><p>Running clubs, community organizations, publishers and workplace programs.</p><span class="text-link">Start a conversation →</span></a>
             <a class="resource-card" href="mailto:hello@hiair.io?subject=HiAir%20privacy"><span class="resource-card__label">Privacy</span><h2>Data request</h2><p>Privacy, access, correction, export or deletion questions.</p><span class="text-link">Contact the controller →</span></a>
           </div>
+          <section class="content-section prose-content">
+            <h2>How we route messages</h2>
+            <p>We read product, privacy and partnership mail at hello@hiair.io. Include your device, app version and whether the question is about the website, the iOS app, or data rights. We do not provide emergency response or clinical advice by email.</p>
+          </section>
         """,
     },
 ]
@@ -411,6 +492,7 @@ def render(page: dict[str, str]) -> str:
     <link rel="stylesheet" href="/glass.css" />
     <link rel="stylesheet" href="/content.css" />
     <script type="application/ld+json">{structured_data(page)}</script>
+    <script type="application/ld+json">{breadcrumb_jsonld(page)}</script>
   </head>
   <body class="content-page">
     <a class="skip-link" href="#main">Skip to content</a>
@@ -426,7 +508,7 @@ def render(page: dict[str, str]) -> str:
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
           </button>
           <nav id="site-nav" class="site-nav" aria-label="Primary">
-            <a href="/guides/">Guides</a><a href="/for-families/">Families</a><a href="/for-runners/">Runners</a><a href="/methodology/">Methodology</a>{header_cta}
+            <a href="/guides/">Guides</a><a href="/for-families/">Families</a><a href="/for-runners/">Runners</a><a href="/air-quality-sensitive/">Sensitive</a><a href="/methodology/">Methodology</a>{header_cta}
           </nav>
         </div>
       </div>
@@ -435,6 +517,7 @@ def render(page: dict[str, str]) -> str:
       <section class="content-hero">
         <div class="container content-hero__grid">
           <div>
+            {breadcrumbs_html(page)}
             <p class="section-eyebrow">{page['eyebrow']}</p>
             <h1>{page['heading']}</h1>
             <p class="content-hero__lead">{page['intro']}</p>
@@ -444,6 +527,7 @@ def render(page: dict[str, str]) -> str:
       </section>
       <div class="container content-main">
         {page['body']}
+        {related_reading_html(page)}
         <section class="content-cta" aria-labelledby="content-cta-title">
           <p class="section-eyebrow">Personalize the next step</p>
           <h2 id="content-cta-title">Turn environmental data into a plan for your day</h2>
@@ -457,7 +541,7 @@ def render(page: dict[str, str]) -> str:
       <div class="container">
         <div class="footer-grid">
           <div class="footer-brand"><a class="footer-brand-lockup" href="/" aria-label="HiAir home"><img src="/assets/brand/mono-light.png" alt="HiAir" /></a><p>Breathe better. Live better. Personalized heat and air wellness for everyday life.</p></div>
-          <div class="footer-links"><h2>Explore</h2><ul><li><a href="/guides/">Guides</a></li><li><a href="/methodology/">Methodology</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul></div>
+          <div class="footer-links"><h2>Explore</h2><ul><li><a href="/guides/">Guides</a></li><li><a href="/air-quality-sensitive/">Sensitive</a></li><li><a href="/methodology/">Methodology</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul></div>
           {footer_get_the_app()}
           <div class="footer-links"><h2>Legal</h2><ul><li><a href="/privacy/">Privacy Policy</a></li><li><a href="/terms/">Terms of Service</a></li><li><a href="mailto:hello@hiair.io">hello@hiair.io</a></li></ul></div>
         </div>

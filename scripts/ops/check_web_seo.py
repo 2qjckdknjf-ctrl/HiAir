@@ -148,6 +148,15 @@ def main() -> int:
     h1s: dict[str, str] = {}
     indexed_files: set[Path] = set()
     inbound: dict[str, int] = {}
+    key_files = [
+        path
+        for path in WEB.iterdir()
+        if path.is_file() and path.suffix == ".txt" and re.fullmatch(r"[0-9a-f]{64}", path.stem)
+    ]
+    if len(key_files) != 1:
+        errors.append("IndexNow key file missing from web/ (exactly one 64-hex filename .txt)")
+    elif key_files[0].read_text(encoding="utf-8").strip() != key_files[0].stem:
+        errors.append("IndexNow key file body does not match filename stem")
 
     for url, lastmod in zip(urls, lastmods):
         if not url.startswith(f"{ORIGIN}/"):
@@ -209,6 +218,29 @@ def main() -> int:
         for pattern in SAFETY_CLAIM_PATTERNS:
             if re.search(pattern, text, flags=re.I):
                 errors.append(f"{rel}: unsafe or overclaiming copy matches {pattern!r}")
+        if re.search(r"<meta[^>]+name=[\"']keywords[\"']", text, flags=re.I):
+            errors.append(f"{rel}: meta keywords must not be used")
+        generated_content = str(rel) not in {"index.html", "privacy/index.html", "terms/index.html"}
+        if generated_content:
+            if "BreadcrumbList" not in text:
+                errors.append(f"{rel}: missing BreadcrumbList JSON-LD")
+            if 'aria-label="Breadcrumb"' not in text:
+                errors.append(f"{rel}: missing visible breadcrumbs")
+        if str(rel).startswith("guides/") and str(rel) != "guides/index.html" and "related-reading" not in text:
+            errors.append(f"{rel}: missing related reading")
+        if str(rel) == "for-runners/index.html" and "/guides/exercise-in-heat/" not in text:
+            errors.append(f"{rel}: runners page must link to the heat-exercise guide")
+        if str(rel) == "for-families/index.html" and "/guides/when-to-open-windows/" not in text:
+            errors.append(f"{rel}: families page must link to the ventilation guide")
+        if str(rel) == "air-quality-sensitive/index.html" and "/guides/aqi-explained/" not in text:
+            errors.append(f"{rel}: sensitive page must link to the AQI guide")
+        if str(rel) == "index.html":
+            if '"@type": "WebSite"' not in text and '"@type":"WebSite"' not in text:
+                errors.append(f"{rel}: homepage must include WebSite JSON-LD")
+            if '"@type": "FAQPage"' not in text and '"@type":"FAQPage"' not in text:
+                errors.append(f"{rel}: homepage must include FAQPage JSON-LD matching visible FAQ")
+            if 'href="/air-quality-sensitive/"' not in text:
+                errors.append(f"{rel}: homepage nav must include /air-quality-sensitive/")
 
         for key in REQUIRED_OG:
             if not parser.meta.get(key):
@@ -227,6 +259,14 @@ def main() -> int:
         if duplicate_ids:
             errors.append(f"{rel}: duplicate ids {duplicate_ids}")
 
+        if not parser.json_ld:
+            errors.append(f"{rel}: missing JSON-LD")
+
+        duplicate_ids = sorted({item for item in parser.ids if parser.ids.count(item) > 1})
+        if duplicate_ids:
+            errors.append(f"{rel}: duplicate ids {duplicate_ids}")
+
+        page_nodes: list[dict] = []
         for payload in parser.json_ld:
             try:
                 data = json.loads(payload)
@@ -234,12 +274,9 @@ def main() -> int:
                 errors.append(f"{rel}: invalid JSON-LD: {exc}")
                 continue
             nodes = walk_json(data)
+            page_nodes.extend(nodes)
             if not any(node.get("@context") == "https://schema.org" for node in nodes):
                 errors.append(f"{rel}: JSON-LD is missing schema.org context")
-            if not any(node.get("inLanguage") == "en" for node in nodes):
-                errors.append(f"{rel}: JSON-LD is missing inLanguage=en")
-            if not any(node.get("url") == url for node in nodes):
-                errors.append(f"{rel}: JSON-LD url does not match canonical")
             for node in nodes:
                 banned = BANNED_JSONLD_KEYS.intersection(node)
                 if banned:
@@ -253,6 +290,10 @@ def main() -> int:
                     and STORE.get("android", {}).get("status") != "PUBLIC_CONFIRMED"
                 ):
                     errors.append(f"{rel}: JSON-LD advertises Android before a public Play listing")
+        if page_nodes and not any(node.get("inLanguage") == "en" for node in page_nodes):
+            errors.append(f"{rel}: JSON-LD is missing inLanguage=en")
+        if page_nodes and not any(node.get("url") == url for node in page_nodes):
+            errors.append(f"{rel}: JSON-LD url does not match canonical")
 
         for href in parser.links:
             if href.startswith("mailto:"):
