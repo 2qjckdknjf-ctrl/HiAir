@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  var GROWTH_OS_EVENTS_URL_FROM_BUILD = "__GROWTH_OS_EVENTS_URL__";
+
   const API_BASE =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
       ? "http://127.0.0.1:8000"
@@ -156,8 +158,11 @@
     if (window.GROWTH_OS_EVENTS_URL) {
       return window.GROWTH_OS_EVENTS_URL;
     }
+    if (typeof GROWTH_OS_EVENTS_URL_FROM_BUILD === "string" && GROWTH_OS_EVENTS_URL_FROM_BUILD.indexOf("__GROWTH_OS") !== 0) {
+      return GROWTH_OS_EVENTS_URL_FROM_BUILD;
+    }
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return "http://localhost:3001/api/events";
+      return "http://localhost:3001/api/v1/events";
     }
     return "";
   }
@@ -177,23 +182,83 @@
     }
   }
 
+  function growthSessionId() {
+    var key = "hiair_growth_session";
+    try {
+      var existing = window.sessionStorage.getItem(key);
+      if (existing) {
+        return existing;
+      }
+      var created = (window.crypto && window.crypto.randomUUID && window.crypto.randomUUID()) || String(Date.now());
+      window.sessionStorage.setItem(key, created);
+      return created;
+    } catch (error) {
+      return "session";
+    }
+  }
+
+  function growthEventId(name, placement) {
+    var key = "hiair_growth_evt:" + name + ":" + placement;
+    try {
+      var existing = window.sessionStorage.getItem(key);
+      if (existing) {
+        return existing;
+      }
+      var created = (window.crypto && window.crypto.randomUUID && window.crypto.randomUUID()) || String(Date.now()) + placement;
+      window.sessionStorage.setItem(key, created);
+      return created;
+    } catch (error) {
+      return name + "-" + placement;
+    }
+  }
+
+  function utmFromLocation() {
+    var params = new URLSearchParams(window.location.search);
+    var properties = {};
+    ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (key) {
+      var value = params.get(key);
+      if (value) {
+        properties[key] = value.slice(0, 200);
+      }
+    });
+    return properties;
+  }
+
   function trackGrowth(name, properties) {
     var url = growthOsEventsUrl();
     if (!url) {
       return;
     }
-    fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        productSlug: "hiair",
-        anonymousId: growthAnonymousId(),
-        name: name,
-        occurredAt: new Date().toISOString(),
-        properties: properties,
-      }),
-      keepalive: true,
-    }).catch(function () {});
+    var body = {
+      productSlug: "hiair",
+      surface: "website",
+      environment: "production",
+      anonymousId: growthAnonymousId(),
+      session_id: growthSessionId(),
+      event_id: growthEventId(name, properties.placement || "unknown"),
+      event_version: 1,
+      name: name,
+      occurredAt: new Date().toISOString(),
+      properties: Object.assign(
+        {
+          page: window.location.pathname,
+          locale: document.documentElement.lang || "en",
+          campaign: "app_store_cta",
+        },
+        utmFromLocation(),
+        properties
+      ),
+    };
+    try {
+      fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        keepalive: true,
+      }).catch(function () {});
+    } catch (error) {
+      return;
+    }
   }
 
   var storeCtas = document.querySelectorAll(".js-app-store-cta");
