@@ -148,8 +148,15 @@ def main() -> int:
     h1s: dict[str, str] = {}
     indexed_files: set[Path] = set()
     inbound: dict[str, int] = {}
-    if not any(path.is_file() and path.suffix == ".txt" and re.fullmatch(r"[0-9a-f]{64}", path.stem) for path in WEB.iterdir()):
-        errors.append("IndexNow key file missing from web/ (64-hex filename .txt)")
+    key_files = [
+        path
+        for path in WEB.iterdir()
+        if path.is_file() and path.suffix == ".txt" and re.fullmatch(r"[0-9a-f]{64}", path.stem)
+    ]
+    if len(key_files) != 1:
+        errors.append("IndexNow key file missing from web/ (exactly one 64-hex filename .txt)")
+    elif key_files[0].read_text(encoding="utf-8").strip() != key_files[0].stem:
+        errors.append("IndexNow key file body does not match filename stem")
 
     for url, lastmod in zip(urls, lastmods):
         if not url.startswith(f"{ORIGIN}/"):
