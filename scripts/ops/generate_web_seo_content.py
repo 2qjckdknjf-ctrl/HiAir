@@ -16,6 +16,23 @@ ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
 PUBLISHED_DATE = "2026-08-25"
 CONTENT_DATE = "2026-08-26"
+APP_STORE_ID = "6773610034"
+
+
+def app_store_cta(placement: str) -> str:
+    href = (
+        f"https://apps.apple.com/us/app/hiair/id{APP_STORE_ID}"
+        "?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta"
+        f"&amp;utm_content={placement}&amp;ct=app_store_cta_{placement}"
+    )
+    return (
+        f'<a class="btn btn-primary js-app-store-cta" data-placement="{placement}" '
+        f'href="{href}">Download on the App Store</a>'
+    )
+
+
+def content_cta_placement(path: str) -> str:
+    return "guide" if path.startswith("guides") else "final"
 
 
 PAGES = [
@@ -287,6 +304,8 @@ def structured_data(page: dict[str, str]) -> str:
 
 def render(page: dict[str, str]) -> str:
     canonical = f"https://hiair.io/{page['path']}/"
+    header_cta = app_store_cta("header")
+    page_cta = app_store_cta(content_cta_placement(page["path"]))
     return f"""<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -334,7 +353,7 @@ def render(page: dict[str, str]) -> str:
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
           </button>
           <nav id="site-nav" class="site-nav" aria-label="Primary">
-            <a href="/guides/">Guides</a><a href="/for-families/">Families</a><a href="/for-runners/">Runners</a><a href="/methodology/">Methodology</a><a class="btn btn-primary" href="/#waitlist">Join early access</a>
+            <a href="/guides/">Guides</a><a href="/for-families/">Families</a><a href="/for-runners/">Runners</a><a href="/methodology/">Methodology</a>{header_cta}
           </nav>
         </div>
       </div>
@@ -355,8 +374,8 @@ def render(page: dict[str, str]) -> str:
         <section class="content-cta" aria-labelledby="content-cta-title">
           <p class="section-eyebrow">Personalize the next step</p>
           <h2 id="content-cta-title">Turn environmental data into a plan for your day</h2>
-          <p>Join the HiAir early-access list for iOS and Android availability in your region.</p>
-          <a class="btn btn-primary" href="/#waitlist">Join early access</a>
+          <p>Download HiAir on the App Store. Android is not released yet — use the waitlist on the homepage if you want a launch email.</p>
+          {page_cta}
         </section>
         <p class="review-date">Last reviewed {CONTENT_DATE}. Wellness guidance only — not medical advice.</p>
       </div>
