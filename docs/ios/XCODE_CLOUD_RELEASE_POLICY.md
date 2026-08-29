@@ -53,7 +53,7 @@ Until the ASC UI is split, the **same** Xcode Cloud workflow may still *start* o
    - Release workflow: Archive + TestFlight Internal, **Manual** and/or tags `ios-*`, **no** production App Store auto-submit.
 4. Do not attach a GitHub required status to the Archive workflow.
 
-Apple-supported start conditions: Branch Changes, Pull Request Changes, Tag Changes, Schedule, Manual. Path filtering exists only as Files and Folders in the workflow UI, not as a GitHub Actions `paths:` block. `[ci skip]` in the latest commit message skips the build entirely.
+Apple-supported start conditions: Branch Changes, Pull Request Changes, Tag Changes, Schedule, Manual. Path filtering exists only as Files and Folders in the workflow UI, not as a GitHub Actions `paths:` block. Apple `[ci skip]` in the latest commit message skips Xcode Cloud. GitHub also skips Actions when the message contains `[ci skip]`, so do not use that token on PRs that still need `ios-ci.yml`.
 
 ## Version source of truth
 
