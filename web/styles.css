@@ -1099,6 +1099,82 @@ body.legal .prose li {
   margin-inline: auto;
 }
 
+.download-panel {
+  display: grid;
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+  text-align: left;
+}
+
+@media (min-width: 720px) {
+  .download-panel {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 1.75rem;
+  }
+}
+
+.download-brand {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.download-icon {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  border-radius: 18px;
+  border: 1px solid rgba(244, 247, 255, 0.14);
+  box-shadow: 0 10px 30px rgba(8, 18, 33, 0.35);
+}
+
+.download-name {
+  margin: 0 0 0.35rem;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.download-tagline {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.download-stores {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.store-badge {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  border-radius: 8px;
+}
+
+.store-badge img {
+  display: block;
+  width: 160px;
+  height: auto;
+}
+
+.store-badge:focus-visible {
+  outline: 2px solid var(--wordmark-cyan);
+  outline-offset: 4px;
+}
+
+.download-android-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .waitlist-glass .lg__content {
   padding: 1.5rem;
 }
@@ -1266,7 +1342,7 @@ body.legal footer a,
 
 @media (min-width: 768px) {
   .footer-grid {
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
   }
 }
 

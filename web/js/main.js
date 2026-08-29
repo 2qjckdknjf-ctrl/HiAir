@@ -69,7 +69,48 @@
     });
   });
 
-  /* Waitlist form */
+  function storeLinks() {
+    return window.HIAIR_STORE_LINKS || null;
+  }
+
+  function applyVerifiedStoreCtas() {
+    var links = storeLinks();
+    if (!links) {
+      return;
+    }
+
+    document.querySelectorAll(".js-app-store-cta").forEach(function (el) {
+      if (!links.isPublic || !links.isPublic("ios")) {
+        el.remove();
+        return;
+      }
+      var placement = el.getAttribute("data-placement") || "unknown";
+      var href = links.appStoreCampaignUrl(placement);
+      if (href) {
+        el.setAttribute("href", href);
+        el.setAttribute("target", "_blank");
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+
+    document.querySelectorAll(".js-play-store-cta").forEach(function (el) {
+      if (!links.isPublic || !links.isPublic("android")) {
+        el.remove();
+        return;
+      }
+      var placement = el.getAttribute("data-placement") || "unknown";
+      var href = links.playStoreCampaignUrl(placement);
+      if (href) {
+        el.setAttribute("href", href);
+        el.setAttribute("target", "_blank");
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+  }
+
+  applyVerifiedStoreCtas();
+
+  /* Android notify form */
   const form = document.getElementById("waitlist-form");
   const messageEl = document.getElementById("waitlist-message");
   const submitBtn = document.getElementById("waitlist-submit");
@@ -124,7 +165,7 @@
 
         if (response.ok) {
           showMessage(
-            data.message || "You're on the list. We'll email you when early access opens.",
+            "You're on the list. We'll email you when Android is publicly available.",
             "success"
           );
           form.reset();
@@ -148,7 +189,7 @@
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.removeAttribute("aria-busy");
-          submitBtn.textContent = "Join early access";
+          submitBtn.textContent = "Notify me about Android";
         }
       }
     });

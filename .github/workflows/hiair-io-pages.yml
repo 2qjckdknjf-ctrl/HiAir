@@ -43,8 +43,9 @@ jobs:
       - name: Syntax-check web scripts
         run: |
           python3 -m py_compile scripts/ops/generate_web_seo_content.py scripts/ops/check_web_seo.py scripts/ops/check_web_local_routes.py
+          node --check web/js/store-links.js
           node --check web/js/main.js
-          node --test web/js/growth-telemetry.test.cjs
+          node --test web/js/store-links.test.cjs web/js/growth-telemetry.test.cjs
 
   deploy:
     needs: validate

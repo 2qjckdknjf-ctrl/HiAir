@@ -15,19 +15,91 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
 PUBLISHED_DATE = "2026-08-25"
-CONTENT_DATE = "2026-08-26"
-APP_STORE_ID = "6773610034"
+CONTENT_DATE = "2026-08-29"
+STORE = json.loads((WEB / "config" / "store-links.json").read_text(encoding="utf-8"))
 
 
-def app_store_cta(placement: str) -> str:
-    href = (
-        f"https://apps.apple.com/us/app/hiair/id{APP_STORE_ID}"
-        "?utm_source=hiair_io&amp;utm_medium=website&amp;utm_campaign=app_store_cta"
-        f"&amp;utm_content={placement}&amp;ct=app_store_cta_{placement}"
-    )
+def campaign_href(base_url: str, placement: str) -> str:
+    utm = STORE["utm"]
     return (
-        f'<a class="btn btn-primary js-app-store-cta" data-placement="{placement}" '
-        f'href="{href}">Download on the App Store</a>'
+        f"{base_url}?utm_source={utm['utm_source']}&amp;utm_medium={utm['utm_medium']}"
+        f"&amp;utm_campaign={utm['utm_campaign']}&amp;utm_content={placement}"
+        f"&amp;ct=app_store_cta_{placement}"
+    )
+
+
+def app_store_cta(placement: str, *, kind: str = "button") -> str:
+    ios = STORE["ios"]
+    if ios.get("status") != "PUBLIC_CONFIRMED" or not ios.get("url"):
+        return ""
+    href = campaign_href(ios["url"], placement)
+    css = "btn btn-primary js-app-store-cta" if kind == "button" else "js-app-store-cta"
+    return (
+        f'<a class="{css}" data-placement="{placement}" href="{href}" '
+        f'target="_blank" rel="noopener noreferrer">Download on the App Store</a>'
+    )
+
+
+def footer_get_the_app() -> str:
+    ios_link = app_store_cta("footer", kind="text")
+    if not ios_link:
+        return ""
+    return (
+        '<div class="footer-links"><h2>Get the app</h2><ul>'
+        f"<li>{ios_link}</li>"
+        '<li><a href="/#download">Android notify list</a></li>'
+        "</ul></div>"
+    )
+
+
+def write_store_links_js() -> None:
+    payload = json.dumps(STORE, ensure_ascii=False, indent=2)
+    destination = WEB / "js" / "store-links.js"
+    destination.write_text(
+        """/* Generated from web/config/store-links.json — do not edit by hand. */
+(function (root, factory) {
+  var links = factory();
+  if (typeof module === "object" && module.exports) {
+    module.exports = links;
+  }
+  root.HIAIR_STORE_LINKS = links;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  var store = """
+        + payload
+        + """;
+  function campaignUrl(baseUrl, placement) {
+    if (!baseUrl) {
+      return "";
+    }
+    var utm = store.utm || {};
+    var params = new URLSearchParams();
+    params.set("utm_source", utm.utm_source || "hiair_io");
+    params.set("utm_medium", utm.utm_medium || "website");
+    params.set("utm_campaign", utm.utm_campaign || "app_store_cta");
+    params.set("utm_content", placement);
+    params.set("ct", "app_store_cta_" + placement);
+    return baseUrl + "?" + params.toString();
+  }
+  store.appStoreCampaignUrl = function (placement) {
+    if (!store.ios || store.ios.status !== "PUBLIC_CONFIRMED" || !store.ios.url) {
+      return "";
+    }
+    return campaignUrl(store.ios.url, placement || "unknown");
+  };
+  store.playStoreCampaignUrl = function (placement) {
+    if (!store.android || store.android.status !== "PUBLIC_CONFIRMED" || !store.android.url) {
+      return "";
+    }
+    return campaignUrl(store.android.url, placement || "unknown");
+  };
+  store.isPublic = function (platform) {
+    var entry = store[platform];
+    return !!(entry && entry.status === "PUBLIC_CONFIRMED" && entry.url);
+  };
+  return store;
+});
+""",
+        encoding="utf-8",
     )
 
 
@@ -259,15 +331,15 @@ PAGES = [
           <section class="content-section prose-content">
             <h2>Our product principles</h2>
             <ul><li><strong>Calm:</strong> communicate risk without alarmist noise.</li><li><strong>Personal:</strong> use only the context a person chooses to provide.</li><li><strong>Explainable:</strong> show the reasons behind guidance.</li><li><strong>Honest:</strong> never disguise missing data as certainty.</li><li><strong>Private:</strong> minimize collection and keep control with the user.</li></ul>
-            <h2>Where HiAir is going</h2>
-            <p>HiAir is preparing wider availability for iOS and Android, with an initial focus on regions where heat and air-quality conditions frequently affect outdoor life.</p>
+            <h2>Where HiAir is available</h2>
+            <p>HiAir is on the App Store for iPhone and iPad. An Android listing is not public yet. The product focuses on regions where heat and air-quality conditions frequently affect outdoor life.</p>
           </section>
         """,
     },
     {
         "path": "contact",
         "title": "Contact HiAir",
-        "description": "Contact HiAir for product support, privacy questions, partnerships, media requests or early-access information.",
+        "description": "Contact HiAir for product support, privacy questions, partnerships, media requests, or App Store download help.",
         "eyebrow": "Contact",
         "heading": "Talk with the HiAir team",
         "intro": "Choose the closest topic and include enough context for us to route your message. Do not send emergency or highly sensitive medical information.",
@@ -374,7 +446,7 @@ def render(page: dict[str, str]) -> str:
         <section class="content-cta" aria-labelledby="content-cta-title">
           <p class="section-eyebrow">Personalize the next step</p>
           <h2 id="content-cta-title">Turn environmental data into a plan for your day</h2>
-          <p>Download HiAir on the App Store. Android is not released yet — use the waitlist on the homepage if you want a launch email.</p>
+          <p>Download HiAir on the App Store. Android is not publicly listed yet — use the Android notify form on the homepage if you want an email when it opens.</p>
           {page_cta}
         </section>
         <p class="review-date">Last reviewed {CONTENT_DATE}. Wellness guidance only — not medical advice.</p>
@@ -385,11 +457,14 @@ def render(page: dict[str, str]) -> str:
         <div class="footer-grid">
           <div class="footer-brand"><a class="footer-brand-lockup" href="/" aria-label="HiAir home"><img src="/assets/brand/mono-light.png" alt="HiAir" /></a><p>Breathe better. Live better. Personalized heat and air wellness for everyday life.</p></div>
           <div class="footer-links"><h2>Explore</h2><ul><li><a href="/guides/">Guides</a></li><li><a href="/methodology/">Methodology</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul></div>
+          {footer_get_the_app()}
           <div class="footer-links"><h2>Legal</h2><ul><li><a href="/privacy/">Privacy Policy</a></li><li><a href="/terms/">Terms of Service</a></li><li><a href="mailto:hello@hiair.io">hello@hiair.io</a></li></ul></div>
         </div>
         <div class="footer-bottom"><p>&copy; HiAir. All rights reserved.</p><p class="footer-disclaimer">HiAir provides wellness guidance and is not a substitute for professional medical advice. In emergencies, contact local emergency services.</p></div>
       </div>
     </footer>
+    <script src="/js/store-links.js"></script>
+    <script src="/js/store-links.js" defer></script>
     <script src="/js/main.js" defer></script>
   </body>
 </html>
@@ -397,6 +472,7 @@ def render(page: dict[str, str]) -> str:
 
 
 def main() -> None:
+    write_store_links_js()
     for page in PAGES:
         destination = WEB / page["path"] / "index.html"
         destination.parent.mkdir(parents=True, exist_ok=True)
