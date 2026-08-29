@@ -36,7 +36,8 @@ def app_store_cta(placement: str, *, kind: str = "button") -> str:
     css = "btn btn-primary js-app-store-cta" if kind == "button" else "js-app-store-cta"
     return (
         f'<a class="{css}" data-placement="{placement}" href="{href}" '
-        f'target="_blank" rel="noopener noreferrer">Download on the App Store</a>'
+        'target="_blank" rel="noopener noreferrer" '
+        'aria-label="Download HiAir on the App Store">Download on the App Store</a>'
     )
 
 
@@ -463,7 +464,6 @@ def render(page: dict[str, str]) -> str:
         <div class="footer-bottom"><p>&copy; HiAir. All rights reserved.</p><p class="footer-disclaimer">HiAir provides wellness guidance and is not a substitute for professional medical advice. In emergencies, contact local emergency services.</p></div>
       </div>
     </footer>
-    <script src="/js/store-links.js"></script>
     <script src="/js/store-links.js" defer></script>
     <script src="/js/main.js" defer></script>
   </body>
