@@ -13,7 +13,11 @@
 | Bundle ID | `com.hiair.app` |
 | Team ID | `43A4KW5BKB` |
 
-Скрипты CI: `mobile/ios/ci_scripts/ci_post_clone.sh` (XcodeGen + SwiftPM).
+Скрипты CI: `mobile/ios/ci_scripts/ci_post_clone.sh` (release gate + XcodeGen + SwiftPM).
+
+**Incident (2026-08-29):** the live ASC workflow also started Archive on feature branches and PRs (`seo/search-foundation`, `feat/web-live-store-qr`, `docs/live-store-audit-followup`, `main`) and delivered binaries with `CFBundleShortVersionString = 1.0.1` against live store **1.1**. Policy: `docs/ios/XCODE_CLOUD_RELEASE_POLICY.md`. `ci_post_clone.sh` now refuses automatic Archive unless the start is Manual / `release/*` / tag `ios-*` (and marketing version > 1.1).
+
+**Do not push to `main` expecting an App Store upload.** Web/SEO commits must never distribute.
 
 ## 1. Подключить репозиторий (один раз)
 
@@ -33,7 +37,7 @@
 | Project/Workspace | `mobile/ios/HiAir.xcodeproj` |
 | Scheme | `HiAir` |
 | Platform | iOS |
-| Start condition | Branch Changes → **`main`** (не feature-ветки со старым `project.pbxproj`) |
+| Start condition (intended) | **Manual**, Tag `ios-*`, or Branch `release/*` — **not** Any Branch, **not** every PR |
 
 **Actions (порядок):**
 
@@ -52,10 +56,11 @@
 
 ## 4. Запуск
 
-- Push в `main` с изменениями под `mobile/ios/**`, или  
-- Xcode Cloud → workflow → **Start Build**
+Ordinary iOS compile/test: GitHub Actions **iOS CI** (path-filtered). It does not upload.
 
-После успешного Archive сборка появится в **TestFlight** (обработка Apple 5–30 мин).
+App Store Connect upload: Xcode Cloud → **Start Build** (Manual), or an `ios-*` tag / `release/*` branch **after** `MARKETING_VERSION` is greater than live **1.1**. See `docs/ios/XCODE_CLOUD_RELEASE_POLICY.md`.
+
+После успешного Archive сборка появится в **TestFlight** (обработка Apple 5–30 мин). Do not auto-submit to the production App Store.
 
 ## 5. Локальная загрузка (если есть Xcode 26)
 

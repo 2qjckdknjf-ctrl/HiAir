@@ -1,8 +1,102 @@
 #!/bin/sh
-# Xcode Cloud: ensure HiAir.xcodeproj includes all Swift sources, then resolve SPM.
+# Xcode Cloud: refuse Archive / App Store upload unless this is an explicit
+# iOS release AND iOS app source changed AND marketing version is > live 1.1.
+# Then ensure HiAir.xcodeproj includes all Swift sources and resolve SPM.
 set -eu
 
-IOS_DIR="${CI_PRIMARY_REPOSITORY_PATH}/mobile/ios"
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+GATE="$SCRIPT_DIR/ios_app_source_gate.sh"
+REPO="${CI_PRIMARY_REPOSITORY_PATH:-}"
+if [ -z "$REPO" ]; then
+  REPO=$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)
+fi
+
+# Live App Store CFBundleShortVersionString confirmed via iTunes lookup id=6773610034.
+# 1.0.1 and 1.1 must never be uploaded again. Raising CFBundleVersion alone does not
+# satisfy ITMS-90478 / ITMS-90186 / ITMS-90062.
+stale_marketing_version() {
+  case "$1" in
+    1.0|1.0.*|1.1|1.1.0) return 0 ;;
+  esac
+  return 1
+}
+
+explicit_ios_release_start() {
+  case "${CI_START_CONDITION:-}" in
+    manual|manual_rebuild) return 0 ;;
+  esac
+  if [ -n "${CI_TAG:-}" ]; then
+    case "$CI_TAG" in
+      ios-*|v[0-9]*|release-*) return 0 ;;
+    esac
+  fi
+  case "${CI_BRANCH:-}" in
+    release/*) return 0 ;;
+  esac
+  return 1
+}
+
+collect_changed_paths() {
+  cd "$REPO"
+  if [ -n "${CI_PULL_REQUEST_TARGET_COMMIT:-}" ] && [ -n "${CI_COMMIT:-}" ]; then
+    git fetch --depth=50 origin "${CI_PULL_REQUEST_TARGET_COMMIT}" >/dev/null 2>&1 || true
+    if git cat-file -e "${CI_PULL_REQUEST_TARGET_COMMIT}^{commit}" 2>/dev/null; then
+      git diff --name-only "${CI_PULL_REQUEST_TARGET_COMMIT}" "${CI_COMMIT}"
+      return
+    fi
+  fi
+  if ! git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+    git fetch --deepen=20 >/dev/null 2>&1 || true
+  fi
+  if git rev-parse --verify HEAD^2 >/dev/null 2>&1; then
+    git diff --name-only HEAD^1 HEAD
+  elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+    git diff --name-only HEAD^ HEAD
+  else
+    echo "XCODE_CLOUD_SKIP: cannot determine changed paths (shallow clone without parent)."
+    return 1
+  fi
+}
+
+echo "==> Xcode Cloud post-clone gate"
+echo "    CI_WORKFLOW=${CI_WORKFLOW:-unset}"
+echo "    CI_BRANCH=${CI_BRANCH:-unset}"
+echo "    CI_TAG=${CI_TAG:-unset}"
+echo "    CI_START_CONDITION=${CI_START_CONDITION:-unset}"
+echo "    CI_XCODEBUILD_ACTION=${CI_XCODEBUILD_ACTION:-unset}"
+echo "    CI_PULL_REQUEST_NUMBER=${CI_PULL_REQUEST_NUMBER:-unset}"
+
+if ! explicit_ios_release_start; then
+  echo "XCODE_CLOUD_SKIP: automatic Archive is not an iOS release start."
+  echo "Allowed starts: Manual, tag ios-* / v* / release-*, or branch release/*."
+  echo "Web/docs/SEO pushes must not upload to App Store Connect."
+  echo "Use GitHub Actions workflow ios-ci.yml for compile/test validation."
+  exit 1
+fi
+
+CHANGED=$(collect_changed_paths) || {
+  echo "Refusing Archive because the change set could not be proven."
+  exit 1
+}
+echo "==> Changed paths in this Xcode Cloud checkout:"
+echo "$CHANGED" | sed 's/^/    /'
+
+if ! printf '%s\n' "$CHANGED" | sh "$GATE"; then
+  echo "XCODE_CLOUD_SKIP: no iOS app source in this commit."
+  echo "Refusing Archive / App Store Connect upload for web, docs, or ci_scripts-only changes."
+  exit 1
+fi
+
+MARKETING_VERSION=$(sed -n 's/.*MARKETING_VERSION: *"\([^"]*\)".*/\1/p' "${REPO}/mobile/ios/project.yml" | head -1)
+echo "==> MARKETING_VERSION=${MARKETING_VERSION:-unset}"
+if [ -z "$MARKETING_VERSION" ] || stale_marketing_version "$MARKETING_VERSION"; then
+  echo "XCODE_CLOUD_SKIP: CFBundleShortVersionString ${MARKETING_VERSION:-empty} is not greater than live App Store 1.1."
+  echo "Do not upload. Next intentional iOS marketing version must be > 1.1 (project next train: 1.2)."
+  echo "Increasing CFBundleVersion / CURRENT_PROJECT_VERSION alone does not fix ITMS-90478."
+  exit 1
+fi
+
+IOS_DIR="${REPO}/mobile/ios"
 cd "$IOS_DIR"
 PBX="HiAir.xcodeproj/project.pbxproj"
 

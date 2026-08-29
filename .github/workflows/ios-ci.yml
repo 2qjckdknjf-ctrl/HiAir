@@ -21,6 +21,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify Xcode Cloud iOS source gate
+        working-directory: ${{ github.workspace }}
+        run: bash mobile/ios/ci_scripts/test_ios_app_source_gate.sh
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
