@@ -89,6 +89,39 @@ test("view event is not duplicated for the same placement", () => {
   assert.equal(body.event_id, "id-1");
 });
 
+test("flag off does not start experiment runtime or emit experiment telemetry", () => {
+  let starts = 0;
+  const calls = [];
+  const win = fakeWindow({
+    eventsUrl: "https://growth.example/api/v1/events",
+    fetch: (...args) => {
+      calls.push(args);
+      return Promise.resolve();
+    },
+  });
+  win.HIAIR_GROWTH_EXPERIMENT = {
+    start: () => {
+      starts += 1;
+      return Promise.resolve({ variant: "TREATMENT" });
+    },
+  };
+  loadMain(win);
+  assert.equal(starts, 0);
+  const names = calls.map((call) => JSON.parse(call[1].body).name);
+  assert.ok(names.every((name) => name === "app_store_cta.viewed" || name === "app_store_cta.clicked"));
+  assert.equal(
+    names.includes("experiment.assigned") || names.includes("experiment.exposed"),
+    false,
+  );
+});
+
+test("production HTML does not load experiment scripts", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  assert.equal(html.includes("growth-experiment"), false);
+  const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+  assert.match(main, /var HIAIR_EXPERIMENTS_ENABLED = false;/);
+});
+
 test("click emits once and CTA still works if telemetry rejects", () => {
   const calls = [];
   const win = fakeWindow({

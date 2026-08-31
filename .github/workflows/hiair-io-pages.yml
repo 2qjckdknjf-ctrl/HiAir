@@ -45,7 +45,12 @@ jobs:
           python3 -m py_compile scripts/ops/generate_web_seo_content.py scripts/ops/check_web_seo.py scripts/ops/check_web_local_routes.py
           node --check web/js/store-links.js
           node --check web/js/main.js
-          node --test web/js/store-links.test.cjs web/js/growth-telemetry.test.cjs
+          node --check web/js/growth-experiment-assignment.js
+          node --check web/js/growth-experiment-exposure.js
+          node --check web/js/growth-experiment-config.js
+          node --check web/js/growth-experiment-telemetry.js
+          node --check web/js/growth-experiment-runtime.js
+          node --test web/js/store-links.test.cjs web/js/growth-telemetry.test.cjs web/js/growth-experiment.test.cjs web/js/growth-experiment-browser.test.cjs
 
   deploy:
     needs: validate

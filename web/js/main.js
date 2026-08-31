@@ -314,6 +314,8 @@
     });
   }
 
+  var HIAIR_EXPERIMENTS_ENABLED = false;
+
   var storeCtas = document.querySelectorAll(".js-app-store-cta");
   if (storeCtas.length) {
     var viewed = {};
@@ -337,5 +339,9 @@
         });
       });
     });
+  }
+
+  if (HIAIR_EXPERIMENTS_ENABLED && window.HIAIR_GROWTH_EXPERIMENT && typeof window.HIAIR_GROWTH_EXPERIMENT.start === "function") {
+    window.HIAIR_GROWTH_EXPERIMENT.start({ enabled: true });
   }
 })();
