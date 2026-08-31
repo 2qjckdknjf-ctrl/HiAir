@@ -1,18 +1,21 @@
 # HiAir experiment runtime (local / flag off)
 
-Not deployed. `HIAIR_EXPERIMENTS_ENABLED` is hardcoded `false` in `web/js/main.js`. Production HTML does not load the experiment modules.
+Not deployed. `HIAIR_EXPERIMENTS_ENABLED` is hardcoded `false` in `web/js/main.js`. Production HTML does not load the experiment modules (`store-links.js` + `main.js` only).
 
 ## Control fallback
 
-Any of: flag off, empty config, network failure, bad payload, bad variant, assignment failure, storage failure → **CONTROL**. Existing CTA copy stays `Download on the App Store`. No config request when the flag is false.
+Any of: flag off, empty config, network failure, bad payload, missing CONTROL, bad variant, assignment failure, crypto unavailable, storage unavailable, storage write failure, invalid treatment config → **CONTROL**. Existing CTA copy stays `Download on the App Store`. No config request when the flag is false.
 
 ## Assignment
 
 - Unit: **VISITOR** (`hiair_growth_anon`)
-- Hash: `SHA-256(experiment_id + ":" + assignment_version + ":" + anonymous_id)`
+- Hash: **async** `globalThis.crypto.subtle.digest("SHA-256", UTF-8 bytes)` of `experiment_id + ":" + assignment_version + ":" + anonymous_id`
+- Not CommonJS `require("crypto")`. Crypto failure does **not** collapse to bucket 0; it returns CONTROL.
 - Sticky key: `growth_experiment:<experiment_id>:<assignment_version>` in `localStorage`
+- Stored value must match experiment/version and a live allocation variant. Unknown variants are ignored.
+- Treatment requires a successful sticky write. `localStorage` missing or `setItem` failure → CONTROL.
 - New `session_id` must not re-randomize
-- Allocation change requires a new `assignment_version`
+- Allocation change for a running design requires a new `assignment_version`. v1 sticky must not leak into v2.
 
 ## Exposure
 

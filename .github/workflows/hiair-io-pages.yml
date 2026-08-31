@@ -50,7 +50,7 @@ jobs:
           node --check web/js/growth-experiment-config.js
           node --check web/js/growth-experiment-telemetry.js
           node --check web/js/growth-experiment-runtime.js
-          node --test web/js/store-links.test.cjs web/js/growth-telemetry.test.cjs web/js/growth-experiment.test.cjs
+          node --test web/js/store-links.test.cjs web/js/growth-telemetry.test.cjs web/js/growth-experiment.test.cjs web/js/growth-experiment-browser.test.cjs
 
   deploy:
     needs: validate

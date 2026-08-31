@@ -7,14 +7,29 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   var CONTROL_COPY = "Download on the App Store";
 
+  function control(reason) {
+    return { variant: "CONTROL", reason: reason };
+  }
+
+  function hasControl(allocation) {
+    if (!allocation || !allocation.length) {
+      return false;
+    }
+    for (var i = 0; i < allocation.length; i += 1) {
+      if (allocation[i].role === "CONTROL") {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function start(input) {
     var enabled = Boolean(input && input.enabled);
     var configApi = (input && input.configApi) || {};
     var assignmentApi = (input && input.assignmentApi) || {};
     var telemetryApi = (input && input.telemetryApi) || {};
-    var exposureApi = (input && input.exposureApi) || {};
     if (!enabled) {
-      return Promise.resolve({ variant: "CONTROL", reason: "flag_off" });
+      return Promise.resolve(control("flag_off"));
     }
     return (configApi.failClosedFetch
       ? configApi.failClosedFetch({
@@ -26,61 +41,77 @@
     )
       .then(function (payload) {
         var experiment = payload && payload.experiments && payload.experiments[0];
-        if (!experiment) {
-          return { variant: "CONTROL", reason: "no_active_experiment" };
+        if (!experiment || !experiment.id || !experiment.assignment_version || !Array.isArray(experiment.allocation)) {
+          return control("no_active_experiment");
         }
-        var assigned = assignmentApi.assignVisitor({
-          experimentId: experiment.id,
-          assignmentVersion: experiment.assignment_version,
-          anonymousId: input.anonymousId,
-          allocation: experiment.allocation,
-          storage: input.storage,
-        });
-        if (!assigned || !assigned.variant_id) {
-          return { variant: "CONTROL", reason: "assignment_failure" };
+        if (!hasControl(experiment.allocation)) {
+          return control("missing_control");
         }
-        var chosen = (experiment.allocation || []).find(function (row) {
-          return row.variant_id === assigned.variant_id;
-        });
-        if (!chosen) {
-          return { variant: "CONTROL", reason: "bad_variant" };
+        if (typeof assignmentApi.assignVisitor !== "function") {
+          return control("assignment_failure");
         }
-        if (chosen.role === "TREATMENT" && chosen.public_config && chosen.public_config.cta_copy && input.ctaEl) {
-          configApi.applyCtaCopy(input.ctaEl, chosen.public_config.cta_copy);
-        } else if (input.ctaEl && !input.ctaEl.textContent) {
-          input.ctaEl.textContent = CONTROL_COPY;
-        }
-        var assignmentId = telemetryApi.assignmentEventId(
-          experiment.id,
-          input.anonymousId,
-          experiment.assignment_version,
-        );
-        return telemetryApi
-          .send({
-            url: input.eventsUrl,
-            fetch: input.fetch,
-            name: "experiment.assigned",
-            eventId: assignmentId,
-            anonymousId: input.anonymousId,
-            sessionId: input.sessionId,
+        return Promise.resolve(
+          assignmentApi.assignVisitor({
             experimentId: experiment.id,
-            variantId: chosen.variant_id,
             assignmentVersion: experiment.assignment_version,
-            placement: experiment.placement,
-          })
-          .then(function () {
-            return {
-              variant: chosen.role,
-              experiment: experiment,
-              variantId: chosen.variant_id,
-            };
-          })
-          .catch(function () {
-            return { variant: "CONTROL", reason: "telemetry_failure" };
+            anonymousId: input.anonymousId,
+            allocation: experiment.allocation,
+            storage: input.storage,
+          }),
+        ).then(function (assigned) {
+          if (!assigned || !assigned.variant_id) {
+            return control("assignment_failure");
+          }
+          var chosen = (experiment.allocation || []).find(function (row) {
+            return row.variant_id === assigned.variant_id;
           });
+          if (!chosen) {
+            return control("bad_variant");
+          }
+          if (chosen.role === "TREATMENT") {
+            var sanitized = configApi.publicConfig ? configApi.publicConfig(chosen.public_config) : {};
+            if (!sanitized || !sanitized.cta_copy) {
+              return control("invalid_treatment_config");
+            }
+            if (input.ctaEl) {
+              configApi.applyCtaCopy(input.ctaEl, sanitized.cta_copy);
+            }
+          } else if (input.ctaEl && !input.ctaEl.textContent) {
+            input.ctaEl.textContent = CONTROL_COPY;
+          }
+          if (!telemetryApi || typeof telemetryApi.send !== "function") {
+            return { variant: chosen.role, experiment: experiment, variantId: chosen.variant_id };
+          }
+          var assignmentId = telemetryApi.assignmentEventId
+            ? telemetryApi.assignmentEventId(experiment.id, input.anonymousId, experiment.assignment_version)
+            : ["experiment.assigned", experiment.id, input.anonymousId, experiment.assignment_version].join(":");
+          return telemetryApi
+            .send({
+              url: input.eventsUrl,
+              fetch: input.fetch,
+              name: "experiment.assigned",
+              eventId: assignmentId,
+              anonymousId: input.anonymousId,
+              sessionId: input.sessionId,
+              experimentId: experiment.id,
+              variantId: chosen.variant_id,
+              assignmentVersion: experiment.assignment_version,
+              placement: experiment.placement,
+            })
+            .then(function () {
+              return {
+                variant: chosen.role,
+                experiment: experiment,
+                variantId: chosen.variant_id,
+              };
+            })
+            .catch(function () {
+              return control("telemetry_failure");
+            });
+        });
       })
       .catch(function () {
-        return { variant: "CONTROL", reason: "network_failure" };
+        return control("network_failure");
       });
   }
 
