@@ -26,7 +26,11 @@ function fakeWindow(overrides) {
   };
   const listeners = [];
   const cta = {
-    getAttribute: (name) => (name === "data-placement" ? "hero" : null),
+    getAttribute: (name) => {
+      if (name === "data-placement") return "hero";
+      if (name === "data-event") return "hero_app_store_click";
+      return null;
+    },
     addEventListener: (type, fn) => listeners.push({ type, fn }),
   };
   const windowLike = {
@@ -135,6 +139,29 @@ test("click emits once and CTA still works if telemetry rejects", () => {
   win.listeners[0].fn();
   win.listeners[0].fn();
   const clicks = calls.filter((call) => JSON.parse(call[1].body).name === "app_store_cta.clicked");
+  const iosDownloads = calls.filter((call) => JSON.parse(call[1].body).name === "ios_download_click");
+  const heroClicks = calls.filter((call) => JSON.parse(call[1].body).name === "hero_app_store_click");
   assert.equal(clicks.length, 2);
+  assert.equal(iosDownloads.length, 2);
+  assert.equal(heroClicks.length, 2);
   assert.doesNotThrow(() => win.listeners[0].fn());
+});
+
+test("premium homepage declares the required non-sensitive conversion events", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
+  [
+    "hero_app_store_click",
+    "header_download_click",
+    "demo_started",
+    "demo_completed",
+    "premium_viewed",
+    "faq_opened",
+    "final_cta_click",
+    "ios_download_click",
+    "android_download_click",
+  ].forEach((eventName) => {
+    assert.ok(html.includes(eventName) || main.includes(eventName), `missing ${eventName}`);
+  });
+  assert.doesNotMatch(main, /trackGrowth\([^\n]+(?:latitude|longitude|health|email)/i);
 });

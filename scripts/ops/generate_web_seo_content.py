@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
 PUBLISHED_DATE = "2026-08-25"
-CONTENT_DATE = "2026-08-29"
+CONTENT_DATE = "2026-08-31"
 STORE = json.loads((WEB / "config" / "store-links.json").read_text(encoding="utf-8"))
 
 
@@ -48,7 +48,7 @@ def footer_get_the_app() -> str:
     return (
         '<div class="footer-links"><h2>Get the app</h2><ul>'
         f"<li>{ios_link}</li>"
-        '<li><a href="/#download">Android notify list</a></li>'
+        '<li><a href="/#availability">Android availability</a></li>'
         "</ul></div>"
     )
 
@@ -373,24 +373,28 @@ PAGES = [
     },
     {
         "path": "methodology",
-        "title": "How HiAir Guidance Works | Methodology",
-        "description": "Learn how HiAir combines weather, air quality, activity context and optional sensitivity settings while handling missing data honestly.",
-        "eyebrow": "Methodology",
+        "title": "HiAir Science & Data | How Guidance Works",
+        "description": "Learn which environmental inputs HiAir uses, how activity and optional personal context shape guidance, and how missing or delayed data is handled.",
+        "eyebrow": "Science & Data",
         "heading": "From environmental signals to explainable guidance",
-        "intro": "HiAir is designed to make everyday environmental decisions easier without pretending that a model can diagnose health or guarantee safety.",
+        "intro": "HiAir turns available, time-stamped environmental inputs into everyday wellness guidance without pretending that a score can diagnose health or guarantee safety.",
         "kind": "WebPage",
         "body": """
           <section class="method-steps" aria-label="HiAir methodology">
-            <div><span>1</span><h2>Collect</h2><p>Use available time-stamped weather and air-quality inputs for the selected location.</p></div>
-            <div><span>2</span><h2>Interpret</h2><p>Consider the planned activity and optional sensitivity settings alongside the environment.</p></div>
+            <div><span>1</span><h2>Collect</h2><p>Use available time-stamped weather and air-quality inputs from Open-Meteo for the selected location, with recent cached values used for resilience.</p></div>
+            <div><span>2</span><h2>Interpret</h2><p>Consider heat, humidity, AQI, particles, ozone, UV and wind where available, alongside the activity and optional sensitivity settings.</p></div>
             <div><span>3</span><h2>Explain</h2><p>Show a clear level, reason codes and practical wellness actions for the relevant time window.</p></div>
             <div><span>4</span><h2>Stay honest</h2><p>Label missing, stale or unavailable information instead of silently manufacturing certainty.</p></div>
           </section>
           <section class="content-section prose-content">
+            <h2>Data availability and updates</h2>
+            <p>HiAir requests live environmental data and may use a recent cached observation when the provider is temporarily unavailable. The app labels the source state. Pollen and smoke appear only where coverage exists; unavailable inputs remain unavailable instead of being shown as safe zeros.</p>
+            <h2>What the score means</h2>
+            <p>The risk score is a deterministic wellness-planning aid. It combines available environmental factors with the profile and activity context you choose, then returns a level, reason codes and possible actions. Optional AI can explain already-computed results but does not invent environmental measurements or the score.</p>
             <h2>Safety boundaries</h2>
             <ul><li>Wellness guidance only; no diagnosis or treatment.</li><li>Official local warnings take priority.</li><li>No emergency prediction or emergency response.</li><li>Environmental data and forecasts can be incomplete or delayed.</li><li>Optional wearable summaries add context, not medical conclusions.</li></ul>
             <h2>Privacy principles</h2>
-            <p>Location, notifications and health-platform access are optional. HiAir uses aggregated wearable summaries only after explicit system permission and does not sell personal data.</p>
+            <p>Location and Apple Health access are optional. HiAir uses daily and hourly wearable summaries only after explicit system permission and does not sell personal data for advertising.</p>
             <p><a class="text-link" href="/privacy/">Read the Privacy Policy →</a></p>
           </section>
         """,
@@ -508,7 +512,7 @@ def render(page: dict[str, str]) -> str:
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
           </button>
           <nav id="site-nav" class="site-nav" aria-label="Primary">
-            <a href="/guides/">Guides</a><a href="/for-families/">Families</a><a href="/for-runners/">Runners</a><a href="/air-quality-sensitive/">Sensitive</a><a href="/methodology/">Methodology</a>{header_cta}
+            <a href="/guides/">Guides</a><a href="/for-families/">Families</a><a href="/for-runners/">Runners</a><a href="/air-quality-sensitive/">Sensitive</a><a href="/methodology/">Science &amp; Data</a>{header_cta}
           </nav>
         </div>
       </div>
@@ -531,7 +535,7 @@ def render(page: dict[str, str]) -> str:
         <section class="content-cta" aria-labelledby="content-cta-title">
           <p class="section-eyebrow">Personalize the next step</p>
           <h2 id="content-cta-title">Turn environmental data into a plan for your day</h2>
-          <p>Download HiAir on the App Store. Android is not publicly listed yet — use the Android notify form on the homepage if you want an email when it opens.</p>
+          <p>Download HiAir on the App Store. Android is not publicly listed on Google Play yet.</p>
           {page_cta}
         </section>
         <p class="review-date">Last reviewed {CONTENT_DATE}. Wellness guidance only — not medical advice.</p>
@@ -541,7 +545,7 @@ def render(page: dict[str, str]) -> str:
       <div class="container">
         <div class="footer-grid">
           <div class="footer-brand"><a class="footer-brand-lockup" href="/" aria-label="HiAir home"><img src="/assets/brand/mono-light.png" alt="HiAir" /></a><p>Breathe better. Live better. Personalized heat and air wellness for everyday life.</p></div>
-          <div class="footer-links"><h2>Explore</h2><ul><li><a href="/guides/">Guides</a></li><li><a href="/air-quality-sensitive/">Sensitive</a></li><li><a href="/methodology/">Methodology</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul></div>
+          <div class="footer-links"><h2>Explore</h2><ul><li><a href="/guides/">Guides</a></li><li><a href="/air-quality-sensitive/">Sensitive</a></li><li><a href="/methodology/">Science &amp; Data</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul></div>
           {footer_get_the_app()}
           <div class="footer-links"><h2>Legal</h2><ul><li><a href="/privacy/">Privacy Policy</a></li><li><a href="/terms/">Terms of Service</a></li><li><a href="mailto:hello@hiair.io">hello@hiair.io</a></li></ul></div>
         </div>
