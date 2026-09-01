@@ -1,8 +1,11 @@
 # HiAir Website 2026 Audit
 
-Date: 2026-08-31  
-Audit branch: `feat/hiair-premium-website-2026`  
-Production source baseline: `main` at `23eeea664d210dc7f539f2a301dc54042d64e02f`  
+Date: 2026-08-31
+
+Audit branch: `feat/hiair-premium-website-2026`
+
+Production source baseline: `main` at `23eeea664d210dc7f539f2a301dc54042d64e02f`
+
 Production domain: `https://hiair.io/`
 
 ## Executive finding
