@@ -59,6 +59,10 @@
       const isOpen = item.classList.toggle("is-open");
       btn.setAttribute("aria-expanded", String(isOpen));
 
+      if (isOpen) {
+        trackGrowth("faq_opened", { placement: btn.getAttribute("aria-controls") || "faq" });
+      }
+
       document.querySelectorAll(".faq-item").forEach(function (other) {
         if (other !== item && other.classList.contains("is-open")) {
           other.classList.remove("is-open");
@@ -270,6 +274,7 @@
     if (!url) {
       return;
     }
+    properties = properties || {};
     var body = {
       productSlug: "hiair",
       surface: "website",
@@ -302,10 +307,10 @@
     }
   }
 
-  var storeLinks = window.HIAIR_STORE_LINKS;
-  if (storeLinks && storeLinks.isPublic && storeLinks.isPublic("ios") && typeof storeLinks.appStoreCampaignUrl === "function") {
+  var runtimeStoreLinks = window.HIAIR_STORE_LINKS;
+  if (runtimeStoreLinks && runtimeStoreLinks.isPublic && runtimeStoreLinks.isPublic("ios") && typeof runtimeStoreLinks.appStoreCampaignUrl === "function") {
     document.querySelectorAll(".js-app-store-cta").forEach(function (el) {
-      var href = storeLinks.appStoreCampaignUrl(el.getAttribute("data-placement") || "unknown");
+      var href = runtimeStoreLinks.appStoreCampaignUrl(el.getAttribute("data-placement") || "unknown");
       if (href) {
         el.setAttribute("href", href);
         el.setAttribute("target", "_blank");
@@ -337,8 +342,97 @@
           locale: document.documentElement.lang || "en",
           campaign: "app_store_cta",
         });
+        trackGrowth("ios_download_click", { placement: placement });
+        var explicitEvent = el.getAttribute("data-event");
+        if (explicitEvent && explicitEvent !== "ios_download_click") {
+          trackGrowth(explicitEvent, { placement: placement });
+        }
       });
     });
+  }
+
+  document.querySelectorAll(".js-play-store-cta").forEach(function (el) {
+    el.addEventListener("click", function () {
+      trackGrowth("android_download_click", {
+        placement: el.getAttribute("data-placement") || "unknown",
+      });
+    });
+  });
+
+  /* Deterministic product demo — no location or health data leaves the page. */
+  var demoForm = document.getElementById("product-demo");
+  if (demoForm) {
+    var demoStarted = false;
+    var demoExamples = {
+      barcelona: {
+        walk: ["43", "Moderate", "19:00–21:00", "Lower heat and improving air conditions make the evening a better fit for a walk."],
+        run: ["58", "Moderate", "20:00–21:00", "A later, shorter run avoids the warmest part of this example day."],
+        outdoor: ["47", "Moderate", "18:30–21:00", "The evening is the more suitable outdoor window in this example."],
+      },
+      madrid: {
+        walk: ["55", "Moderate", "20:00–22:00", "Heat eases later, making the evening a better fit for a walk."],
+        run: ["68", "High", "21:00–22:00", "This example favors a later, lower-intensity run after peak heat."],
+        outdoor: ["61", "Moderate", "20:30–22:00", "Waiting until later reduces the main heat concern in this example."],
+      },
+      london: {
+        walk: ["28", "Low", "10:00–12:00", "Milder heat and lower example pollution make late morning more suitable."],
+        run: ["36", "Low", "09:00–11:00", "The late-morning window has the best balance for this sample run."],
+        outdoor: ["31", "Low", "10:00–14:00", "A broad midday window is suitable in this deterministic example."],
+      },
+    };
+
+    function markDemoStarted() {
+      if (demoStarted) return;
+      demoStarted = true;
+      trackGrowth("demo_started", { placement: "homepage_demo" });
+    }
+
+    demoForm.addEventListener("change", markDemoStarted);
+    demoForm.addEventListener("focusin", markDemoStarted);
+    demoForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      markDemoStarted();
+
+      var locationSelect = document.getElementById("demo-location");
+      var activitySelect = document.getElementById("demo-activity");
+      var locationKey = locationSelect ? locationSelect.value : "barcelona";
+      var activityKey = activitySelect ? activitySelect.value : "walk";
+      var city = locationSelect && locationSelect.options[locationSelect.selectedIndex]
+        ? locationSelect.options[locationSelect.selectedIndex].text
+        : "Barcelona";
+      var activity = activitySelect && activitySelect.options[activitySelect.selectedIndex]
+        ? activitySelect.options[activitySelect.selectedIndex].text
+        : "Walk";
+      var example = (demoExamples[locationKey] && demoExamples[locationKey][activityKey]) || demoExamples.barcelona.walk;
+
+      var locationOutput = document.getElementById("demo-result-location");
+      var scoreOutput = document.getElementById("demo-risk-score");
+      var labelOutput = document.getElementById("demo-risk-label");
+      var windowOutput = document.getElementById("demo-window");
+      var reasonOutput = document.getElementById("demo-reason");
+      if (locationOutput) locationOutput.textContent = city + " · " + activity;
+      if (scoreOutput) scoreOutput.textContent = example[0];
+      if (labelOutput) labelOutput.textContent = example[1];
+      if (windowOutput) windowOutput.textContent = example[2];
+      if (reasonOutput) reasonOutput.textContent = example[3];
+
+      trackGrowth("demo_completed", { placement: "homepage_demo" });
+    });
+  }
+
+  var trackedViews = document.querySelectorAll("[data-track-view]");
+  if (trackedViews.length && "IntersectionObserver" in window) {
+    var viewObserver = new window.IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var name = entry.target.getAttribute("data-track-view");
+        if (name) {
+          trackGrowth(name, { placement: entry.target.id || "section" });
+        }
+        viewObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.35 });
+    trackedViews.forEach(function (el) { viewObserver.observe(el); });
   }
 
   if (HIAIR_EXPERIMENTS_ENABLED && window.HIAIR_GROWTH_EXPERIMENT && typeof window.HIAIR_GROWTH_EXPERIMENT.start === "function") {
