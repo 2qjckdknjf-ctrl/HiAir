@@ -45,7 +45,7 @@ Date: 2026-08-31
 - [x] Product WebP media totals under 120 KB; non-hero media is lazy-loaded.
 - [x] Exact web CI command set passes locally.
 - [ ] Lighthouse run against a production-like hosted preview.
-- [ ] Pull-request CI green.
+- [x] Pull-request CI green (`hiair-io-pages` run `33453252110`).
 - [ ] Cloudflare preview verified.
 - [ ] Production deploy verified after merge approval.
 
@@ -54,5 +54,5 @@ Date: 2026-08-31
 - [x] Dedicated feature branch used; no direct main changes.
 - [x] Audit committed before implementation.
 - [x] No secrets, temporary captures, or debug output included.
-- [ ] PR approval and required checks complete.
+- [ ] PR approval complete; automated web validation is green.
 - [ ] Final merge performed by an authorized reviewer.

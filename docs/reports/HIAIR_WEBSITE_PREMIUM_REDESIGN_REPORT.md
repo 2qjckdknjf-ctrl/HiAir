@@ -8,6 +8,8 @@ Branch: `feat/hiair-premium-website-2026`
 
 Production baseline: `main@23eeea664d210dc7f539f2a301dc54042d64e02f`
 
+Pull request: `#71` (`https://github.com/2qjckdknjf-ctrl/HiAir/pull/71`)
+
 ## What changed and why
 
 The homepage was rebuilt as a premium, product-first static experience. It now explains HiAir in the first heading, shows real iOS UI immediately, demonstrates the difference between environmental numbers and an actionable recommendation, offers a deterministic example planner, tells four large product stories, and explains Apple Health, Premium, science, privacy, and availability without unsupported claims. Existing SEO generation, Growth OS telemetry, legal routes, store-link truth, and Cloudflare deployment are preserved.
@@ -61,6 +63,8 @@ Passed locally:
 
 No pre-existing or introduced failure was observed in the web validation set. Application/backend test suites were not rerun because no application/backend code changed.
 
+Remote `hiair-io-pages` workflow run `33453252110` completed successfully for the pull request head.
+
 ## Deployment status and known gaps
 
 Production was not changed. The workflow deploys only from `main` after validation. A local static server ran on port 4173, but the cloud browser could not access repository localhost; no hosted preview was produced because Cloudflare credentials are not available in the workspace and the PR workflow does not deploy previews. Required CI, hosted visual review, automated accessibility, Lighthouse, and production verification remain open.
@@ -94,7 +98,7 @@ Production was not changed. The workflow deploys only from `main` after validati
 | Accessibility | Good semantic base | Focus, labels, media, motion improved | Static/code review | PARTIAL |
 | Performance | No baseline Lighthouse | ~230 KB critical page set; no score | Byte measurement | PARTIAL |
 | Broken links | No known public breakage | Checked public/internal links | Route + HTTP checks | PASS |
-| CI | Baseline green history | Local CI equivalent passes | Commands above | PARTIAL — remote pending |
+| CI | Baseline green history | Local and remote validation pass | Run `33453252110` | PASS |
 | Preview deployment | None | Local server only | Port 4173; no hosted URL | PARTIAL |
 | Production deployment | Baseline on main | Intentionally unchanged | Workflow policy | PASS |
 | Open P0 | None known | None known | Audit/test results | PASS |
