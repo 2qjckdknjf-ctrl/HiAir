@@ -14,6 +14,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 private const val DEFAULT_ACTIVITY_ID = "walking"
+private val ACTION_DURATION_OPTIONS = listOf(15, 30, 45, 60, 90, 120)
+private val ACTION_INTENSITY_OPTIONS = listOf("low", "moderate", "high")
 
 data class ActivityCatalogEntry(
     val id: String,
@@ -43,6 +45,8 @@ data class PlannerState(
     val sources: List<String> = emptyList(),
     val activityCatalog: List<ActivityCatalogEntry> = emptyList(),
     val selectedActivityId: String = DEFAULT_ACTIVITY_ID,
+    val selectedDurationMinutes: Int = 30,
+    val selectedIntensity: String = "low",
     val selectedPlaceId: String = "",
     val savedPlaces: List<SavedPlaceItem> = emptyList(),
     val activityPlanMarked: Boolean = false,
@@ -81,13 +85,53 @@ class DailyPlannerViewModel(
 
     fun selectActivity(activityId: String) {
         if (activityId.isBlank() || activityId == state.selectedActivityId) return
+        val catalogEntry = state.activityCatalog.firstOrNull { it.id == activityId }
         state = state.copy(
             selectedActivityId = activityId,
+            selectedDurationMinutes = catalogEntry?.defaultDurationMinutes
+                ?.takeIf { it in ACTION_DURATION_OPTIONS }
+                ?: 30,
+            selectedIntensity = catalogEntry?.defaultIntensity
+                ?.takeIf { it in ACTION_INTENSITY_OPTIONS }
+                ?: "moderate",
             activityWindows = emptyList(),
             activityRecommendedStart = "",
             activityPlanStatusText = "",
             activityPremiumRequired = false,
+            activityPlanMarked = false,
+            activityPlanMarkStatus = "",
         )
+        ProductAnalytics.track("activity_type_selected", mapOf("activity" to activityId))
+    }
+
+    fun selectDurationMinutes(durationMinutes: Int) {
+        if (durationMinutes !in ACTION_DURATION_OPTIONS || durationMinutes == state.selectedDurationMinutes) return
+        state = state.copy(
+            selectedDurationMinutes = durationMinutes,
+            activityWindows = emptyList(),
+            activityRecommendedStart = "",
+            activityPlanStatusText = "",
+            activityPlanMarked = false,
+            activityPlanMarkStatus = "",
+        )
+        ProductAnalytics.track(
+            "activity_duration_changed",
+            mapOf("duration_bucket" to durationMinutes.toString()),
+        )
+    }
+
+    fun selectIntensity(intensity: String) {
+        val normalized = intensity.lowercase()
+        if (normalized !in ACTION_INTENSITY_OPTIONS || normalized == state.selectedIntensity) return
+        state = state.copy(
+            selectedIntensity = normalized,
+            activityWindows = emptyList(),
+            activityRecommendedStart = "",
+            activityPlanStatusText = "",
+            activityPlanMarked = false,
+            activityPlanMarkStatus = "",
+        )
+        ProductAnalytics.track("activity_intensity_changed", mapOf("intensity" to normalized))
     }
 
     fun selectPlace(placeId: String) {
@@ -111,7 +155,7 @@ class DailyPlannerViewModel(
             } ?: ""
             state = state.copy(savedPlaces = places, selectedPlaceId = selected)
         } catch (_: Exception) {
-            // Places are optional for planner.
+            // Places are optional for planner; keep previous list on failure.
         }
     }
 
@@ -200,23 +244,30 @@ class DailyPlannerViewModel(
 
     fun loadActivityCatalog(userId: String, accessToken: String?) {
         try {
-            val raw = apiClient.fetchActivityCatalog(
-                userId = userId,
-                accessToken = accessToken,
-            )
+            val raw = apiClient.fetchActivityCatalog(userId = userId, accessToken = accessToken)
             val catalog = parseActivityCatalog(raw)
-            val selected = catalog.firstOrNull { it.id == state.selectedActivityId }?.id
-                ?: catalog.firstOrNull()?.id
-                ?: DEFAULT_ACTIVITY_ID
+            val selected = catalog.firstOrNull { it.id == state.selectedActivityId }
+                ?: catalog.firstOrNull()
             state = state.copy(
                 activityCatalog = catalog,
-                selectedActivityId = selected,
+                selectedActivityId = selected?.id ?: DEFAULT_ACTIVITY_ID,
+                selectedDurationMinutes = selected?.defaultDurationMinutes
+                    ?.takeIf { it in ACTION_DURATION_OPTIONS }
+                    ?: state.selectedDurationMinutes,
+                selectedIntensity = selected?.defaultIntensity
+                    ?.takeIf { it in ACTION_INTENSITY_OPTIONS }
+                    ?: state.selectedIntensity,
             )
         } catch (_: Exception) {
             if (state.activityCatalog.isEmpty()) {
+                val fallback = fallbackActivityCatalog()
+                val selected = fallback.firstOrNull { it.id == state.selectedActivityId }
+                    ?: fallback.first()
                 state = state.copy(
-                    activityCatalog = fallbackActivityCatalog(),
-                    selectedActivityId = state.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID },
+                    activityCatalog = fallback,
+                    selectedActivityId = selected.id,
+                    selectedDurationMinutes = selected.defaultDurationMinutes,
+                    selectedIntensity = selected.defaultIntensity,
                 )
             }
         }
@@ -230,10 +281,25 @@ class DailyPlannerViewModel(
     ) {
         val activityId = state.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID }
         val catalogEntry = state.activityCatalog.firstOrNull { it.id == activityId }
-        state = state.copy(activityPlanLoading = true, activityPlanStatusText = "", activityPlanMarked = false, activityPlanMarkStatus = "")
+        val duration = state.selectedDurationMinutes.takeIf { it in ACTION_DURATION_OPTIONS }
+            ?: catalogEntry?.defaultDurationMinutes
+            ?: 30
+        val intensity = state.selectedIntensity.takeIf { it in ACTION_INTENSITY_OPTIONS }
+            ?: catalogEntry?.defaultIntensity
+            ?: "moderate"
+        state = state.copy(
+            activityPlanLoading = true,
+            activityPlanStatusText = "",
+            activityPlanMarked = false,
+            activityPlanMarkStatus = "",
+        )
         ProductAnalytics.track(
             "activity_plan_fetch_started",
-            mapOf("activity" to activityId),
+            mapOf(
+                "activity" to activityId,
+                "duration_bucket" to duration.toString(),
+                "intensity" to intensity,
+            ),
         )
         try {
             val raw = apiClient.createActivityPlan(
@@ -241,8 +307,8 @@ class DailyPlannerViewModel(
                 accessToken = accessToken,
                 profileId = profileId,
                 activity = activityId,
-                durationMinutes = catalogEntry?.defaultDurationMinutes,
-                intensity = catalogEntry?.defaultIntensity,
+                durationMinutes = duration,
+                intensity = intensity,
                 placeId = state.selectedPlaceId.takeIf { it.isNotBlank() },
             )
             val parsed = parseActivityPlan(raw, preferredLanguage)
@@ -258,6 +324,8 @@ class DailyPlannerViewModel(
                 "activity_plan_loaded",
                 mapOf(
                     "activity" to activityId,
+                    "duration_bucket" to duration.toString(),
+                    "intensity" to intensity,
                     "windows" to parsed.windows.size.toString(),
                     "forecast" to parsed.forecastAvailable.toString(),
                 ),
@@ -267,6 +335,8 @@ class DailyPlannerViewModel(
                     "activity_plan_created",
                     mapOf(
                         "activity" to activityId,
+                        "duration_bucket" to duration.toString(),
+                        "intensity" to intensity,
                         "windows" to parsed.windows.size.toString(),
                     ),
                 )
@@ -310,9 +380,25 @@ class DailyPlannerViewModel(
             val raw = apiClient.fetchAirDayPlan(
                 userId = userId,
                 accessToken = accessToken,
-                profileId = profileId
+                profileId = profileId,
             )
-            state = parsePlan(raw, preferredLanguage)
+            val actionState = state
+            state = parsePlan(raw, preferredLanguage).copy(
+                activityCatalog = actionState.activityCatalog,
+                selectedActivityId = actionState.selectedActivityId,
+                selectedDurationMinutes = actionState.selectedDurationMinutes,
+                selectedIntensity = actionState.selectedIntensity,
+                selectedPlaceId = actionState.selectedPlaceId,
+                savedPlaces = actionState.savedPlaces,
+                activityPlanMarked = actionState.activityPlanMarked,
+                activityPlanMarkStatus = actionState.activityPlanMarkStatus,
+                activityPlanLoading = actionState.activityPlanLoading,
+                activityPlanStatusText = actionState.activityPlanStatusText,
+                activityWindows = actionState.activityWindows,
+                activityRecommendedStart = actionState.activityRecommendedStart,
+                activityPremiumRequired = actionState.activityPremiumRequired,
+                activityForecastAvailable = actionState.activityForecastAvailable,
+            )
             if (!state.forecastAvailable) {
                 ProductAnalytics.track(
                     "planner_forecast_unavailable",
@@ -371,6 +457,10 @@ class DailyPlannerViewModel(
             val recommendedStart: String,
             val forecastAvailable: Boolean,
         )
+
+        fun durationOptionsForUi(): List<Int> = ACTION_DURATION_OPTIONS
+
+        fun intensityOptionsForUi(): List<String> = ACTION_INTENSITY_OPTIONS
 
         fun parseActivityCatalog(raw: String): List<ActivityCatalogEntry> {
             val json = JSONObject(raw)
@@ -538,9 +628,7 @@ class DailyPlannerViewModel(
                         "",
                         zoneId,
                     )
-                    if (range.isNotBlank()) {
-                        ventilationItems.add(range)
-                    }
+                    if (range.isNotBlank()) ventilationItems.add(range)
                 }
             }
             val hourlyItems = mutableListOf<String>()
@@ -556,11 +644,8 @@ class DailyPlannerViewModel(
                 !forecastAvailable -> l("planner.forecast_unavailable", preferredLanguage)
                 dataQuality.equals("partial", ignoreCase = true) -> {
                     val base = l("planner.forecast_partial", preferredLanguage)
-                    if (missingMetrics.isEmpty()) {
-                        base
-                    } else {
-                        "$base (${missingMetrics.take(4).joinToString(", ")})"
-                    }
+                    if (missingMetrics.isEmpty()) base
+                    else "$base (${missingMetrics.take(4).joinToString(", ")})"
                 }
                 else -> l("planner.loaded", preferredLanguage)
                     .replaceFirst("%d", hourly.length().toString())
