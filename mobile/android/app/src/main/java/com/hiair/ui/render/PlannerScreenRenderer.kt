@@ -131,9 +131,7 @@ internal object PlannerScreenRenderer {
                     profileId = profileId,
                     preferredLanguage = settings.preferredLanguage,
                 )
-                activity.runOnUiThread {
-                    ctx.rerender()
-                }
+                activity.runOnUiThread { ctx.rerender() }
             }.start()
         }
 
@@ -151,7 +149,6 @@ internal object PlannerScreenRenderer {
 
         renderActivityPlanCard(ctx, bodyContainer)
 
-        // Auto-load once per session when planner opens with no data yet.
         if (
             !rootShell.plannerViewModel.hasAttemptedAutoLoad &&
             !plannerState.loading &&
@@ -178,6 +175,12 @@ internal object PlannerScreenRenderer {
         val activityIds = catalog.map { it.id }
         val activityLabels = DailyPlannerViewModel.activityDisplayLabels(catalog, settings.preferredLanguage)
         val selectedIndex = activityIds.indexOf(plannerState.selectedActivityId).coerceAtLeast(0)
+        val durationOptions = DailyPlannerViewModel.durationOptionsForUi()
+        val durationLabels = durationOptions.map { "$it min" }
+        val durationSelectedIndex = durationOptions.indexOf(plannerState.selectedDurationMinutes).coerceAtLeast(0)
+        val intensityOptions = DailyPlannerViewModel.intensityOptionsForUi()
+        val intensityLabels = intensityOptions.map { localizedIntensity(ctx, it) }
+        val intensitySelectedIndex = intensityOptions.indexOf(plannerState.selectedIntensity).coerceAtLeast(0)
 
         val statusView = V2Ui.styledSecondaryText(
             activity,
@@ -194,15 +197,11 @@ internal object PlannerScreenRenderer {
             )
             addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.subtitle")).apply { textSize = 13f })
             addView(V2Ui.spacer(activity, 8))
+
             val spinner = Spinner(activity).apply {
                 adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, activityLabels)
                 onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(
-                        parent: AdapterView<*>?,
-                        view: View?,
-                        position: Int,
-                        id: Long,
-                    ) {
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                         val nextActivityId = activityIds.getOrNull(position) ?: return
                         if (nextActivityId == plannerViewModel.state.selectedActivityId) return
                         plannerViewModel.selectActivity(nextActivityId)
@@ -215,21 +214,54 @@ internal object PlannerScreenRenderer {
                 setSelection(selectedIndex.coerceIn(0, activityLabels.lastIndex.coerceAtLeast(0)), false)
             }
             addView(spinner)
+
+            addView(V2Ui.spacer(activity, 8))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("health.metric.workout_duration")).apply { textSize = 13f })
+            val durationSpinner = Spinner(activity).apply {
+                adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, durationLabels)
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        val nextDuration = durationOptions.getOrNull(position) ?: return
+                        if (nextDuration == plannerViewModel.state.selectedDurationMinutes) return
+                        plannerViewModel.selectDurationMinutes(nextDuration)
+                        plannerViewModel.hasAttemptedActivityPlanLoad = false
+                        loadActivityPlan(ctx)
+                    }
+
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                }
+                setSelection(durationSelectedIndex.coerceIn(0, durationLabels.lastIndex.coerceAtLeast(0)), false)
+            }
+            addView(durationSpinner)
+
+            addView(V2Ui.spacer(activity, 8))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.work.workload")).apply { textSize = 13f })
+            val intensitySpinner = Spinner(activity).apply {
+                adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, intensityLabels)
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        val nextIntensity = intensityOptions.getOrNull(position) ?: return
+                        if (nextIntensity == plannerViewModel.state.selectedIntensity) return
+                        plannerViewModel.selectIntensity(nextIntensity)
+                        plannerViewModel.hasAttemptedActivityPlanLoad = false
+                        loadActivityPlan(ctx)
+                    }
+
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                }
+                setSelection(intensitySelectedIndex.coerceIn(0, intensityLabels.lastIndex.coerceAtLeast(0)), false)
+            }
+            addView(intensitySpinner)
+
             if (plannerState.savedPlaces.isNotEmpty()) {
                 addView(V2Ui.spacer(activity, 8))
                 val placeIds = listOf("") + plannerState.savedPlaces.map { it.id }
-                val placeLabels = listOf(ctx.l("planner.activity.place_home")) +
-                    plannerState.savedPlaces.map { it.name }
+                val placeLabels = listOf(ctx.l("planner.activity.place_home")) + plannerState.savedPlaces.map { it.name }
                 val placeSelectedIndex = placeIds.indexOf(plannerState.selectedPlaceId).coerceAtLeast(0)
                 val placeSpinner = Spinner(activity).apply {
                     adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, placeLabels)
                     onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                        override fun onItemSelected(
-                            parent: AdapterView<*>?,
-                            view: View?,
-                            position: Int,
-                            id: Long,
-                        ) {
+                        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                             val nextPlaceId = placeIds.getOrNull(position) ?: ""
                             if (nextPlaceId == plannerViewModel.state.selectedPlaceId) return
                             plannerViewModel.selectPlace(nextPlaceId)
@@ -309,10 +341,7 @@ internal object PlannerScreenRenderer {
                 .replaceFirst("%@", plannerState.activityRecommendedStart)
         }
 
-        if (
-            !plannerViewModel.hasAttemptedActivityCatalogLoad &&
-            !settings.userId.isBlank()
-        ) {
+        if (!plannerViewModel.hasAttemptedActivityCatalogLoad && settings.userId.isNotBlank()) {
             plannerViewModel.hasAttemptedActivityCatalogLoad = true
             Thread {
                 plannerViewModel.loadActivityCatalog(
@@ -333,7 +362,7 @@ internal object PlannerScreenRenderer {
             !plannerViewModel.hasAttemptedActivityPlanLoad &&
             !plannerState.activityPlanLoading &&
             !plannerState.activityPremiumRequired &&
-            !settings.userId.isBlank()
+            settings.userId.isNotBlank()
         ) {
             plannerViewModel.hasAttemptedActivityPlanLoad = true
             loadActivityPlan(ctx)
@@ -346,8 +375,7 @@ internal object PlannerScreenRenderer {
         val settings = rootShell.settingsViewModel.state
         Thread {
             val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
-            val profileId = resolvedProfileId
-                ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
+            val profileId = resolvedProfileId ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
             if (profileId.isBlank()) {
                 activity.runOnUiThread { ctx.rerender() }
                 return@Thread
@@ -366,9 +394,7 @@ internal object PlannerScreenRenderer {
         ctx: RenderContext,
         state: com.hiair.ui.planner.PlannerState,
     ): String {
-        if (state.activityPlanLoading) {
-            return ctx.l("common.loading")
-        }
+        if (state.activityPlanLoading) return ctx.l("common.loading")
         if (!state.activityForecastAvailable && state.activityPlanStatusText.isNotBlank()) {
             return "• ${state.activityPlanStatusText}"
         }
@@ -376,6 +402,15 @@ internal object PlannerScreenRenderer {
             return "• ${state.activityPlanStatusText.ifBlank { ctx.l("planner.activity.hint") }}"
         }
         return state.activityWindows.joinToString("\n") { "• ${it.line}" }
+    }
+
+    private fun localizedIntensity(ctx: RenderContext, intensity: String): String {
+        return when (intensity.lowercase()) {
+            "low" -> ctx.l("hazards.level.low")
+            "moderate" -> ctx.l("hazards.level.moderate")
+            "high" -> ctx.l("hazards.level.high")
+            else -> intensity
+        }
     }
 
     private fun renderHeatStrip(activity: android.app.Activity, container: LinearLayout, hourly: List<String>) {
@@ -405,16 +440,10 @@ internal object PlannerScreenRenderer {
             return "• ${state.statusText.ifBlank { ctx.l("planner.forecast_unavailable") }}"
         }
         val lines = mutableListOf<String>()
-        if (state.peakLine.isNotBlank()) {
-            lines.add("• ${state.peakLine}")
-        }
-        val firstSafe = state.safeWindows.firstOrNull()
-        if (firstSafe != null) {
-            lines.add("• $firstSafe")
-        }
-        val firstVent = state.ventilationWindows.firstOrNull()
-        if (firstVent != null) {
-            lines.add("• ${ctx.l("planner.window.ventilation")}: $firstVent")
+        if (state.peakLine.isNotBlank()) lines.add("• ${state.peakLine}")
+        state.safeWindows.firstOrNull()?.let { lines.add("• $it") }
+        state.ventilationWindows.firstOrNull()?.let {
+            lines.add("• ${ctx.l("planner.window.ventilation")}: $it")
         }
         return lines.joinToString("\n").ifBlank { "• ${ctx.l("planner.fetch")}" }
     }
