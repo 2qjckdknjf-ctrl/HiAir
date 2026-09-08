@@ -86,6 +86,11 @@ _RISK_ORDER = {
     RiskLevel.VERY_HIGH: 3,
 }
 
+_TIER_PRIORITY = {
+    ActivityWindowTier.BEST: 2,
+    ActivityWindowTier.ACCEPTABLE: 1,
+}
+
 
 def catalog() -> list[ActivityCatalogItem]:
     return list(ACTIVITY_CATALOG)
@@ -287,21 +292,57 @@ def _merge_windows(
 
 def _pick_recommended_start(
     hourly: list[ActivityHourAssessment],
+    environments: list[EnvironmentalInput],
     duration_minutes: int,
     earliest: str | None,
     latest: str | None,
 ) -> str | None:
+    """Return the strongest duration-valid start, not merely the first valid start.
+
+    Ranking is deterministic and stable:
+    1. BEST beats ACCEPTABLE.
+    2. Higher aggregate decision score wins within a tier.
+    3. Higher minimum source confidence across the candidate wins next.
+    4. Earlier start wins only as the final tie-break.
+    """
     need_hours = max(1, ceil(duration_minutes / 60))
-    for preferred in (ActivityWindowTier.BEST, ActivityWindowTier.ACCEPTABLE):
-        for index in range(0, len(hourly) - need_hours + 1):
-            chunk = hourly[index : index + need_hours]
-            if not all(point.tier == preferred for point in chunk):
-                continue
-            start = chunk[0].hour
-            if not _within_flex(start, earliest, latest):
-                continue
-            return start
-    return None
+    env_by_ts = {env.timestamp: env for env in environments}
+    candidates: list[tuple[int, float, float, datetime, str]] = []
+
+    for index in range(0, len(hourly) - need_hours + 1):
+        chunk = hourly[index : index + need_hours]
+        tier = chunk[0].tier
+        if tier not in _TIER_PRIORITY:
+            continue
+        if not all(point.tier == tier for point in chunk):
+            continue
+
+        start = chunk[0].hour
+        if not _within_flex(start, earliest, latest):
+            continue
+
+        aggregate_score = sum(point.score for point in chunk) / len(chunk)
+        candidate_confidences = [
+            _confidence(env_by_ts[point.hour])
+            for point in chunk
+            if point.hour in env_by_ts
+        ]
+        minimum_confidence = min(candidate_confidences) if candidate_confidences else 0.0
+        candidates.append(
+            (
+                _TIER_PRIORITY[tier],
+                aggregate_score,
+                minimum_confidence,
+                _parse_iso(start),
+                start,
+            )
+        )
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]))
+    return candidates[0][4]
 
 
 def build_activity_plan(
@@ -354,7 +395,13 @@ def build_activity_plan(
     windows = _merge_windows(hourly, points)
     available = len(points) > 0
     recommended = (
-        _pick_recommended_start(hourly, resolved_duration, earliest_start, latest_start)
+        _pick_recommended_start(
+            hourly,
+            points,
+            resolved_duration,
+            earliest_start,
+            latest_start,
+        )
         if available
         else None
     )
