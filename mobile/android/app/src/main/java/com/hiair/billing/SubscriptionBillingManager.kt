@@ -12,6 +12,7 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+
 class SubscriptionBillingManager(
     private val activity: Activity,
     private val onPurchaseVerified: (productId: String, purchaseToken: String) -> Unit,
@@ -31,6 +32,7 @@ class SubscriptionBillingManager(
         .enablePendingPurchases(
             PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
         )
+        .enableAutoServiceReconnection()
         .build()
 
     private var productDetails: Map<String, ProductDetails> = emptyMap()
@@ -59,12 +61,18 @@ class SubscriptionBillingManager(
                 .build()
         }
         val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
-        billingClient.queryProductDetailsAsync(params) { result, details ->
+        billingClient.queryProductDetailsAsync(params) { result, queryResult ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 onError(result.debugMessage)
                 return@queryProductDetailsAsync
             }
-            productDetails = details.associateBy { it.productId }
+
+            productDetails = queryResult.productDetailsList.associateBy { it.productId }
+            if (productDetails.isEmpty()) {
+                onError("No subscription products available")
+                return@queryProductDetailsAsync
+            }
+
             activity.runOnUiThread { onProductsLoaded?.invoke() }
         }
     }
