@@ -41,7 +41,7 @@ android {
         applicationId = "com.hiair"
         minSdk = 26
         targetSdk = 36
-        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 190
+        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 192
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -164,7 +164,7 @@ tasks.named("preBuild").configure {
 
 dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    implementation("com.android.billingclient:billing-ktx:8.3.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
