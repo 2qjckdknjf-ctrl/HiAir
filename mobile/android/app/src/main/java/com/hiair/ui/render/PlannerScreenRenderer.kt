@@ -281,6 +281,19 @@ internal object PlannerScreenRenderer {
             addView(V2Ui.spacer(activity, 6))
             addView(windowsView)
             addView(recommendedView)
+            if (plannerState.activityRecommendedStartRaw.isNotBlank()) {
+                addView(V2Ui.spacer(activity, 6))
+                addView(
+                    HiAirComponents.secondaryButton(activity, "+30 min").apply {
+                        setOnClickListener {
+                            if (plannerViewModel.tryThirtyMinutesLater()) {
+                                plannerViewModel.hasAttemptedActivityPlanLoad = false
+                                loadActivityPlan(ctx)
+                            }
+                        }
+                    }
+                )
+            }
             if (
                 plannerState.activityForecastAvailable &&
                 plannerState.activityWindows.isNotEmpty() &&
