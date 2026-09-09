@@ -24,51 +24,15 @@ from app.services.personal_load_engine import PersonalLoadInput, compute_persona
 
 
 ACTIVITY_CATALOG: list[ActivityCatalogItem] = [
-    ActivityCatalogItem(
-        activity=ActivityType.RUNNING,
-        defaultDurationMinutes=45,
-        defaultIntensity=ActivityIntensity.HIGH,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.WALKING,
-        defaultDurationMinutes=30,
-        defaultIntensity=ActivityIntensity.LOW,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.CYCLING,
-        defaultDurationMinutes=60,
-        defaultIntensity=ActivityIntensity.MODERATE,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.HIKING,
-        defaultDurationMinutes=90,
-        defaultIntensity=ActivityIntensity.MODERATE,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.DOG_WALK,
-        defaultDurationMinutes=30,
-        defaultIntensity=ActivityIntensity.LOW,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.PLAYGROUND,
-        defaultDurationMinutes=60,
-        defaultIntensity=ActivityIntensity.LOW,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.OUTDOOR_SPORT,
-        defaultDurationMinutes=60,
-        defaultIntensity=ActivityIntensity.HIGH,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.BEACH,
-        defaultDurationMinutes=120,
-        defaultIntensity=ActivityIntensity.MODERATE,
-    ),
-    ActivityCatalogItem(
-        activity=ActivityType.OUTDOOR_WORK,
-        defaultDurationMinutes=120,
-        defaultIntensity=ActivityIntensity.MODERATE,
-    ),
+    ActivityCatalogItem(activity=ActivityType.RUNNING, defaultDurationMinutes=45, defaultIntensity=ActivityIntensity.HIGH),
+    ActivityCatalogItem(activity=ActivityType.WALKING, defaultDurationMinutes=30, defaultIntensity=ActivityIntensity.LOW),
+    ActivityCatalogItem(activity=ActivityType.CYCLING, defaultDurationMinutes=60, defaultIntensity=ActivityIntensity.MODERATE),
+    ActivityCatalogItem(activity=ActivityType.HIKING, defaultDurationMinutes=90, defaultIntensity=ActivityIntensity.MODERATE),
+    ActivityCatalogItem(activity=ActivityType.DOG_WALK, defaultDurationMinutes=30, defaultIntensity=ActivityIntensity.LOW),
+    ActivityCatalogItem(activity=ActivityType.PLAYGROUND, defaultDurationMinutes=60, defaultIntensity=ActivityIntensity.LOW),
+    ActivityCatalogItem(activity=ActivityType.OUTDOOR_SPORT, defaultDurationMinutes=60, defaultIntensity=ActivityIntensity.HIGH),
+    ActivityCatalogItem(activity=ActivityType.BEACH, defaultDurationMinutes=120, defaultIntensity=ActivityIntensity.MODERATE),
+    ActivityCatalogItem(activity=ActivityType.OUTDOOR_WORK, defaultDurationMinutes=120, defaultIntensity=ActivityIntensity.MODERATE),
     ActivityCatalogItem(
         activity=ActivityType.VENTILATION,
         defaultDurationMinutes=60,
@@ -78,12 +42,15 @@ ACTIVITY_CATALOG: list[ActivityCatalogItem] = [
 ]
 
 _CATALOG_BY_ACTIVITY = {item.activity: item for item in ACTIVITY_CATALOG}
-
 _RISK_ORDER = {
     RiskLevel.LOW: 0,
     RiskLevel.MODERATE: 1,
     RiskLevel.HIGH: 2,
     RiskLevel.VERY_HIGH: 3,
+}
+_TIER_PRIORITY = {
+    ActivityWindowTier.BEST: 2,
+    ActivityWindowTier.ACCEPTABLE: 1,
 }
 
 
@@ -204,8 +171,7 @@ def _score_outdoor_hour(
 
     if outdoor_order == 0 and feels < best_cap:
         score = 92 - int(max(0.0, feels - (best_cap - 4)))
-        reasons.append("low_heat")
-        reasons.append("good_air")
+        reasons.extend(["low_heat", "good_air"])
         return ActivityWindowTier.BEST, max(75, min(100, score)), sorted(set(reasons))
 
     if outdoor_order <= 1 and feels < acceptable_cap:
@@ -242,6 +208,18 @@ def score_hour(
     )
 
 
+def _window_confidence(
+    window_hours: list[str],
+    env_by_ts: dict[str, EnvironmentalInput],
+) -> float:
+    confidences = [
+        _confidence(env_by_ts[hour])
+        for hour in window_hours
+        if hour in env_by_ts
+    ]
+    return min(confidences) if confidences else 0.4
+
+
 def _merge_windows(
     hourly: list[ActivityHourAssessment],
     environments: list[EnvironmentalInput],
@@ -254,10 +232,10 @@ def _merge_windows(
     run_tier = hourly[0].tier
     run_scores = [hourly[0].score]
     run_reasons: list[str] = list(hourly[0].reasonCodes)
+    run_hours = [hourly[0].hour]
     last_hour = hourly[0].hour
 
     def flush() -> None:
-        env = env_by_ts.get(last_hour) or environments[-1]
         windows.append(
             ActivityWindow(
                 tier=run_tier,
@@ -265,7 +243,7 @@ def _merge_windows(
                 end=air_risk_engine.hour_end_iso(last_hour),
                 score=int(sum(run_scores) / len(run_scores)),
                 reasonCodes=sorted(set(run_reasons)),
-                confidence=_confidence(env),
+                confidence=_window_confidence(run_hours, env_by_ts),
             )
         )
 
@@ -273,6 +251,7 @@ def _merge_windows(
         if point.tier == run_tier:
             run_scores.append(point.score)
             run_reasons.extend(point.reasonCodes)
+            run_hours.append(point.hour)
             last_hour = point.hour
             continue
         flush()
@@ -280,6 +259,7 @@ def _merge_windows(
         run_tier = point.tier
         run_scores = [point.score]
         run_reasons = list(point.reasonCodes)
+        run_hours = [point.hour]
         last_hour = point.hour
     flush()
     return windows
@@ -287,21 +267,42 @@ def _merge_windows(
 
 def _pick_recommended_start(
     hourly: list[ActivityHourAssessment],
+    environments: list[EnvironmentalInput],
     duration_minutes: int,
     earliest: str | None,
     latest: str | None,
 ) -> str | None:
+    """Return the strongest duration-valid start, not merely the first valid start.
+
+    Ranking is deterministic and stable:
+    1. BEST beats ACCEPTABLE.
+    2. Higher aggregate decision score wins within a tier.
+    3. Higher minimum source confidence across the candidate wins next.
+    4. Earlier start wins only as the final tie-break.
+    """
     need_hours = max(1, ceil(duration_minutes / 60))
-    for preferred in (ActivityWindowTier.BEST, ActivityWindowTier.ACCEPTABLE):
-        for index in range(0, len(hourly) - need_hours + 1):
-            chunk = hourly[index : index + need_hours]
-            if not all(point.tier == preferred for point in chunk):
-                continue
-            start = chunk[0].hour
-            if not _within_flex(start, earliest, latest):
-                continue
-            return start
-    return None
+    env_by_ts = {env.timestamp: env for env in environments}
+    candidates: list[tuple[int, float, float, datetime, str]] = []
+
+    for index in range(0, len(hourly) - need_hours + 1):
+        chunk = hourly[index : index + need_hours]
+        tier = chunk[0].tier
+        if tier not in _TIER_PRIORITY or not all(point.tier == tier for point in chunk):
+            continue
+        start = chunk[0].hour
+        if not _within_flex(start, earliest, latest):
+            continue
+        aggregate_score = sum(point.score for point in chunk) / len(chunk)
+        minimum_confidence = _window_confidence([point.hour for point in chunk], env_by_ts)
+        candidates.append(
+            (_TIER_PRIORITY[tier], aggregate_score, minimum_confidence, _parse_iso(start), start)
+        )
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]))
+    return candidates[0][4]
 
 
 def build_activity_plan(
@@ -332,14 +333,11 @@ def build_activity_plan(
         load_level = load_result.level
         load_reasons = list(load_result.reason_codes)
 
-    if earliest_start or latest_start:
-        points = [
-            slot
-            for slot in hourly_points
-            if _within_flex(slot.timestamp, earliest_start, latest_start)
-        ]
-    else:
-        points = list(hourly_points)
+    points = [
+        slot
+        for slot in hourly_points
+        if _within_flex(slot.timestamp, earliest_start, latest_start)
+    ] if (earliest_start or latest_start) else list(hourly_points)
 
     hourly = [
         score_hour(
@@ -354,7 +352,7 @@ def build_activity_plan(
     windows = _merge_windows(hourly, points)
     available = len(points) > 0
     recommended = (
-        _pick_recommended_start(hourly, resolved_duration, earliest_start, latest_start)
+        _pick_recommended_start(hourly, points, resolved_duration, earliest_start, latest_start)
         if available
         else None
     )

@@ -17,6 +17,8 @@ final class DailyPlannerViewModel: ObservableObject {
 
     @Published var activities: [ActivityCatalogItem] = []
     @Published var selectedActivity = "walking"
+    @Published var selectedDurationMinutes = 30
+    @Published var selectedIntensity = "low"
     @Published var selectedPlaceId: String? = nil
     @Published var savedPlaces: [SavedPlace] = []
     @Published var activityPlanMarked = false
@@ -137,6 +139,7 @@ final class DailyPlannerViewModel: ObservableObject {
             if !activities.contains(where: { $0.activity == selectedActivity }),
                let first = activities.first {
                 selectedActivity = first.activity
+                applyActionDefaults(for: first.activity)
             }
         } catch {
             if activities.isEmpty {
@@ -175,13 +178,17 @@ final class DailyPlannerViewModel: ObservableObject {
         do {
             ProductAnalytics.track(
                 "activity_plan_fetch_started",
-                properties: ["activity": selectedActivity]
+                properties: [
+                    "activity": selectedActivity,
+                    "duration_bucket": String(selectedDurationMinutes),
+                    "intensity": selectedIntensity,
+                ]
             )
             let payload = ActivityPlanRequest(
                 profileId: profileId,
                 activity: selectedActivity,
-                durationMinutes: nil,
-                intensity: nil,
+                durationMinutes: selectedDurationMinutes,
+                intensity: selectedIntensity,
                 earliestStart: nil,
                 latestStart: nil,
                 placeId: selectedPlaceId
@@ -354,7 +361,10 @@ final class DailyPlannerViewModel: ObservableObject {
         language: String,
         onPremiumRequired: (() -> Void)? = nil
     ) {
+        guard activity != selectedActivity else { return }
         selectedActivity = activity
+        applyActionDefaults(for: activity)
+        ProductAnalytics.track("activity_type_selected", properties: ["activity": activity])
         Task {
             await refreshActivityPlan(
                 profileId: profileId,
@@ -364,6 +374,67 @@ final class DailyPlannerViewModel: ObservableObject {
                 onPremiumRequired: onPremiumRequired
             )
         }
+    }
+
+    func selectDurationMinutes(
+        _ durationMinutes: Int,
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) {
+        guard Self.durationOptionsForUI.contains(durationMinutes),
+              durationMinutes != selectedDurationMinutes else { return }
+        selectedDurationMinutes = durationMinutes
+        ProductAnalytics.track(
+            "activity_duration_changed",
+            properties: ["duration_bucket": String(durationMinutes)]
+        )
+        Task {
+            await refreshActivityPlan(
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken,
+                language: language,
+                onPremiumRequired: onPremiumRequired
+            )
+        }
+    }
+
+    func selectIntensity(
+        _ intensity: String,
+        profileId: String,
+        userId: String,
+        accessToken: String,
+        language: String,
+        onPremiumRequired: (() -> Void)? = nil
+    ) {
+        let normalized = intensity.lowercased()
+        guard Self.intensityOptionsForUI.contains(normalized),
+              normalized != selectedIntensity else { return }
+        selectedIntensity = normalized
+        ProductAnalytics.track("activity_intensity_changed", properties: ["intensity": normalized])
+        Task {
+            await refreshActivityPlan(
+                profileId: profileId,
+                userId: userId,
+                accessToken: accessToken,
+                language: language,
+                onPremiumRequired: onPremiumRequired
+            )
+        }
+    }
+
+    private func applyActionDefaults(for activity: String) {
+        let catalog = activities.isEmpty ? Self.fallbackActivities : activities
+        guard let item = catalog.first(where: { $0.activity == activity }) else { return }
+        selectedDurationMinutes = Self.durationOptionsForUI.contains(item.defaultDurationMinutes)
+            ? item.defaultDurationMinutes
+            : 30
+        selectedIntensity = Self.intensityOptionsForUI.contains(item.defaultIntensity.lowercased())
+            ? item.defaultIntensity.lowercased()
+            : "moderate"
     }
 
     private static let fallbackActivities: [ActivityCatalogItem] = [
@@ -379,6 +450,8 @@ final class DailyPlannerViewModel: ObservableObject {
         ActivityCatalogItem(activity: "ventilation", defaultDurationMinutes: 60, defaultIntensity: "low", outdoor: false),
     ]
 
+    static let durationOptionsForUI = [15, 30, 45, 60, 90, 120]
+    static let intensityOptionsForUI = ["low", "moderate", "high"]
     static var fallbackActivitiesForUI: [ActivityCatalogItem] { fallbackActivities }
 }
 
@@ -773,21 +846,74 @@ struct DailyPlannerView: View {
                 }
                 .buttonStyle(HiAirGradientButtonStyle())
             } else {
-                Picker(session.l("planner.activity.picker"), selection: $viewModel.selectedActivity) {
+                Picker(
+                    session.l("planner.activity.picker"),
+                    selection: Binding(
+                        get: { viewModel.selectedActivity },
+                        set: { newValue in
+                            viewModel.selectActivity(
+                                newValue,
+                                profileId: session.profileId,
+                                userId: session.userId,
+                                accessToken: session.accessToken,
+                                language: session.preferredLanguage,
+                                onPremiumRequired: { session.showPaywall = true }
+                            )
+                        }
+                    )
+                ) {
                     ForEach(viewModel.activities.isEmpty ? DailyPlannerViewModel.fallbackActivitiesForUI : viewModel.activities) { item in
                         Text(session.l("planner.activity.\(item.activity)")).tag(item.activity)
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: viewModel.selectedActivity) { newValue in
-                    viewModel.selectActivity(
-                        newValue,
-                        profileId: session.profileId,
-                        userId: session.userId,
-                        accessToken: session.accessToken,
-                        language: session.preferredLanguage,
-                        onPremiumRequired: { session.showPaywall = true }
-                    )
+
+                HStack(spacing: 12) {
+                    Picker(
+                        session.l("symptoms.duration"),
+                        selection: Binding(
+                            get: { viewModel.selectedDurationMinutes },
+                            set: { newValue in
+                                viewModel.selectDurationMinutes(
+                                    newValue,
+                                    profileId: session.profileId,
+                                    userId: session.userId,
+                                    accessToken: session.accessToken,
+                                    language: session.preferredLanguage,
+                                    onPremiumRequired: { session.showPaywall = true }
+                                )
+                            }
+                        )
+                    ) {
+                        ForEach(DailyPlannerViewModel.durationOptionsForUI, id: \.self) { minutes in
+                            Text("\(minutes) min").tag(minutes)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Picker(
+                        session.l("settings.work.workload"),
+                        selection: Binding(
+                            get: { viewModel.selectedIntensity },
+                            set: { newValue in
+                                viewModel.selectIntensity(
+                                    newValue,
+                                    profileId: session.profileId,
+                                    userId: session.userId,
+                                    accessToken: session.accessToken,
+                                    language: session.preferredLanguage,
+                                    onPremiumRequired: { session.showPaywall = true }
+                                )
+                            }
+                        )
+                    ) {
+                        ForEach(DailyPlannerViewModel.intensityOptionsForUI, id: \.self) { intensity in
+                            Text(localizedActionIntensity(intensity)).tag(intensity)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if !viewModel.savedPlaces.isEmpty {
@@ -923,6 +1049,19 @@ struct DailyPlannerView: View {
             return session.l("planner.activity.tier.avoid")
         default:
             return tier
+        }
+    }
+
+    private func localizedActionIntensity(_ intensity: String) -> String {
+        switch intensity.lowercased() {
+        case "low":
+            return session.l("hazard.level.low")
+        case "moderate":
+            return session.l("hazard.level.moderate")
+        case "high":
+            return session.l("hazard.level.high")
+        default:
+            return intensity
         }
     }
 

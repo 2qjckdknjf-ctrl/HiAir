@@ -104,6 +104,42 @@ def test_build_plan_recommends_best_window_start() -> None:
     assert plan.windows[-1].tier == ActivityWindowTier.AVOID
 
 
+def test_earliest_start_excludes_an_earlier_best_candidate() -> None:
+    early = _env("2026-08-21T07:00:00+02:00", feels_like=22.0)
+    later = _env("2026-08-21T08:00:00+02:00", feels_like=22.0)
+
+    plan = build_activity_plan(
+        profile=_profile(),
+        environment=early,
+        hourly_points=[early, later],
+        activity=ActivityType.WALKING,
+        duration_minutes=30,
+        earliest_start="2026-08-21T07:30:00+02:00",
+    )
+
+    assert plan.forecastAvailable is True
+    assert [point.hour for point in plan.hourly] == [later.timestamp]
+    assert plan.recommendedStart == later.timestamp
+
+
+def test_latest_start_excludes_later_candidates() -> None:
+    early = _env("2026-08-21T07:00:00+02:00", feels_like=22.0)
+    later = _env("2026-08-21T08:00:00+02:00", feels_like=20.0)
+
+    plan = build_activity_plan(
+        profile=_profile(),
+        environment=early,
+        hourly_points=[early, later],
+        activity=ActivityType.WALKING,
+        duration_minutes=30,
+        latest_start="2026-08-21T07:30:00+02:00",
+    )
+
+    assert plan.forecastAvailable is True
+    assert [point.hour for point in plan.hourly] == [early.timestamp]
+    assert plan.recommendedStart == early.timestamp
+
+
 def test_empty_forecast_is_honest() -> None:
     now = _env("2026-08-21T07:00:00+02:00")
     plan = build_activity_plan(

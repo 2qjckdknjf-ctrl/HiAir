@@ -46,11 +46,22 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
     except UndefinedTable:
         return PersonalLoadInput(consent_active=False)
 
+    # Health Intelligence tables were introduced in stages. Treat each optional
+    # signal independently so one unavailable table (for example sleep history)
+    # cannot erase valid HRV/exercise data that was already synchronized.
     try:
         today_metrics = health_sync_repository.list_metrics_for_date(user_id, today)
+    except UndefinedTable:
+        today_metrics = []
+
+    try:
         sleep_row = health_sync_repository.get_sleep_for_date(user_id, today)
         if sleep_row and sleep_row.get("total_minutes") is not None:
             sleep_minutes = int(sleep_row["total_minutes"])
+    except UndefinedTable:
+        sleep_row = None
+
+    try:
         sleep_window = health_sync_repository.get_sleep_window(
             user_id,
             today - timedelta(days=6),
@@ -64,20 +75,25 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
         # Require ≥5 prior nights — same honesty bar as adaptation baselines.
         if len(sleep_totals) >= 5:
             sleep_minutes_baseline_7d = sum(sleep_totals) / len(sleep_totals)
-        # Never compare SDNN against RMSSD — lock method to today's available series.
-        hrv_metric = None
-        if _metric_primary(today_metrics, "hrv_sdnn") is not None:
-            hrv_metric = "hrv_sdnn"
-        elif _metric_primary(today_metrics, "hrv_rmssd") is not None:
-            hrv_metric = "hrv_rmssd"
-        if hrv_metric is not None:
-            hrv_ms = _metric_primary(today_metrics, hrv_metric)
-            hrv_baseline_7d = health_sync_repository.metric_baseline(user_id, hrv_metric, 7)
-        exercise_minutes = _metric_primary(today_metrics, "exercise_minutes") or _metric_primary(
-            today_metrics, "workout_duration"
-        )
     except UndefinedTable:
         pass
+
+    # Never compare SDNN against RMSSD — lock method to today's available series.
+    hrv_metric = None
+    if _metric_primary(today_metrics, "hrv_sdnn") is not None:
+        hrv_metric = "hrv_sdnn"
+    elif _metric_primary(today_metrics, "hrv_rmssd") is not None:
+        hrv_metric = "hrv_rmssd"
+    if hrv_metric is not None:
+        hrv_ms = _metric_primary(today_metrics, hrv_metric)
+        try:
+            hrv_baseline_7d = health_sync_repository.metric_baseline(user_id, hrv_metric, 7)
+        except UndefinedTable:
+            hrv_baseline_7d = None
+
+    exercise_minutes = _metric_primary(today_metrics, "exercise_minutes") or _metric_primary(
+        today_metrics, "workout_duration"
+    )
 
     env_kwargs = {}
     if environment is not None:

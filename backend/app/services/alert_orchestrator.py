@@ -124,6 +124,19 @@ def evaluate_alert(
         user_settings.alert_threshold,
         load_result,
     )
+
+    # Resolve quiet-hours state once in the orchestrator. The decision engine
+    # remains the canonical suppression-order implementation, while this seam
+    # keeps wall-clock evaluation deterministic/testable and avoids evaluating
+    # timezone logic twice in different layers.
+    quiet_hours_active = _is_quiet_hours(
+        user_settings.quiet_hours_start,
+        user_settings.quiet_hours_end,
+        now_hour,
+    )
+    quiet_start = user_settings.quiet_hours_start if quiet_hours_active else None
+    quiet_end = user_settings.quiet_hours_end if quiet_hours_active else None
+
     gate = alert_decision_engine.decide_alert(
         AlertCandidate(
             alertType=alert_type.value,
@@ -131,8 +144,8 @@ def evaluate_alert(
             reasonCode=reason_code,
             profileId=profile.profile_id,
             localHour=now_hour,
-            quietHoursStart=user_settings.quiet_hours_start,
-            quietHoursEnd=user_settings.quiet_hours_end,
+            quietHoursStart=quiet_start,
+            quietHoursEnd=quiet_end,
             cooldownMinutesRemaining=air_repository.minutes_until_alert_cooldown_elapsed(
                 profile.profile_id,
                 cooldown_minutes=cooldown_minutes,
