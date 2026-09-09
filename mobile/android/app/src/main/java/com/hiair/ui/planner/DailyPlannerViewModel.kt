@@ -8,6 +8,7 @@ import com.hiair.ui.design.HiAirHumanDate
 import com.hiair.ui.settings.SavedPlaceItem
 import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.i18n.AndroidL10n
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.util.Locale
 import org.json.JSONArray
@@ -57,6 +58,8 @@ data class PlannerState(
     val activityPlanStatusText: String = "",
     val activityWindows: List<ActivityWindowLine> = emptyList(),
     val activityRecommendedStart: String = "",
+    val activityRecommendedStartRaw: String = "",
+    val earliestStartOverride: String = "",
     val activityPremiumRequired: Boolean = false,
     val activityForecastAvailable: Boolean = true,
 )
@@ -96,6 +99,8 @@ class DailyPlannerViewModel(
                 ?: "moderate",
             activityWindows = emptyList(),
             activityRecommendedStart = "",
+            activityRecommendedStartRaw = "",
+            earliestStartOverride = "",
             activityPlanStatusText = "",
             activityPremiumRequired = false,
             activityPlanMarked = false,
@@ -110,6 +115,8 @@ class DailyPlannerViewModel(
             selectedDurationMinutes = durationMinutes,
             activityWindows = emptyList(),
             activityRecommendedStart = "",
+            activityRecommendedStartRaw = "",
+            earliestStartOverride = "",
             activityPlanStatusText = "",
             activityPlanMarked = false,
             activityPlanMarkStatus = "",
@@ -127,6 +134,8 @@ class DailyPlannerViewModel(
             selectedIntensity = normalized,
             activityWindows = emptyList(),
             activityRecommendedStart = "",
+            activityRecommendedStartRaw = "",
+            earliestStartOverride = "",
             activityPlanStatusText = "",
             activityPlanMarked = false,
             activityPlanMarkStatus = "",
@@ -142,7 +151,25 @@ class DailyPlannerViewModel(
             activityPlanMarkStatus = "",
             activityWindows = emptyList(),
             activityRecommendedStart = "",
+            activityRecommendedStartRaw = "",
+            earliestStartOverride = "",
         )
+    }
+
+    fun tryThirtyMinutesLater(): Boolean {
+        val raw = state.activityRecommendedStartRaw.takeIf { it.isNotBlank() } ?: return false
+        val shifted = shiftIsoByMinutesForUi(raw, 30) ?: return false
+        state = state.copy(
+            earliestStartOverride = shifted,
+            activityWindows = emptyList(),
+            activityRecommendedStart = "",
+            activityRecommendedStartRaw = "",
+            activityPlanStatusText = "",
+            activityPlanMarked = false,
+            activityPlanMarkStatus = "",
+        )
+        ProductAnalytics.track("activity_try_later", mapOf("offset_minutes" to "30"))
+        return true
     }
 
     fun loadSavedPlaces(userId: String, accessToken: String?) {
@@ -299,6 +326,7 @@ class DailyPlannerViewModel(
                 "activity" to activityId,
                 "duration_bucket" to duration.toString(),
                 "intensity" to intensity,
+                "time_shifted" to state.earliestStartOverride.isNotBlank().toString(),
             ),
         )
         try {
@@ -309,6 +337,7 @@ class DailyPlannerViewModel(
                 activity = activityId,
                 durationMinutes = duration,
                 intensity = intensity,
+                earliestStart = state.earliestStartOverride.takeIf { it.isNotBlank() },
                 placeId = state.selectedPlaceId.takeIf { it.isNotBlank() },
             )
             val parsed = parseActivityPlan(raw, preferredLanguage)
@@ -317,6 +346,7 @@ class DailyPlannerViewModel(
                 activityPlanStatusText = parsed.statusText,
                 activityWindows = parsed.windows,
                 activityRecommendedStart = parsed.recommendedStart,
+                activityRecommendedStartRaw = parsed.recommendedStartRaw,
                 activityPremiumRequired = false,
                 activityForecastAvailable = parsed.forecastAvailable,
             )
@@ -353,6 +383,7 @@ class DailyPlannerViewModel(
                 },
                 activityWindows = emptyList(),
                 activityRecommendedStart = "",
+                activityRecommendedStartRaw = "",
                 activityPremiumRequired = premiumRequired,
                 activityForecastAvailable = false,
             )
@@ -363,6 +394,7 @@ class DailyPlannerViewModel(
                 activityPlanStatusText = l("planner.activity.failed", preferredLanguage),
                 activityWindows = emptyList(),
                 activityRecommendedStart = "",
+                activityRecommendedStartRaw = "",
                 activityPremiumRequired = false,
                 activityForecastAvailable = false,
             )
@@ -396,6 +428,8 @@ class DailyPlannerViewModel(
                 activityPlanStatusText = actionState.activityPlanStatusText,
                 activityWindows = actionState.activityWindows,
                 activityRecommendedStart = actionState.activityRecommendedStart,
+                activityRecommendedStartRaw = actionState.activityRecommendedStartRaw,
+                earliestStartOverride = actionState.earliestStartOverride,
                 activityPremiumRequired = actionState.activityPremiumRequired,
                 activityForecastAvailable = actionState.activityForecastAvailable,
             )
@@ -455,12 +489,16 @@ class DailyPlannerViewModel(
             val statusText: String,
             val windows: List<ActivityWindowLine>,
             val recommendedStart: String,
+            val recommendedStartRaw: String,
             val forecastAvailable: Boolean,
         )
 
         fun durationOptionsForUi(): List<Int> = ACTION_DURATION_OPTIONS
 
         fun intensityOptionsForUi(): List<String> = ACTION_INTENSITY_OPTIONS
+
+        fun shiftIsoByMinutesForUi(raw: String, minutes: Long): String? =
+            runCatching { OffsetDateTime.parse(raw).plusMinutes(minutes).toString() }.getOrNull()
 
         fun parseActivityCatalog(raw: String): List<ActivityCatalogEntry> {
             val json = JSONObject(raw)
@@ -509,8 +547,11 @@ class DailyPlannerViewModel(
                     windowLines.add(ActivityWindowLine(tier = tier, line = line))
                 }
             }
-            val recommendedStart = json.optString("recommendedStart")
+            val recommendedStartRaw = json.optString("recommendedStart")
                 .takeIf { it.isNotBlank() && forecastAvailable }
+                .orEmpty()
+            val recommendedStart = recommendedStartRaw
+                .takeIf { it.isNotBlank() }
                 ?.let { formatActivityTime(it, preferredLanguage, zoneId) }
                 .orEmpty()
             val statusText = when {
@@ -523,6 +564,7 @@ class DailyPlannerViewModel(
                 statusText = statusText,
                 windows = windowLines,
                 recommendedStart = recommendedStart,
+                recommendedStartRaw = recommendedStartRaw,
                 forecastAvailable = forecastAvailable,
             )
         }
