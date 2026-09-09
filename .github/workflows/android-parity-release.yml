@@ -70,7 +70,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_CODE: "191"
+          ANDROID_VERSION_CODE: "192"
           ANDROID_VERSION_NAME: "1.1"
         run: ./gradlew :app:bundleRelease --no-daemon
 
@@ -86,11 +86,11 @@ jobs:
           releaseFiles: mobile/android/app/build/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
-          releaseName: HiAir 1.1 (191) parity release
+          releaseName: HiAir 1.1 (192) parity release
 
       - name: Preserve signed AAB evidence
         uses: actions/upload-artifact@v4
         with:
-          name: hiair-android-1.1-191-signed
+          name: hiair-android-1.1-192-signed
           path: mobile/android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
