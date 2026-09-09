@@ -385,7 +385,16 @@ def run() -> None:
         params={"persona": "asthma", "lat": 41.39, "lon": 2.17, "hours": 12},
     )
     assert planner.status_code == 200, planner.text
-    assert len(planner.json()["hourly"]) == 12
+    planner_body = planner.json()
+    planner_hourly = planner_body["hourly"]
+    # `hours` is an upper bound. A live provider may degrade to partial air-only
+    # data; HiAir must report that honestly instead of inventing weather values.
+    assert len(planner_hourly) <= 12
+    if planner_body.get("forecastAvailable"):
+        assert len(planner_hourly) > 0
+    else:
+        assert planner_hourly == []
+        assert planner_body.get("dataQuality") in ("partial", "unavailable")
 
     personal_patterns = client.get(
         "/api/insights/personal-patterns",
