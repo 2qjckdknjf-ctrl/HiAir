@@ -46,12 +46,12 @@ test("iOS is PUBLIC_CONFIRMED with a canonical HTTPS App Store URL", () => {
   assert.match(store.appStoreCampaignUrl("hero"), /^https:\/\/apps\.apple\.com\/us\/app\/hiair\/id6773610034\?/);
 });
 
-test("Android is not advertised as a public Play listing", () => {
-  assert.equal(store.android.status, "NOT_PUBLIC");
+test("Android is PUBLIC_CONFIRMED with a canonical HTTPS Play URL", () => {
+  assert.equal(store.android.status, "PUBLIC_CONFIRMED");
   assert.equal(store.android.packageId, "com.hiair");
-  assert.equal(store.android.url, null);
-  assert.equal(store.isPublic("android"), false);
-  assert.equal(store.playStoreCampaignUrl("hero"), "");
+  assert.equal(store.android.url, "https://play.google.com/store/apps/details?id=com.hiair");
+  assert.equal(store.isPublic("android"), true);
+  assert.match(store.playStoreCampaignUrl("hero"), /^https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.hiair\?/);
 });
 
 test("public HTML App Store CTAs use the verified HiAir listing", () => {
@@ -65,7 +65,11 @@ test("public HTML App Store CTAs use the verified HiAir listing", () => {
       assert.notEqual(href, "#", `${rel} has href="#"`);
       assert.notEqual(href, "javascript:void(0)", `${rel} has a javascript: CTA`);
       if (href.startsWith("https://play.google.com/")) {
-        assert.fail(`${rel} advertises an unverified Play URL: ${href}`);
+        if (!store.isPublic("android")) {
+          assert.fail(`${rel} advertises an unverified Play URL: ${href}`);
+        } else {
+          assert.ok(href.startsWith(store.android.url), `${rel} unexpected Play href ${href}`);
+        }
       }
       if (href.startsWith("https://apps.apple.com/")) {
         appStoreLinks += 1;
@@ -77,7 +81,9 @@ test("public HTML App Store CTAs use the verified HiAir listing", () => {
       assert.match(html, /store-badge js-app-store-cta/);
       assert.match(html, /download-on-the-app-store\.svg/);
       assert.match(html, /app-store-qr\.svg/);
-      assert.doesNotMatch(html, /play-badge|google-play-badge/i);
+      if (!store.isPublic("android")) {
+        assert.doesNotMatch(html, /play-badge|google-play-badge/i);
+      }
     }
   }
   assert.ok(appStoreLinks > 0, "expected at least one App Store CTA");

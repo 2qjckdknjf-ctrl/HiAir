@@ -7,7 +7,7 @@
   root.HIAIR_STORE_LINKS = links;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   var store = {
-  "verifiedAt": "2026-08-29",
+  "verifiedAt": "2026-09-13",
   "utm": {
     "utm_source": "hiair_io",
     "utm_medium": "website",
@@ -23,11 +23,11 @@
     "verification": "iTunes Lookup API resultCount=1 plus public storefront apps.apple.com/app/id6773610034 (US/ES) showing HiAir, bundleId com.hiair.app, version 1.1"
   },
   "android": {
-    "status": "NOT_PUBLIC",
+    "status": "PUBLIC_CONFIRMED",
     "packageId": "com.hiair",
     "name": "HiAir",
-    "url": null,
-    "verification": "Public Play storefront https://play.google.com/store/apps/details?id=com.hiair returned HTTP 404 / CRAWL_NOT_FOUND on 2026-08-29"
+    "url": "https://play.google.com/store/apps/details?id=com.hiair",
+    "verification": "READY_TO_FLIP: set only after public storefront returns HTTP 200. Prepared 2026-09-13; do not merge until live."
   }
 };
   function campaignUrl(baseUrl, placement) {
