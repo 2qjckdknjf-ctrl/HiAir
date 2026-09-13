@@ -31,6 +31,7 @@ class SubscriptionBillingManager(
         .enablePendingPurchases(
             PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
         )
+        .enableAutoServiceReconnection()
         .build()
 
     private var productDetails: Map<String, ProductDetails> = emptyMap()
@@ -59,11 +60,12 @@ class SubscriptionBillingManager(
                 .build()
         }
         val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
-        billingClient.queryProductDetailsAsync(params) { result, details ->
+        billingClient.queryProductDetailsAsync(params) { result, queryProductDetailsResult ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 onError(result.debugMessage)
                 return@queryProductDetailsAsync
             }
+            val details = queryProductDetailsResult.productDetailsList.orEmpty()
             productDetails = details.associateBy { it.productId }
             activity.runOnUiThread { onProductsLoaded?.invoke() }
         }

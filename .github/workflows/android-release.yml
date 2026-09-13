@@ -29,7 +29,7 @@ on:
         type: string
         default: "1.0.0"
       version_code:
-        description: Android versionCode (defaults to max(181, run_number))
+        description: Android versionCode (defaults to max(193, run_number))
         required: false
         type: string
   push:
@@ -119,8 +119,8 @@ jobs:
           else
             run_number="${{ github.run_number }}"
             version_code="$run_number"
-            if [ "$run_number" -lt 181 ]; then
-              version_code=181
+            if [ "$run_number" -lt 193 ]; then
+              version_code=193
             fi
           fi
           echo "version_code=${version_code}" >> "$GITHUB_OUTPUT"
