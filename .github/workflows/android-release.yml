@@ -32,6 +32,11 @@ on:
         description: Android versionCode (defaults to max(193, run_number))
         required: false
         type: string
+      changes_not_sent_for_review:
+        description: Commit Play edit without sending for review (needed when Console gates block production)
+        required: true
+        default: true
+        type: boolean
   push:
     tags:
       - "android/v*"
@@ -151,6 +156,7 @@ jobs:
           track: ${{ steps.release_meta.outputs.track }}
           status: ${{ steps.release_meta.outputs.status }}
           releaseName: HiAir ${{ steps.release_meta.outputs.version_name }} (${{ steps.release_meta.outputs.version_code }})
+          changesNotSentForReview: ${{ github.event.inputs.changes_not_sent_for_review == 'true' || github.event_name == 'push' }}
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
