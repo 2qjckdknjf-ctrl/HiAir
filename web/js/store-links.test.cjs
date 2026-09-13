@@ -51,7 +51,7 @@ test("Android is PUBLIC_CONFIRMED with a canonical HTTPS Play URL", () => {
   assert.equal(store.android.packageId, "com.hiair");
   assert.equal(store.android.url, "https://play.google.com/store/apps/details?id=com.hiair");
   assert.equal(store.isPublic("android"), true);
-  assert.match(store.playStoreCampaignUrl("hero"), /^https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.hiair\?/);
+  assert.match(store.playStoreCampaignUrl("hero"), /^https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.hiair&/);
 });
 
 test("public HTML App Store CTAs use the verified HiAir listing", () => {

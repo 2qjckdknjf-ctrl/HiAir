@@ -41,7 +41,8 @@
     params.set("utm_campaign", utm.utm_campaign || "app_store_cta");
     params.set("utm_content", placement);
     params.set("ct", "app_store_cta_" + placement);
-    return baseUrl + "?" + params.toString();
+    var sep = baseUrl.indexOf("?") >= 0 ? "&" : "?";
+    return baseUrl + sep + params.toString();
   }
   store.appStoreCampaignUrl = function (placement) {
     if (!store.ios || store.ios.status !== "PUBLIC_CONFIRMED" || !store.ios.url) {
