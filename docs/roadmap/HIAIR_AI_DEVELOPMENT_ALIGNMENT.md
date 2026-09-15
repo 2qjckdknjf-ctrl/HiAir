@@ -11,7 +11,21 @@ Grow OS/ROMA own cross-project agent governance. HiAir should consume those plat
 
 ## Ordered tasks
 
+### HIAIR-SEC-000 — Close current backend dependency audit blocker (P0)
+
+The 2026-09-15 docs/alignment PR exposed a pre-existing `pip-audit` failure while the backend functional gate and full tests passed. Known vulnerable dependency set observed in CI:
+
+- `app-store-server-library 1.9.0` — advisory `GHSA-8f6j-263m-g72x`, fixed line reported by audit: `3.1.2`;
+- `cryptography 44.0.3` — multiple 2026 advisories, fixed versions reported from `46.0.5` through `50.0.0` depending on advisory;
+- transitive `pyOpenSSL 25.1.0` — 2026 advisories, fixed version `26.0.0`.
+
+Do not simply loosen pins blindly: audit the App Store verification integration and compatibility constraints, upgrade in a focused security PR, run subscription verifier tests plus full backend gate and `pip-audit`, and preserve fail-closed production verification.
+
+**Gate:** `pip-audit` PASS on exact head, backend tests/gate PASS, Apple subscription verification behavior remains fail-closed.
+
 ### HIAIR-REL-001 — Finish current release/trust gates (P0)
+
+Depends on `HIAIR-SEC-000` plus existing release gates.
 
 Keep the current release/master-upgrade program first:
 - live environmental data truth;
@@ -70,7 +84,7 @@ Before Cursor/Codex implements AI/agent work in HiAir:
 
 1. read root `AGENTS.md`;
 2. read this file;
-3. verify HIAIR-REL-001 status before starting later tasks;
+3. close/verify `HIAIR-SEC-000`, then verify `HIAIR-REL-001` before starting later tasks;
 4. reuse existing forecast/risk/planner/recommendation services;
 5. implement one additive slice with tests and truthful provenance;
 6. do not start the next blocked task automatically.
