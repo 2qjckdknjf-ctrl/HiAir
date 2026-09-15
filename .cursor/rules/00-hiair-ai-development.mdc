@@ -1,0 +1,16 @@
+---
+description: HiAir AI development order; security/release trust first, predictive intelligence second
+alwaysApply: true
+---
+
+For any AI, agent, voice, forecast, risk, planner or recommendation work:
+
+1. Read `/AGENTS.md`.
+2. Read `/docs/roadmap/HIAIR_AI_DEVELOPMENT_ALIGNMENT.md`.
+3. `HIAIR-SEC-000` is the immediate P0 security blocker; then `HIAIR-REL-001` release/trust/data/store/device gates come before new agentic features.
+4. Do not bypass a failing dependency audit to reach later AI work; preserve fail-closed subscription verification while remediating dependencies.
+5. Reuse existing forecast, risk, planner and recommendation primitives; do not create parallel engines.
+6. Missing hazards/data stay unavailable/null, never silently inferred as zero.
+7. Keep wellness-only language and consent/privacy boundaries.
+8. Runtime/model providers are replaceable; do not make provider memory the project source of truth.
+9. Implement one additive slice, test it, record evidence, and stop at the task gate rather than starting a later blocked task.
