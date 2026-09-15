@@ -5,7 +5,7 @@ This file supplements root `/AGENTS.md` for work under `mobile/`.
 Before AI/voice/planner/recommendation UI changes, read `/docs/roadmap/HIAIR_AI_DEVELOPMENT_ALIGNMENT.md`.
 
 Rules:
-- HIAIR-REL-001 release/trust/device/store work remains P0.
+- `HIAIR-SEC-000` must close first at backend/release level, then `HIAIR-REL-001` release/trust/device/store work remains P0.
 - Mobile surfaces are thin clients over canonical backend risk/forecast/planner logic; do not fork a second risk engine into Swift/Kotlin.
 - Do not add agent/voice UI before HIAIR-PRED-002 is proven unless explicitly scoped as a non-production spike.
 - Missing data stays visibly unavailable; never present null/unavailable hazards as safe/zero.
