@@ -16,3 +16,14 @@ Shared assurance contract: Aistroyka-web/docs/roma/ROMA_EXECUTION_ASSURANCE_PLAN
 Версии моделей и benchmarks из внешних AI-дайджестов не проверены; перед будущим spike нужны официальные API/data-policy/eval evidence.
 
 Cursor: прочитай AGENTS и master plan; сначала составь gap list текущего release на актуальной ветке. Этот amendment не разрешает merge active stack в main, deploy, store uploads или новые медицинские claims. Обновления мобильного UI остаются additive на существующих tabs.
+
+## Research amendment — 2026-09-24
+**HIAIR-RESEARCH-BIAS-005 — Local forecast bias correction. Статус RESEARCH / AFTER RELEASE.**
+Детализация HIAIR-PRED-002, не новый AI-agent и не изменение текущего risk engine.
+После текущих release/data-integrity gates собрать provider forecast ↔ independently observed pollutant pairs: provider/model revision, issued_at, valid_at, forecast horizon, station/location, units, quality, time zone и ingestion timestamp. Forecast должен быть выпущен ДО соответствующего observation; retrospective revised forecast не допускается как честный прогноз.
+
+Offline baseline по pollutant/location/season/hour/weather regime; сравнить raw provider, простой calibration baseline и кандидат correction model. Выбор алгоритма (включая LightGBM) не утверждён.
+AC: temporal walk-forward и geographic holdout без leakage; минимум объёма/полноты данных фиксируется до эксперимента; MAE/RMSE/bias и ошибки при высоких концентрациях отчётны отдельно по регионам/горизонтам. Проверять drift и худшие slices, а не только среднее улучшение.
+Raw forecast сохраняется; corrected output имеет provenance/version/uncertainty и label calibrated. Не заменять unavailable measurement прогнозом и не превращать correction в observed data. При недостаточных данных или деградации — исходный разрешённый forecast либо unavailable по действующим правилам.
+Promotion: воспроизводимый offline report → shadow evaluation → отдельный review и release gates. До этого никаких correction в production recommendations.
+Климатические ozone projections и краткосрочный operational forecast — разные задачи; проценты улучшения из дайджеста не переносятся на HiAir. Research не требует raw health/precise user-location data.
