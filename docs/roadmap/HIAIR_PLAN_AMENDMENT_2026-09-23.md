@@ -27,3 +27,13 @@ AC: temporal walk-forward и geographic holdout без leakage; минимум �
 Raw forecast сохраняется; corrected output имеет provenance/version/uncertainty и label calibrated. Не заменять unavailable measurement прогнозом и не превращать correction в observed data. При недостаточных данных или деградации — исходный разрешённый forecast либо unavailable по действующим правилам.
 Promotion: воспроизводимый offline report → shadow evaluation → отдельный review и release gates. До этого никаких correction в production recommendations.
 Климатические ozone projections и краткосрочный operational forecast — разные задачи; проценты улучшения из дайджеста не переносятся на HiAir. Research не требует raw health/precise user-location data.
+
+## Forecast evaluation research — 2026-09-25
+**HIAIR-RESEARCH-PROVIDERS-006 — Provider Benchmark / Ensemble. RESEARCH, AFTER RELEASE.**
+Продолжение HIAIR-RESEARCH-BIAS-005. Research sequence: aligned forecast/observation dataset → raw provider benchmark → simple ensemble baseline → local bias correction comparison → shadow evaluation. Ensemble не обязательная production зависимость и не основание менять текущего provider.
+
+Сравнивать providers и correction candidates с independent observations по location/station, pollutant/variable, forecast horizon, local hour, season, weather regime. Provider Score обязан показывать метрику, sample count, coverage/missingness, freshness, interval uncertainty и dataset version; не сводить разные pollutants/horizons в непрозрачный общий рейтинг.
+AC: одинаковые issued-before-observation cutoffs и горизонты; никакого leakage через revised forecasts, station overlap в holdout или обучение на evaluation period. Наряду с matched samples показывать availability каждого provider: нельзя улучшить score, удаляя трудные/пропущенные случаи. Проверить licensing/provenance данных, geographic/time holdouts и drift.
+Ensemble weights обучаются только на training window, versioned и сравниваются с raw/simple baseline; correlated sources не считаются независимыми доказательствами. При недостатке observations — insufficient evidence, не автоматический winner.
+Shadow promotion требует улучшения заранее выбранных метрик без ухудшения critical slices и проверки current risk/release gates. Raw/corrected/ensemble provenance различается, unavailable остаётся честным. Никакой production смены маршрутизации прогнозов этим планом.
+ECMWF/WMO и sub-seasonal материалы из дайджеста — непроверенные research references; перенос результатов на почасовой personal forecast не предполагается. Новую AI-agent/voice функцию не добавлять.
