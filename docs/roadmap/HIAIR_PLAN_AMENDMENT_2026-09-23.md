@@ -1,5 +1,7 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
+> Последняя корректировка: 2026-09-26. Актуальные уточнения и порядок работ — в разделе за 2026-09-26 ниже; предыдущие gates сохраняются.
+
 Статус: PLANNED, интеграционный backlog. [Master plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) остаётся каноническим.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
 
@@ -37,3 +39,8 @@ AC: одинаковые issued-before-observation cutoffs и горизонты
 Ensemble weights обучаются только на training window, versioned и сравниваются с raw/simple baseline; correlated sources не считаются независимыми доказательствами. При недостатке observations — insufficient evidence, не автоматический winner.
 Shadow promotion требует улучшения заранее выбранных метрик без ухудшения critical slices и проверки current risk/release gates. Raw/corrected/ensemble provenance различается, unavailable остаётся честным. Никакой production смены маршрутизации прогнозов этим планом.
 ECMWF/WMO и sub-seasonal материалы из дайджеста — непроверенные research references; перенос результатов на почасовой personal forecast не предполагается. Новую AI-agent/voice функцию не добавлять.
+
+## Приоритеты подтверждены — 2026-09-26
+Новой продуктовой фичи не добавлено. Сначала текущие security/release/data-integrity gates; затем AFTER RELEASE dataset → provider benchmark → ensemble baseline → local bias correction → shadow evaluation.
+Shared agent identity/package/runtime/budget contracts применяются только при будущей интеграции HIAIR-ASSURE-003 и после готовности общего framework. Не переносить health memory/raw streams в agent packages или cloud checkpoints. Новые paid jobs/providers требуют approved scope/budget/data policy.
+Сведения о runtime/model релизах из дайджеста не меняют deterministic risk engine, clinical/wellness framing или current release gates.
