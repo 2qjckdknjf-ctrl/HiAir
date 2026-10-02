@@ -1,6 +1,6 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
-> Последняя корректировка: 2026-09-26. Актуальные уточнения и порядок работ — в разделе за 2026-09-26 ниже; предыдущие gates сохраняются.
+> Последняя корректировка: 2026-10-02. Актуальная очередь и новые AC — в разделе за 2026-10-02; предыдущие gates сохраняются.
 
 Статус: PLANNED, интеграционный backlog. [Master plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) остаётся каноническим.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
@@ -44,3 +44,9 @@ ECMWF/WMO и sub-seasonal материалы из дайджеста — неп�
 Новой продуктовой фичи не добавлено. Сначала текущие security/release/data-integrity gates; затем AFTER RELEASE dataset → provider benchmark → ensemble baseline → local bias correction → shadow evaluation.
 Shared agent identity/package/runtime/budget contracts применяются только при будущей интеграции HIAIR-ASSURE-003 и после готовности общего framework. Не переносить health memory/raw streams в agent packages или cloud checkpoints. Новые paid jobs/providers требуют approved scope/budget/data policy.
 Сведения о runtime/model релизах из дайджеста не меняют deterministic risk engine, clinical/wellness framing или current release gates.
+
+## Future UX/analytics — корректировка 2026-10-02
+**HIAIR-FUTURE-UX-007:** proactive recommendation на существующих deterministic risk/action/alerts, FUTURE после текущего release. Отдельный health agent в текущем sprint не создавать.
+Позднее сохранять consented feedback (accepted/ignored/explicit correction), reason/version, actual environmental conditions и source availability. Игнорирование не доказывает плохое качество; acceptance не доказывает health benefit/выполнение действия; outcome не диагноз и не причинность.
+AC future analytics: opt-out, account-bound access, minimized/aggregate data, delete/revoke, timestamps и unknown outcomes. Никакой автоматической смены risk rules или отправки health data в общий corpus.
+Shared Observer/Failure/Corpus contracts приходят через HIAIR-ASSURE-003 после готовности adapter. Product release/data truth/forecast roadmap сохраняет приоритет. Provider Benchmark/Ensemble/Bias Correction остаются AFTER RELEASE research; нового core-feature по этим сигналам нет.
