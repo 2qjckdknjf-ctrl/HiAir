@@ -59,3 +59,8 @@ HiAir - мобильный wellness-ассистент по жаре и каче
 2. Закрываем critical/high gaps из `docs/_operator/master-gap-report.md`.
 3. Ведем фазное доведение до Closed Beta / Store handoff readiness.
 4. Активный цикл: Aurora Calm v2 + Insights — см. `docs/cycle-aurora-calm-execution-plan.md`.
+
+
+## Development planning — 2026-09-23
+
+Cursor: read [master roadmap](docs/roadmap/HIAIR_MASTER_UPGRADE_PLAN_2026.md) and [planning amendment](docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md) before new feature work.
