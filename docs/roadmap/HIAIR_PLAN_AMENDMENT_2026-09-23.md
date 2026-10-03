@@ -1,6 +1,6 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
-> Последняя корректировка: 2026-10-02. Актуальная очередь и новые AC — в разделе за 2026-10-02; предыдущие gates сохраняются.
+> Последняя корректировка: 2026-10-03. Последние уточнения — в разделе за 2026-10-03; очередь 2026-10-02 и предыдущие gates сохраняются.
 
 Статус: PLANNED, интеграционный backlog. [Master plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) остаётся каноническим.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
@@ -50,3 +50,8 @@ Shared agent identity/package/runtime/budget contracts применяются т
 Позднее сохранять consented feedback (accepted/ignored/explicit correction), reason/version, actual environmental conditions и source availability. Игнорирование не доказывает плохое качество; acceptance не доказывает health benefit/выполнение действия; outcome не диагноз и не причинность.
 AC future analytics: opt-out, account-bound access, minimized/aggregate data, delete/revoke, timestamps и unknown outcomes. Никакой автоматической смены risk rules или отправки health data в общий corpus.
 Shared Observer/Failure/Corpus contracts приходят через HIAIR-ASSURE-003 после готовности adapter. Product release/data truth/forecast roadmap сохраняет приоритет. Provider Benchmark/Ensemble/Bias Correction остаются AFTER RELEASE research; нового core-feature по этим сигналам нет.
+
+## Roadmap clarification — 2026-10-03
+Core roadmap без новых фич: release/data truth → provider benchmark → ensemble → bias correction по текущим gates.
+Streaming voice остаётся HIAIR-VOICE-004 / FUTURE UX, только после foundations и отдельного product decision. SpeechProvider reuse возможен после готовности shared contract; deny mic/fallback/consent, data minimization и deterministic facts обязательны. Новые MAI/Gemini/Tavus dependencies не утверждены.
+Общие host/secret/drift/routing contracts относятся к будущей HIAIR-ASSURE-003 интеграции, не к расширению health data доступа. Реализация forecast и publication остаётся приоритетом.
