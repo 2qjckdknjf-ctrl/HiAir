@@ -1,6 +1,6 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
-> Последняя корректировка: 2026-10-03. Последние уточнения — в разделе за 2026-10-03; очередь 2026-10-02 и предыдущие gates сохраняются.
+> Последняя корректировка: 2026-10-07. Актуальные дополнения по сигналам 4–6 октября — в разделе за 2026-10-07; прежние task IDs, очередь и gates сохраняются.
 
 Статус: PLANNED, интеграционный backlog. [Master plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) остаётся каноническим.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
@@ -55,3 +55,10 @@ Shared Observer/Failure/Corpus contracts приходят через HIAIR-ASSUR
 Core roadmap без новых фич: release/data truth → provider benchmark → ensemble → bias correction по текущим gates.
 Streaming voice остаётся HIAIR-VOICE-004 / FUTURE UX, только после foundations и отдельного product decision. SpeechProvider reuse возможен после готовности shared contract; deny mic/fallback/consent, data minimization и deterministic facts обязательны. Новые MAI/Gemini/Tavus dependencies не утверждены.
 Общие host/secret/drift/routing contracts относятся к будущей HIAIR-ASSURE-003 интеграции, не к расширению health data доступа. Реализация forecast и publication остаётся приоритетом.
+
+## Forecast uncertainty / scope clarification — 2026-10-07
+
+PLANNED; уточнение HIAIR-RESEARCH-BIAS-005 / RESEARCH-PROVIDERS-006, AFTER RELEASE, без нового sprint/core agent. SEC-000 → REL-001 → PRED-002 и текущий deterministic personal-risk contract сохраняют приоритет.
+Ensemble output: value/units/horizon/location, interval/type/coverage level, calibrated confidence/method/version, source_disagreement/method, freshness и source/model/provenance. Missing/unavailable поля null с reason; provider spread без calibration не объявлять confidence interval. Uncertainty валидируется held-out по городам/времени/regimes, extreme pollution/weather, drift и calibration, не только R².
+AC: missing/stale/conflicting providers, uncalibrated model, out-of-domain и interval near risk threshold; заранее reviewed deterministic conservative handling, честное сообщение uncertainty, без false precision и автоматического изменения health rules. LLM только объясняет факты/ограничения. Benchmark candidate требует availability/license/source verification и доказанного улучшения existing baseline.
+Исследование AQI одной станции/города из дайджеста — непроверенный research reference; не основание заменить ensemble. Общие DataScope/Flow/holdout/kill contracts — будущая HIAIR-ASSURE-003 integration; consented health data не попадает в общий corpus автоматически. Новых voice/providers/model dependencies и publication действий этим обновлением нет.
