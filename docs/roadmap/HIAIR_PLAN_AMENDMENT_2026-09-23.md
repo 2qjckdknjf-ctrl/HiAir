@@ -1,6 +1,6 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
-> Последняя корректировка: 2026-10-07. Актуальные дополнения по сигналам 4–6 октября — в разделе за 2026-10-07; прежние task IDs, очередь и gates сохраняются.
+> Последняя корректировка: 2026-10-07 (вечер). Актуальные дополнения по сигналам 7 октября — в последнем разделе; прежние task IDs, очереди и gates сохраняются.
 
 Статус: PLANNED, интеграционный backlog. [Master plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) остаётся каноническим.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
@@ -62,3 +62,9 @@ PLANNED; уточнение HIAIR-RESEARCH-BIAS-005 / RESEARCH-PROVIDERS-006, AF
 Ensemble output: value/units/horizon/location, interval/type/coverage level, calibrated confidence/method/version, source_disagreement/method, freshness и source/model/provenance. Missing/unavailable поля null с reason; provider spread без calibration не объявлять confidence interval. Uncertainty валидируется held-out по городам/времени/regimes, extreme pollution/weather, drift и calibration, не только R².
 AC: missing/stale/conflicting providers, uncalibrated model, out-of-domain и interval near risk threshold; заранее reviewed deterministic conservative handling, честное сообщение uncertainty, без false precision и автоматического изменения health rules. LLM только объясняет факты/ограничения. Benchmark candidate требует availability/license/source verification и доказанного улучшения existing baseline.
 Исследование AQI одной станции/города из дайджеста — непроверенный research reference; не основание заменить ensemble. Общие DataScope/Flow/holdout/kill contracts — будущая HIAIR-ASSURE-003 integration; consented health data не попадает в общий corpus автоматически. Новых voice/providers/model dependencies и publication действий этим обновлением нет.
+
+## Knowledge Layer — сигнал 7 октября, дополнение 2026-10-07 (вечер)
+
+HIAIR-KNOWLEDGE-008: WATCH / FUTURE explanatory research, после release и текущего forecast truth/benchmark/ensemble/bias/uncertainty. Core risk/forecast architecture не менять.
+Optional retrieval of licensed provider docs/environmental bulletins/event reports and permitted imagery через shared MultimodalRetrievalProvider; explanation сохраняет sources/time/location/freshness/uncertainty. AQI spike + wildfire bulletin association не established causality; unavailable source → insufficient explanation. Deterministic verified risk values отдельны от retrieved hypotheses.
+AC future: scientific/source review, geographic/time relevance, contradictory/stale bulletins, prompt injection и citation faithfulness; tenant-safe consent/minimization/delete и pre-egress policy. Health data не generic corpus, local embeddings не automatic privacy. EmbeddingGemma candidate requires official availability/license and benchmark, no activation/dependency now.
