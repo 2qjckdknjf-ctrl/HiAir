@@ -788,3 +788,8 @@ No later feature should weaken or bypass the Forecast Truth integrity rules.
 ## Canonical Status
 
 This roadmap is the default HiAir product-development plan from 2026-08-21 onward. It should be updated by versioned replacement or explicit amendment when Sasha approves a major roadmap change.
+
+
+## Amendment — 2026-09-23
+
+[Assurance integration and deferred voice backlog](HIAIR_PLAN_AMENDMENT_2026-09-23.md). Existing release sequence and gates remain canonical; no new deployment/readiness claim.
