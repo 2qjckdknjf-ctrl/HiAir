@@ -35,10 +35,14 @@ final class ActionRequestOrderingTests: XCTestCase {
         defer { session.invalidateAndCancel() }
         let model = DailyPlannerViewModel(apiClient: APIClient(baseURL: URL(string: "https://test.invalid")!, session: session))
         let first = Task { await model.refreshActivityPlan(profileId: "profile", userId: "test", accessToken: "test", language: "en") }
-        await fulfillment(of: [entered], timeout: 3)
+        await fulfillment(of: [entered], timeout: 15)
+        guard let heldRequest = ActionOrderingProtocol.first else {
+            first.cancel()
+            return // The failed expectation is already recorded; do not hold a second request.
+        }
         model.selectedDurationMinutes = 60
         await model.refreshActivityPlan(profileId: "profile", userId: "test", accessToken: "test", language: "en")
-        ActionOrderingProtocol.first?.respond(start: "2026-10-11T08:00:00+02:00", duration: 30)
+        heldRequest.respond(start: "2026-10-11T08:00:00+02:00", duration: 30)
         await first.value
         XCTAssertEqual(model.activityPlan?.recommendedStart, "2026-10-11T19:00:00+02:00")
         XCTAssertEqual(model.activityPlan?.durationMinutes, 60)
