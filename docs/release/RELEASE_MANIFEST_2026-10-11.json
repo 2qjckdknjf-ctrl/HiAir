@@ -50,7 +50,8 @@
     "launch": "PASS",
     "session_restore": "PASS",
     "live_dashboard": "PASS",
-    "full_matrix": "NOT_COMPLETED"
+    "full_matrix": "NOT_COMPLETED",
+    "repeat_launch_capture_rendering": "UNCONFIRMED_PENDING_ON_DEVICE_VISUAL_CHECK"
   },
   "physical_android": "NO_PHYSICAL_DEVICE",
   "public_submission": "NOT_SUBMITTED_OWNER_GATED",
