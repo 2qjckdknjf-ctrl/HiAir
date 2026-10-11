@@ -7,9 +7,6 @@ on:
       - "mobile/android/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
-    paths:
-      - "mobile/android/**"
-      - ".github/workflows/android-ci.yml"
 
 concurrency:
   group: android-ci-${{ github.event.pull_request.number || github.ref }}
@@ -25,8 +22,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed domain
+        id: changes
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/ci/scope.py --scope android --base "${{ github.event.pull_request.base.sha || github.event.before }}" --head "${{ github.event.pull_request.head.sha || github.sha }}"
 
       - name: Setup Java
+        if: steps.changes.outputs.run == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,7 +39,9 @@ jobs:
           cache: gradle
 
       - name: Run unit tests + build debug and release
+        if: steps.changes.outputs.run == 'true'
         run: ./gradlew test assembleDebug assembleRelease --no-daemon
 
       - name: Run lint
+        if: steps.changes.outputs.run == 'true'
         run: ./gradlew lintDebug --no-daemon
