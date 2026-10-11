@@ -41,9 +41,3 @@ CREATE INDEX IF NOT EXISTS idx_work_site_wbgt_site_measured
     ON work_site_wbgt_readings (site_id, measured_at DESC);
 
 ALTER TABLE work_site_wbgt_readings ENABLE ROW LEVEL SECURITY;
-
-
-
-
-
-

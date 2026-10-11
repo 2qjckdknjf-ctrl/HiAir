@@ -49,3 +49,6 @@ node_modules/
 # Local evidence and tool runtimes are never product source.
 .evidence/
 .tools/
+
+# Also ignore symlinked private credential directories.
+backend/.secrets
