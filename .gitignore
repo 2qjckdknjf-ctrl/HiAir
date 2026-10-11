@@ -45,3 +45,7 @@ backend/.secrets/google-play-service-account.json
 backend/.coverage
 node_modules/
 **/.wrangler/
+
+# Local evidence and tool runtimes are never product source.
+.evidence/
+.tools/

@@ -68,6 +68,9 @@ internal object PlannerDeepGlassLayout {
         canvas.addView(buildUtilityRow(ctx, state, ru))
         canvas.addView(buildActionsSection(ctx, state, ru))
         canvas.addView(buildFooterActions(ctx, state))
+        if (!StoreScreenshotMode.active && !ctx.presentationOnly) {
+            ActivityPlannerCard.render(ctx, canvas)
+        }
     }
 
     private fun buildLocationChrome(ctx: RenderContext): LinearLayout {

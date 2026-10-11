@@ -61,6 +61,6 @@ class AppReviewGuidelineCopyTest {
         assertFalse(
             AndroidL10n.t("auth.sign_in_google", "en").isEmpty(),
         )
-        assertEquals("auth.sign_in_apple", AndroidL10n.t("auth.sign_in_apple", "en"))
+        assertEquals("Sign in with Apple", AndroidL10n.t("auth.sign_in_apple", "en"))
     }
 }

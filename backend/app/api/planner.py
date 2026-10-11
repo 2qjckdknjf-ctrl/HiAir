@@ -132,6 +132,9 @@ def create_activity_plan(
                 raise HTTPException(status_code=404, detail="Saved place not found")
             lat = place.lat
             lon = place.lon
+            profile = profile.model_copy(update={"home_lat": lat, "home_lon": lon,
+                                                  "timezone": place.timezone or profile.timezone,
+                                                  "location_name": place.name})
         # Environment must match the place used for forecast/hourly windows.
         environment = air_environment_service.load_environment(profile, lat=lat, lon=lon)
         forecast = air_api._load_forecast_or_none(lat, lon)

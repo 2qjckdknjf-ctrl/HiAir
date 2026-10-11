@@ -24,12 +24,12 @@ on:
           - inProgress
           - halted
       version_name:
-        description: Android versionName (defaults to 1.0.0)
+        description: Android versionName (defaults to 1.2.0)
         required: false
         type: string
-        default: "1.0.0"
+        default: "1.2.0"
       version_code:
-        description: Android versionCode (defaults to max(193, run_number))
+        description: Android versionCode (defaults to max(300, run_number))
         required: false
         type: string
       changes_not_sent_for_review:
@@ -99,6 +99,9 @@ jobs:
             echo "publish_ready=false" >> "$GITHUB_OUTPUT"
             echo "Missing production secret: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"
             echo "Play upload will be skipped until the service account JSON is set."
+          elif [ "${#missing_signing[@]}" -gt 0 ]; then
+            echo "publish_ready=false" >> "$GITHUB_OUTPUT"
+            echo "Play upload requires all release signing secrets."
           else
             echo "publish_ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -117,15 +120,15 @@ jobs:
           if [ -n "${{ github.event.inputs.version_name }}" ]; then
             version_name="${{ github.event.inputs.version_name }}"
           else
-            version_name="1.0.0"
+            version_name="1.2.0"
           fi
           if [ -n "${{ github.event.inputs.version_code }}" ]; then
             version_code="${{ github.event.inputs.version_code }}"
           else
             run_number="${{ github.run_number }}"
             version_code="$run_number"
-            if [ "$run_number" -lt 193 ]; then
-              version_code=193
+            if [ "$run_number" -lt 300 ]; then
+              version_code=300
             fi
           fi
           echo "version_code=${version_code}" >> "$GITHUB_OUTPUT"

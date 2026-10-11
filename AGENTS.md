@@ -1,3 +1,8 @@
+## Current delivery source of truth
+- Canonical clean checkout: `/Users/alex/Projects/HIAir-main`. Integration work: `/Users/alex/Projects/HIAir-integration`. `/Users/alex/Projects/HIAir` remains a preserved legacy checkout and shared Git storage; do not develop from its dirty design branch.
+- Before a task, read `docs/_operator/CURRENT_DELIVERY_STATUS.md`, `docs/_operator/DELIVERY_REGISTRY.json`, and the latest October amendments in `docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md`. Run `python3 scripts/ops/task_preflight.py` from the chosen clean checkout.
+- Reuse integrated Forecast/Action/Travel/Health implementations. Task completion requires explicit merged/deployed/artifact states. Historical facts below are context; current registry and live immutable SHA checks govern releases.
+
 ## Learned User Preferences
 - User prefers autonomous execution with minimal back-and-forth; for large work, audit then plan then implement in phases without mid-task confirmation unless blocked, continue until blockers are cleared, and finish major tasks.
 - User often prefers Russian for task instructions and progress communication.

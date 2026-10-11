@@ -1,7 +1,7 @@
 -- Health Intelligence Expansion (portable DDL for CI/local PostgreSQL).
 -- Supabase FK + RLS: 028_wearable_health_supabase.sql
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- PostgreSQL 13+ provides gen_random_uuid() without pgcrypto.
 
 ALTER TABLE IF EXISTS public.health_data_consents
     ADD COLUMN IF NOT EXISTS activity_enabled boolean NOT NULL DEFAULT false,

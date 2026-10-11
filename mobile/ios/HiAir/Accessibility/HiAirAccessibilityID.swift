@@ -3,8 +3,8 @@ import Foundation
 /// Stable accessibility identifiers for UI tests and VoiceOver.
 enum HiAirAccessibilityID {
     enum Auth {
-        static let apple = "auth.apple"
-        static let google = "auth.google"
+        static let signInAppleButton = "auth.apple"
+        static let signInGoogleButton = "auth.google"
         static let root = "auth.root"
         static let emailField = "auth.email"
         static let passwordField = "auth.password"

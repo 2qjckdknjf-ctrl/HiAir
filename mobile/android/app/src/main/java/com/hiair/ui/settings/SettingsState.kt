@@ -558,6 +558,10 @@ class SettingsViewModel(
         )
     }
 
+    fun launchAppleOAuth() {
+        supabaseAuthService?.launchAppleSignIn()
+    }
+
     fun launchGoogleOAuth() {
         supabaseAuthService?.launchGoogleSignIn()
     }
@@ -1479,6 +1483,17 @@ class SettingsViewModel(
             )
         }
 
+        fun formatDeletionDetail(payload: JSONObject): String {
+            val operationId = payload.optString("operation_id").takeIf { it.isNotBlank() }
+            val stages = payload.optJSONObject("stages")
+            val stageText = stages?.keys()?.asSequence()?.sorted()?.joinToString(", ") { key ->
+                "$key: ${stages.optString(key)}"
+            }.orEmpty()
+            return when {
+                operationId != null && stageText.isNotBlank() -> "operation_id: $operationId, $stageText"
+                operationId != null -> "operation_id: $operationId"
+                else -> stageText
+            }
         }
 
         fun parseTravelSession(raw: String): TravelSessionItem {
@@ -1493,3 +1508,6 @@ class SettingsViewModel(
                 until = json.optString("until").takeIf { it.isNotBlank() },
                 source = json.optString("source", "home").ifBlank { "home" },
             )
+        }
+    }
+}

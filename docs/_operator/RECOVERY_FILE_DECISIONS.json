@@ -1,0 +1,740 @@
+[
+  {
+    "source_worktree": "/Users/alex/Projects/AIOBRAPRECIO/.evidence/hiair-tf-6c3f522-worktree",
+    "file": "docs/release/EXTERNAL_OWNER_ACTION_PLAN.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "fabb5f406b260b0396fc4cd524283b968ef9bdeee1e1aece5dc74fe0f8536e96"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "AGENTS.md",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "aa7d1d0a00f7dc27a98598071799e54d9be45c4fa5619a14db4970d4099e3fdc",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "backend/app/api/privacy.py",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "a3daa206d2c6b5e9fafb76fc648f71141278092239405792747788f20a03a213"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "backend/app/core/settings.py",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "4aeef4fbccc279fac4d03883b90b19f7e561d0478a4d3c985eb9872b8d156e47"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "backend/app/models/privacy.py",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "6cae6eea129c4b33a7b2f122ec4b87ded71c61afe24bde1672a83af6dafd9714"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "backend/tests/test_privacy_delete_api.py",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "aec5b6df07e642447428342d0ff2e8ab2ed317c290e0910b5688849a5479000c"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/_operator/PROJECT_CLOSURE_STATUS.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "f42f566ad78a543e4d51e90ed49a2e8897419f8cfb44fbf1dd4c494e5e8e5b1b"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/_operator/supabase-auth-dashboard-setup.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "35c9845c5160557371029853a24a45060ab9d7da71fada7336c17f42b1dfc5eb"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/release/store/REVIEWER_NOTES.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "f3b601db2a86a63308464474283b2fe4b6221dcc3219617991acdcd3d4e5a1f3"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/subscriptions/GOOGLE_PLAY_BILLING_SETUP.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "4817f03becbf50d6b7315d488f8fa70bc55a5b2370ad6c405898d2211f47e9e7"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/subscriptions/SUBSCRIPTION_RELEASE_READINESS.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "9b90b407b8084da5855d29614538f1ae0009aa14e736489636129492ab286947"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/AppSession.swift",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "982fb3c9d940fb61ca25f093cc40bcd06466453f568819d2e36bf25f263d0d56"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Configuration/HiAirPremium.storekit",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "26cfcca77dfd4209a39aa50e39e34fcf478103ade534c95851ab165e7cf6837b",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirColors.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "977bc446da4385f8befe931dce1ffe3a2703858bbc299c714ba3079469edbf90"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirComponents.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "56ea31b42dc7465bc5e2dafb0a6cc91801c92de56974e9b6ac4a2acf8eae0b66",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirGradients.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "70fd7ce334d32d61014666d67cae699a922405226128fa0516dfab364072914d"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirLiquidGlass.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "a29d02c9d23eb32fda8046b6fa4955963937a0d058c256125167552804dd1eca"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirMotion.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "ae008902afe52698490b2df2531146aff200090ce35afebce47e8ad73901aef0"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirRadius.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "8073f73d1915b543e48481bdfdbbfef45d70862339b9754fb9da01db0f28039f"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirShadow.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "2c4602fa57d33d2cbe72e5b3080fff4a95acd54acae8f69e9b9820de0aa96840"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirSpacing.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "b588b900e9d7959d4ea3ab3698d1e1203112ad66c54cc743104ffed47dfb5c53",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirTypography.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "21d591eddf42b6b6de18138b0fdc96181e6b26ddcf152fb3a1c1925725b88101",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/TimeOfDayBackground.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "d33152ce51e160605472aa07aaf636ffa5a6a37f4707147607efd7785c56a7b3",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/Tokens.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "4ece3e7c4241d3712d3c5b6057f775ee6df8fe4f06155cf28c27f5b6ebb4dea4",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Networking/APIClient.swift",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "683701163f128ccbbf1ca65199383219b7bac2fe75864431423cbcabf5c8d8d7"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/AuthView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "777f2c3ae338727345b1d6b1413adc78bd8fc6bfa5db50b73575a64407f37bea",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/DailyPlannerView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "1166c2fab46dfdf8549f845570c46a3f8e0d54e52e75f7e9c1ca36d9eab51a59",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/DashboardView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "d20012a5520ccf91e3c8dd43131b2aad67e0a553bf3ee4c356429b90913cf636",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/InsightsView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "421fcda0036be20a7645f7d4038bc600829fe4159c2bb07e6e9a78e1c7f13319",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/OnboardingView.swift",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "8c38fc2dc8fb027b8591a27c11a4c27e8a9b70b263fd66b0c1f55119ad9164ff"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/RootTabView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "36ffbdf89b0a667a56c3d01c9bac0ee94d69a16e2e5ce4b64b9e44450823434e",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/SettingsView.swift",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "e19f3d8c2347928c4ed265e51c4ae501334aae5244ea31da4ade91e61400d623"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/SymptomLogView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "7e733d4ae26001480acf08e00daacd3aaf1ae9a273fd60e1436ee85185b13054",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Screens/WearableConsentView.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "4dfac04ca873fdc11db5f084a61a28fb4e12f889e62245a29c24998a2fcad561",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/TestingSupport/UITestBootstrap.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "59efab87b8ba1f1eb22caa59105b99460f25fd2ba7f44ea2bc1b05317cfdaac7",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/TestingSupport/UITestMockAPIProtocol.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "98652cd9d4c16f7fb35a55a17dd55ec35da992b8a923f040e7ff6dab2beae45a",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "scripts/ops/configure_supabase_apple_provider.py",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "5883f1f15b8e908180dc233cad01f71ffa14d85c2e02b65095142ae3786bffb7",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "scripts/ops/configure_supabase_auth_production.py",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "cf6a887b33220399fc846fc653122fc59170a2165f20848e4433093810cb27f5",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "web/privacy/index.html",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "0aea6ce2f8edf7d610c577dbf7e5d3e14952a08a4d39657efc4b0714eef0d641",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "web/terms/index.html",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "6d524995ac13e77a21a53252c3f5cc008ab6187074f825195ba4475d59675609",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "backend/app/services/account_deletion.py",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "d83138f5506b3c31198870246f88f1aab1123b9c692f5782e1b29ecb7bb39110"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "backend/tests/test_account_deletion.py",
+    "decision": "SUPERSEDED_BY_MAIN_HARDENING",
+    "snapshot_sha256": "49cb354033ef4e7514e8bda8779c764c4507a63f69c21789a9499c54c8713dd0"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/README.md",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "3a831d2c90fe713812fe37933af95ef11489375edd7736b4f661818b84ad51b1"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/TECHNICAL_SPEC.md",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "e82762522866386ba92efb873704d7d90a3e9a5860f46035c8952876affccc44"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/manifest.json",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "3cfdfc18627b9eb9d27ce5fd3069714099f744a160d401c7e3b4dd64fdf99c40"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/01-launch.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "14b604b91389e1268b097e323c2ecbc2d89a681fca012e7af51da37ce5baa6cd"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/02-dashboard.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "f3c4eeac35aa22727203b9e0e3df69406571455450cb0bd9438c5145f4fc9cf7"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/03-planner.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "3c3cf033953ad6dab4d36f96f7ad96f2956ac6eeb5f369f9881da55b42606e46"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/04-insights.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "76fb0aa1f09b52e177c97a472a1aac1a28e3c348f5ce7b76b793cd890d228056"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/05-health.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "0befaa03f22477908fe94580031cc62659890985780bf141f0c89b54ab61e2e7"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/06-settings.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "46898e7164a3d4b928456a8bcc6fa057c1a50ef997338edb9f42c82e74a99898"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/qa-sim/07-onboarding.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "756777aad16273c56c20d95ad5b2865fb566e8da0db30cd3f10df5924fffca4c"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/references/01-home-deep-glass.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "98a2c798eb2ad8b36b4ccc227e2267d2ad80c9168cd714784945be568b061495"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/references/02-planner-deep-glass.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "576594c99d4736408fbf4999f569ce1e358d18b0852b969d43a3936f7c48ad5b"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/references/03-health-deep-glass.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "820288738ea469ae751f5e767572d27cb792151224218410f2ab2b548d097657"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/references/04-onboarding-deep-glass.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "9735542bc6b105477bc61234c30fa5084b745be126775f1a29c2636bbfaf36eb"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/design/redesign-v4/references/05-screen-system-overview.png",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "d97573766617b5d33fde6aa6c4d5d9e3db55b2fe06760ebb9ff17c9d9109019d"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/subscriptions/ASC_SUBMISSION_2026-07-19.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "277d6535ce392110601799dd7766e80c45677002a143801881fa0c13023e9216"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "docs/subscriptions/STOREKIT_PRODUCT_LOADING_DIAGNOSTIC_REPORT.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "5081332523fb377edf59c0b41760ce1e3e1c30cd79e4f486e526f1fa651b39ae"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirAtmosphericBackground.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "162483c7ce3c322492f8898eda60ab352ccd950dcb65de2831b19d6d884dbdbf"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirDeepGlassLayout.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "4cafa29a2abcc9e74302c721e3da5a757c6cbc55b2d87efa309c74b1608ed1e8"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirDeepGlassWidgets.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "038421ef1a3c6f4cfddab0718ffa8bea293ed26bb4968d04b36856a104a4cf30"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirFloatingTabBar.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "754aaf5b250e51c00a2f83b658c0ee234f85e3b41b6b8f66fdf84f0c286b6d71",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirGlassSurface.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "92d988425c54a989c77aebfb7ad0d043822fd3d24045be892e2cdc518081d507"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/DesignSystem/HiAirHaptics.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "3f048f1a081ab0505342f3d67d372540308bc2c3fc0fd64c45470925d3a0aebe"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Networking/OAuthWebSession.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "af366e01fb69dae0304dcf06dc4f7c37395c3e9a1c10f7e9565ddf3ddaf4a258"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAir/Services/AccountEligibility.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "0d434e8bf861b22aee8f235b6e416237ab925e2e35e251ee55764aba85330dd3"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAirTests/AccountEligibilityTests.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "8c71e078e42c3a1abba279b5f773da0b3cc2fd8f58277517273bb56fcd3ac98f"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAirTests/AppReviewGuidelineCopyTests.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "5915332109e69bfd4b6e2ed5fbfbc788b3ee52544d4867c6ca0985d82875f4bb",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAirTests/GoogleOAuthWebSessionTests.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "1b16a1abb914a730ca1a0615de6bdf61a8e3991411367849aa69af7e5690d0af"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAirTests/HiAirDeepGlassTokenTests.swift",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "e6644535bc1746934fff743d854e7b91cc521ba1b999670fc715db3daa39b920"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAirUITests/AppReviewDeviceUITests.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "fb6208f0c0a37fa624ebef180194b9a11465bd6a61a2fce25c00bce81915f088",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "mobile/ios/HiAirUITests/StoreScreenshotTests.swift",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "c3dbb0ef14ee36e8a91c7c177b5806936484bd01431de41a0b1951365217fe67",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "scripts/export_store_screenshots.py",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "c09d23ebe631dfd523da6d4bc9a3bb28ca1ce41971de45180247a94966cd3c1b"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "scripts/make_hiair_promo_video.sh",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "bb8d9bdfabadbd072eb8212ac1e54ade4013f1d53d2060622022377672b650a9"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "scripts/ops/bootstrap_play_console_hiair.py",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "122c69d1d060df43979f3c66b29d6544fe063313203b1ef473e324f512cf3ec0",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "scripts/ops/configure_supabase_google_provider.py",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "a356d08003acc4d9e614e72b98c0c5be69a97db25e0b028b67aaf17fe4d69364"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir",
+    "file": "web/f6d378d4fea9134e6bc9c1634445856202da1e9e8ff2eb5667f4196c17ad18d1.txt",
+    "decision": "ALREADY_IN_MAIN",
+    "snapshot_sha256": "fee267323fc015202aacfb5ba6596bddb7177b93d89ef31d95a8547abde8beb5"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "AGENTS.md",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "f48168301a2d23b492e325e2305721bd0a55fc1235b450b808c655b8f1b26fc0",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "docs/release/HIAIR_1_1_TESTFLIGHT_DEVICE_QA.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "dc6d12f11988ede98d41550aefd1d4ffe78a07e5e9600e88ec0332781ce4a817"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/build.gradle.kts",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "0f2b7a26929e18d645c5c4d324bd1ccd0c89c4823aed20dc29941e07ec03cdb2"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/DashboardScreenRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "39d39239d07fc701cfa5d9c995a5f798e97e54dccfe91ae04aa6c9e9c6917140"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/FirstRunOnboardingRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "d78c3093da77337ea1c686f7a59a44f2dc62545fc517194815c5ddae3b3b600a"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/PlannerScreenRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "2932ba8d8309c7b011af909ebc9a254d3ae6e7b3209cf3de14886f3c19ed2f65"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/SymptomsScreenRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "4eb7577243cac73f278b168f5b8aba99e418f22b24be498368aec82fe83d7a65"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/ios/HiAir.xcodeproj/project.pbxproj",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "1b3d1b5f77c44fea437c3f3e6ebab2358cadef6728976e9533698bf232a4a7d5",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/ios/HiAir/Screens/OnboardingView.swift",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "e556ef3cdbae68b257005f74efa1eece9fe2bbd268753a3e123a384754e16f84"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/ios/HiAir/Screens/SettingsView.swift",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "3c161056639752f9a2b4ff8bb23b490e6d7c3e6b10c0efd801ae185e586f35cd"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/ios/HiAirTests/InfoPlistPackagingTests.swift",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "a83400cbb7544645759769f9d673a1f95b381c4b6c8463abe5fb5ef02ed03389"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/ios/project.yml",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "050e59acd3a3cff767c6742d85906fca133ca9f295e8cbac23af740443f34a38",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "scripts/release/validate_store_release_builds.sh",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "996e856c821e91eae037ac1f4aff295249b55c28bf5f5d97024c267815db449f",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "docs/audit/P0_PRODUCTION_API_BRANCH_DIVERGENCE.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "97a4af663e5fcf32a630c5e269f0b30f2798e071edfb7cb538c107dcfc0f363c"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "docs/release/PRODUCTION_API_PIN.md",
+    "decision": "KEEP_FOR_LATER",
+    "snapshot_sha256": "227dc7b463ba538a74d3ab47ba5c56b7b81bd38dbd64a3d27462b741fe3dc68d"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/design/HiAirDeepGlassCopy.kt",
+    "decision": "SUPERSEDED_BY_CURRENT_RENDERERS",
+    "snapshot_sha256": "cc1dc0efe3347c5df9de5d082aab8df2a57dee44109f84d9014459707eeec039"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/design/HiAirDeepGlassWidgets.kt",
+    "decision": "SUPERSEDED_BY_CURRENT_RENDERERS",
+    "snapshot_sha256": "198b9a879335ddd7dfff5d805598244a6c06f9ed8af51167b745ebdbdd67d281"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-feat-hiair-1.1-forecast-truth",
+    "file": "scripts/ops/publish_asc_1_1_page.py",
+    "decision": "ARCHIVED_VARIANT_REFERENCE",
+    "snapshot_sha256": "73f625acac94e12e2df056a88d569f1d9b2f62ea249ceb851b3bbd5c6d9defac",
+    "reason": "Preserved snapshot; release uses the integrated main implementation and tested contracts."
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/AppMainActivity.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "47a83d0e59301377520127d07ddcbdc36bb520b6dd1c0b3660f8b7ace1b76d55"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/network/ApiClient.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "41563da6ff65a1a0c7513324865b277d3307aafd1075759de756efa5a109c039"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/config/HiAirLegalUrls.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "b0f8771e24c787d76e423b6d88aede848924f5ac49447abe6d0a0eac3fbb692c"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/i18n/AndroidL10n.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "3df98c26374d8426521540300fbe839144f8df3abed311af61749b7bb4ae6aec"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/planner/DailyPlannerViewModel.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "dd8b4699a32edd45e5453ea13d1a491eb2e54c8c2fe6186f82778eb34d67b00b"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/DashboardScreenRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "d649f4eeed1d23709830a3187c91b6a19d6a716b9c2e6511f1ca678dcc007aa9"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/FirstRunOnboardingRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "80c08bd22c6ed224f16051f2c35ad929c0f27558ac32a0c2cd3795b8b6f280c5"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/MainScreenRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "1d91cf2d38f7beb6b4a7b0c59fdd98314e17771f984dc7580c289676b0449311"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/PaywallResponsiveLayout.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "8c30a17653ad47af58a369975f61e160ca5b13d9f347255ea8b5a2ff5bc3dab0"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/PlannerDeepGlassLayout.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "7f88954bb110f99739d57e4942f685809f954d38df470fa50e7b5ae556f81b19"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/RenderContext.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "c6d1e8f0133bfcc07558b7fe58f039e63add8e3974d6b14bca634439a81a206b"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/render/SettingsScreenRenderer.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "6b96cbde305c94fe29c5a56ab9cf7b7a7a38d311e3093ea5f1945705b2195bef"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/settings/SettingsState.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "30588f55840b6682531774698a66d256b1df7d36eab43aa4856f0e30c13588d0"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/test/java/com/hiair/ui/config/HiAirLegalUrlsTest.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "76b5779959b1e18d62af65d608dd8087f999ca97f2dac6ff1b1515fddd77b964"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/test/java/com/hiair/ui/planner/ForecastTruthParseTest.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "694c15d51e36afd95f580c46666d77184e9c23d49b77ba01954dac58fc416897"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/test/java/com/hiair/ui/render/FirstRunOnboardingRendererTest.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "40611135dfd23edafc4e4409f61538a77acc8642d708c88783ac69b637a09ef8"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/location/PlaceGeocoding.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "03c919018d9d3296491f73b6e0b2eab80319c0ee78932ce55ebbff3bf162e314"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/location/PlaceGeocodingService.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "20a25639044c2fe3bf5d44173216fbbf1666efe0ebecbe4eb7305817edd85172"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/main/java/com/hiair/ui/auth/AccountEligibility.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "ae96ede82006795e8864376cba83304c8522d8b0f00811c20f5d6bbc36ffbcb9"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/test/java/com/hiair/location/PlaceGeocodingTest.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "f97a9bf91b71c46671f73a0b7d55cf7665a8c166846ae5bc6531fe28982febfb"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/test/java/com/hiair/ui/auth/AccountEligibilityTest.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "5538e4dee83891741668c8d5dc5510b266b632b3f1d560ecc899febc6ff34081"
+  },
+  {
+    "source_worktree": "/Users/alex/Projects/HIAir-store-ready",
+    "file": "mobile/android/app/src/test/java/com/hiair/ui/i18n/AndroidStoreParityL10nTest.kt",
+    "decision": "INTEGRATED_OR_RECONCILED_WITH_CANONICAL_SOURCE",
+    "snapshot_sha256": "f8ec071773c77a0f8ff3ded0bb6af9833a7671aab1be7cbad348f2b7b4755f84"
+  }
+]

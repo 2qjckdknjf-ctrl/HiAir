@@ -1074,10 +1074,7 @@ struct SettingsView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                Text(session.l("title.settings"))
-                    .font(AuroraTokens.Typography.displayLG)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-
+                HiAirScreenWordmark(suffix: session.l("tab.settings"))
                 Text(session.l("settings.subtitle"))
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)

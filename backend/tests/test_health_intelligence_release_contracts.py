@@ -92,6 +92,11 @@ def test_personal_load_hrv_requires_matching_baseline(monkeypatch) -> None:
         lambda *args, **kwargs: None,
     )
 
+    monkeypatch.setattr(
+        "app.services.wearable_service.health_sync_repository.get_sleep_window",
+        lambda *args, **kwargs: [],
+    )
+
     def _baseline(user_id, metric_type, days=30):
         if metric_type == "hrv_rmssd":
             return 55.0

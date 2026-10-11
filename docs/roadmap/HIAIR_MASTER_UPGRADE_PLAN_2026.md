@@ -1,3 +1,5 @@
+> Current delivery reconciliation: see [CURRENT_DELIVERY_STATUS](../_operator/CURRENT_DELIVERY_STATUS.md) and [DELIVERY_REGISTRY](../_operator/DELIVERY_REGISTRY.json). Historical DEPLOYED entries below are dated evidence, not the current release verdict. October amendments remain canonical; do not reimplement existing functions or activate deferred research.
+
 # HiAir — Master Upgrade Plan 2026
 
 **Project:** HiAir  

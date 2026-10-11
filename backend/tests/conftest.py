@@ -40,3 +40,14 @@ def _premium_entitlements_for_api_tests(monkeypatch: pytest.MonkeyPatch) -> None
         lambda user_id, feature, attr: _premium(user_id),
     )
     monkeypatch.setattr(entitlement_service, "assert_profile_limit", lambda user_id: None)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_travel_state():
+    """API unit fixtures use synthetic IDs; optional travel state must stay isolated."""
+    from app.services import travel_repository
+    travel_repository.force_memory_store(True)
+    travel_repository.reset_store()
+    yield
+    travel_repository.reset_store()
+    travel_repository.force_memory_store(False)
