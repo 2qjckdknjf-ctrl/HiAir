@@ -155,6 +155,9 @@ final class InsightsViewModel: ObservableObject {
                             locale: Locale(identifier: language), status.metricDays ?? 0,
                             HiAirL10n.t(syncKey, lang: language))
                     } else { healthStatusText = HiAirL10n.t("insights.health_status_unknown", lang: language) }
+                    ProductAnalytics.track("insights_primary_loaded", properties: [
+                        "duration_ms": String(Int(Date().timeIntervalSince(started) * 1000))
+                    ])
                     loading = false // Primary cards do not wait for optional legacy/adaptation requests.
                 case .patterns(.success(let patterns)): items = patterns.items
                 case .adaptation(.success(let value)): adaptation = value
@@ -359,6 +362,7 @@ struct InsightsView: View {
                 .font(AuroraTokens.Typography.titleMD)
                 .foregroundStyle(HiAirV2Theme.primaryText)
             Text(viewModel.todaySummary.isEmpty ? session.l("insights.today.empty") : viewModel.todaySummary)
+                .accessibilityIdentifier(viewModel.todaySummary.isEmpty ? "insights.primary.unavailable" : "insights.primary.ready")
                 .font(AuroraTokens.Typography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
             if !viewModel.generatedAtDisplay.isEmpty {

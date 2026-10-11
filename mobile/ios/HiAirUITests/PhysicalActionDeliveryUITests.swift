@@ -36,3 +36,25 @@ final class PhysicalActionDeliveryUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["tab.planner"].firstMatch.waitForExistence(timeout: 10))
     }
 }
+
+
+/// Real primary Insights response, not merely navigation or a spinner dismissal.
+final class PhysicalRuntimePerformanceUITests: XCTestCase {
+    func testPrimaryInsightsLoadsWithinEightSeconds() throws {
+        guard ProcessInfo.processInfo.environment["HIAIR_RUN_PHYSICAL_QA"] == "1" else {
+            throw XCTSkip("Opt-in physical Release/live-API check")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier:"com.hiair.app")
+        app.launch()
+        let tab = app.descendants(matching:.any)["tab.insights"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout:30),"Existing session must restore")
+        let started = Date()
+        tab.tap()
+        let primary = app.descendants(matching:.any)["insights.primary.ready"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout:8),"Primary live Insights did not load within the budget")
+        let seconds = Date().timeIntervalSince(started)
+        XCTAssertLessThan(seconds,10,"Includes native tab-tap overhead; server/client timings are in diagnostics")
+        print("Primary physical Insights observed in \(String(format:"%.2f",seconds)) seconds")
+    }
+}

@@ -157,7 +157,7 @@
       "id": "HIAIR-PERF-002",
       "scenario": "Fix measured 20\u201334s dashboard latency, Insights sequential wait and duplicate subscription refresh",
       "owner": "integration",
-      "status": "NEEDS_NEW_CODE",
+      "status": "VALIDATION_IN_PROGRESS",
       "branch": "fix/hiair-runtime-performance-2026-10-11",
       "existing_implementation": "backend/app/services/db.py; mobile/ios/HiAir/Screens/InsightsView.swift; mobile/ios/HiAir/AppSession.swift",
       "merged_sha": null,

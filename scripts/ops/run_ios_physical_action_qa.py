@@ -18,12 +18,14 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('mode', choices=['build','test'])
     parser.add_argument('--device', required=True)
+    parser.add_argument('--suite', choices=['action','runtime'], default='action')
     parser.add_argument('--derived-data', type=Path, default=ROOT/'.evidence/action-device-derived')
     parser.add_argument('--expect-sha')
     parser.add_argument('--result', type=Path, default=ROOT/'.evidence/action-physical-tests.xcresult')
     args=parser.parse_args()
     derived=args.derived_data.resolve()
     destination=f'platform=iOS,id={args.device}'
+    test_class='PhysicalActionDeliveryUITests' if args.suite=='action' else 'PhysicalRuntimePerformanceUITests'
     if args.mode=='build':
         if subprocess.check_output(['git','status','--porcelain','--','mobile/ios'],cwd=ROOT,text=True).strip():
             raise SystemExit('Commit mobile source before building physical QA')
@@ -48,7 +50,7 @@ def main():
         try:
             subprocess.run(['xcodebuild','-project','HiAir.xcodeproj','-scheme',scheme,
                 '-configuration','Release','-destination',destination,'-derivedDataPath',str(derived),
-                '-only-testing:HiAirUITests/PhysicalActionDeliveryUITests','-allowProvisioningUpdates',
+                f'-only-testing:HiAirUITests/{test_class}','-allowProvisioningUpdates',
                 'build-for-testing','DEVELOPMENT_TEAM=43A4KW5BKB','CODE_SIGN_STYLE=Automatic',
                 'CODE_SIGN_IDENTITY=Apple Development'],cwd=IOS,check=True)
         finally:
@@ -67,6 +69,11 @@ def main():
         with urllib.request.urlopen(request,timeout=30,context=ssl.create_default_context(cafile=certifi.where())) as response: health=json.load(response)
         if health.get('deploy_git_sha') != args.expect_sha:
             raise SystemExit('Production SHA mismatch: physical QA not started')
+        import sys
+        sys.path.insert(0,str(ROOT/'scripts/release'))
+        from check_mobile_release_source import source_digest
+        if health.get('app_source_sha256') != source_digest(args.expect_sha):
+            raise SystemExit('Running app fingerprint mismatch: physical QA not started')
         provenance=json.loads((derived/'physical-source.json').read_text())
         tree=subprocess.check_output(['git','rev-parse','HEAD:mobile/ios'],cwd=ROOT,text=True).strip()
         if provenance['ios_tree']!=tree:
@@ -75,7 +82,7 @@ def main():
         if not runs: raise SystemExit('Build physical QA first')
         if args.result.exists(): raise SystemExit('Use a fresh result path; existing evidence preserved')
         subprocess.run(['xcodebuild','test-without-building','-xctestrun',str(runs[-1]),
-            '-destination',destination,'-only-testing:HiAirUITests/PhysicalActionDeliveryUITests',
+            '-destination',destination,f'-only-testing:HiAirUITests/{test_class}',
             '-resultBundlePath',str(args.result.resolve())],cwd=IOS,check=True)
         summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary',
             '--path',str(args.result.resolve()),'--compact'],text=True))
