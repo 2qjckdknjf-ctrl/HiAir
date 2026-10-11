@@ -100,3 +100,36 @@ final class EntitlementRefreshPerformanceTests: XCTestCase {
         XCTAssertTrue(model.isPremium,"Old /me must not undo a confirmed purchase")
     }
 }
+
+final class DashboardRequestPriorityTests: XCTestCase {
+    @MainActor func testPrimaryRiskCoalescesBeforeEnrichmentStarts() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[InsightsLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        let model=DashboardViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        defer { model.cancelRefresh(); session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        let entered=expectation(description:"Primary risk held")
+        let lock=NSLock()
+        var held:InsightsLoadingProtocol?
+        var primaryCount=0
+        var enrichmentCount=0
+        InsightsLoadingProtocol.handler={ request in
+            lock.lock()
+            if request.request.url!.path == "/api/air/current-risk" {
+                primaryCount += 1; held=request; lock.unlock(); entered.fulfill()
+            } else { enrichmentCount += 1; lock.unlock(); request.respond("{}",status:503) }
+        }
+        let first=Task { await model.refresh(userId:"owned-user",accessToken:"test",profileId:"profile",language:"en") }
+        let second=Task { await model.refresh(userId:"owned-user",accessToken:"test",profileId:"profile",language:"en") }
+        await fulfillment(of:[entered],timeout:15)
+        XCTAssertEqual(enrichmentCount,0,"Enrichment must not occupy the queue ahead of risk")
+        lock.lock(); let response=held; lock.unlock()
+        response?.respond("""
+        {"profileId":"profile","assessedAt":"2026-10-11T12:00:00Z","environmental":{"lat":0,"lon":0,"temperature":20,"feels_like":20,"source":"live","timestamp":"2026-10-11T12:00:00Z"},"risk":{"overallRisk":"low","heatRisk":"low","airRisk":"low","outdoorRisk":"low","indoorVentilationRisk":"low","safeWindows":[],"recommendationFlags":[],"reasonCodes":[]},"recommendation":{"headline":"Known risk","summary":"Known","actions":[]},"explanation":"Known","explanationSource":"template"}
+        """)
+        await first.value; await second.value
+        XCTAssertEqual(primaryCount,1)
+        XCTAssertFalse(model.loading)
+        XCTAssertEqual(model.riskLevel,"low")
+    }
+}

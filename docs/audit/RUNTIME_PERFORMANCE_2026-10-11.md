@@ -2,6 +2,8 @@
 
 Owner reports 20–30s loading after a real Sandbox purchase and an apparently stuck Insights screen. Private iPhone diagnostics confirm verified monthly StoreKit purchase → backend HTTP 200 / entitlement active; dashboard first load ~19s and a later refresh ~34s; multiple URLSession timeouts across enrichments; three overlapping entitlement refreshes. Purchase transaction verification itself took ~6.7s after StoreKit confirmation; 25.2s total includes the owner/system purchase confirmation. Do not attribute the entire purchase-sheet time to API latency. Restore was started but no successful completion was observed.
 
+Dashboard now gives current risk priority, coalesces duplicate primary requests, starts enrichment/health sync after core rendering, and cancels structured enrichment when leaving the screen. Previously five detached enrichment requests could outlive replacement refreshes and occupy the URLSession queue.
+
 Changes: bounded process-local Postgres pool (8 connections, 5s borrow/connect limits, prepared statements disabled); commit/rollback semantics retained. Health metric payloads use one transaction, preserving consent filters and owned-user writes. Insights starts requests concurrently, renders primary cards immediately, cancels outstanding work at a 10s deadline, keeps available cards with an error/retry and never converts network failure into no-data success. Entitlement refreshes share one account/token/revision-scoped request and stale /me cannot undo a confirmed purchase.
 
 Read-only SELECT 1 baseline: connection establishment 261–298ms, query 81–84ms. Warm pooled SELECT 1 including transaction return: 113–143ms (first cold call 449ms). These are DB-path measurements, not proof of final app latency.

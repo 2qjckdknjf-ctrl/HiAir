@@ -88,7 +88,7 @@ def main():
             '--path',str(args.result.resolve()),'--compact'],text=True))
         if summary.get('totalTestCount') != 1 or summary.get('passedTests') != 1 or summary.get('skippedTests') != 0 or summary.get('failedTests') != 0:
             raise SystemExit('Physical QA not certified: missing/passed/skipped test counts differ')
-        print('Physical ACTION live UI check: PASS (one executed, zero skipped)')
+        print(f'Physical {args.suite} live UI check: PASS (one executed, zero skipped)')
     return 0
 
 if __name__=='__main__':
