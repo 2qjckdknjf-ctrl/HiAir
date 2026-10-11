@@ -2,7 +2,9 @@
 """Build/run the live ACTION UI check on a physical iPhone, without debug mocks."""
 import argparse
 import json
+import plistlib
 import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -15,7 +17,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('mode', choices=['build','test'])
     parser.add_argument('--device', required=True)
-    parser.add_argument('--suite', choices=['action','runtime'], default='action')
+    parser.add_argument('--suite', choices=['action','runtime','restore'], default='action')
     parser.add_argument('--derived-data', type=Path, default=ROOT/'.evidence/action-device-derived')
     parser.add_argument('--expect-sha')
     parser.add_argument('--readback-run')
@@ -23,7 +25,8 @@ def main():
     args=parser.parse_args()
     derived=args.derived_data.resolve()
     destination=f'platform=iOS,id={args.device}'
-    test_class='PhysicalActionDeliveryUITests' if args.suite=='action' else 'PhysicalRuntimePerformanceUITests'
+    test_class={'action':'PhysicalActionDeliveryUITests',
+        'runtime':'PhysicalRuntimePerformanceUITests', 'restore':'PhysicalRestoreDeliveryUITests'}[args.suite]
     if args.mode=='build':
         if subprocess.check_output(['git','status','--porcelain','--','mobile/ios'],cwd=ROOT,text=True).strip():
             raise SystemExit('Commit mobile source before building physical QA')
@@ -80,6 +83,23 @@ def main():
         runs=list((derived/'Build/Products').glob(provenance['scheme']+'*.xctestrun'))
         if not runs: raise SystemExit('Build physical QA first')
         if args.result.exists(): raise SystemExit('Use a fresh result path; existing evidence preserved')
+        # Bundle-ID-only XCUIApplication launches the already installed app; XCTest
+        # does not guarantee replacement of the host. Install this proven candidate
+        # explicitly, preserving its data container, and read back its version.
+        app=derived/'Build/Products/Release-iphoneos/HiAir.app'
+        with (app/'Info.plist').open('rb') as stream:
+            info=plistlib.load(stream)
+        subprocess.run(['xcrun','devicectl','device','install','app','--device',args.device,
+            str(app)],check=True,capture_output=True,text=True)
+        with tempfile.TemporaryDirectory(prefix='hiair-device-version-') as directory:
+            output=Path(directory)/'apps.json'
+            subprocess.run(['xcrun','devicectl','device','info','apps','--device',args.device,
+                '--json-output',str(output)],check=True,capture_output=True,text=True)
+            installed=next((item for item in json.loads(output.read_text())['result']['apps']
+                if item.get('bundleIdentifier')==info['CFBundleIdentifier']),None)
+        if not installed or installed.get('bundleVersion')!=str(info['CFBundleVersion']) or installed.get('version')!=info['CFBundleShortVersionString']:
+            raise SystemExit('Installed candidate version mismatch: physical QA not started')
+        print(f"Installed physical candidate {installed['version']} ({installed['bundleVersion']})",flush=True)
         subprocess.run(['xcodebuild','test-without-building','-xctestrun',str(runs[-1]),
             '-destination',destination,f'-only-testing:HiAirUITests/{test_class}',
             '-resultBundlePath',str(args.result.resolve())],cwd=IOS,check=True)

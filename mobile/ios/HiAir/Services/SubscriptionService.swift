@@ -18,6 +18,7 @@ final class SubscriptionService: ObservableObject {
     @Published private(set) var catalogState: PaywallCatalogState = .idle
     @Published private(set) var isLoading = false
     @Published private(set) var isPurchaseInProgress = false
+    @Published private(set) var lastRestoreVerifiedTransactionCount = 0
     @Published var lastError: String?
 
     private var updatesTask: Task<Void, Never>?
@@ -385,21 +386,26 @@ final class SubscriptionService: ObservableObject {
         }
 
         SubscriptionDiagnostics.log("restore_started")
-        try await AppStore.sync()
-        var signedTransactions: [String] = []
-        for await result in Transaction.currentEntitlements {
-            if let signed = try? signedTransactionString(from: result) {
-                signedTransactions.append(signed)
+        lastRestoreVerifiedTransactionCount = 0
+        let signedTransactions = try await Self.collectRestoreEntitlements(
+            current: { await self.currentSignedEntitlements() },
+            sync: {
+                SubscriptionDiagnostics.log("restore_store_sync_started")
+                do {
+                    try await AppStore.sync()
+                    SubscriptionDiagnostics.log("restore_store_sync_succeeded")
+                } catch {
+                    let safe = error as NSError
+                    SubscriptionDiagnostics.log("restore_store_sync_failed", errorDomain: safe.domain, errorCode: safe.code)
+                    throw error
+                }
             }
-        }
+        )
         for await result in Transaction.unfinished {
             guard case .verified(let transaction) = result else { continue }
             guard StoreProductIDs.all.contains(transaction.productID) else {
                 await transaction.finish()
                 continue
-            }
-            if let signed = try? signedTransactionString(from: result) {
-                signedTransactions.append(signed)
             }
             do {
                 _ = try await processVerifiedTransaction(
@@ -413,17 +419,44 @@ final class SubscriptionService: ObservableObject {
                 continue
             }
         }
+        SubscriptionDiagnostics.log("restore_backend_started", resultType: "current_count=\(signedTransactions.count)")
         let response = try await apiClient.restoreSubscriptions(
             userId: userId,
             platform: "ios",
             iosSignedTransactions: signedTransactions,
             accessToken: accessToken
         )
+        // Empty restore may return an existing backend entitlement. Only a
+        // non-empty submitted JWS batch proves actual store reverification.
+        lastRestoreVerifiedTransactionCount = signedTransactions.count
         SubscriptionDiagnostics.log(
             "restore_succeeded",
             entitlementActive: response.entitlement?.isPremium == true
         )
         return response
+    }
+
+    // StoreKit keeps current entitlements synchronized. Avoid an unnecessary
+    // Apple sign-in prompt when a verified current transaction is already present.
+    // Missing transactions still use explicit user-triggered sync; backend verifies
+    // every JWS and remains the authority for ownership, expiry and revocation.
+    static func collectRestoreEntitlements(
+        current: () async throws -> [String], sync: () async throws -> Void
+    ) async throws -> [String] {
+        let existing = try await current()
+        if !existing.isEmpty { return Array(Set(existing)) }
+        try await sync()
+        return Array(Set(try await current()))
+    }
+
+    private func currentSignedEntitlements() async -> [String] {
+        var signed: [String] = []
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result,
+                  StoreProductIDs.all.contains(transaction.productID) else { continue }
+            if let value = try? signedTransactionString(from: result) { signed.append(value) }
+        }
+        return signed
     }
 
     func refreshEntitlement(userId: String, accessToken: String) async throws -> UserEntitlementResponse? {

@@ -1,6 +1,6 @@
 # HiAir 1.2 — Action Implementation Spec
 
-**Status:** ACTION engineering delivered in PR86 / 48ed1a09; API/web and internal build 301 verified. Physical Android/full device/store acceptance remains partial; see registry and REAL_DEVICE_QA_REPORT.md.
+**Status:** ACTION engineering delivered in PR86 / 48ed1a09; API/web and internal build 301 verified; runtime hardening and internal 302 delivered in PR88 (current registry). Physical Android/full device/store acceptance remains partial; see registry and REAL_DEVICE_QA_REPORT.md.
 **Delivered branch:** `fix/hiair-action-tail-closure-2026-10-11` → protected main via PR86
 **Parent roadmap:** `docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md`  
 **Audit:** `docs/audit/HIAIR_NEXT_GENERATION_BASELINE_AUDIT.md`
@@ -498,4 +498,4 @@ No exact GPS or health raw values in product analytics.
 
 ## Current acceptance checkpoint — 2026-10-11
 
-Backend/client engineering, CI, production API/web, signed 301 internal delivery and physical iPhone live ACTION/calendar are verified. Physical Android is unavailable; genuine iPhone Sandbox purchase/restore and the broader isolated-device regression matrix are not yet certified. Forecast ranking replay reports no regressions, but does not prove beta-quality uplift. No new Action lifecycle table is needed for the delivered local calendar/basic acceptance semantics. Reuse this implementation before opening a new task; the next product phase remains separately scoped.
+Backend/client engineering, CI, production API/web, signed 301 internal delivery and physical iPhone live ACTION/calendar are verified. Physical Android is unavailable; monthly iPhone Sandbox purchase is verified, restore and the broader isolated-device regression matrix are not yet certified. Forecast ranking replay reports no regressions, but does not prove beta-quality uplift. No new Action lifecycle table is needed for the delivered local calendar/basic acceptance semantics. Reuse this implementation before opening a new task; the next product phase remains separately scoped.

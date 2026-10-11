@@ -16,6 +16,7 @@ concurrency:
 jobs:
   ios-build:
     runs-on: macos-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: mobile/ios
@@ -69,25 +70,45 @@ jobs:
             build \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Verify simulator and result gate contracts
+        if: steps.changes.outputs.run == 'true'
+        run: python3 ../../scripts/ci/test_ios_runtime_gate.py
+
+      - name: Prepare concrete simulator with bounded readiness
+        if: steps.changes.outputs.run == 'true'
+        id: simulator
+        run: |
+          DEST="$(python3 ../../scripts/ci/ios_runtime_gate.py prepare 2> "${RUNNER_TEMP}/hiair-simulator-boot.log")"
+          echo "destination=${DEST}" >> "$GITHUB_OUTPUT"
+
       - name: Run iOS unit tests
         if: steps.changes.outputs.run == 'true'
         run: |
-          # Prefer a concrete simulator; fall back to first available iPhone if name drifts (e.g. 16→17).
-          DEST="platform=iOS Simulator,name=iPhone 17"
-          if ! xcrun simctl list devices available | grep -q "iPhone 17"; then
-            PHONE=$(xcrun simctl list devices available | awk -F'[()]' '/iPhone/{gsub(/^[[:space:]]+/,"",$1); print $1; exit}')
-            DEST="platform=iOS Simulator,name=${PHONE}"
-          fi
-          echo "Using destination: ${DEST}"
+          set -o pipefail
           xcodebuild \
             -project HiAir.xcodeproj \
             -scheme HiAir \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "${DEST}" \
+            -destination "${{ steps.simulator.outputs.destination }}" \
             -parallel-testing-enabled NO \
             -maximum-concurrent-test-simulator-destinations 1 \
             -only-testing:HiAirTests \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 60 \
+            -maximum-test-execution-time-allowance 120 \
+            -resultBundlePath "${RUNNER_TEMP}/hiair-unit.xcresult" \
             test \
             CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=YES
+            ONLY_ACTIVE_ARCH=YES 2>&1 | tee "${RUNNER_TEMP}/hiair-unit.log"
+          python3 ../../scripts/ci/ios_runtime_gate.py verify --result "${RUNNER_TEMP}/hiair-unit.xcresult"
+
+      - name: Preserve iOS execution diagnostics
+        if: always() && steps.changes.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/hiair-simulator-boot.log
+            ${{ runner.temp }}/hiair-unit.log
+            ${{ runner.temp }}/hiair-unit.xcresult

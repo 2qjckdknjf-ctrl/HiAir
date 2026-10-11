@@ -1068,6 +1068,7 @@ struct SettingsView: View {
     @State private var showWearableConsent = false
     @State private var showDeleteAccountConfirm = false
     @State private var restoreMessage = ""
+    @State private var restoreConfirmedPremium = false
     private let appleDeletionCoordinator = AppleSignInCoordinator()
 
     var body: some View {
@@ -1217,6 +1218,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier(HiAirAccessibilityID.Settings.manageSubscription)
                     if !restoreMessage.isEmpty {
                         Text(restoreMessage)
+                            .accessibilityIdentifier(restoreConfirmedPremium ? "settings.restore.success" : "settings.restore.unavailable")
                             .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                     }
@@ -1817,6 +1819,7 @@ struct SettingsView: View {
     }
 
     private func restorePurchases() async {
+        restoreConfirmedPremium = false
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
             restoreMessage = session.l("paywall.auth_required")
             return
@@ -1826,7 +1829,10 @@ struct SettingsView: View {
                 userId: session.userId,
                 accessToken: session.accessToken
             )
+            guard !Task.isCancelled, status.userId == session.userId else { return }
             session.applyEntitlement(status.entitlement)
+            restoreConfirmedPremium = status.entitlement?.isPremium == true
+                && subscriptionService.lastRestoreVerifiedTransactionCount > 0
             restoreMessage = (status.entitlement?.isPremium == true || session.isPremium)
                 ? session.l("paywall.restore_success")
                 : session.l("paywall.restore_nothing")

@@ -89,13 +89,14 @@ def get_summary(
         rows = health_sync_repository.list_metrics_for_date(user_id, day)
         sleep_row = health_sync_repository.get_sleep_for_date(user_id, day)
         metric_days = health_sync_repository.count_metric_days(user_id, "steps", days=30)
+        baselines = health_sync_repository.metric_baselines(user_id, days=30) if rows else {}
     except PsycopgError as exc:
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
     metrics: list[HealthSummaryMetric] = []
     for row in rows:
         metric_type = str(row["metric_type"])
-        baseline = health_sync_repository.metric_baseline(user_id, metric_type, days=30)
+        baseline = baselines.get(metric_type)
         current = None
         for key in ("value_avg", "value_total", "value_latest"):
             if row.get(key) is not None:

@@ -169,6 +169,15 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
                     latest_transaction_id = EXCLUDED.latest_transaction_id,
                     last_verified_at = NOW(),
                     updated_at = NOW()
+                WHERE NOT COALESCE((
+                    EXCLUDED.platform = 'ios'
+                    AND EXCLUDED.status IN ('active', 'trialing', 'grace_period', 'expired')
+                    AND EXCLUDED.original_transaction_id IS NOT NULL
+                    AND user_subscriptions.platform = EXCLUDED.platform
+                    AND user_subscriptions.provider = EXCLUDED.provider
+                    AND user_subscriptions.original_transaction_id = EXCLUDED.original_transaction_id
+                    AND user_subscriptions.current_period_end > EXCLUDED.current_period_end
+                ), FALSE)
                 RETURNING id
                 """,
                 (
@@ -189,7 +198,10 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
                 ),
             )
             row = cur.fetchone()
-            subscription_row_id = str(row["id"])
+            # Out-of-order older Apple renewals remain in the verified history,
+            # but must not replace a later renewal. Refund/revoke states are not
+            # filtered by this ordering guard and still fail closed.
+            subscription_row_id = str(row["id"]) if row is not None else None
 
             cur.execute(
                 """
@@ -219,12 +231,13 @@ def apply_verified_purchase(user_id: str, purchase: VerifiedStorePurchase) -> Su
                 ),
             )
 
-    entitlement_service.sync_entitlement_from_subscription(
-        user_id,
-        is_premium=is_premium,
-        premium_until=purchase.expires_at if is_premium else None,
-        source_subscription_id=subscription_row_id,
-    )
+    if subscription_row_id is not None:
+        entitlement_service.sync_entitlement_from_subscription(
+            user_id,
+            is_premium=is_premium,
+            premium_until=purchase.expires_at if is_premium else None,
+            source_subscription_id=subscription_row_id,
+        )
     return get_user_subscription(user_id)
 
 

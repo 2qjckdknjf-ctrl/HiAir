@@ -326,6 +326,47 @@ def get_daily_summary(user_id: str, target_date: date, source: WearableSource | 
     return _row_to_daily(row) if row else None
 
 
+def get_personal_load_core(user_id: str, target_date: date, source: WearableSource) -> dict:
+    """Batch the existing daily, two step windows and HR baselines in one round trip.
+
+    No cross-request cache: consent is checked by callers, every subquery is
+    user-bound, step/daily source filters and historical HR semantics are retained.
+    """
+    now = datetime.now(tz=UTC)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                WITH owned_daily AS (
+                    SELECT * FROM wearable_daily_summaries
+                    WHERE user_id = %s AND date >= %s
+                ), owned_hourly AS (
+                    SELECT hour_start, steps_total FROM wearable_hourly_summaries
+                    WHERE user_id = %s AND source = %s AND hour_start >= %s
+                )
+                SELECT
+                    (SELECT row_to_json(d) FROM owned_daily d
+                     WHERE date = %s AND source = %s LIMIT 1) AS daily,
+                    (SELECT COALESCE(SUM(steps_total), 0) FROM owned_hourly
+                     WHERE hour_start >= %s) AS steps_hour,
+                    (SELECT COALESCE(SUM(steps_total), 0) FROM owned_hourly) AS steps_3h,
+                    (SELECT AVG(resting_heart_rate_avg) FROM owned_daily
+                     WHERE date >= %s AND resting_heart_rate_avg IS NOT NULL) AS hr_7d,
+                    (SELECT AVG(resting_heart_rate_avg) FROM owned_daily
+                     WHERE resting_heart_rate_avg IS NOT NULL) AS hr_30d
+                """,
+                (user_id, target_date - timedelta(days=30), user_id, source.value,
+                 now - timedelta(hours=3), target_date, source.value,
+                 now - timedelta(hours=1), target_date - timedelta(days=7)),
+            )
+            row = dict(cur.fetchone())
+    return {"daily": _row_to_daily(row["daily"]) if row["daily"] else None,
+            "steps_hour": int(row["steps_hour"]), "steps_3h": int(row["steps_3h"]),
+            "hr_7d": float(row["hr_7d"]) if row["hr_7d"] is not None else None,
+            "hr_30d": float(row["hr_30d"]) if row["hr_30d"] is not None else None,
+            "source": source, "user_id": user_id, "local_date": target_date}
+
+
 def sum_steps_since(user_id: str, since: datetime, source: WearableSource | None = None) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:

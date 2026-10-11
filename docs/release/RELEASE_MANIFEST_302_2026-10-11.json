@@ -1,0 +1,91 @@
+{
+  "ios_source_sha": "97bf114c9ff950f8774063097fa40b5f03e1cdf0",
+  "ios_version": "1.2",
+  "ios_build": 302,
+  "android_source_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+  "android_version": "1.2.0",
+  "android_version_code": 302,
+  "clean_source": true,
+  "merged_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+  "deployed_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+  "pull_request": 88,
+  "production_deploy_run": 38142648465,
+  "pages_deploy_run": 38137446475,
+  "web_deployed_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+  "current_product_plan": "docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md",
+  "release_constraints": "docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md",
+  "artifacts": [
+    {
+      "path": ".evidence/HiAir-1.2-302.ipa",
+      "sha256": "51a1c3d72af976d6123217686e0ab53966d4dcf5a6fddc7a6a467efcfca329ce",
+      "bytes": 9086504,
+      "source_sha": "97bf114c9ff950f8774063097fa40b5f03e1cdf0",
+      "distribution": "TestFlight"
+    },
+    {
+      "path": ".evidence/android-play-302/app-release.aab",
+      "sha256": "899765a2231fcc2eb1b0894bbc99e48c7334f951542a7fdf0b1292156e9c14a9",
+      "bytes": 8818307,
+      "source_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+      "distribution": "Google Play internal"
+    }
+  ],
+  "live_ai_smoke": "PASS",
+  "feature_surfaces_smoke": "PASS_AFTER_DEPLOY_COMPLETED",
+  "free_action_single_window": "PASS",
+  "synthetic_account_cleanup": "PASS",
+  "testflight": {
+    "upload": "SUCCESS",
+    "delivery_uuid": "ca6e4bc7-428e-41d5-b4ce-9cc96d404611",
+    "processing_state": "VALID",
+    "build_id": "ca6e4bc7-428e-41d5-b4ce-9cc96d404611",
+    "internal_state": "IN_BETA_TESTING"
+  },
+  "google_play": {
+    "track": "internal",
+    "version_code": 302,
+    "run_id": 38143421103,
+    "source_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+    "upload_and_edit_commit": "SUCCESS",
+    "release_status": "completed",
+    "artifact_id": 11704011671
+  },
+  "physical_ios": {
+    "device": "iPhone 17 Pro",
+    "os": "27.0.1",
+    "source_sha": "97bf114c9ff950f8774063097fa40b5f03e1cdf0",
+    "configuration": "Release / Apple Development",
+    "network": "CELLULAR_OWNER_CONFIRMED",
+    "runtime_result_bundle": ".evidence/perf-302-post-restore-insights.xcresult",
+    "runtime_executed": 1,
+    "runtime_passed": 1,
+    "runtime_failed": 0,
+    "runtime_skipped": 0,
+    "primary_insights_latency": "PASS",
+    "sandbox_monthly_purchase_301": "OWNER_CONFIRMED_STOREKIT_VERIFIED_BACKEND_200_ACTIVE",
+    "sandbox_restore": "OWNER_TRIGGERED_COMPLETION_UNVERIFIED",
+    "full_matrix": "NOT_COMPLETED",
+    "previous_action_calendar_evidence": ".evidence/action-physical-301-live.xcresult",
+    "installed_version_readback": "1.2 (302)",
+    "invalid_prior_result": {
+      "bundle": ".evidence/perf-302-primary-insights.xcresult",
+      "reason": "XCTest bundle-ID-only launch retained installed build 301; excluded from 302 certification"
+    },
+    "observed_seconds": 5.44,
+    "client_primary_response_ms": 4840,
+    "sandbox_monthly_purchase_302": "STOREKIT_VERIFIED_BACKEND_200_ACTIVE",
+    "prior_failed_runtime_bundle": ".evidence/perf-302-installed-primary-insights.xcresult"
+  },
+  "physical_android": "DEVICE_UNAVAILABLE_OWNER_CONFIRMED",
+  "public_submission": "NOT_REQUESTED_NOT_SUBMITTED",
+  "runtime_readback": {
+    "run_id": 38143497089,
+    "result": "SUCCESS",
+    "app_source_sha256": "046609ee16818696789f6dfef53b24a1a3271a6f7ee1e92355a6fc8f158ab295",
+    "initial_rollout_readback": {
+      "run_id": 38142882628,
+      "result": "FAILED_OLD_APP_FINGERPRINT"
+    },
+    "initial_settled_readback": 38143004727
+  }
+}
