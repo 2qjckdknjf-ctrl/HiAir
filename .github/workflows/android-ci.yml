@@ -2,6 +2,7 @@ name: Android CI
 
 on:
   push:
+    branches: [main]
     paths:
       - "mobile/android/**"
       - ".github/workflows/android-ci.yml"
@@ -9,6 +10,10 @@ on:
     paths:
       - "mobile/android/**"
       - ".github/workflows/android-ci.yml"
+
+concurrency:
+  group: android-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   android-build:

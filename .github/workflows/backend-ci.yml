@@ -2,6 +2,7 @@ name: Backend CI
 
 on:
   push:
+    branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
@@ -9,6 +10,10 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
+
+concurrency:
+  group: backend-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend-smoke:
