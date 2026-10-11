@@ -5,6 +5,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+RELEASE_PYTHON="$ROOT/../../.venv312/bin/python"
+if [[ ! -x "$RELEASE_PYTHON" ]]; then RELEASE_PYTHON=/usr/bin/python3; fi
 SOURCE_SHA="$(git rev-parse HEAD)"
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "error: preserve and commit source changes before a signed release build." >&2
@@ -67,7 +69,7 @@ if [[ "$(git rev-parse HEAD)" != "$SOURCE_SHA" || -n "$(git status --porcelain)"
   echo "error: source changed during archive/export; upload is blocked." >&2
   exit 1
 fi
-SOURCE_SHA="$SOURCE_SHA" IPA_PATH="$IPA" RELEASE_ROOT="$ROOT" python3 - <<'PY'
+SOURCE_SHA="$SOURCE_SHA" IPA_PATH="$IPA" RELEASE_ROOT="$ROOT" "$RELEASE_PYTHON" - <<'PY'
 import hashlib, json, os
 from pathlib import Path
 ipa = Path(os.environ['IPA_PATH'])

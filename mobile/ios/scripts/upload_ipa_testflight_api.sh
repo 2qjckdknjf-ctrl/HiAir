@@ -5,10 +5,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+GUARD_PYTHON="$ROOT/../../.venv312/bin/python"
+if [[ ! -x "$GUARD_PYTHON" ]]; then GUARD_PYTHON=/usr/bin/python3; fi
 MANIFEST="${IPA_MANIFEST_PATH:-$ROOT/build/latest-release.json}"
 IPA="${IPA_PATH:-}"
 if [[ -z "$IPA" && -f "$MANIFEST" ]]; then
-  IPA="$(MANIFEST_PATH="$MANIFEST" python3 -c 'import json,os; print(json.load(open(os.environ["MANIFEST_PATH"]))["artifacts"][0]["path"])')"
+  IPA="$(MANIFEST_PATH="$MANIFEST" "$GUARD_PYTHON" -c 'import json,os; print(json.load(open(os.environ["MANIFEST_PATH"]))["artifacts"][0]["path"])')"
 fi
 KEY_ID="${APPLE_KEY_ID:-VCL6R84SP3}"
 KEY_PATH="${APPLE_KEY_PATH:-$ROOT/../../backend/.secrets/AuthKey_${KEY_ID}.p8}"
@@ -33,8 +35,6 @@ if [[ ! -f "$MANIFEST" ]]; then
   echo "error: a signed artifact source/hash manifest is required before upload." >&2
   exit 1
 fi
-GUARD_PYTHON="$ROOT/../../.venv312/bin/python"
-if [[ ! -x "$GUARD_PYTHON" ]]; then GUARD_PYTHON=python3; fi
 "$GUARD_PYTHON" "$ROOT/../../scripts/release/check_mobile_release_source.py" \
   --artifact "$IPA" --manifest "$MANIFEST"
 
