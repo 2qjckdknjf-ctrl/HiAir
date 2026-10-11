@@ -51,7 +51,7 @@
     "session_restore": "PASS",
     "live_dashboard": "PASS",
     "full_matrix": "NOT_COMPLETED",
-    "repeat_launch_capture_rendering": "UNCONFIRMED_PENDING_ON_DEVICE_VISUAL_CHECK"
+    "repeat_launch_capture_rendering": "OWNER_CONFIRMED_SCORE_AND_LEVEL_VISIBLE"
   },
   "physical_android": "NO_PHYSICAL_DEVICE",
   "public_submission": "NOT_SUBMITTED_OWNER_GATED",
@@ -63,5 +63,6 @@
     "source_sha": "828b3eb30d55939563aaa919ae73b81435e4cf16",
     "upload_and_edit_commit": "SUCCESS",
     "artifact_id": 11699022952
-  }
+  },
+  "android_emulator_install_launch": "PASS"
 }

@@ -6,7 +6,7 @@ Current candidate: iOS 1.2 (300), Android 1.2.0 (300), source 3c15a9c5; backend 
 
 Physical automation: installed Maestro 2.7 driver does not build under Xcode 27 (unsupported deployment target and missing bundled source files); direct CoreDevice installation/launch/screenshots succeeded. This is an automation limitation, not an observed app crash.
 
-Repeat-launch capture observation: initial live dashboard screenshot includes score/level; later CoreDevice captures omit the center labels and clip some text. On-device visual confirmation is pending; rendering certification is not claimed from those captures.
+Repeat-launch capture observation: CoreDevice screenshots omit some labels after relaunch, but the owner directly confirmed that the score and level label remain visible on the phone. Record this as a screenshot-capture discrepancy; no missing-label app defect was observed by the owner. Android signed APK install/launch/auth screen also PASS on emulator (not physical certification).
 
 No physical Android connected. Purchase/restore, consent/revoke/delete, offline and full language/notification matrix are NOT COMPLETED on the current physical candidates. Simulator tests do not replace them. Historical device instructions/builds below are superseded; use build 300 and RELEASE_MANIFEST_2026-10-11.json. Do not uninstall/delete the owner's account to run destructive QA; use an isolated test account.
 
