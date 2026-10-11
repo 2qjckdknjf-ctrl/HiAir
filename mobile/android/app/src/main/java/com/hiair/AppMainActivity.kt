@@ -80,7 +80,12 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         rootShell.symptomLogViewModel.attachFavoritesStore(SymptomFavoritesStore(this))
         healthConnectService = HealthConnectService(this)
         wearableHealthController = WearableHealthController(this, healthConnectService)
-        locationController = LocationController(this, rootShell.settingsViewModel)
+        locationController = LocationController(this, rootShell.settingsViewModel) {
+            rootShell.dashboardViewModel.reset()
+            rootShell.plannerViewModel.reset()
+            lastGeocodeKey = ""
+            renderCurrentScreen()
+        }
         placeGeocoding = PlaceGeocodingService(this)
         supabaseAuth = SupabaseAuthService(this, sessionStore)
         rootShell.settingsViewModel.configureSupabaseAuth(supabaseAuth)

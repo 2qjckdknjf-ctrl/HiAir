@@ -185,7 +185,7 @@ class SettingsViewModel(
 
     fun hasValidLocation(): Boolean = GeoCoordinates.isValid(state.latitude, state.longitude)
 
-    fun applyDeviceLocation(lat: Double, lon: Double): Boolean {
+    fun applyDeviceLocation(lat: Double, lon: Double, onSynced: () -> Unit = {}): Boolean {
         if (!GeoCoordinates.isValid(lat, lon)) {
             return false
         }
@@ -195,12 +195,19 @@ class SettingsViewModel(
             locationSource = LocationSource.DEVICE.raw,
             locationRevision = state.locationRevision + 1,
         )
+        val revision = state.locationRevision
+        val owner = state.userId
+        val notifyCurrent = {
+            if (state.userId == owner && state.locationRevision == revision) onSynced()
+        }
         // New users still need ensure before data fetch; existing profiles sync in background.
         if (state.profileId.isBlank()) {
-            return syncProfileLocationIfNeeded()
+            val synced = syncProfileLocationIfNeeded()
+            if (synced) notifyCurrent()
+            return synced
         }
         Thread {
-            syncProfileLocationIfNeeded()
+            if (syncProfileLocationIfNeeded()) notifyCurrent()
         }.start()
         return true
     }
@@ -222,6 +229,7 @@ class SettingsViewModel(
         )
     }
 
+    @Synchronized
     fun syncProfileLocationIfNeeded(): Boolean {
         if (!hasValidLocation() || state.userId.isBlank() || state.accessToken.isBlank()) {
             return false
@@ -229,13 +237,14 @@ class SettingsViewModel(
         if (state.profileId.isBlank()) {
             return ensureProfile() != null
         }
+        val current = state
         return try {
             apiClient.updateProfileLocation(
-                userId = state.userId,
-                accessToken = state.accessToken,
-                profileId = state.profileId,
-                homeLat = state.latitude,
-                homeLon = state.longitude,
+                userId = current.userId,
+                accessToken = current.accessToken,
+                profileId = current.profileId,
+                homeLat = current.latitude,
+                homeLon = current.longitude,
             )
             true
         } catch (_: Exception) {
@@ -486,7 +495,7 @@ class SettingsViewModel(
     }
 
     fun login(onComplete: (() -> Unit)? = null) {
-        if (state.email.isBlank() || state.password.length < 12) {
+        if (state.email.isBlank() || state.password.length < 8) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             onComplete?.invoke()
             return

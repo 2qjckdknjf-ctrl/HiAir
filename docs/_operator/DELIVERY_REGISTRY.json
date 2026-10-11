@@ -151,13 +151,22 @@
       "result": "PASS"
     },
     "android_unit": {
-      "count": 120,
+      "count": 122,
       "result": "PASS"
     },
     "backend": {
       "result": "PASS",
-      "coverage_percent": 76.31
+      "coverage_percent": 76.31,
+      "count": 485
     },
     "python_dependency_audit": "PASS"
-  }
+  },
+  "review_fixes": [
+    "Travel/work persistence fails closed",
+    "WBGT rejects future timestamps and bounds freshness",
+    "Fresh location reload follows profile persistence",
+    "HealthKit count uses actual samples",
+    "Travel fields included in privacy export",
+    "Existing Android account passwords retain 8-character login minimum"
+  ]
 }

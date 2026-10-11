@@ -19,12 +19,15 @@ def test_feature_export_and_delete_preserve_other_accounts():
                 place = str(uuid4())
                 conn.execute("INSERT INTO saved_places(id,user_id,name,place_type,lat,lon) VALUES (%s,%s,'Home','home',41,2)", (place, user))
                 places.append(place)
+                conn.execute("INSERT INTO user_settings(user_id, travel_place_id, travel_until) VALUES (%s,%s,NOW()+interval '1 day')", (user, place))
                 site = str(uuid4())
                 conn.execute("INSERT INTO work_sites(id,user_id,name,lat,lon) VALUES (%s,%s,'Site',41,2)", (site, user))
                 sites.append(site)
                 conn.execute("INSERT INTO work_site_wbgt_readings(user_id,site_id,wbgt_c,measured_at) VALUES (%s,%s,24,NOW())", (user, site))
         exported = export_user_data(owner)
         assert [row['id'] for row in exported['saved_places']] == [places[0]]
+        assert exported['settings']['travel_place_id'] == places[0]
+        assert exported['settings']['travel_until'] is not None
         assert [row['id'] for row in exported['work_sites']] == [sites[0]]
         assert len(exported['work_site_wbgt_readings']) == 1
         assert all(row['user_id'] == owner for row in exported['work_site_wbgt_readings'])

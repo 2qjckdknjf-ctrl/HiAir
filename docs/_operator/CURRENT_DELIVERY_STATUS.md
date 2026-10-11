@@ -6,6 +6,6 @@
 
 Релизный поезд: iOS 1.2 build 300; Android 1.2.0 code 300. Наличие сборки не означает public store release. Source SHA, merged SHA, deployed SHA и store processing фиксируются отдельно в итоговом release manifest.
 
-Проверки текущего кандидата: iOS 230 unit tests PASS; Android 120 unit tests PASS и signed AAB собран; backend suite PASS с покрытием 76.31%; pip-audit PASS. Эти числа описывают запуски кандидата; последующие изменения требуют соответствующих свежих проверок. Сквозные critical-path device/IAP проверки и store approval остаются самостоятельными условиями.
+Проверки текущего кандидата: iOS 230 unit tests PASS; Android 122 unit tests PASS и signed AAB собран; backend suite PASS с покрытием 76.31%; pip-audit PASS. Эти числа описывают запуски кандидата; последующие изменения требуют соответствующих свежих проверок. Сквозные critical-path device/IAP проверки и store approval остаются самостоятельными условиями.
 
 Production security: account_deletion_operations и account_deletion_stage_events защищены RLS; клиентские grants отозваны, серверный доступ сохранён и перепроверен. Не переносить старый production pin документ как разрешение на feature deploy. Новый production deploy разрешён только по immutable SHA main после gates.

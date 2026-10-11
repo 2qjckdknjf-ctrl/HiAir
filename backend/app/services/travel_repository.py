@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from psycopg import OperationalError
-from psycopg.errors import UndefinedColumn, UndefinedTable
 
 from app.models.travel import TravelSession
 import app.services.places_repository as places_repository
@@ -62,37 +60,28 @@ def get_travel_session(user_id: str) -> TravelSession:
             return TravelSession(active=False, source="home")
         return _session_from_place(place, until=until)
 
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT travel_place_id, travel_until
-                    FROM user_settings
-                    WHERE user_id = %s
-                    """,
-                    (user_id,),
-                )
-                row = cur.fetchone()
-        if row is None or row.get("travel_place_id") is None:
-            return TravelSession(active=False, source="home")
-        until = row.get("travel_until")
-        if until is not None and not _is_active(until):
-            clear_travel_session(user_id)
-            return TravelSession(active=False, source="home")
-        place = places_repository.get_place(user_id=user_id, place_id=str(row["travel_place_id"]))
-        if place is None:
-            clear_travel_session(user_id)
-            return TravelSession(active=False, source="home")
-        return _session_from_place(place, until=until)
-    except (UndefinedTable, UndefinedColumn, OperationalError):
-        row = _MEMORY.get(user_id)
-        if not row or not row.get("place_id"):
-            return TravelSession(active=False, source="home")
-        place = places_repository.get_place(user_id=user_id, place_id=row["place_id"])
-        if place is None:
-            return TravelSession(active=False, source="home")
-        return _session_from_place(place, until=row.get("until"))
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT travel_place_id, travel_until
+                FROM user_settings
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+    if row is None or row.get("travel_place_id") is None:
+        return TravelSession(active=False, source="home")
+    until = row.get("travel_until")
+    if until is not None and not _is_active(until):
+        clear_travel_session(user_id)
+        return TravelSession(active=False, source="home")
+    place = places_repository.get_place(user_id=user_id, place_id=str(row["travel_place_id"]))
+    if place is None:
+        clear_travel_session(user_id)
+        return TravelSession(active=False, source="home")
+    return _session_from_place(place, until=until)
 
 
 def start_travel_session(user_id: str, *, place_id: str, until: datetime | None) -> TravelSession:
@@ -106,43 +95,36 @@ def start_travel_session(user_id: str, *, place_id: str, until: datetime | None)
         _MEMORY[user_id] = {"place_id": place_id, "until": until}
         return _session_from_place(place, until=until)
 
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO user_settings (user_id, travel_place_id, travel_until, updated_at)
-                    VALUES (%s, %s, %s, NOW())
-                    ON CONFLICT (user_id) DO UPDATE SET
-                        travel_place_id = EXCLUDED.travel_place_id,
-                        travel_until = EXCLUDED.travel_until,
-                        updated_at = NOW()
-                    """,
-                    (user_id, place_id, until),
-                )
-        return _session_from_place(place, until=until)
-    except (UndefinedTable, UndefinedColumn, OperationalError):
-        _MEMORY[user_id] = {"place_id": place_id, "until": until}
-        return _session_from_place(place, until=until)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO user_settings (user_id, travel_place_id, travel_until, updated_at)
+                VALUES (%s, %s, %s, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    travel_place_id = EXCLUDED.travel_place_id,
+                    travel_until = EXCLUDED.travel_until,
+                    updated_at = NOW()
+                """,
+                (user_id, place_id, until),
+            )
+    return _session_from_place(place, until=until)
 
 
 def clear_travel_session(user_id: str) -> TravelSession:
     _MEMORY.pop(user_id, None)
     if _FORCE_MEMORY:
         return TravelSession(active=False, source="home")
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE user_settings
-                    SET travel_place_id = NULL,
-                        travel_until = NULL,
-                        updated_at = NOW()
-                    WHERE user_id = %s
-                    """,
-                    (user_id,),
-                )
-    except (UndefinedTable, UndefinedColumn, OperationalError):
-        pass
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE user_settings
+                SET travel_place_id = NULL,
+                    travel_until = NULL,
+                    updated_at = NOW()
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
     return TravelSession(active=False, source="home")

@@ -11,7 +11,7 @@ class ApiHttpException(
     val body: String = "",
 ) : RuntimeException(message)
 
-class ApiClient(private val baseUrl: String) {
+open class ApiClient(private val baseUrl: String) {
     data class AuthState(
         val userId: String,
         val accessToken: String,
@@ -102,7 +102,7 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
-    fun updateProfileLocation(
+    open fun updateProfileLocation(
         userId: String,
         accessToken: String?,
         profileId: String,

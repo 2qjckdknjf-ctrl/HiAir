@@ -53,6 +53,8 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                     quiet_hours_end,
                     profile_based_alerting,
                     preferred_language,
+                    travel_place_id,
+                    travel_until,
                     updated_at
                 FROM user_settings
                 WHERE user_id = %s

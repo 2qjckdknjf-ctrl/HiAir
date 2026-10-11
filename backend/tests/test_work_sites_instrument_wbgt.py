@@ -65,3 +65,14 @@ def test_stale_instrument_wbgt_ignored() -> None:
         payload=WorkSiteWbgtIngestRequest(wbgtC=40.0, measuredAt=stale),
     )
     assert work_sites_repository.latest_instrument_wbgt(user_id="u1", site_id=site.id) is None
+
+
+def test_future_instrument_wbgt_rejected_and_legacy_future_reading_ignored() -> None:
+    import pytest
+    site = work_sites_repository.create_site(user_id="u1", payload=WorkSiteCreateRequest(name="Dock", lat=25.2, lon=55.3))
+    now = datetime.now(timezone.utc)
+    future = now + timedelta(days=30)
+    with pytest.raises(ValueError, match="future"):
+        work_sites_repository.ingest_wbgt(user_id="u1", site_id=site.id, payload=WorkSiteWbgtIngestRequest(wbgtC=18, measuredAt=future.isoformat()))
+    work_sites_repository._READINGS[site.id] = [{"measured_at": future, "wbgt_c": 18}]
+    assert work_sites_repository.latest_instrument_wbgt(user_id="u1", site_id=site.id, now=now) is None

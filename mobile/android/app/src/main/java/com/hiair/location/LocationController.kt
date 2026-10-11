@@ -19,6 +19,7 @@ import com.hiair.ui.settings.SettingsViewModel
 class LocationController(
     private val activity: AppCompatActivity,
     private val settingsViewModel: SettingsViewModel,
+    private val onLocationUpdated: () -> Unit = {},
 ) {
     private val fusedClient = LocationServices.getFusedLocationProviderClient(activity)
     private var pendingBootstrap = false
@@ -118,7 +119,14 @@ class LocationController(
     }
 
     private fun applyLocation(location: android.location.Location, source: LocationSource) {
-        val applied = settingsViewModel.applyDeviceLocation(location.latitude, location.longitude)
+        val previous = settingsViewModel.state
+        val moved = kotlin.math.abs(previous.latitude - location.latitude) > 0.0001 ||
+            kotlin.math.abs(previous.longitude - location.longitude) > 0.0001
+        val applied = settingsViewModel.applyDeviceLocation(location.latitude, location.longitude) {
+            if (source == LocationSource.DEVICE && moved) {
+                activity.runOnUiThread { onLocationUpdated() }
+            }
+        }
         if (applied) {
             ProductAnalytics.track(
                 "location_fetch_success",

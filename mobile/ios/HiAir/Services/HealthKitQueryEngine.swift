@@ -128,10 +128,12 @@ enum HealthKitQueryEngine {
             return [unsupported(metric, unitName)]
         }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        async let actualCount = quantitySampleCount(store, type: type, predicate: predicate)
         if let total = await sumQuantity(store, type: type, unit: unit, predicate: predicate) {
+            guard let count = await actualCount else { return [] }
             return [HealthMetricSnapshot(
                 metricType: metric, unit: unitName, valueAvg: nil, valueMin: nil, valueMax: nil,
-                valueLatest: nil, valueTotal: total, sampleCount: 1, qualityState: "ok", hrvMethod: nil
+                valueLatest: nil, valueTotal: total, sampleCount: count, qualityState: "ok", hrvMethod: nil
             )]
         }
         return [HealthMetricSnapshot(
@@ -155,6 +157,7 @@ enum HealthKitQueryEngine {
             return unsupported(metric, unitName, hrvMethod: hrvMethod)
         }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        async let actualCount = quantitySampleCount(store, type: type, predicate: predicate)
         let stats = await statistics(
             store,
             type: type,
@@ -170,6 +173,7 @@ enum HealthKitQueryEngine {
                 valueLatest: nil, valueTotal: nil, sampleCount: 0, qualityState: "no_records", hrvMethod: hrvMethod
             )
         }
+        guard let count = await actualCount, count > 0 else { return nil }
         let latest = await latestSample(store, type: type, predicate: predicate)?.quantity.doubleValue(for: unit)
         return HealthMetricSnapshot(
             metricType: metric,
@@ -179,7 +183,7 @@ enum HealthKitQueryEngine {
             valueMax: max.map { $0 * scale },
             valueLatest: (latest ?? avg).map { $0 * scale },
             valueTotal: nil,
-            sampleCount: 1,
+            sampleCount: count,
             qualityState: "ok",
             hrvMethod: hrvMethod
         )
@@ -386,6 +390,21 @@ enum HealthKitQueryEngine {
                     }
                 }
                 continuation.resume(returning: stats)
+            }
+            store.execute(query)
+        }
+    }
+
+    private static func quantitySampleCount(
+        _ store: HKHealthStore,
+        type: HKQuantityType,
+        predicate: NSPredicate
+    ) async -> Int? {
+        await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate,
+                                      limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
+                // Count is provenance, not the number of aggregate output records.
+                continuation.resume(returning: error == nil ? (samples?.count ?? 0) : nil)
             }
             store.execute(query)
         }
