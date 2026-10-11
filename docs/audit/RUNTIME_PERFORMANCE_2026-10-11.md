@@ -15,3 +15,5 @@ Regression coverage: connection reuse/rollback; single-transaction health sync a
 Local checks: backend gate PASS including source-fingerprint regression; final count/coverage in gate log; iOS 238 unit PASS. Build 302 is in verification. Production/device latency and genuine purchase restore remain unverified until the new immutable API/client run. Current 301 receipts are retained.
 
 References: https://www.psycopg.org/psycopg3/docs/advanced/pool.html ; https://supabase.com/docs/guides/database/connecting-to-postgres . Current Supabase changelog reviewed; the recent database security minor upgrade does not change this pool API.
+
+When this host cannot reach the custom domain, source guards may use HIAIR_READBACK_RUN_ID (physical runner: --readback-run): freshly completed successful Production Readback from this repository/main, downloaded artifact, age <=10 minutes, exact deployed SHA and actual application fingerprint. Arbitrary local JSON or unrelated/failed/stale runs are not accepted. This changes the verification vantage point, not the source requirements.

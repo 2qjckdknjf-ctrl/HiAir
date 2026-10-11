@@ -3,9 +3,6 @@
 import argparse
 import json
 import subprocess
-import ssl
-import certifi
-import urllib.request
 import uuid
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -21,6 +18,7 @@ def main():
     parser.add_argument('--suite', choices=['action','runtime'], default='action')
     parser.add_argument('--derived-data', type=Path, default=ROOT/'.evidence/action-device-derived')
     parser.add_argument('--expect-sha')
+    parser.add_argument('--readback-run')
     parser.add_argument('--result', type=Path, default=ROOT/'.evidence/action-physical-tests.xcresult')
     args=parser.parse_args()
     derived=args.derived_data.resolve()
@@ -65,13 +63,14 @@ def main():
     else:
         if not args.expect_sha:
             parser.error('test requires --expect-sha after immutable production deployment')
-        request=urllib.request.Request('https://api.hiair.io/api/health',headers={'User-Agent':'HiAir-Physical-QA/1.0'})
-        with urllib.request.urlopen(request,timeout=30,context=ssl.create_default_context(cafile=certifi.where())) as response: health=json.load(response)
-        if health.get('deploy_git_sha') != args.expect_sha:
-            raise SystemExit('Production SHA mismatch: physical QA not started')
         import sys
         sys.path.insert(0,str(ROOT/'scripts/release'))
-        from check_mobile_release_source import source_digest
+        from check_mobile_release_source import source_digest, fetch_health
+        health=fetch_health(args.readback_run)
+        if health.get('status')!='ok' or health.get('service')!='hiair-backend':
+            raise SystemExit('Production health invalid: physical QA not started')
+        if health.get('deploy_git_sha') != args.expect_sha:
+            raise SystemExit('Production SHA mismatch: physical QA not started')
         if health.get('app_source_sha256') != source_digest(args.expect_sha):
             raise SystemExit('Running app fingerprint mismatch: physical QA not started')
         provenance=json.loads((derived/'physical-source.json').read_text())

@@ -62,7 +62,7 @@ final class InsightsViewModel: ObservableObject {
         self.windowDays = days
         refreshGeneration += 1
         let generation = refreshGeneration
-        let owner = userId + ":" + profileId
+        let owner = userId + ":" + profileId + ":" + String(days) + ":" + language
         if refreshOwner != owner {
             items = []; trends = []; associations = []; insufficient = []
             todaySummary = ""; healthStatusText = ""; loggedDays = 0; adaptation = nil; generatedAtDisplay = ""
@@ -97,15 +97,16 @@ final class InsightsViewModel: ObservableObject {
         }
         func recordFailure(_ error: Error) {
             if error is CancellationError { return }
-            hadFailure = true
             if let api = error as? APIError {
                 switch api {
                 case .server(402), .serverWithDetail(402, _):
                     if !premiumLocked { onPremiumRequired?() }
                     premiumLocked = true
+                    return // A normal entitlement boundary is not a transport failure.
                 default: break
                 }
             }
+            hadFailure = true
         }
         await withTaskGroup(of: FetchResult.self) { group in
             group.addTask { .history(await Self.capture {

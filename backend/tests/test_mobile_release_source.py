@@ -62,3 +62,16 @@ def test_running_code_identity_comes_from_app_files_not_environment_label(tmp_pa
     (app/'main.py').write_text('new code')
     git('add','.');git('commit','-qm','new code');updated=git('rev-parse','HEAD')
     assert module.source_digest(updated,tmp_path)!=module.source_digest(baseline,tmp_path)
+
+
+def test_remote_readback_requires_successful_fresh_owned_workflow():
+    from datetime import datetime,timezone,timedelta
+    run={'status':'completed','conclusion':'success','path':'.github/workflows/production-readback.yml',
+         'updated_at':datetime.now(timezone.utc).isoformat()}
+    module.validate_readback_metadata(run)
+    with pytest.raises(ValueError,match='successfully'):
+        module.validate_readback_metadata({**run,'conclusion':'failure'})
+    with pytest.raises(ValueError,match='dedicated'):
+        module.validate_readback_metadata({**run,'path':'.github/workflows/unrelated.yml'})
+    with pytest.raises(ValueError,match='stale'):
+        module.validate_readback_metadata({**run,'updated_at':(datetime.now(timezone.utc)-timedelta(minutes=11)).isoformat()})

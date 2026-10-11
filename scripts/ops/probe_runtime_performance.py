@@ -18,6 +18,9 @@ try:
         with urllib.request.urlopen(request,timeout=15) as response: payload=json.load(response)
         result[label]={'duration_ms':round((time.monotonic()-start)*1000),'source_sha':payload.get('deploy_git_sha') or payload.get('source_sha')}
         if label=='api':
+            if payload.get('status')!='ok' or payload.get('service')!='hiair-backend':
+                raise ValueError('API health is invalid')
+            result[label].update(status=payload['status'],service=payload['service'])
             from pathlib import Path
             import sys
             sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'release'))

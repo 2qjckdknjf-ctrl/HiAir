@@ -133,3 +133,41 @@ final class DashboardRequestPriorityTests: XCTestCase {
         XCTAssertEqual(model.riskLevel,"low")
     }
 }
+
+extension InsightsLoadingTests {
+    @MainActor func testPremiumBoundaryDoesNotShowTransportRetry() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[InsightsLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        InsightsLoadingProtocol.handler = { request in
+            if request.request.url!.path == "/api/symptoms/history" { request.respond("{\"profileId\":\"profile\",\"items\":[]}") }
+            else { request.respond("{}",status:402) }
+        }
+        let model=InsightsViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en")
+        XCTAssertTrue(model.premiumLocked)
+        XCTAssertFalse(model.partialFailure)
+        XCTAssertNil(model.lastError)
+    }
+
+    @MainActor func testChangingWindowDoesNotKeepCardsFromPreviousQueryOnFailure() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[InsightsLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        InsightsLoadingProtocol.handler = { request in
+            if request.request.url!.path == "/api/v1/health/insights" {
+                request.respond("{\"profileId\":\"profile\",\"generatedAt\":\"2026-10-11T12:00:00Z\",\"today\":{},\"trends\":[],\"associations\":[],\"insufficientData\":[]}")
+            } else { request.respond("{}",status:503) }
+        }
+        let model=InsightsViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en",windowDays:30)
+        XCTAssertTrue(model.hasContent)
+        InsightsLoadingProtocol.handler = { $0.respond("{}",status:503) }
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en",windowDays:7)
+        XCTAssertFalse(model.hasContent)
+        XCTAssertTrue(model.todaySummary.isEmpty)
+        XCTAssertNotNil(model.lastError)
+    }
+}
