@@ -296,6 +296,8 @@ class ApiClient(private val baseUrl: String) {
         activity: String,
         durationMinutes: Int? = null,
         intensity: String? = null,
+        earliestStart: String? = null,
+        latestStart: String? = null,
         placeId: String? = null,
     ): String {
         val endpoint = "$baseUrl/api/planner/activity-plan"
@@ -307,6 +309,12 @@ class ApiClient(private val baseUrl: String) {
             }
             if (!intensity.isNullOrBlank()) {
                 put("intensity", intensity)
+            }
+            if (!earliestStart.isNullOrBlank()) {
+                put("earliestStart", earliestStart)
+            }
+            if (!latestStart.isNullOrBlank()) {
+                put("latestStart", latestStart)
             }
             if (!placeId.isNullOrBlank()) {
                 put("placeId", placeId)

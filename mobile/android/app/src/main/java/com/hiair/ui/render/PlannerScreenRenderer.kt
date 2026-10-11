@@ -15,3 +15,28 @@ internal object PlannerScreenRenderer {
     private fun maybeAutoLoad(ctx: RenderContext) {
         if (StoreScreenshotMode.active || ctx.presentationOnly) return
         val rootShell = ctx.rootShell
+        val plannerState = rootShell.plannerViewModel.state
+        if (
+            !rootShell.plannerViewModel.hasAttemptedAutoLoad &&
+            !plannerState.loading &&
+            plannerState.hourly.isEmpty() &&
+            !plannerState.premiumRequired
+        ) {
+            rootShell.plannerViewModel.hasAttemptedAutoLoad = true
+            Thread {
+                val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()
+                val settings = rootShell.settingsViewModel.state
+                val profileId = resolvedProfileId
+                    ?: rootShell.symptomLogViewModel.state.profileId.ifBlank { "" }
+                if (profileId.isBlank()) return@Thread
+                rootShell.plannerViewModel.refresh(
+                    userId = settings.userId,
+                    accessToken = settings.accessToken.ifBlank { null },
+                    profileId = profileId,
+                    preferredLanguage = settings.preferredLanguage,
+                )
+                ctx.activity.runOnUiThread { ctx.rerender() }
+            }.start()
+        }
+    }
+}

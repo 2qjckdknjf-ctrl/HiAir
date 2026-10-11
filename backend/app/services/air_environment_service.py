@@ -111,6 +111,27 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
     )
 
 
+def _cache_lacks_post_migration_fields(cached: EnvironmentSnapshot) -> bool:
+    """Detect cache rows that predate the expanded hazard/WBGT snapshot shape.
+
+    A legacy row can still contain valid core weather/air values, so it remains a
+    safe fallback if live refresh fails. It should not, however, short-circuit a
+    refresh and permanently hide newer pollen/smoke/WBGT data after deployment.
+    Check the persisted row before any derived WBGT backfill so a synthetic
+    estimate cannot make an old row look migration-complete.
+    """
+    return all(
+        value is None
+        for value in (
+            cached.no2,
+            cached.pollen_grains_m3,
+            cached.wildfire_pm10,
+            cached.wbgt_c,
+            cached.shortwave_wm2,
+        )
+    )
+
+
 def resolve_environment_snapshot(
     lat: float,
     lon: float,
@@ -118,14 +139,15 @@ def resolve_environment_snapshot(
     prefer_live: bool = True,
     force_refresh: bool = False,
 ) -> EnvironmentSnapshot:
-    """Resolve environmental conditions: fresh cache → live → sample fallback.
+    """Resolve environmental conditions: fresh cache → live → honest fallback.
 
-    Within ``environment_cache_ttl_seconds``, serve DB cache immediately (label
-    ``cached``) so dashboard cold-start does not wait on Open-Meteo. Live
-    providers run on cache miss or ``force_refresh``. Sample remains last-resort
-    and honesty-gated.
+    Within ``environment_cache_ttl_seconds``, serve a complete DB cache row
+    immediately (label ``cached``). A legacy cache row missing all expanded
+    hazard/WBGT fields is retained as a fallback while one live refresh is
+    attempted. Sample remains last-resort and honesty-gated.
     """
     del prefer_live  # retained for call-site compatibility; cache-first is default
+    deferred_cached: EnvironmentSnapshot | None = None
     deferred_sample: EnvironmentSnapshot | None = None
 
     if not force_refresh:
@@ -137,9 +159,12 @@ def resolve_environment_snapshot(
         if cached_row is not None:
             honest = _honest_cached_snapshot(cached_row)
             if honest is not None and honest.source == SOURCE_CACHED:
-                # Serve core metrics immediately. Missing pollen/smoke/WBGT stay
-                # null (honest) — do not block the dashboard on a live refresh.
-                return honest
+                if _cache_lacks_post_migration_fields(cached_row):
+                    # Keep valid core metrics available if the live provider is
+                    # down, but first try to populate the expanded snapshot.
+                    deferred_cached = honest
+                else:
+                    return honest
             if honest is not None and honest.source == SOURCE_SAMPLE:
                 deferred_sample = honest
 
@@ -175,6 +200,9 @@ def resolve_environment_snapshot(
         return resolved
     except Exception:
         pass
+
+    if deferred_cached is not None:
+        return deferred_cached
 
     if deferred_sample is not None:
         return deferred_sample
