@@ -67,6 +67,7 @@ data class PlannerState(
     val earliestStartOverride: String = "",
     val selectedTimePreference: ActionTimePreference = ActionTimePreference.ANY,
     val activityTimezone: String = "",
+    val activityTimezonePlaceId: String = "",
     val activityPlanningAccess: String = "full",
     val activityPremiumRequired: Boolean = false,
     val activityForecastAvailable: Boolean = true,
@@ -216,6 +217,7 @@ class DailyPlannerViewModel(
     fun tryThirtyMinutesLater(): Boolean {
         val raw = state.activityRecommendedStartRaw.takeIf { it.isNotBlank() } ?: return false
         val shifted = shiftIsoByMinutesForUi(raw, 30) ?: return false
+        activityRequestGeneration.incrementAndGet()
         state = state.copy(
             earliestStartOverride = shifted,
             activityWindows = emptyList(),
@@ -252,8 +254,8 @@ class DailyPlannerViewModel(
         if (state.activityRecommendedStartRaw.isBlank()) return
         if (state.activityPlanningAccess == "basic") {
             state = state.copy(activityPlanMarked = true,
-                activityPlanMarkStatus = l("planner.activity.mark_planned_done", preferredLanguage))
-            ProductAnalytics.track("activity_plan_marked_planned", mapOf("access" to "basic"))
+                activityPlanMarkStatus = l("planner.activity.accepted_local", preferredLanguage))
+            ProductAnalytics.track("action_plan_accepted", mapOf("access" to "basic", "persistence" to "local"))
             return
         }
         recordProtectedDayEvent(
@@ -369,12 +371,15 @@ class DailyPlannerViewModel(
         accessToken: String?,
         profileId: String,
         preferredLanguage: String,
+        allowTimezoneRetry: Boolean = true,
     ) {
         val generation = activityRequestGeneration.incrementAndGet()
         val actionState = state
-        val zone = if (actionState.selectedPlaceId.isNotBlank()) {
-            actionState.savedPlaces.firstOrNull { it.id == actionState.selectedPlaceId }?.timezone ?: ""
-        } else actionState.activityTimezone
+        val responseZoneValid = runCatching { ZoneId.of(actionState.activityTimezone) }.isSuccess
+        val zone = if (responseZoneValid && actionState.activityTimezonePlaceId == actionState.selectedPlaceId) {
+            actionState.activityTimezone
+        } else actionState.savedPlaces.firstOrNull { it.id == actionState.selectedPlaceId }?.timezone
+            ?.takeIf { runCatching { ZoneId.of(it) }.isSuccess }.orEmpty()
         val bounds = actionState.selectedTimePreference.bounds(zone)
         val activityId = actionState.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID }
         val catalogEntry = actionState.activityCatalog.firstOrNull { it.id == activityId }
@@ -412,6 +417,19 @@ class DailyPlannerViewModel(
                 placeId = actionState.selectedPlaceId.takeIf { it.isNotBlank() },
             )
             if (generation != activityRequestGeneration.get()) return
+            val responseZone = JSONObject(raw).optString("timezone")
+            state = state.copy(activityTimezone = responseZone, activityTimezonePlaceId = actionState.selectedPlaceId)
+            if (actionState.selectedTimePreference != ActionTimePreference.ANY &&
+                (bounds.first == null || zone != responseZone)) {
+                if (allowTimezoneRetry && runCatching { ZoneId.of(responseZone) }.isSuccess) {
+                    refreshActivityPlan(userId, accessToken, profileId, preferredLanguage, false)
+                } else {
+                    state = state.copy(activityPlanLoading = false, activityWindows = emptyList(),
+                        activityRecommendedStart = "", activityRecommendedStartRaw = "",
+                        activityPlanStatusText = l("planner.activity.forecast_unavailable", preferredLanguage))
+                }
+                return
+            }
             val parsed = parseActivityPlan(raw, preferredLanguage)
             state = state.copy(
                 activityTimezone = JSONObject(raw).optString("timezone"),
@@ -508,6 +526,7 @@ class DailyPlannerViewModel(
                 earliestStartOverride = actionState.earliestStartOverride,
                 selectedTimePreference = actionState.selectedTimePreference,
                 activityTimezone = actionState.activityTimezone,
+                activityTimezonePlaceId = actionState.activityTimezonePlaceId,
                 activityPlanningAccess = actionState.activityPlanningAccess,
                 activityPremiumRequired = actionState.activityPremiumRequired,
                 activityForecastAvailable = actionState.activityForecastAvailable,

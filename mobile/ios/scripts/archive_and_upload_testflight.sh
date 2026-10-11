@@ -5,11 +5,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+SOURCE_SHA="$(git rev-parse HEAD)"
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "error: preserve and commit source changes before a signed release build." >&2
+  exit 1
+fi
+mkdir -p "$ROOT/build/releases"
+RELEASE_DIR="$(mktemp -d "$ROOT/build/releases/${SOURCE_SHA:0:12}-XXXXXX")"
 
 SCHEME="HiAir"
 PROJECT="HiAir.xcodeproj"
-ARCHIVE_PATH="$ROOT/build/HiAir.xcarchive"
-EXPORT_PATH="$ROOT/build/export"
+ARCHIVE_PATH="$RELEASE_DIR/HiAir.xcarchive"
+EXPORT_PATH="$RELEASE_DIR/export"
 EXPORT_OPTIONS="$ROOT/ExportOptions.plist"
 
 echo "==> Regenerate Xcode project (xcodegen)"
@@ -23,6 +30,10 @@ if [[ -n "$XCODEGEN" ]]; then
   "$XCODEGEN" generate
 else
   echo "warn: xcodegen not found; using existing $PROJECT"
+fi
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "error: generated project changed source; commit it before releasing." >&2
+  exit 1
 fi
 
 mkdir -p "$ROOT/build"
@@ -40,7 +51,6 @@ xcodebuild \
   -allowProvisioningUpdates
 
 echo "==> Export IPA (app-store-connect)"
-rm -rf "$EXPORT_PATH"
 xcodebuild \
   -exportArchive \
   -archivePath "$ARCHIVE_PATH" \
@@ -53,6 +63,19 @@ if [[ ! -f "$IPA" ]]; then
   echo "error: IPA not found at $EXPORT_PATH" >&2
   exit 1
 fi
+if [[ "$(git rev-parse HEAD)" != "$SOURCE_SHA" || -n "$(git status --porcelain)" ]]; then
+  echo "error: source changed during archive/export; upload is blocked." >&2
+  exit 1
+fi
+SOURCE_SHA="$SOURCE_SHA" IPA_PATH="$IPA" RELEASE_ROOT="$ROOT" python3 - <<'PY'
+import hashlib, json, os
+from pathlib import Path
+ipa = Path(os.environ['IPA_PATH'])
+manifest = {'ios_source_sha': os.environ['SOURCE_SHA'], 'clean_source': True,
+    'artifacts': [{'path': str(ipa.resolve()), 'sha256': hashlib.sha256(ipa.read_bytes()).hexdigest()}]}
+ipa.with_suffix('.manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+Path(os.environ['RELEASE_ROOT'], 'build/latest-release.json').write_text(json.dumps(manifest, indent=2) + '\n')
+PY
 
 echo ""
 echo "Archive ready:"
@@ -62,4 +85,4 @@ echo ""
 echo "Upload options:"
 echo "  1) Xcode → Organizer → Distribute App → App Store Connect"
 echo "  2) Apple Transporter app (drag $IPA)"
-echo "  3) xcrun altool --upload-app -f \"$IPA\" --type ios --apiKey ... --apiIssuer ..."
+echo "  3) IPA_PATH=... IPA_MANIFEST_PATH=... bash scripts/upload_ipa_testflight_api.sh"

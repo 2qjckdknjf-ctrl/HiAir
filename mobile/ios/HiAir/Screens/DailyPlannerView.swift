@@ -21,10 +21,16 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var selectedIntensity = "low"
     @Published var selectedTimePreference: ActionTimePreference = .any
     private var activityRequestGeneration = 0
+    private(set) var activityResponsePlaceId: String?
 
     var actionTimezone: String {
-        if let id = selectedPlaceId { return savedPlaces.first { $0.id == id }?.timezone ?? "" }
-        return timezoneIdentifier.isEmpty ? activityTimezoneIdentifier : timezoneIdentifier
+        if activityResponsePlaceId == selectedPlaceId,
+           TimeZone(identifier: activityTimezoneIdentifier) != nil { return activityTimezoneIdentifier }
+        if let id = selectedPlaceId {
+            let zone = savedPlaces.first { $0.id == id }?.timezone ?? ""
+            return TimeZone(identifier: zone) == nil ? "" : zone
+        }
+        return TimeZone(identifier: timezoneIdentifier) == nil ? "" : timezoneIdentifier
     }
     @Published var selectedPlaceId: String? = nil
     @Published var savedPlaces: [SavedPlace] = []
@@ -200,12 +206,24 @@ final class DailyPlannerViewModel: ObservableObject {
         userId: String,
         accessToken: String,
         language: String,
-        onPremiumRequired: (() -> Void)? = nil
+        onPremiumRequired: (() -> Void)? = nil,
+        allowTimezoneRetry: Bool = true
     ) async {
         guard !profileId.isEmpty else { return }
         activityRequestGeneration += 1
         let generation = activityRequestGeneration
-        let bounds = selectedTimePreference.bounds(timezone: actionTimezone)
+        let requestedActivity = selectedActivity
+        let requestedDuration = selectedDurationMinutes
+        let requestedIntensity = selectedIntensity
+        let requestedPlaceId = selectedPlaceId
+        let requestedPreference = selectedTimePreference
+        let requestedZone = actionTimezone
+        let bounds = requestedPreference.bounds(timezone: requestedZone)
+        func isCurrentRequest() -> Bool {
+            generation == activityRequestGeneration && requestedPlaceId == selectedPlaceId &&
+                requestedPreference == selectedTimePreference && requestedActivity == selectedActivity &&
+                requestedDuration == selectedDurationMinutes && requestedIntensity == selectedIntensity
+        }
         activityPlanLoading = true
         activitySurface = .loading
         activityPlan = nil
@@ -224,19 +242,32 @@ final class DailyPlannerViewModel: ObservableObject {
             )
             let payload = ActivityPlanRequest(
                 profileId: profileId,
-                activity: selectedActivity,
-                durationMinutes: selectedDurationMinutes,
-                intensity: selectedIntensity,
+                activity: requestedActivity,
+                durationMinutes: requestedDuration,
+                intensity: requestedIntensity,
                 earliestStart: bounds.earliest,
                 latestStart: bounds.latest,
-                placeId: selectedPlaceId
+                placeId: requestedPlaceId
             )
             let plan = try await apiClient.createActivityPlan(
                 payload: payload,
                 userId: userId,
                 accessToken: accessToken
             )
-            guard generation == activityRequestGeneration else { return }
+            guard isCurrentRequest() else { return }
+            activityResponsePlaceId = requestedPlaceId
+            activityTimezoneIdentifier = plan.timezone
+            if requestedPreference != .any, bounds.earliest == nil || requestedZone != plan.timezone {
+                if allowTimezoneRetry, TimeZone(identifier: plan.timezone) != nil {
+                    await refreshActivityPlan(profileId: profileId, userId: userId, accessToken: accessToken,
+                        language: language, onPremiumRequired: onPremiumRequired, allowTimezoneRetry: false)
+                } else {
+                    let message = HiAirL10n.t("planner.activity.forecast_unavailable", lang: language)
+                    activitySurface = .failed(message: message)
+                    activityStatusText = message
+                }
+                return
+            }
             activityPlan = plan
             activityTimezoneIdentifier = plan.timezone
             activityStatusText = ""
@@ -274,7 +305,7 @@ final class DailyPlannerViewModel: ObservableObject {
                 )
             }
         } catch let error as APIError {
-            guard generation == activityRequestGeneration else { return }
+            guard isCurrentRequest() else { return }
             ProductAnalytics.track(
                 "activity_plan_fetch_failed",
                 properties: ["activity": selectedActivity]
@@ -298,7 +329,7 @@ final class DailyPlannerViewModel: ObservableObject {
             }
             activityPlan = nil
         } catch {
-            guard generation == activityRequestGeneration else { return }
+            guard isCurrentRequest() else { return }
             ProductAnalytics.track(
                 "activity_plan_fetch_failed",
                 properties: ["activity": selectedActivity]
@@ -327,8 +358,8 @@ final class DailyPlannerViewModel: ObservableObject {
         guard activityPlan?.recommendedStart != nil else { return }
         if activityPlan?.planningAccess == "basic" {
             activityPlanMarked = true
-            activityPlanMarkStatus = HiAirL10n.t("planner.activity.mark_planned_done", lang: language)
-            ProductAnalytics.track("activity_plan_marked_planned", properties: ["access": "basic"])
+            activityPlanMarkStatus = HiAirL10n.t("planner.activity.accepted_local", lang: language)
+            ProductAnalytics.track("action_plan_accepted", properties: ["access": "basic", "persistence": "local"])
             return
         }
         await recordProtectedDayEvent(
@@ -1055,7 +1086,7 @@ struct DailyPlannerView: View {
 
                 if let plan = viewModel.activityPlan, plan.isForecastAvailable, !plan.windows.isEmpty {
                     if !viewModel.activityPlanMarked, plan.recommendedStart != nil {
-                        Button(session.l("planner.activity.mark_planned")) {
+                        Button(session.l(plan.planningAccess == "basic" ? "planner.activity.accept" : "planner.activity.mark_planned")) {
                             Task {
                                 await viewModel.markActivityPlanned(
                                     profileId: session.profileId,

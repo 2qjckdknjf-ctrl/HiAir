@@ -45,3 +45,45 @@ final class ActionRequestOrderingTests: XCTestCase {
         XCTAssertFalse(model.activityPlanLoading)
     }
 }
+
+private final class ActionPlaceProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var calls = 0
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        Self.calls += 1
+        let data = """
+        {"profileId":"profile","activity":"walking","intensity":"low","durationMinutes":30,"timezone":"America/New_York","forecastAvailable":true,"hourly":[],"windows":[],"recommendedStart":"2026-10-12T08:00:00-04:00","planningAccess":"basic"}
+        """.data(using: .utf8)!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+final class ActionPlaceTimezoneTests: XCTestCase {
+    @MainActor func testPlaceWithoutTimezoneRefetchesUsingReturnedZoneAndShowsLocalAcceptance() async {
+        ActionPlaceProtocol.calls = 0
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[ActionPlaceProtocol.self]
+        let session=URLSession(configuration:config)
+        defer { session.invalidateAndCancel(); ProductAnalytics.testEventSink=nil }
+        let model=DailyPlannerViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        model.savedPlaces=[SavedPlace(id:"place",userId:"test",name:"Reference",placeType:"other",lat:40.7,lon:-74,timezone:nil,createdAt:nil)]
+        model.selectedPlaceId="place"
+        model.selectedTimePreference = .morning
+        await model.refreshActivityPlan(profileId:"profile",userId:"test",accessToken:"test",language:"en")
+        XCTAssertEqual(ActionPlaceProtocol.calls,2)
+        XCTAssertEqual(model.actionTimezone,"America/New_York")
+        var acceptanceProperties: [String:String] = [:]
+        ProductAnalytics.testEventSink = { name, properties in
+            if name == "action_plan_accepted" { acceptanceProperties=properties }
+        }
+        await model.markActivityPlanned(profileId:"profile",userId:"test",accessToken:"test",language:"en")
+        XCTAssertTrue(model.activityPlanMarkStatus.contains("Calendar"))
+        XCTAssertFalse(model.activityPlanMarkStatus.localizedCaseInsensitiveContains("protected"))
+        XCTAssertEqual(acceptanceProperties["persistence"],"local")
+        XCTAssertEqual(ActionPlaceProtocol.calls,2,"Local choice must not claim remote Protected Day persistence")
+    }
+}

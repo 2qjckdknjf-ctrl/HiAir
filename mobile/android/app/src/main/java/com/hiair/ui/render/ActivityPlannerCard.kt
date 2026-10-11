@@ -195,7 +195,7 @@ internal object ActivityPlannerCard {
             ) {
                 addView(V2Ui.spacer(activity, 8))
                 addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("planner.activity.mark_planned")).apply {
+                    HiAirComponents.secondaryButton(activity, ctx.l(if (plannerState.activityPlanningAccess == "basic") "planner.activity.accept" else "planner.activity.mark_planned")).apply {
                         setOnClickListener {
                             Thread {
                                 val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()

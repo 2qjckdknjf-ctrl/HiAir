@@ -34,4 +34,29 @@ class ActionRequestOrderingTest {
         assertEquals(60, model.state.selectedDurationMinutes)
         assertFalse(model.state.activityPlanLoading)
     }
+
+    @Test fun placeWithoutTimezoneUsesReturnedZoneAndBasicAcceptanceIsHonest() {
+        val constraints = mutableListOf<String?>()
+        val api = object : ApiClient("http://unused.invalid") {
+            override fun createActivityPlan(userId: String, accessToken: String?, profileId: String,
+                activity: String, durationMinutes: Int?, intensity: String?, earliestStart: String?,
+                latestStart: String?, placeId: String?): String {
+                constraints.add(earliestStart)
+                return """{"timezone":"America/New_York","forecastAvailable":true,"windows":[],"recommendedStart":"2026-10-12T08:00:00-04:00","planningAccess":"basic"}"""
+            }
+        }
+        val model=DailyPlannerViewModel(api)
+        model.selectPlace("place-without-timezone")
+        model.selectTimePreference(ActionTimePreference.MORNING)
+        model.refreshActivityPlan("test", "token", "profile", "en")
+        assertEquals(2, constraints.size)
+        assertNull(constraints[0])
+        val bound=java.time.OffsetDateTime.parse(constraints[1])
+        assertEquals(bound.toInstant().atZone(java.time.ZoneId.of("America/New_York")).offset,bound.offset)
+        assertEquals("America/New_York",model.state.activityTimezone)
+        model.markActivityPlanned("test", "token", "profile", "en")
+        assertTrue(model.state.activityPlanMarked)
+        assertTrue(model.state.activityPlanMarkStatus.contains("Calendar"))
+        assertFalse(model.state.activityPlanMarkStatus.contains("protected", ignoreCase=true))
+    }
 }

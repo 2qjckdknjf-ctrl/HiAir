@@ -14,7 +14,7 @@ Scope: finish the current ACTION engineering slice from the 2026–2027 master s
 - Five-language controls/reason labels. Raw internal reason identifiers are not shown to users. Missing dashboard AQI/PM2.5/humidity and hazard score use unavailable display instead of false zero.
 - Historical roadmap/governance documents reconciled with protected main and the current registry. Pages deploy will publish source/run metadata and fail if production credentials are absent.
 
-Local checks: backend gate PASS (491 tests, 76.50% coverage), iOS 234 unit tests PASS, Android 127 unit tests + lint PASS. Review/CI, immutable deployment and signed build 301 receipts must be recorded after execution; local tests are not delivery evidence.
+Local checks: backend gate PASS (493 tests, 76.50% coverage), iOS 235 unit tests PASS, Android 128 unit tests + lint PASS. Review/CI, immutable deployment and signed build 301 receipts must be recorded after execution; local tests are not delivery evidence.
 
 ## Independent quality evidence
 
@@ -30,3 +30,7 @@ Captured live Open-Meteo forecasts: Barcelona, Dubai, Los Angeles; 9 activity co
 These are visible acceptance rows, not hidden coding TODOs. See registry, current QA report, ACTION_TAXONOMY and release receipts for the next executable steps.
 
 Calendar references: Apple EventKitUI calendar-access documentation and Android Calendar Provider ACTION_INSERT. Full calendar read permissions are not requested on iOS 17+ or Android. iOS 16 uses the required legacy permission and purpose string without reading existing events.
+
+Review hardening: basic choice now uses an explicit local confirmation and action_plan_accepted/persistence=local, not a saved-Protected-Day claim. Saved places without a timezone use the returned zone for that same place and refetch constrained plans once; unresolved constraints fail honestly. Cross-place timezone reuse is blocked. Native physical runner isolates Release UI tests from DEBUG-only unit helpers and rejects skipped checks.
+
+Store-source guards: Android/iOS source must be reachable from main and have the same backend tree as live production. iOS binary hash must match its source manifest. Archive/export outputs are retained per build; version defaults come from RELEASE_TRAIN.json. The guard is tested on real temporary Git graphs and tampered/stale artifacts.
