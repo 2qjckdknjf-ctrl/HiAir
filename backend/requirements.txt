@@ -2,6 +2,7 @@ fastapi!=0.136.3
 uvicorn[standard]
 python-dotenv
 psycopg[binary]
+psycopg-pool==3.3.3
 httpx
 email-validator
 pyjwt[crypto]

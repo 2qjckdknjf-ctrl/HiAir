@@ -75,9 +75,12 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         latency_ms = (perf_counter() - started) * 1000
         response.headers["X-Request-Id"] = request_id
+        response.headers["Server-Timing"] = f"app;dur={latency_ms:.2f}"
+        # Use the route template, never user identifiers or arbitrary 404 paths.
+        route_path = getattr(request.scope.get("route"), "path", "unmatched")
         record_request(
             method=request.method,
-            path=request.url.path,
+            path=route_path,
             status_code=response.status_code,
             latency_ms=latency_ms,
         )
@@ -86,7 +89,7 @@ def create_app() -> FastAPI:
                 {
                     "request_id": request_id,
                     "method": request.method,
-                    "path": request.url.path,
+                    "path": route_path,
                     "status_code": response.status_code,
                     "latency_ms": round(latency_ms, 2),
                 }

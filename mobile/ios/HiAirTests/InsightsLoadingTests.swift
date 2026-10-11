@@ -1,0 +1,185 @@
+import Combine
+import XCTest
+@testable import HiAir
+
+private class InsightsLoadingProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var handler: ((InsightsLoadingProtocol) -> Void)?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.handler?(self) }
+    override func stopLoading() {}
+    func respond(_ body: String, status: Int = 200) {
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status,
+            httpVersion: nil, headerFields: ["Content-Type":"application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+}
+
+private final class EntitlementLoadingProtocol: InsightsLoadingProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var requestHandler: ((InsightsLoadingProtocol) -> Void)?
+    override func startLoading() { Self.requestHandler?(self) }
+}
+
+private final class DashboardLoadingProtocol: InsightsLoadingProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var requestHandler: ((InsightsLoadingProtocol) -> Void)?
+    override func startLoading() { Self.requestHandler?(self) }
+}
+
+final class InsightsLoadingTests: XCTestCase {
+    @MainActor func testPrimaryCardsDoNotWaitForStalledHistory() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [InsightsLoadingProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler = nil }
+        let model = InsightsViewModel(apiClient: APIClient(baseURL: URL(string:"https://test.invalid")!, session: session),
+            deadlineNanoseconds: 5_000_000_000)
+        model.loggedDays = 7
+        let rendered = expectation(description: "Primary cards rendered before history timeout")
+        let cancellable = model.$loading
+            .filter { !$0 && !model.todaySummary.isEmpty }
+            .prefix(1)
+            .sink { _ in rendered.fulfill() }
+        defer { cancellable.cancel() }
+        InsightsLoadingProtocol.handler = { request in
+            if request.request.url!.path == "/api/symptoms/history" { return }
+            if request.request.url!.path == "/api/v1/health/insights" {
+                request.respond("""
+                {"profileId":"profile","generatedAt":"2026-10-11T12:00:00Z","today":{},"trends":[],"associations":[],"insufficientData":[]}
+                """)
+            } else { request.respond("{}",status:503) }
+        }
+        let task = Task { await model.refresh(profileId:"profile", userId:"owned-user", accessToken:"test", language:"en") }
+        await fulfillment(of:[rendered],timeout:4)
+        XCTAssertFalse(model.loading)
+        XCTAssertFalse(model.todaySummary.isEmpty)
+        await task.value
+        XCTAssertTrue(model.partialFailure)
+        XCTAssertFalse(model.loading)
+    }
+
+    @MainActor func testTransportFailureShowsRetryRatherThanNoData() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [InsightsLoadingProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler = nil }
+        InsightsLoadingProtocol.handler = { $0.respond("{}",status:503) }
+        let model = InsightsViewModel(apiClient: APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en")
+        XCTAssertNotNil(model.lastError)
+        XCTAssertTrue(model.partialFailure)
+        XCTAssertFalse(model.loading)
+    }
+}
+
+private final class PerformanceCredentials: SessionCredentialStoring {
+    private var values: [String:String] = [:]
+    func getString(forKey key: String) -> String? { values[key] }
+    func setString(_ value: String, forKey key: String) { values[key] = value }
+    func deleteValue(forKey key: String) { values.removeValue(forKey:key) }
+}
+
+final class EntitlementRefreshPerformanceTests: XCTestCase {
+    @MainActor func testDuplicateRefreshesShareRequestAndCannotUndoConfirmedPurchase() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[EntitlementLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        let defaults=UserDefaults(suiteName:"entitlement-perf-"+UUID().uuidString)!
+        let model=AppSession(defaults:defaults,credentials:PerformanceCredentials(),
+            apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        model.userId="owned-user"; model.accessToken="test"
+        defer { model.cancelLifecycleForTests(); session.invalidateAndCancel(); EntitlementLoadingProtocol.requestHandler=nil }
+        let entered=expectation(description:"Entitlement request held")
+        var held: InsightsLoadingProtocol?
+        var count=0
+        let lock=NSLock()
+        EntitlementLoadingProtocol.requestHandler = { request in
+            guard request.request.url!.path == "/api/subscriptions/me" else { request.respond("{}",status:503); return }
+            lock.lock(); count += 1; held=request; lock.unlock(); entered.fulfill()
+        }
+        let first=Task { await model.refreshEntitlement() }
+        let second=Task { await model.refreshEntitlement() }
+        await fulfillment(of:[entered],timeout:15)
+        await Task.yield()
+        model.applyEntitlement(UserEntitlementResponse(userId:"owned-user",plan:"premium",isPremium:true,
+            maxProfiles:6,extendedForecastEnabled:true,customAlertsEnabled:true,
+            exportReportsEnabled:true,advancedInsightsEnabled:true))
+        lock.lock(); let response=held; lock.unlock()
+        response?.respond("{\"user_id\":\"owned-user\",\"status\":\"inactive\",\"auto_renew\":false,\"entitlement\":null}")
+        await first.value; await second.value
+        XCTAssertEqual(count,1)
+        XCTAssertTrue(model.isPremium,"Old /me must not undo a confirmed purchase")
+    }
+}
+
+final class DashboardRequestPriorityTests: XCTestCase {
+    @MainActor func testPrimaryRiskCoalescesBeforeEnrichmentStarts() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[DashboardLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        let model=DashboardViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        defer { model.cancelRefresh(); session.invalidateAndCancel(); DashboardLoadingProtocol.requestHandler=nil }
+        let entered=expectation(description:"Primary risk held")
+        let lock=NSLock()
+        var held:InsightsLoadingProtocol?
+        var primaryCount=0
+        var enrichmentCount=0
+        DashboardLoadingProtocol.requestHandler={ request in
+            lock.lock()
+            if request.request.url!.path == "/api/air/current-risk" {
+                primaryCount += 1; held=request; lock.unlock(); entered.fulfill()
+            } else { enrichmentCount += 1; lock.unlock(); request.respond("{}",status:503) }
+        }
+        let first=Task { await model.refresh(userId:"owned-user",accessToken:"test",profileId:"profile",language:"en") }
+        let second=Task { await model.refresh(userId:"owned-user",accessToken:"test",profileId:"profile",language:"en") }
+        await fulfillment(of:[entered],timeout:15)
+        XCTAssertEqual(enrichmentCount,0,"Enrichment must not occupy the queue ahead of risk")
+        lock.lock(); let response=held; lock.unlock()
+        response?.respond("""
+        {"profileId":"profile","assessedAt":"2026-10-11T12:00:00Z","environmental":{"lat":0,"lon":0,"temperature":20,"feels_like":20,"source":"live","timestamp":"2026-10-11T12:00:00Z"},"risk":{"overallRisk":"low","heatRisk":"low","airRisk":"low","outdoorRisk":"low","indoorVentilationRisk":"low","safeWindows":[],"recommendationFlags":[],"reasonCodes":[]},"recommendation":{"headline":"Known risk","summary":"Known","actions":[]},"explanation":"Known","explanationSource":"template"}
+        """)
+        await first.value; await second.value
+        XCTAssertEqual(primaryCount,1)
+        XCTAssertFalse(model.loading)
+        XCTAssertEqual(model.riskLevel,"low")
+        await model.cancelAndDrainForTests()
+    }
+}
+
+extension InsightsLoadingTests {
+    @MainActor func testPremiumBoundaryDoesNotShowTransportRetry() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[InsightsLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        InsightsLoadingProtocol.handler = { request in
+            if request.request.url!.path == "/api/symptoms/history" { request.respond("{\"profileId\":\"profile\",\"items\":[]}") }
+            else { request.respond("{}",status:402) }
+        }
+        let model=InsightsViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en")
+        XCTAssertTrue(model.premiumLocked)
+        XCTAssertFalse(model.partialFailure)
+        XCTAssertNil(model.lastError)
+    }
+
+    @MainActor func testChangingWindowDoesNotKeepCardsFromPreviousQueryOnFailure() async {
+        let config=URLSessionConfiguration.ephemeral
+        config.protocolClasses=[InsightsLoadingProtocol.self]
+        let session=URLSession(configuration:config)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        InsightsLoadingProtocol.handler = { request in
+            if request.request.url!.path == "/api/v1/health/insights" {
+                request.respond("{\"profileId\":\"profile\",\"generatedAt\":\"2026-10-11T12:00:00Z\",\"today\":{},\"trends\":[],\"associations\":[],\"insufficientData\":[]}")
+            } else { request.respond("{}",status:503) }
+        }
+        let model=InsightsViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en",windowDays:30)
+        XCTAssertTrue(model.hasContent)
+        InsightsLoadingProtocol.handler = { $0.respond("{}",status:503) }
+        await model.refresh(profileId:"profile",userId:"owned-user",accessToken:"test",language:"en",windowDays:7)
+        XCTAssertFalse(model.hasContent)
+        XCTAssertTrue(model.todaySummary.isEmpty)
+        XCTAssertNotNil(model.lastError)
+    }
+}

@@ -25,10 +25,31 @@ final class DashboardViewModel: ObservableObject {
     @Published var highRiskAvoidedMarked = false
     @Published var protectedDayStatus = ""
 
-    private let apiClient = APIClient.live()
+    private let apiClient: APIClient
+    private var riskFlight: Task<AirCurrentRiskResponse, Error>?
+    private var riskFlightOwner = ""
+    private(set) var permitsDeferredWork = false
+
+    init(apiClient: APIClient = .live()) { self.apiClient = apiClient }
+
+    func cancelRefresh() {
+        permitsDeferredWork = false
+        refreshGeneration &+= 1
+        riskFlight?.cancel(); riskFlight = nil; riskFlightOwner = ""
+        enrichmentTask?.cancel(); enrichmentTask = nil
+        loading = false
+    }
     private let healthService = HealthKitService.shared
     private var refreshGeneration: UInt64 = 0
     private var enrichmentTask: Task<Void, Never>?
+
+    #if DEBUG
+    func cancelAndDrainForTests() async {
+        let pending = enrichmentTask
+        cancelRefresh()
+        await pending?.value
+    }
+    #endif
 
     func refresh(
         userId: String,
@@ -36,6 +57,7 @@ final class DashboardViewModel: ObservableObject {
         profileId: String?,
         language: String
     ) async {
+        permitsDeferredWork = false
         refreshGeneration &+= 1
         let generation = refreshGeneration
         enrichmentTask?.cancel()
@@ -72,38 +94,17 @@ final class DashboardViewModel: ObservableObject {
         }
         do {
             ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "dashboard"])
-            let hazardsTask = Task {
-                try await apiClient.fetchHazards(
-                    profileId: profileId,
-                    userId: userId,
-                    accessToken: accessToken
-                )
+            let owner = userId + ":" + accessToken + ":" + profileId
+            let request: Task<AirCurrentRiskResponse, Error>
+            if let existing = riskFlight, riskFlightOwner == owner { request = existing }
+            else {
+                riskFlight?.cancel()
+                request = Task { try await apiClient.fetchCurrentRisk(profileId:profileId,
+                    userId:userId,accessToken:accessToken) }
+                riskFlight = request; riskFlightOwner = owner
             }
-            let familyRiskTask = Task {
-                try await apiClient.fetchFamilyRiskOverview(
-                    userId: userId,
-                    accessToken: accessToken
-                )
-            }
-            let wearableTask = Task {
-                try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
-            }
-            let summaryTask = Task {
-                try await apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
-            }
-            let morningTask = Task {
-                try await apiClient.fetchAIReport(
-                    kind: "morning",
-                    profileId: profileId,
-                    userId: userId,
-                    accessToken: accessToken
-                )
-            }
-            let result = try await apiClient.fetchCurrentRisk(
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken
-            )
+            defer { if riskFlight == request { riskFlight = nil; riskFlightOwner = "" } }
+            let result = try await request.value
             guard generation == refreshGeneration else { return }
             // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
             let live = healthService.connectionState
@@ -163,6 +164,7 @@ final class DashboardViewModel: ObservableObject {
             // must not wait on AI or wearable enrichments.
             loading = false
             hasLoadedOnce = true
+            permitsDeferredWork = true
             ProductAnalytics.track(
                 "forecast_fetch_succeeded",
                 properties: [
@@ -172,20 +174,27 @@ final class DashboardViewModel: ObservableObject {
                 ]
             )
 
+            let client = apiClient
             enrichmentTask = Task { @MainActor [weak self] in
-                let hazards = try? await hazardsTask.value
-                let family = try? await familyRiskTask.value
-                let wearable = try? await wearableTask.value
-                let summary = try? await summaryTask.value
-                let morning = try? await morningTask.value
-                guard let self, generation == self.refreshGeneration else { return }
-                self.hazardsResponse = hazards
-                self.familyRiskOverview = family
-                self.wearableToday = wearable
-                self.healthSummary = summary
-                self.morningReport = morning
+                guard !Task.isCancelled else { return }
+                // Structured children inherit cancellation; they cannot outlive a
+                // replacement refresh or keep another tab's primary request queued.
+                async let hazards = try? client.fetchHazards(profileId:profileId,userId:userId,accessToken:accessToken)
+                async let family = try? client.fetchFamilyRiskOverview(userId:userId,accessToken:accessToken)
+                async let wearable = try? client.fetchWearableToday(userId:userId,accessToken:accessToken)
+                async let summary = try? client.fetchHealthSummary(userId:userId,accessToken:accessToken)
+                async let morning = try? client.fetchAIReport(kind:"morning",profileId:profileId,
+                    userId:userId,accessToken:accessToken)
+                let values = await (hazards,family,wearable,summary,morning)
+                guard let self, !Task.isCancelled, generation == self.refreshGeneration else { return }
+                self.hazardsResponse = values.0
+                self.familyRiskOverview = values.1
+                self.wearableToday = values.2
+                self.healthSummary = values.3
+                self.morningReport = values.4
             }
         } catch {
+            guard generation == refreshGeneration, !Task.isCancelled else { return }
             ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "dashboard"])
             loadFailed = true
             riskLevel = "error"
@@ -358,21 +367,22 @@ struct DashboardView: View {
            !UITestBootstrap.disableAutoProfileBootstrap {
             _ = await session.ensureProfileIdIfNeeded()
         }
-        // Never block dashboard/geo refresh on HealthKit sync.
-        // Sync only via cancellable coordinator after durable consent.
-        if !session.userId.isEmpty {
-            healthService.startBackgroundHealthSync(
-                userId: session.userId,
-                accessToken: session.accessToken,
-                profileId: session.profileId.isEmpty ? nil : session.profileId
-            )
-        }
         await viewModel.refresh(
             userId: session.userId,
             accessToken: session.accessToken,
             profileId: session.profileId.isEmpty ? nil : session.profileId,
             language: session.preferredLanguage
         )
+        // Never block dashboard/geo refresh on HealthKit sync.
+        // Sync only via cancellable coordinator after durable consent.
+        if !Task.isCancelled, viewModel.permitsDeferredWork, !session.userId.isEmpty {
+            healthService.startBackgroundHealthSync(
+                userId: session.userId,
+                accessToken: session.accessToken,
+                profileId: session.profileId.isEmpty ? nil : session.profileId
+            )
+        }
+
     }
 
     private var riskReason: String {
@@ -491,6 +501,7 @@ struct DashboardView: View {
                 profilePresent: !session.profileId.isEmpty
             )
         }
+        .onDisappear { viewModel.cancelRefresh() }
         .onChange(of: session.locationRevision) { _ in
             // Independent coordinate change — ensure still required when profile is empty.
             Task { await reloadDashboard() }

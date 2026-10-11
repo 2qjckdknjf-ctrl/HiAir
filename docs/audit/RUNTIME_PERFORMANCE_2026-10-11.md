@@ -1,0 +1,19 @@
+# Runtime performance hardening — 2026-10-11
+
+Owner reports 20–30s loading after a real Sandbox purchase and an apparently stuck Insights screen. Private iPhone diagnostics confirm verified monthly StoreKit purchase → backend HTTP 200 / entitlement active; dashboard first load ~19s and a later refresh ~34s; multiple URLSession timeouts across enrichments; three overlapping entitlement refreshes. Purchase transaction verification itself took ~6.7s after StoreKit confirmation; 25.2s total includes the owner/system purchase confirmation. Do not attribute the entire purchase-sheet time to API latency. Restore was started but no successful completion was observed.
+
+Dashboard now gives current risk priority, coalesces duplicate primary requests, starts enrichment/health sync after core rendering, and cancels structured enrichment when leaving the screen. Previously five detached enrichment requests could outlive replacement refreshes and occupy the URLSession queue.
+
+Changes: bounded process-local Postgres pool (8 connections, 5s borrow/connect limits, prepared statements disabled); commit/rollback semantics retained. Health metric payloads use one transaction, preserving consent filters and owned-user writes. Insights starts requests concurrently, renders primary cards immediately, cancels outstanding work at a 10s deadline, keeps available cards with an error/retry and never converts network failure into no-data success. Entitlement refreshes share one account/token/revision-scoped request and stale /me cannot undo a confirmed purchase.
+
+Read-only SELECT 1 baseline: connection establishment 261–298ms, query 81–84ms. Warm pooled SELECT 1 including transaction return: 113–143ms (first cold call 449ms). These are DB-path measurements, not proof of final app latency.
+
+Health/store guards additionally compare a digest of the actual deployed Python app files with Git source; environment SHA updates cannot certify an old image during rollout. Server-Timing and canonical route-template aggregate latency allow client/network and application time to be distinguished without logging account IDs/query strings. Production Readback is manual and read-only; it verifies exact API SHA and aggregate metrics independently of this Mac's connection. Local TCP connects to the current Cloudflare custom-domain IPv4 endpoints began timing out; database/Google/GitHub remained reachable. No DNS/router/security setting was changed, and alternate Cloudflare edge IP did not serve this zone. Do not claim this network condition is fixed by pooling.
+
+Regression coverage: connection reuse/rollback; single-transaction health sync and consent-denied exclusion; per-route latency aggregation; primary Insights rendering while history stalls; network failure → retry; duplicate entitlement requests and stale free status after verified Premium. Updated forecast merge also retains model-forecast provenance rather than overwriting it as observation.
+
+Local checks: backend gate PASS including source-fingerprint regression; final count/coverage in gate log; iOS 238 unit PASS. Build 302 is in verification. Production/device latency and genuine purchase restore remain unverified until the new immutable API/client run. Current 301 receipts are retained.
+
+References: https://www.psycopg.org/psycopg3/docs/advanced/pool.html ; https://supabase.com/docs/guides/database/connecting-to-postgres . Current Supabase changelog reviewed; the recent database security minor upgrade does not change this pool API.
+
+When this host cannot reach the custom domain, source guards may use HIAIR_READBACK_RUN_ID (physical runner: --readback-run): freshly completed successful Production Readback from this repository/main, downloaded artifact, age <=10 minutes, exact deployed SHA and actual application fingerprint. Arbitrary local JSON or unrelated/failed/stale runs are not accepted. This changes the verification vantage point, not the source requirements.

@@ -357,8 +357,9 @@ final class ProfileEnsureTests: XCTestCase {
 
     func testCancellationDoesNotSurfaceAsNetworkError() async {
         UITestMockAPIProtocol.reset()
-        UITestMockAPIProtocol.failNextWithURLError = .cancelled
-        UITestMockAPIProtocol.failURLErrorPathSubstring = "/api/profiles"
+        // Per-client error injection cannot be consumed by late shared-protocol
+        // callbacks left over from a preceding cancellation test.
+        harness.apiClient.testForceListProfilesError = URLError(.cancelled)
         let session = harness.makeSession()
         session.userId = "user-1"
         session.accessToken = "token"

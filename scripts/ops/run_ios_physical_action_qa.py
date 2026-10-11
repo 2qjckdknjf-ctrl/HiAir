@@ -3,9 +3,6 @@
 import argparse
 import json
 import subprocess
-import ssl
-import certifi
-import urllib.request
 import uuid
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -18,12 +15,15 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('mode', choices=['build','test'])
     parser.add_argument('--device', required=True)
+    parser.add_argument('--suite', choices=['action','runtime'], default='action')
     parser.add_argument('--derived-data', type=Path, default=ROOT/'.evidence/action-device-derived')
     parser.add_argument('--expect-sha')
+    parser.add_argument('--readback-run')
     parser.add_argument('--result', type=Path, default=ROOT/'.evidence/action-physical-tests.xcresult')
     args=parser.parse_args()
     derived=args.derived_data.resolve()
     destination=f'platform=iOS,id={args.device}'
+    test_class='PhysicalActionDeliveryUITests' if args.suite=='action' else 'PhysicalRuntimePerformanceUITests'
     if args.mode=='build':
         if subprocess.check_output(['git','status','--porcelain','--','mobile/ios'],cwd=ROOT,text=True).strip():
             raise SystemExit('Commit mobile source before building physical QA')
@@ -48,7 +48,7 @@ def main():
         try:
             subprocess.run(['xcodebuild','-project','HiAir.xcodeproj','-scheme',scheme,
                 '-configuration','Release','-destination',destination,'-derivedDataPath',str(derived),
-                '-only-testing:HiAirUITests/PhysicalActionDeliveryUITests','-allowProvisioningUpdates',
+                f'-only-testing:HiAirUITests/{test_class}','-allowProvisioningUpdates',
                 'build-for-testing','DEVELOPMENT_TEAM=43A4KW5BKB','CODE_SIGN_STYLE=Automatic',
                 'CODE_SIGN_IDENTITY=Apple Development'],cwd=IOS,check=True)
         finally:
@@ -63,10 +63,16 @@ def main():
     else:
         if not args.expect_sha:
             parser.error('test requires --expect-sha after immutable production deployment')
-        request=urllib.request.Request('https://api.hiair.io/api/health',headers={'User-Agent':'HiAir-Physical-QA/1.0'})
-        with urllib.request.urlopen(request,timeout=30,context=ssl.create_default_context(cafile=certifi.where())) as response: health=json.load(response)
+        import sys
+        sys.path.insert(0,str(ROOT/'scripts/release'))
+        from check_mobile_release_source import source_digest, fetch_health
+        health=fetch_health(args.readback_run)
+        if health.get('status')!='ok' or health.get('service')!='hiair-backend':
+            raise SystemExit('Production health invalid: physical QA not started')
         if health.get('deploy_git_sha') != args.expect_sha:
             raise SystemExit('Production SHA mismatch: physical QA not started')
+        if health.get('app_source_sha256') != source_digest(args.expect_sha):
+            raise SystemExit('Running app fingerprint mismatch: physical QA not started')
         provenance=json.loads((derived/'physical-source.json').read_text())
         tree=subprocess.check_output(['git','rev-parse','HEAD:mobile/ios'],cwd=ROOT,text=True).strip()
         if provenance['ios_tree']!=tree:
@@ -75,13 +81,13 @@ def main():
         if not runs: raise SystemExit('Build physical QA first')
         if args.result.exists(): raise SystemExit('Use a fresh result path; existing evidence preserved')
         subprocess.run(['xcodebuild','test-without-building','-xctestrun',str(runs[-1]),
-            '-destination',destination,'-only-testing:HiAirUITests/PhysicalActionDeliveryUITests',
+            '-destination',destination,f'-only-testing:HiAirUITests/{test_class}',
             '-resultBundlePath',str(args.result.resolve())],cwd=IOS,check=True)
         summary=json.loads(subprocess.check_output(['xcrun','xcresulttool','get','test-results','summary',
             '--path',str(args.result.resolve()),'--compact'],text=True))
         if summary.get('totalTestCount') != 1 or summary.get('passedTests') != 1 or summary.get('skippedTests') != 0 or summary.get('failedTests') != 0:
             raise SystemExit('Physical QA not certified: missing/passed/skipped test counts differ')
-        print('Physical ACTION live UI check: PASS (one executed, zero skipped)')
+        print(f'Physical {args.suite} live UI check: PASS (one executed, zero skipped)')
     return 0
 
 if __name__=='__main__':

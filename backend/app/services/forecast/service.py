@@ -135,6 +135,9 @@ def _fetch_live(lat: float, lon: float, hours: int) -> EnvironmentalForecast:
 
     current = None
     if weather_current is not None or air_current is not None:
+        kinds = {point.provenance.kind for point in (weather_current, air_current)
+                 if point is not None and point.provenance is not None}
+        current_kind = next(iter(kinds)) if len(kinds) == 1 else EnvironmentalDataKind.DERIVED
         current = merge_points(
             weather_current,
             air_current,
@@ -142,7 +145,7 @@ def _fetch_live(lat: float, lon: float, hours: int) -> EnvironmentalForecast:
             fallback_lon=lon,
             fallback_timezone=timezone_name,
             fetched_at=fetched_at,
-            kind=EnvironmentalDataKind.OBSERVED,
+            kind=current_kind,
         )
 
     hourly = merge_hourly(

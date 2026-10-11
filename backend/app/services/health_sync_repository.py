@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import date, datetime, timezone
+from psycopg import Connection
 from typing import Any
 from uuid import uuid4
 
@@ -26,8 +28,9 @@ def upsert_metric_daily(
     timezone_name: str,
     source_platform: str,
     item: MetricSummaryItem,
+    connection: Connection | None = None,
 ) -> None:
-    with get_connection() as conn:
+    with (nullcontext(connection) if connection is not None else get_connection()) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -94,8 +97,9 @@ def upsert_sleep_summary(
     timezone_name: str,
     source_platform: str,
     sleep: SleepSummaryItem,
+    connection: Connection | None = None,
 ) -> None:
-    with get_connection() as conn:
+    with (nullcontext(connection) if connection is not None else get_connection()) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -157,9 +161,10 @@ def upsert_sync_state(
     cursor_metadata: dict[str, Any],
     error_code: str | None = None,
     success: bool = False,
+    connection: Connection | None = None,
 ) -> datetime | None:
     now = datetime.now(tz=timezone.utc)
-    with get_connection() as conn:
+    with (nullcontext(connection) if connection is not None else get_connection()) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -372,6 +377,18 @@ def apply_sync(
     payload: HealthSyncRequest,
     consent: object | None = None,
 ) -> tuple[int, list[str], bool, datetime | None]:
+    # A payload is one transaction, not a fresh handshake/commit for each metric.
+    # Existing consent filtering and user ownership remain inside the same flow.
+    with get_connection() as connection:
+        return _apply_sync_on_connection(user_id, payload, consent, connection)
+
+
+def _apply_sync_on_connection(
+    user_id: str,
+    payload: HealthSyncRequest,
+    consent: object | None,
+    connection: Connection,
+) -> tuple[int, list[str], bool, datetime | None]:
     accepted = 0
     rejected: list[str] = []
     for item in payload.metrics:
@@ -382,6 +399,7 @@ def apply_sync(
             rejected.append(f"{item.metricType}:consent_denied")
             continue
         upsert_metric_daily(
+            connection=connection,
             user_id=user_id,
             profile_id=payload.profileId,
             local_date=payload.localDate,
@@ -401,6 +419,7 @@ def apply_sync(
             rejected.append("sleep:consent_denied")
         else:
             upsert_sleep_summary(
+            connection=connection,
                 user_id=user_id,
                 profile_id=payload.profileId,
                 timezone_name=payload.timezone,
@@ -411,6 +430,7 @@ def apply_sync(
 
     status = "success" if not rejected else ("partial" if accepted or sleep_accepted else "error")
     last_success = upsert_sync_state(
+            connection=connection,
         user_id=user_id,
         platform=payload.platform.value,
         source_platform=payload.source.value,

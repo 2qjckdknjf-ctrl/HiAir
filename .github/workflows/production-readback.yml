@@ -1,0 +1,32 @@
+name: Production Readback
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Immutable deployed API commit to verify
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read health and aggregate performance without changing deployment
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          NOTIFICATION_ADMIN_TOKEN: ${{ secrets.NOTIFICATION_ADMIN_TOKEN }}
+        run: |
+          python scripts/ops/probe_runtime_performance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-readback
+          path: runtime-readback.json

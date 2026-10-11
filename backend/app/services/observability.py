@@ -12,6 +12,7 @@ class ObservabilityState:
     by_path: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     latency_ms_total: float = 0.0
     latency_samples: int = 0
+    path_latency: dict[str, dict[str, float]] = field(default_factory=dict)
     ai_explanations_total: int = 0
     ai_explanations_fallback: int = 0
     ai_guardrail_blocked: int = 0
@@ -33,6 +34,10 @@ def record_request(method: str, path: str, status_code: int, latency_ms: float) 
         state.by_path[path] += 1
         state.latency_ms_total += latency_ms
         state.latency_samples += 1
+        timing = state.path_latency.setdefault(path, {"count":0,"total_ms":0,"max_ms":0})
+        timing["count"] += 1
+        timing["total_ms"] += latency_ms
+        timing["max_ms"] = max(timing["max_ms"], latency_ms)
         if status_code >= 500:
             state.total_errors += 1
 
@@ -56,6 +61,9 @@ def snapshot_metrics() -> dict[str, object]:
             "by_method": dict(state.by_method),
             "by_status": dict(state.by_status),
             "by_path": dict(state.by_path),
+            "by_path_latency": {path: {"count":int(timing["count"]),
+                "avg_ms":round(timing["total_ms"] / timing["count"],2),
+                "max_ms":round(timing["max_ms"],2)} for path,timing in state.path_latency.items()},
         }
 
 
