@@ -56,6 +56,21 @@ Token value is never written to this record.
 
 Prefer a long-lived **Custom API Token** for CI stability. OAuth refresh works and was proven sufficient for this recovery; expires ~16h and should be refreshed before the next deploy if Custom Token is still unavailable.
 
+## 2026-08-25 Custom API Token (long-lived)
+
+| Item | Result |
+|------|--------|
+| Method | Cloudflare Dashboard → Edit Cloudflare Workers template (+ Containers Edit) |
+| Token name | `hiair-github-production-deploy` |
+| Account | `864f04d729c24f574a228558b40d7b82` (All zones for Workers Routes) |
+| TTL | none (long-lived) |
+| Local secret | `backend/.secrets/cloudflare_api_token` (chmod 600, gitignored) |
+| GitHub | `production/CLOUDFLARE_API_TOKEN` updated 2026-08-25T13:55:03Z |
+| Preflight | `scripts/ops/verify_cloudflare_deploy_token.py` → PASS (custom API token) |
+| Ops fix | rotate/verify now prefer secret file over stale `CLOUDFLARE_API_TOKEN` env |
+
+Token value is never written to this record.
+
 ## Stage 0 recovery (2026-07-23)
 
 | Item | Result |

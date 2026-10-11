@@ -53,6 +53,8 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                     quiet_hours_end,
                     profile_based_alerting,
                     preferred_language,
+                    travel_place_id,
+                    travel_until,
                     updated_at
                 FROM user_settings
                 WHERE user_id = %s
@@ -280,6 +282,17 @@ def export_user_data(user_id: str) -> dict[str, Any]:
                 _fetch_wearable_export_rows(cur, user_id)
             )
 
+            feature_exports: dict[str, list[dict[str, Any]]] = {}
+            for table_name in (
+                "saved_places", "protected_day_events", "family_member_links",
+                "work_sites", "work_site_wbgt_readings",
+            ):
+                if _public_table_exists(cur, table_name):
+                    cur.execute(f"SELECT * FROM {table_name} WHERE user_id = %s", (user_id,))
+                    feature_exports[table_name] = cur.fetchall()
+                else:
+                    feature_exports[table_name] = []
+
             subscription_webhook_events: list[dict[str, Any]] = []
             if provider_subscription_id:
                 cur.execute(
@@ -317,6 +330,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
             metric_daily,
             sleep_summaries,
             sync_states,
+            *feature_exports.values(),
         )
     ):
         raise ValueError("User not found")
@@ -325,6 +339,7 @@ def export_user_data(user_id: str) -> dict[str, Any]:
         user = {"id": user_id, "email": None, "created_at": None}
 
     return {
+        **{name: _serialize_rows(rows) for name, rows in feature_exports.items()},
         "user": _serialize_row(user),
         "settings": _serialize_optional_row(settings),
         "subscription": _serialize_optional_row(subscription),
@@ -551,8 +566,13 @@ def delete_user_data(user_id: str) -> bool:
                 "saved_places",
                 "protected_day_events",
                 "family_member_links",
+                "work_site_wbgt_readings",
+                "work_sites",
+                "user_entitlements",
+                "provider_transactions",
             ):
                 if table_name in {
+                    "work_site_wbgt_readings", "work_sites", "user_entitlements", "provider_transactions",
                     "health_insights",
                     "symptom_favorites",
                     "custom_symptoms",
@@ -577,6 +597,9 @@ def delete_user_data(user_id: str) -> bool:
                     if not _recover_missing_relation(exc):
                         raise
 
+            if profile_ids and _public_table_exists(cur, "family_member_links"):
+                cur.execute("DELETE FROM family_member_links WHERE member_profile_id = ANY(%s)",
+                            ([str(profile_id) for profile_id in profile_ids],))
             cur.execute("DELETE FROM profiles WHERE user_id = %s", (user_id,))
             deleted_any = deleted_any or cur.rowcount > 0
 

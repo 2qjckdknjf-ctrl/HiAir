@@ -70,6 +70,10 @@ class EnvironmentalInput(BaseModel):
     no2: float | None = Field(default=None, ge=0)
     uv: float | None = Field(default=None, ge=0)
     wind_speed: float | None = Field(default=None, ge=0)
+    # CAMS / Open-Meteo pollen (grains/m³). Max across species when available.
+    pollen_grains_m3: float | None = Field(default=None, ge=0)
+    # Open-Meteo pm10_wildfires (µg/m³). Null outside model coverage.
+    wildfire_pm10: float | None = Field(default=None, ge=0)
     source: str
     timestamp: str
     timezone: str = "UTC"

@@ -28,6 +28,7 @@ class PersonalLoadInput:
     resting_heart_rate_baseline_7d: float | None = None
     resting_heart_rate_baseline_30d: float | None = None
     sleep_minutes: int | None = None
+    sleep_minutes_baseline_7d: float | None = None
     hrv_ms: float | None = None
     hrv_baseline_7d: float | None = None
     exercise_minutes: float | None = None
@@ -159,6 +160,17 @@ def compute_personal_load_score(data: PersonalLoadInput) -> PersonalLoadResult:
             raw_points += 10
             reason_codes.append("short_sleep_high_activity")
             explanations.append("После короткого сна лучше снизить интенсивность активности.")
+
+    # Sleep below personal 7d baseline (only when baseline exists — never invented)
+    if (
+        data.sleep_minutes is not None
+        and data.sleep_minutes_baseline_7d is not None
+        and data.sleep_minutes_baseline_7d >= 300
+        and data.sleep_minutes < data.sleep_minutes_baseline_7d * 0.85
+    ):
+        raw_points += 15
+        reason_codes.append("sleep_below_7d_baseline")
+        explanations.append("Сон короче вашей недавней нормы — учитывайте восстановление при планах на улице.")
 
     # Low HRV vs recent baseline (recovery signal only)
     if (

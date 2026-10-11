@@ -5,6 +5,9 @@ from app.models.air import EnvironmentalInput, UserProfileContext
 from app.models.risk import EnvironmentSnapshot
 import app.services.air_repository as air_repository
 from app.services.environment_service import build_sample_snapshot, fetch_live_snapshot
+from app.services.singleflight import SingleFlight
+
+_LIVE_ENV_FLIGHT = SingleFlight()
 
 SOURCE_LIVE = "live"
 SOURCE_CACHED = "cached"
@@ -31,10 +34,29 @@ def _snapshot_to_environmental(
         no2=snapshot.no2,
         uv=snapshot.uv,
         wind_speed=snapshot.wind_speed,
+        pollen_grains_m3=snapshot.pollen_grains_m3,
+        wildfire_pm10=snapshot.wildfire_pm10,
         source=snapshot.source,
         timestamp=datetime.now(timezone.utc).isoformat(),
         timezone=snapshot.timezone or timezone_name,
     )
+
+
+def _with_meteo_wbgt_if_missing(snapshot: EnvironmentSnapshot) -> EnvironmentSnapshot:
+    """Fill meteo WBGT on cache rows written before WBGT columns existed."""
+    if snapshot.wbgt_c is not None:
+        return snapshot
+    from app.services.wbgt_estimate import estimate_outdoor_wbgt_c
+
+    wbgt_c = estimate_outdoor_wbgt_c(
+        snapshot.temperature_c,
+        snapshot.humidity_percent,
+        wind_speed_ms=snapshot.wind_speed,
+        shortwave_wm2=snapshot.shortwave_wm2,
+    )
+    if wbgt_c is None:
+        return snapshot
+    return snapshot.model_copy(update={"wbgt_c": wbgt_c, "wbgt_estimated": True})
 
 
 def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
@@ -44,34 +66,69 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
     # serve synthetic air data under a live/cache honesty label.
     if original_source in (SOURCE_SAMPLE, "mock"):
         if settings.environment_allow_sample_fallback:
-            return EnvironmentSnapshot(
-                temperature_c=cached.temperature_c,
-                humidity_percent=cached.humidity_percent,
-                aqi=cached.aqi,
-                pm25=cached.pm25,
-                ozone=cached.ozone,
-                source=SOURCE_SAMPLE,
-                pm10=cached.pm10,
-                no2=cached.no2,
-                uv=cached.uv,
-                wind_speed=cached.wind_speed,
-                feels_like=cached.feels_like,
-                timezone=cached.timezone,
+            return _with_meteo_wbgt_if_missing(
+                EnvironmentSnapshot(
+                    temperature_c=cached.temperature_c,
+                    humidity_percent=cached.humidity_percent,
+                    aqi=cached.aqi,
+                    pm25=cached.pm25,
+                    ozone=cached.ozone,
+                    source=SOURCE_SAMPLE,
+                    pm10=cached.pm10,
+                    no2=cached.no2,
+                    uv=cached.uv,
+                    wind_speed=cached.wind_speed,
+                    feels_like=cached.feels_like,
+                    timezone=cached.timezone,
+                    pollen_grains_m3=cached.pollen_grains_m3,
+                    wildfire_pm10=cached.wildfire_pm10,
+                    wbgt_c=cached.wbgt_c,
+                    wbgt_estimated=cached.wbgt_estimated,
+                    shortwave_wm2=cached.shortwave_wm2,
+                )
             )
         return None
-    return EnvironmentSnapshot(
-        temperature_c=cached.temperature_c,
-        humidity_percent=cached.humidity_percent,
-        aqi=cached.aqi,
-        pm25=cached.pm25,
-        ozone=cached.ozone,
-        source=SOURCE_CACHED,
-        pm10=cached.pm10,
-        no2=cached.no2,
-        uv=cached.uv,
-        wind_speed=cached.wind_speed,
-        feels_like=cached.feels_like,
-        timezone=cached.timezone,
+    return _with_meteo_wbgt_if_missing(
+        EnvironmentSnapshot(
+            temperature_c=cached.temperature_c,
+            humidity_percent=cached.humidity_percent,
+            aqi=cached.aqi,
+            pm25=cached.pm25,
+            ozone=cached.ozone,
+            source=SOURCE_CACHED,
+            pm10=cached.pm10,
+            no2=cached.no2,
+            uv=cached.uv,
+            wind_speed=cached.wind_speed,
+            feels_like=cached.feels_like,
+            timezone=cached.timezone,
+            pollen_grains_m3=cached.pollen_grains_m3,
+            wildfire_pm10=cached.wildfire_pm10,
+            wbgt_c=cached.wbgt_c,
+            wbgt_estimated=cached.wbgt_estimated,
+            shortwave_wm2=cached.shortwave_wm2,
+        )
+    )
+
+
+def _cache_lacks_post_migration_fields(cached: EnvironmentSnapshot) -> bool:
+    """Detect cache rows that predate the expanded hazard/WBGT snapshot shape.
+
+    A legacy row can still contain valid core weather/air values, so it remains a
+    safe fallback if live refresh fails. It should not, however, short-circuit a
+    refresh and permanently hide newer pollen/smoke/WBGT data after deployment.
+    Check the persisted row before any derived WBGT backfill so a synthetic
+    estimate cannot make an old row look migration-complete.
+    """
+    return all(
+        value is None
+        for value in (
+            cached.no2,
+            cached.pollen_grains_m3,
+            cached.wildfire_pm10,
+            cached.wbgt_c,
+            cached.shortwave_wm2,
+        )
     )
 
 
@@ -82,14 +139,15 @@ def resolve_environment_snapshot(
     prefer_live: bool = True,
     force_refresh: bool = False,
 ) -> EnvironmentSnapshot:
-    """Resolve environmental conditions: fresh cache → live → sample fallback.
+    """Resolve environmental conditions: fresh cache → live → honest fallback.
 
-    Within ``environment_cache_ttl_seconds``, serve DB cache immediately (label
-    ``cached``) so dashboard cold-start does not wait on Open-Meteo. Live
-    providers run on cache miss or ``force_refresh``. Sample remains last-resort
-    and honesty-gated.
+    Within ``environment_cache_ttl_seconds``, serve a complete DB cache row
+    immediately (label ``cached``). A legacy cache row missing all expanded
+    hazard/WBGT fields is retained as a fallback while one live refresh is
+    attempted. Sample remains last-resort and honesty-gated.
     """
     del prefer_live  # retained for call-site compatibility; cache-first is default
+    deferred_cached: EnvironmentSnapshot | None = None
     deferred_sample: EnvironmentSnapshot | None = None
 
     if not force_refresh:
@@ -101,13 +159,21 @@ def resolve_environment_snapshot(
         if cached_row is not None:
             honest = _honest_cached_snapshot(cached_row)
             if honest is not None and honest.source == SOURCE_CACHED:
-                return honest
+                if _cache_lacks_post_migration_fields(cached_row):
+                    # Keep valid core metrics available if the live provider is
+                    # down, but first try to populate the expanded snapshot.
+                    deferred_cached = honest
+                else:
+                    return honest
             if honest is not None and honest.source == SOURCE_SAMPLE:
                 deferred_sample = honest
 
     try:
-        live = fetch_live_snapshot(lat, lon)
-        return EnvironmentSnapshot(
+        live = _LIVE_ENV_FLIGHT.do(
+            f"{round(lat, 2)}:{round(lon, 2)}",
+            lambda: fetch_live_snapshot(lat, lon),
+        )
+        resolved = EnvironmentSnapshot(
             temperature_c=live.temperature_c,
             humidity_percent=live.humidity_percent,
             aqi=live.aqi,
@@ -120,9 +186,23 @@ def resolve_environment_snapshot(
             wind_speed=live.wind_speed,
             feels_like=live.feels_like,
             timezone=live.timezone,
+            pollen_grains_m3=live.pollen_grains_m3,
+            wildfire_pm10=live.wildfire_pm10,
+            wbgt_c=live.wbgt_c,
+            wbgt_estimated=live.wbgt_estimated,
+            shortwave_wm2=live.shortwave_wm2,
         )
+        try:
+            air_repository.save_resolved_environment_snapshot(resolved, lat=lat, lon=lon)
+        except Exception:
+            # Cache write must never fail the live response.
+            pass
+        return resolved
     except Exception:
         pass
+
+    if deferred_cached is not None:
+        return deferred_cached
 
     if deferred_sample is not None:
         return deferred_sample
@@ -149,17 +229,24 @@ def load_environment(
     *,
     force_live: bool = False,
     force_refresh: bool = False,
+    lat: float | None = None,
+    lon: float | None = None,
 ) -> EnvironmentalInput:
-    """Load environmental input for a profile using the cache → live → sample chain."""
+    """Load environmental input using the cache → live → sample chain.
+
+    Optional ``lat``/``lon`` override profile home (e.g. saved-place activity plans).
+    """
+    resolved_lat = profile.home_lat if lat is None else lat
+    resolved_lon = profile.home_lon if lon is None else lon
     snapshot = resolve_environment_snapshot(
-        profile.home_lat,
-        profile.home_lon,
+        resolved_lat,
+        resolved_lon,
         prefer_live=True,
         force_refresh=force_refresh or force_live,
     )
     return _snapshot_to_environmental(
         snapshot,
-        profile.home_lat,
-        profile.home_lon,
+        resolved_lat,
+        resolved_lon,
         profile.timezone,
     )

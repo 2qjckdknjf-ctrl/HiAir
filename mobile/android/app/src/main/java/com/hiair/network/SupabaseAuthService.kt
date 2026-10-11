@@ -83,12 +83,12 @@ class SupabaseAuthService(
         sessionStore.clear()
     }
 
-    fun launchGoogleSignIn() {
-        launchOAuth("google")
-    }
-
     fun launchAppleSignIn() {
         launchOAuth("apple")
+    }
+
+    fun launchGoogleSignIn() {
+        launchOAuth("google")
     }
 
     fun consumeOAuthCallback(intent: Intent?): SupabaseSession? {

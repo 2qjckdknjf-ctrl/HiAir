@@ -19,6 +19,8 @@ object ProductAnalytics {
             val props = sanitized.entries.sortedBy { it.key }.joinToString(" ") { "${it.key}=${it.value}" }
             "$name $props"
         }
-        Log.i(TAG, payload)
+        // Product analytics must never break a user action. Local JVM unit tests do not
+        // provide an Android Log implementation, so logging is intentionally best-effort.
+        runCatching { Log.i(TAG, payload) }
     }
 }

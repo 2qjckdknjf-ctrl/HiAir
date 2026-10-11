@@ -90,8 +90,12 @@ def generate_explanation(
     language: str = "ru",
     risk_assessment_id: str | None = None,
     health_context: list[str] | None = None,
+    allow_llm: bool = True,
 ) -> tuple[str, str]:
     lang = normalize_language(language)
+    if not allow_llm:
+        return _fallback_explanation(risk, recommendation, lang), "template_fallback"
+
     system_prompt = (
         "You are a wellness assistant for heat, air quality, and personal recovery context. "
         "Use only provided facts. Explain why risk changed and what helps most. No medical claims."

@@ -97,11 +97,16 @@ final class SettingsViewModel: ObservableObject {
     @Published var wearableStatus = "-"
     @Published var savedPlaces: [SavedPlace] = []
     @Published var placesStatusText = ""
+    @Published var travelSession: TravelSession?
+    @Published var selectedTravelPlaceId = ""
+    @Published var travelStatusText = ""
+    @Published var travelLoading = false
     @Published var profileHomeLat: Double?
     @Published var profileHomeLon: Double?
     @Published var workWorkload = "moderate"
     @Published var workSiteRiskText = ""
     @Published var workSiteRiskProxyOnly = false
+    @Published var workSiteRiskWbgtEstimated = false
     @Published var workSiteRiskLoading = false
     @Published var familyMembers: [FamilyMemberLink] = []
     @Published var familyRiskByLinkId: [String: FamilyMemberRiskLine] = [:]
@@ -246,6 +251,7 @@ final class SettingsViewModel: ObservableObject {
                 }
             }
             await loadSavedPlaces()
+            await loadTravelSession()
             await loadFamilyMembers()
             let response = try await apiClient.fetchUserSettings(userId: userId, accessToken: accessToken)
             pushAlertsEnabled = response.pushAlertsEnabled
@@ -400,8 +406,62 @@ final class SettingsViewModel: ObservableObject {
             let response = try await apiClient.listPlaces(userId: userId, accessToken: accessToken)
             savedPlaces = response.places
             placesStatusText = ""
+            if selectedTravelPlaceId.isEmpty || !savedPlaces.contains(where: { $0.id == selectedTravelPlaceId }) {
+                selectedTravelPlaceId = savedPlaces.first?.id ?? ""
+            }
         } catch {
             placesStatusText = l("settings.places.load_failed")
+        }
+    }
+
+    func loadTravelSession() async {
+        guard !userId.isEmpty else { return }
+        do {
+            let session = try await apiClient.fetchTravelSession(userId: userId, accessToken: accessToken)
+            travelSession = session
+            if session.active, let placeId = session.placeId {
+                selectedTravelPlaceId = placeId
+            }
+            travelStatusText = ""
+        } catch {
+            travelStatusText = l("settings.travel.load_failed")
+        }
+    }
+
+    func startTravel(placeId: String) async {
+        guard !userId.isEmpty else { return }
+        guard !placeId.isEmpty else {
+            travelStatusText = l("settings.travel.need_place")
+            return
+        }
+        travelLoading = true
+        defer { travelLoading = false }
+        do {
+            let session = try await apiClient.startTravelSession(
+                payload: TravelSessionStartRequest(placeId: placeId, until: nil),
+                userId: userId,
+                accessToken: accessToken
+            )
+            travelSession = session
+            selectedTravelPlaceId = placeId
+            travelStatusText = l("settings.travel.started")
+            NotificationCenter.default.post(name: .hiairTravelSessionDidChange, object: nil)
+        } catch {
+            travelStatusText = l("settings.travel.start_failed")
+        }
+    }
+
+    func endTravel() async {
+        guard !userId.isEmpty else { return }
+        travelLoading = true
+        defer { travelLoading = false }
+        do {
+            let session = try await apiClient.clearTravelSession(userId: userId, accessToken: accessToken)
+            travelSession = session
+            travelStatusText = l("settings.travel.ended")
+            NotificationCenter.default.post(name: .hiairTravelSessionDidChange, object: nil)
+        } catch {
+            travelStatusText = l("settings.travel.end_failed")
         }
     }
 
@@ -477,9 +537,19 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func loadWorkSiteRisk() async {
-        guard !userId.isEmpty,
-              let lat = profileHomeLat,
-              let lon = profileHomeLon else {
+        guard !userId.isEmpty else {
+            workSiteRiskText = l("settings.work.no_location")
+            return
+        }
+        let lat: Double
+        let lon: Double
+        if let travel = travelSession, travel.active, let tLat = travel.lat, let tLon = travel.lon {
+            lat = tLat
+            lon = tLon
+        } else if let homeLat = profileHomeLat, let homeLon = profileHomeLon {
+            lat = homeLat
+            lon = homeLon
+        } else {
             workSiteRiskText = l("settings.work.no_location")
             return
         }
@@ -496,6 +566,8 @@ final class SettingsViewModel: ObservableObject {
             )
             let assessment = response.assessment
             workSiteRiskProxyOnly = assessment.reasonCodes.contains("heat_index_proxy_only")
+            workSiteRiskWbgtEstimated = assessment.reasonCodes.contains("wbgt_estimated_from_meteo")
+                || assessment.reasonCodes.contains("not_instrument_wbgt")
             let workRest = String(
                 format: l("settings.work.work_rest"),
                 assessment.workRest.workMinutes,
@@ -509,6 +581,7 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             workSiteRiskText = l("settings.work.load_failed")
             workSiteRiskProxyOnly = false
+            workSiteRiskWbgtEstimated = false
         }
     }
 
@@ -544,7 +617,11 @@ final class SettingsViewModel: ObservableObject {
         do {
             try await apiClient.deletePlace(placeId: placeId, userId: userId, accessToken: accessToken)
             savedPlaces.removeAll { $0.id == placeId }
+            if selectedTravelPlaceId == placeId {
+                selectedTravelPlaceId = savedPlaces.first?.id ?? ""
+            }
             placesStatusText = l("settings.places.deleted")
+            await loadTravelSession()
         } catch {
             placesStatusText = l("settings.places.delete_failed")
         }
@@ -997,10 +1074,7 @@ struct SettingsView: View {
         HiAirAdaptiveLayout { width, mode in
             ScrollView {
                 VStack(alignment: .leading, spacing: HiAirResponsiveSpacing.sectionSpacing(for: mode)) {
-                Text(session.l("title.settings"))
-                    .font(AuroraTokens.Typography.displayLG)
-                    .foregroundStyle(HiAirV2Theme.primaryText)
-
+                HiAirScreenWordmark(suffix: session.l("tab.settings"))
                 Text(session.l("settings.subtitle"))
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
@@ -1380,8 +1454,64 @@ struct SettingsView: View {
                 }
                 .v2Card()
                 .onAppear {
-                    Task { await viewModel.loadSavedPlaces() }
+                    Task {
+                        await viewModel.loadSavedPlaces()
+                        await viewModel.loadTravelSession()
+                    }
                 }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(session.l("settings.travel.title"))
+                        .font(AuroraTokens.Typography.titleMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                    Text(session.l("settings.travel.subtitle"))
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if viewModel.travelSession?.active == true {
+                        Text(
+                            String(
+                                format: session.l("settings.travel.active"),
+                                viewModel.travelSession?.placeName
+                                    ?? viewModel.savedPlaces.first(where: { $0.id == viewModel.travelSession?.placeId })?.name
+                                    ?? "—"
+                            )
+                        )
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.primaryText)
+                        Button(viewModel.travelLoading ? session.l("common.loading") : session.l("settings.travel.end")) {
+                            Task { await viewModel.endTravel() }
+                        }
+                        .buttonStyle(HiAirSecondaryButtonStyle())
+                        .disabled(viewModel.travelLoading)
+                    } else {
+                        Text(session.l("settings.travel.inactive"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                        if viewModel.savedPlaces.isEmpty {
+                            Text(session.l("settings.travel.need_place"))
+                                .font(AuroraTokens.Typography.bodyMD)
+                                .foregroundStyle(HiAirV2Theme.secondaryText)
+                        } else {
+                            Picker(session.l("settings.travel.select_place"), selection: $viewModel.selectedTravelPlaceId) {
+                                ForEach(viewModel.savedPlaces) { place in
+                                    Text(place.name).tag(place.id)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            Button(viewModel.travelLoading ? session.l("common.loading") : session.l("settings.travel.start")) {
+                                Task { await viewModel.startTravel(placeId: viewModel.selectedTravelPlaceId) }
+                            }
+                            .buttonStyle(HiAirGradientButtonStyle())
+                            .disabled(viewModel.travelLoading || viewModel.selectedTravelPlaceId.isEmpty)
+                        }
+                    }
+                    if !viewModel.travelStatusText.isEmpty {
+                        Text(viewModel.travelStatusText)
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    }
+                }
+                .v2Card()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(session.l("settings.work.title"))
@@ -1408,6 +1538,11 @@ struct SettingsView: View {
                     }
                     if viewModel.workSiteRiskProxyOnly {
                         Text(session.l("settings.work.proxy_disclaimer"))
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.tertiaryText)
+                    }
+                    if viewModel.workSiteRiskWbgtEstimated {
+                        Text(session.l("settings.work.wbgt_estimated_disclaimer"))
                             .font(AuroraTokens.Typography.caption)
                             .foregroundStyle(HiAirV2Theme.tertiaryText)
                     }

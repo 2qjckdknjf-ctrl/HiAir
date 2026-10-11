@@ -19,7 +19,9 @@ enum HiAirV2Theme {
 
 struct V2Card: ViewModifier {
     func body(content: Content) -> some View {
-        HiAirCard { content }
+        content
+            .padding(HiAirSpacing.md)
+            .hiAirGlassSurface(prominence: .standard, cornerRadius: HiAirRadius.lg)
     }
 }
 
@@ -29,7 +31,10 @@ extension View {
     }
 
     func v2PageBackground() -> some View {
-        hiAirPageBackground()
+        background {
+            HiAirAtmosphericBackground()
+                .ignoresSafeArea()
+        }
     }
 }
 

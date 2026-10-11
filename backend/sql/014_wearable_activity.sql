@@ -1,7 +1,7 @@
 -- Wearable & Activity Intelligence v1 (portable DDL for CI/local PostgreSQL).
 -- Supabase FK + RLS: 028_wearable_health_supabase.sql
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() is built into PostgreSQL 13+; no optional pgcrypto dependency.
 
 CREATE TABLE IF NOT EXISTS public.health_data_consents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

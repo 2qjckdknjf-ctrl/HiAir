@@ -30,6 +30,17 @@ data class SavedPlaceItem(
     val timezone: String? = null,
 )
 
+data class TravelSessionItem(
+    val active: Boolean = false,
+    val placeId: String? = null,
+    val placeName: String? = null,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val timezone: String? = null,
+    val until: String? = null,
+    val source: String = "home",
+)
+
 data class SettingsState(
     val email: String = "",
     val password: String = "",
@@ -82,14 +93,21 @@ data class SettingsState(
     val statusText: String = "-",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val displayPlaceName: String = "",
+    val dateOfBirthMillis: Long? = null,
     val locationSource: String = LocationSource.UNKNOWN.raw,
     val locationRevision: Int = 0,
     val savedPlaces: List<SavedPlaceItem> = emptyList(),
     val placesStatusText: String = "-",
     val placesLoading: Boolean = false,
+    val travelSession: TravelSessionItem = TravelSessionItem(),
+    val selectedTravelPlaceId: String = "",
+    val travelStatusText: String = "",
+    val travelLoading: Boolean = false,
     val workWorkload: String = "moderate",
     val workSiteRiskText: String = "",
     val workSiteRiskProxyOnly: Boolean = false,
+    val workSiteRiskWbgtEstimated: Boolean = false,
     val workSiteRiskLoading: Boolean = false,
     val familyMembers: List<FamilyMemberItem> = emptyList(),
     val familyRiskByLinkId: Map<String, FamilyMemberRiskItem> = emptyMap(),
@@ -151,13 +169,23 @@ class SettingsViewModel(
             wearableStatus = if (language.startsWith("ru")) "Health Connect подключён" else "Health Connect connected",
             latitude = 41.2800,
             longitude = 1.9800,
+            displayPlaceName = "Castelldefels",
             locationSource = LocationSource.CACHED.raw,
         )
     }
 
+    fun setDisplayPlaceName(value: String) {
+        if (state.displayPlaceName == value) return
+        state = state.copy(displayPlaceName = value)
+    }
+
+    fun setDateOfBirthMillis(value: Long?) {
+        state = state.copy(dateOfBirthMillis = value)
+    }
+
     fun hasValidLocation(): Boolean = GeoCoordinates.isValid(state.latitude, state.longitude)
 
-    fun applyDeviceLocation(lat: Double, lon: Double): Boolean {
+    fun applyDeviceLocation(lat: Double, lon: Double, onSynced: () -> Unit = {}): Boolean {
         if (!GeoCoordinates.isValid(lat, lon)) {
             return false
         }
@@ -167,12 +195,19 @@ class SettingsViewModel(
             locationSource = LocationSource.DEVICE.raw,
             locationRevision = state.locationRevision + 1,
         )
+        val revision = state.locationRevision
+        val owner = state.userId
+        val notifyCurrent = {
+            if (state.userId == owner && state.locationRevision == revision) onSynced()
+        }
         // New users still need ensure before data fetch; existing profiles sync in background.
         if (state.profileId.isBlank()) {
-            return syncProfileLocationIfNeeded()
+            val synced = syncProfileLocationIfNeeded()
+            if (synced) notifyCurrent()
+            return synced
         }
         Thread {
-            syncProfileLocationIfNeeded()
+            if (syncProfileLocationIfNeeded()) notifyCurrent()
         }.start()
         return true
     }
@@ -194,6 +229,7 @@ class SettingsViewModel(
         )
     }
 
+    @Synchronized
     fun syncProfileLocationIfNeeded(): Boolean {
         if (!hasValidLocation() || state.userId.isBlank() || state.accessToken.isBlank()) {
             return false
@@ -201,13 +237,14 @@ class SettingsViewModel(
         if (state.profileId.isBlank()) {
             return ensureProfile() != null
         }
+        val current = state
         return try {
             apiClient.updateProfileLocation(
-                userId = state.userId,
-                accessToken = state.accessToken,
-                profileId = state.profileId,
-                homeLat = state.latitude,
-                homeLon = state.longitude,
+                userId = current.userId,
+                accessToken = current.accessToken,
+                profileId = current.profileId,
+                homeLat = current.latitude,
+                homeLon = current.longitude,
             )
             true
         } catch (_: Exception) {
@@ -454,70 +491,88 @@ class SettingsViewModel(
             onComplete?.invoke()
             return
         }
-        state = state.copy(loading = true)
-        try {
-            val session = supabaseAuthService?.signUp(state.email, state.password)
-                ?: run {
-                    val json = JSONObject(apiClient.signup(state.email, state.password))
-                    com.hiair.network.SupabaseSession(
-                        userId = json.getString("user_id"),
-                        email = state.email,
-                        accessToken = json.getString("access_token"),
-                        refreshToken = json.optString("refresh_token", ""),
-                    )
-                }
-            state = state.copy(
-                loading = false,
-                userId = session.userId,
-                accessToken = session.accessToken,
-                refreshToken = session.refreshToken,
-                statusText = l("settings.signed_up")
-            )
-            refreshEntitlement(onComplete)
-        } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = l("settings.signup_failed"))
-            onComplete?.invoke()
-        }
+        authenticateEmail(signup = true, onComplete = onComplete)
     }
 
     fun login(onComplete: (() -> Unit)? = null) {
-        if (state.email.isBlank() || state.password.length < 12) {
+        if (state.email.isBlank() || state.password.length < 8) {
             state = state.copy(statusText = l("settings.valid_credentials_required"))
             onComplete?.invoke()
             return
         }
+        authenticateEmail(signup = false, onComplete = onComplete)
+    }
+
+    private fun authenticateEmail(signup: Boolean, onComplete: (() -> Unit)?) {
         state = state.copy(loading = true)
         try {
-            val session = supabaseAuthService?.signIn(state.email, state.password)
-                ?: run {
-                    val json = JSONObject(apiClient.login(state.email, state.password))
-                    com.hiair.network.SupabaseSession(
-                        userId = json.getString("user_id"),
-                        email = state.email,
-                        accessToken = json.getString("access_token"),
-                        refreshToken = json.optString("refresh_token", ""),
-                    )
-                }
+            val session = resolveEmailSession(signup)
             state = state.copy(
                 loading = false,
                 userId = session.userId,
                 accessToken = session.accessToken,
                 refreshToken = session.refreshToken,
-                statusText = l("settings.logged_in")
+                statusText = if (signup) l("settings.signed_up") else l("settings.logged_in"),
             )
             refreshEntitlement(onComplete)
+        } catch (error: ApiHttpException) {
+            val confirmRequired = error.statusCode == 403 &&
+                error.body.contains("confirm", ignoreCase = true)
+            state = state.copy(
+                loading = false,
+                statusText = if (confirmRequired) {
+                    l("auth.confirm_email_short")
+                } else if (signup) {
+                    l("settings.signup_failed")
+                } else {
+                    l("settings.login_failed")
+                },
+            )
+            onComplete?.invoke()
         } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = l("settings.login_failed"))
+            state = state.copy(
+                loading = false,
+                statusText = if (signup) l("settings.signup_failed") else l("settings.login_failed"),
+            )
             onComplete?.invoke()
         }
     }
 
-    fun launchGoogleOAuth() {
-        supabaseAuthService?.launchGoogleSignIn()
+    private fun resolveEmailSession(signup: Boolean): com.hiair.network.SupabaseSession {
+        try {
+            val json = JSONObject(apiClient.supabaseEmailSession(state.email, state.password, signup))
+            val bridged = parseAuthSession(json, state.email)
+            if (bridged.refreshToken.isNotBlank()) {
+                return bridged
+            }
+        } catch (error: ApiHttpException) {
+            if (error.statusCode != 404) {
+                throw error
+            }
+        }
+        if (signup) {
+            return supabaseAuthService?.signUp(state.email, state.password)
+                ?: parseAuthSession(JSONObject(apiClient.signup(state.email, state.password)), state.email)
+        }
+        return supabaseAuthService?.signIn(state.email, state.password)
+            ?: parseAuthSession(JSONObject(apiClient.login(state.email, state.password)), state.email)
+    }
+
+    private fun parseAuthSession(json: JSONObject, email: String): com.hiair.network.SupabaseSession {
+        return com.hiair.network.SupabaseSession(
+            userId = json.optString("user_id").ifBlank { json.optString("userId") },
+            email = email,
+            accessToken = json.optString("access_token").ifBlank { json.optString("accessToken") },
+            refreshToken = json.optString("refresh_token").ifBlank { json.optString("refreshToken") },
+        )
     }
 
     fun launchAppleOAuth() {
         supabaseAuthService?.launchAppleSignIn()
+    }
+
+    fun launchGoogleOAuth() {
+        supabaseAuthService?.launchGoogleSignIn()
     }
 
     fun signOutSupabase() {
@@ -546,6 +601,8 @@ class SettingsViewModel(
             refreshToken = "",
             profileId = "",
             password = "",
+            displayPlaceName = "",
+            dateOfBirthMillis = null,
             isPremium = false,
             subscriptionStatus = "inactive",
             showPaywall = false,
@@ -700,13 +757,88 @@ class SettingsViewModel(
         state = state.copy(placesLoading = true)
         try {
             val raw = apiClient.listPlaces(state.userId, state.accessToken.ifBlank { null })
+            val places = parsePlacesList(raw)
+            val selected = when {
+                state.selectedTravelPlaceId.isNotBlank() && places.any { it.id == state.selectedTravelPlaceId } ->
+                    state.selectedTravelPlaceId
+                else -> places.firstOrNull()?.id.orEmpty()
+            }
             state = state.copy(
                 placesLoading = false,
-                savedPlaces = parsePlacesList(raw),
+                savedPlaces = places,
+                selectedTravelPlaceId = selected,
                 placesStatusText = l("places.loaded"),
             )
         } catch (_: Exception) {
             state = state.copy(placesLoading = false, placesStatusText = l("places.load_failed"))
+        }
+    }
+
+    fun loadTravelSession() {
+        if (state.userId.isBlank()) return
+        try {
+            val session = parseTravelSession(apiClient.getTravelSession(state.userId, state.accessToken.ifBlank { null }))
+            state = state.copy(
+                travelSession = session,
+                selectedTravelPlaceId = session.placeId?.takeIf { it.isNotBlank() }
+                    ?: state.selectedTravelPlaceId,
+                travelStatusText = "",
+            )
+        } catch (_: Exception) {
+            state = state.copy(travelStatusText = l("settings.travel.load_failed"))
+        }
+    }
+
+    fun setSelectedTravelPlaceId(placeId: String) {
+        state = state.copy(selectedTravelPlaceId = placeId)
+    }
+
+    fun startTravel(placeId: String = state.selectedTravelPlaceId) {
+        if (state.userId.isBlank()) return
+        if (placeId.isBlank()) {
+            state = state.copy(travelStatusText = l("settings.travel.need_place"))
+            return
+        }
+        state = state.copy(travelLoading = true)
+        try {
+            val session = parseTravelSession(
+                apiClient.startTravelSession(
+                    userId = state.userId,
+                    accessToken = state.accessToken.ifBlank { null },
+                    placeId = placeId,
+                ),
+            )
+            state = state.copy(
+                travelLoading = false,
+                travelSession = session,
+                selectedTravelPlaceId = placeId,
+                travelStatusText = l("settings.travel.started"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                travelLoading = false,
+                travelStatusText = l("settings.travel.start_failed"),
+            )
+        }
+    }
+
+    fun endTravel() {
+        if (state.userId.isBlank()) return
+        state = state.copy(travelLoading = true)
+        try {
+            val session = parseTravelSession(
+                apiClient.clearTravelSession(state.userId, state.accessToken.ifBlank { null }),
+            )
+            state = state.copy(
+                travelLoading = false,
+                travelSession = session,
+                travelStatusText = l("settings.travel.ended"),
+            )
+        } catch (_: Exception) {
+            state = state.copy(
+                travelLoading = false,
+                travelStatusText = l("settings.travel.end_failed"),
+            )
         }
     }
 
@@ -725,11 +857,14 @@ class SettingsViewModel(
         }
         state = state.copy(workSiteRiskLoading = true, workSiteRiskText = "")
         try {
+            val travel = state.travelSession
+            val riskLat = if (travel.active && travel.lat != null) travel.lat!! else state.latitude
+            val riskLon = if (travel.active && travel.lon != null) travel.lon!! else state.longitude
             val raw = apiClient.fetchSiteRisk(
                 userId = state.userId,
                 accessToken = state.accessToken.ifBlank { null },
-                lat = state.latitude,
-                lon = state.longitude,
+                lat = riskLat,
+                lon = riskLon,
                 workload = state.workWorkload,
                 acclimatized = true,
             )
@@ -738,12 +873,14 @@ class SettingsViewModel(
                 workSiteRiskLoading = false,
                 workSiteRiskText = parsed.summaryLine,
                 workSiteRiskProxyOnly = parsed.proxyOnly,
+                workSiteRiskWbgtEstimated = parsed.wbgtEstimated,
             )
         } catch (_: Exception) {
             state = state.copy(
                 workSiteRiskLoading = false,
                 workSiteRiskText = l("settings.work.load_failed"),
                 workSiteRiskProxyOnly = false,
+                workSiteRiskWbgtEstimated = false,
             )
         }
     }
@@ -853,6 +990,7 @@ class SettingsViewModel(
                 placeType = placeType,
                 lat = state.latitude,
                 lon = state.longitude,
+                timezone = java.util.TimeZone.getDefault().id,
             )
             val created = parseSavedPlace(raw)
             state = state.copy(
@@ -885,11 +1023,17 @@ class SettingsViewModel(
                 accessToken = state.accessToken.ifBlank { null },
                 placeId = placeId,
             )
+            val remaining = state.savedPlaces.filterNot { it.id == placeId }
             state = state.copy(
                 placesLoading = false,
-                savedPlaces = state.savedPlaces.filterNot { it.id == placeId },
+                savedPlaces = remaining,
+                selectedTravelPlaceId = when {
+                    state.selectedTravelPlaceId == placeId -> remaining.firstOrNull()?.id.orEmpty()
+                    else -> state.selectedTravelPlaceId
+                },
                 placesStatusText = l("places.deleted"),
             )
+            loadTravelSession()
         } catch (_: Exception) {
             state = state.copy(placesLoading = false, placesStatusText = l("places.delete_failed"))
         }
@@ -1359,6 +1503,20 @@ class SettingsViewModel(
                 operationId != null -> "operation_id: $operationId"
                 else -> stageText
             }
+        }
+
+        fun parseTravelSession(raw: String): TravelSessionItem {
+            val json = JSONObject(raw)
+            return TravelSessionItem(
+                active = json.optBoolean("active", false),
+                placeId = json.optString("placeId").takeIf { it.isNotBlank() },
+                placeName = json.optString("placeName").takeIf { it.isNotBlank() },
+                lat = if (json.isNull("lat")) null else json.optDouble("lat"),
+                lon = if (json.isNull("lon")) null else json.optDouble("lon"),
+                timezone = json.optString("timezone").takeIf { it.isNotBlank() },
+                until = json.optString("until").takeIf { it.isNotBlank() },
+                source = json.optString("source", "home").ifBlank { "home" },
+            )
         }
     }
 }

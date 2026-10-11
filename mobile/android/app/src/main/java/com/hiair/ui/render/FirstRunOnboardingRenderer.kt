@@ -1,24 +1,32 @@
 package com.hiair.ui.render
 
+import android.Manifest
+import android.os.Build
 import android.view.Gravity
+import android.widget.DatePicker
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.app.ActivityCompat
 import com.hiair.OnboardingStore
 import com.hiair.StoreScreenshotMode
 import com.hiair.analytics.ProductAnalytics
 import com.hiair.health.WearableHealthHost
 import com.hiair.location.LocationBootstrapHost
+import com.hiair.ui.auth.AccountEligibility
+import com.hiair.ui.config.HiAirLegalUrls
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.HiAirScreenMetrics
 import com.hiair.ui.design.Tokens
 import com.hiair.ui.theme.V2Ui
+import java.util.Calendar
 
 internal object FirstRunOnboardingRenderer {
     private const val STEP_AUTH = 0
     private const val STEP_VALUE = 1
-    private const val STEP_LOCATION = 2
-    private const val STEP_HEALTH = 3
-    private const val STEP_DONE = 4
+    private const val STEP_AGE = 2
+    private const val STEP_LOCATION = 3
+    private const val STEP_HEALTH = 4
+    private const val STEP_DONE = 5
 
     var currentStep: Int = STEP_VALUE
         private set
@@ -75,6 +83,7 @@ internal object FirstRunOnboardingRenderer {
         when (currentStep) {
             STEP_AUTH -> renderAuthStep(ctx, card)
             STEP_VALUE -> renderValueStep(ctx, card)
+            STEP_AGE -> renderAgeStep(ctx, card)
             STEP_LOCATION -> renderLocationStep(ctx, card)
             STEP_HEALTH -> renderHealthStep(ctx, card)
             STEP_DONE -> renderDoneStep(ctx, card)
@@ -102,6 +111,7 @@ internal object FirstRunOnboardingRenderer {
         authPasswordInput = passwordInput
         card.addView(emailInput)
         card.addView(passwordInput)
+        card.addView(V2Ui.styledSecondaryText(activity, ctx.l("auth.age_note")).apply { textSize = 12f })
         card.addView(
             HiAirComponents.secondaryButton(activity, ctx.l("settings.sign_up")).apply {
                 setOnClickListener {
@@ -122,13 +132,56 @@ internal object FirstRunOnboardingRenderer {
             },
         )
         card.addView(
-            HiAirComponents.secondaryButton(activity, ctx.l("onboarding.auth.open_settings")).apply {
-                setOnClickListener {
-                    ctx.rootShell.openSettings()
-                    ctx.rerender()
-                }
+            HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_google")).apply {
+                setOnClickListener { ctx.rootShell.settingsViewModel.launchGoogleOAuth() }
             },
         )
+        card.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("settings.terms")).apply {
+                setOnClickListener { HiAirLegalUrls.openTerms(activity) }
+            },
+        )
+        card.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy")).apply {
+                setOnClickListener { HiAirLegalUrls.openPrivacy(activity) }
+            },
+        )
+    }
+
+    private fun renderAgeStep(ctx: RenderContext, card: LinearLayout) {
+        val activity = ctx.activity
+        card.addView(HiAirComponents.sectionTitle(activity, ctx.l("onboarding.age.title")))
+        card.addView(V2Ui.styledSecondaryText(activity, ctx.l("onboarding.age.body")))
+        val max = Calendar.getInstance().apply {
+            timeInMillis = AccountEligibility.youngestAllowedBirthDateMillis()
+        }
+        val picker = DatePicker(activity).apply {
+            maxDate = max.timeInMillis
+            val existing = ctx.rootShell.settingsViewModel.state.dateOfBirthMillis
+            val initial = Calendar.getInstance().apply {
+                timeInMillis = existing ?: max.timeInMillis
+            }
+            init(
+                initial.get(Calendar.YEAR),
+                initial.get(Calendar.MONTH),
+                initial.get(Calendar.DAY_OF_MONTH),
+            ) { _, year, month, day ->
+                val chosen = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, day)
+                }
+                ctx.rootShell.settingsViewModel.setDateOfBirthMillis(chosen.timeInMillis)
+            }
+        }
+        card.addView(picker)
+        ctx.rootShell.settingsViewModel.state.dateOfBirthMillis?.let { millis ->
+            if (!AccountEligibility.isEligible(millis)) {
+                card.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.age_blocked")).apply {
+                    setTextColor(Tokens.Text.tertiary)
+                })
+            }
+        }
     }
 
     private fun renderValueStep(ctx: RenderContext, card: LinearLayout) {
@@ -200,30 +253,6 @@ internal object FirstRunOnboardingRenderer {
             )
         }
 
-        when (currentStep) {
-            STEP_AUTH -> Unit
-            STEP_LOCATION -> {
-                row.addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("onboarding.permissions.later")).apply {
-                        setOnClickListener {
-                            currentStep = STEP_HEALTH
-                            ctx.rerender()
-                        }
-                    },
-                )
-            }
-            STEP_HEALTH -> {
-                row.addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.skip")).apply {
-                        setOnClickListener {
-                            currentStep = STEP_DONE
-                            ctx.rerender()
-                        }
-                    },
-                )
-            }
-        }
-
         row.addView(
             HiAirComponents.primaryButton(activity, primaryButtonTitle(ctx)).apply {
                 isEnabled = !authSubmitting
@@ -240,6 +269,7 @@ internal object FirstRunOnboardingRenderer {
         return when (currentStep) {
             STEP_AUTH -> ctx.l("settings.log_in")
             STEP_VALUE -> ctx.l("onboarding.next")
+            STEP_AGE -> ctx.l("onboarding.next")
             STEP_LOCATION -> ctx.l("onboarding.permissions.allow")
             STEP_HEALTH -> ctx.l("wearable.consent.connect")
             STEP_DONE -> ctx.l("onboarding.open_forecast")
@@ -256,10 +286,22 @@ internal object FirstRunOnboardingRenderer {
         when (currentStep) {
             STEP_AUTH -> submitAuthLogin(ctx)
             STEP_VALUE -> {
+                currentStep = STEP_AGE
+                ctx.rerender()
+            }
+            STEP_AGE -> {
+                val dob = ctx.rootShell.settingsViewModel.state.dateOfBirthMillis
+                    ?: AccountEligibility.youngestAllowedBirthDateMillis()
+                ctx.rootShell.settingsViewModel.setDateOfBirthMillis(dob)
+                if (!AccountEligibility.isEligible(dob)) {
+                    ctx.rerender()
+                    return
+                }
                 currentStep = STEP_LOCATION
                 ctx.rerender()
             }
             STEP_LOCATION -> {
+                requestNotificationPermission(ctx)
                 val host = ctx.activity as? LocationBootstrapHost
                 host?.bootstrapLocation {
                     ctx.activity.runOnUiThread {
@@ -298,6 +340,15 @@ internal object FirstRunOnboardingRenderer {
 
     private fun firstContentStep(isLoggedIn: Boolean): Int {
         return if (isLoggedIn) STEP_VALUE else STEP_AUTH
+    }
+
+    private fun requestNotificationPermission(ctx: RenderContext) {
+        if (Build.VERSION.SDK_INT < 33) return
+        ActivityCompat.requestPermissions(
+            ctx.activity,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            0,
+        )
     }
 
     private fun submitAuthLogin(ctx: RenderContext) {

@@ -112,7 +112,12 @@ def get_latest_environment_snapshot(
                     pm10,
                     uv,
                     wind_speed,
-                    no2
+                    no2,
+                    pollen_grains_m3,
+                    wildfire_pm10,
+                    wbgt_c,
+                    wbgt_estimated,
+                    shortwave_wm2
                 FROM environment_snapshots
                 WHERE geo_hash = %s
                   AND timestamp_utc >= %s
@@ -137,6 +142,11 @@ def get_latest_environment_snapshot(
         uv=None if row.get("uv") is None else float(row["uv"]),
         wind_speed=None if row.get("wind_speed") is None else float(row["wind_speed"]),
         feels_like=None if row.get("feels_like") is None else float(row["feels_like"]),
+        pollen_grains_m3=None if row.get("pollen_grains_m3") is None else float(row["pollen_grains_m3"]),
+        wildfire_pm10=None if row.get("wildfire_pm10") is None else float(row["wildfire_pm10"]),
+        wbgt_c=None if row.get("wbgt_c") is None else float(row["wbgt_c"]),
+        wbgt_estimated=bool(row.get("wbgt_estimated") or False),
+        shortwave_wm2=None if row.get("shortwave_wm2") is None else float(row["shortwave_wm2"]),
     )
 
 
@@ -164,9 +174,13 @@ def save_environment_snapshot(environment: EnvironmentalInput) -> str:
                     pm10,
                     uv,
                     wind_speed,
-                    no2
+                    no2,
+                    pollen_grains_m3,
+                    wildfire_pm10
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
                 """,
                 (
                     snapshot_id,
@@ -186,6 +200,79 @@ def save_environment_snapshot(environment: EnvironmentalInput) -> str:
                     environment.uv,
                     environment.wind_speed,
                     environment.no2,
+                    environment.pollen_grains_m3,
+                    environment.wildfire_pm10,
+                ),
+            )
+    return snapshot_id
+
+
+def save_resolved_environment_snapshot(
+    snapshot: EnvironmentSnapshot,
+    *,
+    lat: float,
+    lon: float,
+) -> str:
+    """Persist a fully resolved geo snapshot including pollen/smoke/WBGT honesty fields."""
+    snapshot_id = str(uuid4())
+    geo_hash = _geo_hash(lat, lon)
+    timestamp = datetime.now(timezone.utc)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO environment_snapshots (
+                    id,
+                    region_key,
+                    timestamp_utc,
+                    temperature_c,
+                    humidity_percent,
+                    aqi,
+                    pm25,
+                    ozone,
+                    source,
+                    geo_hash,
+                    lat,
+                    lon,
+                    feels_like,
+                    pm10,
+                    uv,
+                    wind_speed,
+                    no2,
+                    pollen_grains_m3,
+                    wildfire_pm10,
+                    wbgt_c,
+                    wbgt_estimated,
+                    shortwave_wm2
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
+                """,
+                (
+                    snapshot_id,
+                    geo_hash,
+                    timestamp,
+                    snapshot.temperature_c,
+                    snapshot.humidity_percent,
+                    snapshot.aqi,
+                    snapshot.pm25,
+                    snapshot.ozone,
+                    snapshot.source,
+                    geo_hash,
+                    lat,
+                    lon,
+                    snapshot.feels_like,
+                    snapshot.pm10,
+                    snapshot.uv,
+                    snapshot.wind_speed,
+                    snapshot.no2,
+                    snapshot.pollen_grains_m3,
+                    snapshot.wildfire_pm10,
+                    snapshot.wbgt_c,
+                    snapshot.wbgt_estimated,
+                    snapshot.shortwave_wm2,
                 ),
             )
     return snapshot_id

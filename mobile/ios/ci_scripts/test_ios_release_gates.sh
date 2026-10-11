@@ -48,11 +48,17 @@ CURRENT_PROJECT_VERSION=9999 CI_BUILD_NUMBER=9999 assert_version 1 reject_1.0.1_
 CURRENT_PROJECT_VERSION=9999 CI_BUILD_NUMBER=9999 assert_version 0 allow_1.2_with_any_build 1.2
 
 committed=$(sed -n 's/.*MARKETING_VERSION: *"\([^"]*\)".*/\1/p' "$YML" | head -1)
-if [ "$committed" != "1.0.1" ]; then
-  echo "FAIL committed MARKETING_VERSION is $committed (expected 1.0.1 on this branch)" >&2
+if [ -z "$committed" ]; then
+  echo "FAIL project.yml must declare MARKETING_VERSION" >&2
   exit 1
 fi
-assert_version 1 reject_committed_project_yml "$committed"
+# The current explicit release train is versioned separately from old rejection fixtures.
+expected=$(sed -n 's/.*"marketing_version": *"\([^"]*\)".*/\1/p' "$DIR/../../../docs/release/RELEASE_TRAIN.json" | head -1)
+if [ "$committed" != "$expected" ]; then
+  echo "FAIL project.yml $committed differs from release train $expected" >&2
+  exit 1
+fi
+assert_version 0 allow_committed_release_train "$committed"
 echo "PASS project.yml MARKETING_VERSION is the CFBundleShortVersionString source ($committed)"
 
 CI_START_CONDITION=push CI_TAG= CI_BRANCH=main assert_start 1 push_main_is_not_release

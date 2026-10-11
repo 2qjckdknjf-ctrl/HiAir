@@ -91,8 +91,9 @@ internal object PaywallResponsiveLayout {
         val monthlyCard = planCard(
             ctx,
             planId = PLAN_MONTHLY,
-            title = ctx.l("paywall.plan_monthly"),
+            title = ctx.l("paywall.offer_title_monthly"),
             price = monthlyPrice,
+            length = ctx.l("paywall.length_month"),
             selected = state.paywallSelectedPlanId == PLAN_MONTHLY,
             settingsVm = settingsVm,
             paywall = paywall,
@@ -100,8 +101,9 @@ internal object PaywallResponsiveLayout {
         val yearlyCard = planCard(
             ctx,
             planId = PLAN_YEARLY,
-            title = ctx.l("paywall.plan_yearly"),
+            title = ctx.l("paywall.offer_title_yearly"),
             price = yearlyPrice,
+            length = ctx.l("paywall.length_year"),
             selected = state.paywallSelectedPlanId == PLAN_YEARLY,
             settingsVm = settingsVm,
             paywall = paywall,
@@ -127,6 +129,20 @@ internal object PaywallResponsiveLayout {
         canvas.addView(plansHost)
         canvas.addView(V2Ui.spacer(activity, HiAirSpacing.sm))
 
+        canvas.addView(V2Ui.styledSecondaryText(activity, ctx.l("paywall.service_period")).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            textSize = 12f
+        })
+        canvas.addView(
+            HiAirComponents.secondaryButton(activity, ctx.l("paywall.manage_subscription")).apply {
+                layoutParams = HiAirResponsiveLayout.constrainedButtonLayoutParams(activity)
+                setOnClickListener {
+                    if (!HiAirLegalUrls.openPlayManageSubscriptions(activity)) {
+                        settingsVm.setPaywallStatus(ctx.l("paywall.browser_unavailable"))
+                    }
+                }
+            },
+        )
         canvas.addView(
             HiAirComponents.secondaryButton(activity, ctx.l("paywall.restore")).apply {
                 layoutParams = HiAirResponsiveLayout.constrainedButtonLayoutParams(activity)
@@ -199,6 +215,7 @@ internal object PaywallResponsiveLayout {
         planId: String,
         title: String,
         price: String?,
+        length: String,
         selected: Boolean,
         settingsVm: com.hiair.ui.settings.SettingsViewModel,
         paywall: SubscriptionPaywallController,
@@ -215,6 +232,7 @@ internal object PaywallResponsiveLayout {
             alpha = if (selected) 1f else 0.94f
             markGeometry(marker)
             addView(V2Ui.styledBodyText(activity, title).apply { textSize = 16f })
+            addView(V2Ui.styledSecondaryText(activity, length).apply { textSize = 13f })
             price?.let {
                 addView(V2Ui.styledSecondaryText(activity, it).apply { textSize = 18f })
             }

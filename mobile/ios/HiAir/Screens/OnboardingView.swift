@@ -72,6 +72,12 @@ struct OnboardingView: View {
                         .foregroundStyle(HiAirColors.Text.tertiary)
                         .frame(maxWidth: .infinity)
                 }
+                HiAirProgressDots(current: min(step, 5), total: 6)
+                    .frame(maxWidth: .infinity)
+                Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: session.preferredLanguage), step + 1))
+                    .font(HiAirTypography.caption)
+                    .foregroundStyle(HiAirColors.Text.tertiary)
+                    .frame(maxWidth: .infinity)
             }
             .hiAirContentWidth(for: width)
             .hiAirScreenPadding(for: width)
@@ -380,7 +386,8 @@ struct OnboardingView: View {
                 healthService.startBackgroundHealthSync(
                     userId: userId,
                     accessToken: accessToken,
-                    profileId: profileId
+                    profileId: profileId,
+                    forceRestart: true
                 )
                 step += 1
             } catch {
@@ -405,7 +412,8 @@ struct OnboardingView: View {
             healthService.startBackgroundHealthSync(
                 userId: userId,
                 accessToken: accessToken,
-                profileId: profileId
+                profileId: profileId,
+                forceRestart: true
             )
             step += 1
         } catch {

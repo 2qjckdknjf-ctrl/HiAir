@@ -80,8 +80,14 @@ internal object DashboardScreenRenderer {
             }.start()
         }
         val host = activity as? LocationBootstrapHost
+        val hasProfile = rootShell.settingsViewModel.state.profileId.isNotBlank()
         if (host != null && !rootShell.settingsViewModel.hasValidLocation()) {
-            host.bootstrapLocation { startLoad.run() }
+            if (hasProfile) {
+                startLoad.run()
+                host.bootstrapLocation { }
+            } else {
+                host.bootstrapLocation { startLoad.run() }
+            }
         } else {
             startLoad.run()
         }
@@ -445,10 +451,22 @@ internal object DashboardScreenRenderer {
     private fun buildLocationHeader(ctx: RenderContext, state: DashboardState): LinearLayout {
         val activity = ctx.activity
         val settings = ctx.rootShell.settingsViewModel.state
-        val locality = if (settings.latitude != 0.0 && settings.longitude != 0.0) {
-            "Barcelona"
-        } else {
-            ctx.l("planner.fetch")
+        val locality = settings.displayPlaceName.takeIf { it.isNotBlank() }
+            ?: if (ctx.rootShell.settingsViewModel.hasValidLocation()) {
+                ctx.l("location.resolving")
+            } else {
+                ctx.l("location.unknown")
+            }
+        val freshnessKey = when (state.freshness?.lowercase() ?: state.dataSource?.lowercase()) {
+            "cached" -> "planner.freshness.cached"
+            "stale" -> "planner.freshness.stale"
+            "sample", "estimated" -> "dashboard.source_sample"
+            "live" -> "planner.freshness.live"
+            else -> if (state.status == com.hiair.ui.DashboardStatus.SUCCESS) {
+                "planner.freshness.live"
+            } else {
+                "location.resolving"
+            }
         }
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -461,7 +479,7 @@ internal object DashboardScreenRenderer {
                 },
             )
             addView(
-                V2Ui.styledSecondaryText(activity, " · ${ctx.l("planner.freshness.live")}").apply {
+                V2Ui.styledSecondaryText(activity, " · ${ctx.l(freshnessKey)}").apply {
                     textSize = 13f
                     gravity = Gravity.CENTER
                 },

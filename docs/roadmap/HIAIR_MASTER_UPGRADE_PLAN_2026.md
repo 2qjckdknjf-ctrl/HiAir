@@ -1,3 +1,5 @@
+> Current delivery reconciliation: see [CURRENT_DELIVERY_STATUS](../_operator/CURRENT_DELIVERY_STATUS.md) and [DELIVERY_REGISTRY](../_operator/DELIVERY_REGISTRY.json). Historical DEPLOYED entries below are dated evidence, not the current release verdict. October amendments remain canonical; do not reimplement existing functions or activate deferred research.
+
 # HiAir — Master Upgrade Plan 2026
 
 **Project:** HiAir  
@@ -763,13 +765,13 @@ HiAir reaches the intended 10/10 product state when:
 
 | Release | Status |
 |---------|--------|
-| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `408ec1c3`) — device QA pending |
-| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `408ec1c3`) — device QA pending |
-| 1.3 Multi-Hazard | Dust (PM10) + NO2 live env/hazard scoring DEPLOYED; pollen/smoke open; prod smoke PASS |
+| 1.1 Forecast Truth | DEPLOYED (`api.hiair.io` `65eb7726`) — device QA pending |
+| 1.2 Best Time Activity Planner | DEPLOYED (`api.hiair.io` `65eb7726`) — device QA pending |
+| 1.3 Multi-Hazard | Dust + NO2 + Open-Meteo pollen/smoke scoring (honest null outside coverage); prod smoke PASS (`65eb7726`) |
 | 1.4 Alert Decision Engine | Threshold gate + suppress telemetry + 60min cooldown DEPLOYED (`POST /api/alerts/decide`) |
-| 1.5 Saved Places | Backend + family Postgres + Dashboard risk card DEPLOYED; prod smoke PASS |
-| 1.6 Personal Adaptation | Backend + Insights + protected-day marks DEPLOYED; prod smoke PASS |
-| 2.0 Work / B2B Safety | Backend + Settings UI DEPLOYED (`GET /api/work/site-risk`; Heat Index ≠ WBGT) |
+| 1.5 Saved Places | Places + family + travel API DEPLOYED (prod smoke PASS); mobile travel Settings UI |
+| 1.6 Personal Adaptation | Baselines → alert sensitivity + planner load (sleep/RHR/HRV) DEPLOYED (`71067f35`) |
+| 2.0 Work / B2B Safety | Backend + Settings UI DEPLOYED; meteo-estimated WBGT labeled (`wbgt_estimated_from_meteo`) when instrument WBGT absent; prod smoke honesty PASS |
 
 Notes:
 - `docs/roadmap/HIAIR_1_2_BEST_TIME_ACTIVITY_PLANNER.md`

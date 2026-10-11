@@ -57,7 +57,7 @@ private struct HiAirMainTabBarBottomChrome: View {
 extension View {
     /// Tail spacing after `safeAreaInset` tab bar; prefer this over manual bottom padding.
     func hiAirMainTabScrollContent() -> some View {
-        padding(.bottom, HiAirScreenMetrics.mainTabScrollTailSpacing)
+        modifier(HiAirMainTabScrollTail())
     }
 
     func hiAirFloatingTabBarHeightReader() -> some View {
@@ -66,6 +66,15 @@ extension View {
                 Color.clear.preference(key: FloatingTabBarHeightKey.self, value: proxy.size.height)
             }
         }
+    }
+}
+
+private struct HiAirMainTabScrollTail: ViewModifier {
+    @Environment(\.hiAirFloatingTabBarHeight) private var tabBarHeight
+
+    func body(content: Content) -> some View {
+        content.padding(.bottom, max(tabBarHeight, HiAirScreenMetrics.floatingTabBarFallbackHeight)
+                        + HiAirScreenMetrics.mainTabScrollTailSpacing)
     }
 }
 

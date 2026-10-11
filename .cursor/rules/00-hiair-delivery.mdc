@@ -1,0 +1,12 @@
+---
+description: HiAir source and delivery coordination
+alwaysApply: true
+---
+
+# HiAir delivery rules
+
+Read the root AGENTS.md, docs/_operator/CURRENT_DELIVERY_STATUS.md and docs/_operator/DELIVERY_REGISTRY.json before implementation. The latest plan is docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md, including its October amendments.
+
+Use current main as the baseline. Check existing code and open PRs before adding a feature. Source directories and branch names are not delivery evidence. Track task ID, worktree, source SHA, PR, tests, merged SHA, deployment SHA and artifact separately. Never mark Closed PR as delivered without a merged SHA or a proved replacement. Never implement deferred voice/research work as part of release reconciliation.
+
+Preserve deterministic risk/action scoring, honest missing data, account-scoped consent, fail-closed store verification and privacy cleanup. Signed release artifacts must record a clean source SHA. New source changes invalidate evidence for changed behavior. Only deploy an immutable commit reachable from main. Public store submission still requires the owner's explicit release instruction.

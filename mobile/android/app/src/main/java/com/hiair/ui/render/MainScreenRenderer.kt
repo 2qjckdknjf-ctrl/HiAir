@@ -17,6 +17,7 @@ class MainScreenRenderer(
     private val persistSession: () -> Unit,
     private val clearSession: () -> Unit,
     private val rerender: () -> Unit,
+    private val restorePurchases: () -> Unit = {},
 ) {
     @Volatile
     private var presentationOnly: Boolean = false
@@ -39,6 +40,7 @@ class MainScreenRenderer(
         persistSession = persistSession,
         clearSession = clearSession,
         rerender = rerender,
+        restorePurchases = restorePurchases,
         presentationOnly = presentationOnly,
     )
 

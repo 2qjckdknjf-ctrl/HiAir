@@ -77,12 +77,13 @@ def test_activity_plan_returns_windows(monkeypatch) -> None:
     monkeypatch.setattr(
         planner_api.air_environment_service,
         "load_environment",
-        lambda profile: _env(),
+        lambda profile, **kwargs: _env(),
     )
     cool = _env("2026-08-21T07:00:00+02:00", feels_like=23.0)
     hot = _env("2026-08-21T14:00:00+02:00", feels_like=37.0, aqi=140, pm25=45.0)
 
     class _FakeForecast:
+        current = None
         generated_at = "2026-08-21T06:55:00+02:00"
         freshness = type("F", (), {"value": "live"})()
         quality = type("Q", (), {"value": "complete"})()
@@ -130,7 +131,7 @@ def test_activity_plan_empty_forecast_is_honest(monkeypatch) -> None:
     monkeypatch.setattr(
         planner_api.air_environment_service,
         "load_environment",
-        lambda profile: _env(),
+        lambda profile, **kwargs: _env(),
     )
     monkeypatch.setattr(air_api, "_load_forecast_or_none", lambda lat, lon: None)
     monkeypatch.setattr(

@@ -27,6 +27,9 @@ import com.hiair.network.AppConfig
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -451,16 +454,21 @@ class HealthConnectService(
         if (!isHealthConnectAvailable()) return Triple(null, null, null)
         val client = HealthConnectClient.getOrCreate(context)
         val (start, end) = todayRange()
-        val records = client.readRecords(
-            ReadRecordsRequest(
-                recordType = HeartRateRecord::class,
+        val response = client.aggregate(
+            AggregateRequest(
+                metrics = setOf(
+                    HeartRateRecord.BPM_AVG,
+                    HeartRateRecord.BPM_MIN,
+                    HeartRateRecord.BPM_MAX,
+                ),
                 timeRangeFilter = TimeRangeFilter.between(start, end),
             )
-        ).records
-        if (records.isEmpty()) return Triple(null, null, null)
-        val values = records.flatMap { record -> record.samples.map { it.beatsPerMinute.toDouble() } }
-        if (values.isEmpty()) return Triple(null, null, null)
-        return Triple(values.average(), values.minOrNull(), values.maxOrNull())
+        )
+        return Triple(
+            response[HeartRateRecord.BPM_AVG]?.toDouble(),
+            response[HeartRateRecord.BPM_MIN]?.toDouble(),
+            response[HeartRateRecord.BPM_MAX]?.toDouble(),
+        )
     }
 
     suspend fun fetchRestingHeartRate(): Double? {
@@ -515,62 +523,102 @@ class HealthConnectService(
             ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
 
             val granted = grantedPermissions()
-            val metrics = JSONArray()
-            appendAggregateMetric(metrics, "steps", "count", "steps")
-            appendAggregateMetric(metrics, "distance_walking_running", "m", "distance", meters = true)
-            appendAggregateMetric(metrics, "active_energy", "kcal", "active_energy")
-            appendAggregateMetric(metrics, "basal_energy", "kcal", "total_energy")
-            appendAggregateMetric(metrics, "flights_climbed", "count", "floors")
-
-            val hr = if (granted.containsAll(tier2Permissions)) {
-                fetchHeartRateSummary()
-            } else {
-                Triple(null, null, null)
-            }
-            if (hr.first != null || hr.second != null || hr.third != null) {
-                metrics.put(
-                    metricJson(
-                        type = "heart_rate",
-                        unit = "bpm",
-                        avg = hr.first,
-                        min = hr.second,
-                        max = hr.third,
-                        sampleCount = 1,
-                    )
+            val (metrics, sleep) = coroutineScope {
+                val chunks = listOf(
+                    async {
+                        JSONArray().also { appendAggregateMetric(it, "steps", "count", "steps") }
+                    },
+                    async {
+                        JSONArray().also {
+                            appendAggregateMetric(it, "distance_walking_running", "m", "distance", meters = true)
+                        }
+                    },
+                    async {
+                        JSONArray().also { appendAggregateMetric(it, "active_energy", "kcal", "active_energy") }
+                    },
+                    async {
+                        JSONArray().also { appendAggregateMetric(it, "basal_energy", "kcal", "total_energy") }
+                    },
+                    async {
+                        JSONArray().also { appendAggregateMetric(it, "flights_climbed", "count", "floors") }
+                    },
+                    async {
+                        JSONArray().also { array ->
+                            val hr = if (granted.containsAll(tier2Permissions)) {
+                                fetchHeartRateSummary()
+                            } else {
+                                Triple(null, null, null)
+                            }
+                            if (hr.first != null || hr.second != null || hr.third != null) {
+                                array.put(
+                                    metricJson(
+                                        type = "heart_rate",
+                                        unit = "bpm",
+                                        avg = hr.first,
+                                        min = hr.second,
+                                        max = hr.third,
+                                        sampleCount = 1,
+                                    )
+                                )
+                            } else if (!granted.containsAll(tier2Permissions)) {
+                                array.put(emptyMetric("heart_rate", "bpm", "permission_denied"))
+                            } else {
+                                array.put(emptyMetric("heart_rate", "bpm"))
+                            }
+                        }
+                    },
+                    async {
+                        JSONArray().also { array ->
+                            val resting = if (granted.containsAll(tier2Permissions)) {
+                                fetchRestingHeartRate()
+                            } else {
+                                null
+                            }
+                            array.put(
+                                when {
+                                    resting != null -> metricJson(
+                                        "resting_heart_rate",
+                                        "bpm",
+                                        avg = resting,
+                                        latest = resting,
+                                        sampleCount = 1,
+                                    )
+                                    !granted.containsAll(tier2Permissions) ->
+                                        emptyMetric("resting_heart_rate", "bpm", "permission_denied")
+                                    else -> emptyMetric("resting_heart_rate", "bpm")
+                                }
+                            )
+                        }
+                    },
+                    async {
+                        JSONArray().also { array ->
+                            if (granted.containsAll(tier2Permissions)) {
+                                appendHrv(array)
+                                appendVo2(array)
+                            } else {
+                                array.put(emptyMetric("hrv_rmssd", "ms", "permission_denied"))
+                                array.put(emptyMetric("vo2_max", "ml_kg_min", "permission_denied"))
+                            }
+                        }
+                    },
+                    async {
+                        JSONArray().also { array ->
+                            if (granted.containsAll(tier3Permissions)) {
+                                appendRespiratory(array)
+                                appendOxygen(array)
+                                appendBodyTemperature(array)
+                            } else {
+                                array.put(emptyMetric("respiratory_rate", "breaths_per_min", "permission_denied"))
+                                array.put(emptyMetric("oxygen_saturation", "percent", "permission_denied"))
+                                array.put(emptyMetric("body_temperature", "celsius", "permission_denied"))
+                            }
+                        }
+                    },
+                    async { JSONArray().also { appendWorkouts(it) } },
                 )
-            } else if (!granted.containsAll(tier2Permissions)) {
-                metrics.put(emptyMetric("heart_rate", "bpm", "permission_denied"))
-            } else {
-                metrics.put(emptyMetric("heart_rate", "bpm"))
+                val sleepDeferred = async { buildSleepJson() }
+                Pair(mergeJsonArrays(chunks.awaitAll()), sleepDeferred.await())
             }
-
-            val resting = if (granted.containsAll(tier2Permissions)) fetchRestingHeartRate() else null
-            metrics.put(
-                when {
-                    resting != null -> metricJson("resting_heart_rate", "bpm", avg = resting, latest = resting, sampleCount = 1)
-                    !granted.containsAll(tier2Permissions) -> emptyMetric("resting_heart_rate", "bpm", "permission_denied")
-                    else -> emptyMetric("resting_heart_rate", "bpm")
-                }
-            )
-
-            if (granted.containsAll(tier2Permissions)) {
-                appendHrv(metrics)
-                appendVo2(metrics)
-            } else {
-                metrics.put(emptyMetric("hrv_rmssd", "ms", "permission_denied"))
-                metrics.put(emptyMetric("vo2_max", "ml_kg_min", "permission_denied"))
-            }
-            if (granted.containsAll(tier3Permissions)) {
-                appendRespiratory(metrics)
-                appendOxygen(metrics)
-                appendBodyTemperature(metrics)
-            } else {
-                metrics.put(emptyMetric("respiratory_rate", "breaths_per_min", "permission_denied"))
-                metrics.put(emptyMetric("oxygen_saturation", "percent", "permission_denied"))
-                metrics.put(emptyMetric("body_temperature", "celsius", "permission_denied"))
-            }
-            appendWorkouts(metrics)
-            val sleep = buildSleepJson()
 
             // Re-check immediately before first upload (revoke may have raced during collection).
             ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
@@ -596,20 +644,33 @@ class HealthConnectService(
                 ensureUploadAllowed(userId, expectedAccountGeneration, expectedSyncGeneration)
 
                 var stepsTotal: Long? = null
+                var heartRateAvg: Double? = null
+                var heartRateMin: Double? = null
+                var heartRateMax: Double? = null
+                var restingHeartRateAvg: Double? = null
                 for (i in 0 until metrics.length()) {
                     val row = metrics.optJSONObject(i) ?: continue
-                    if (row.optString("metricType") == "steps" && !row.isNull("valueTotal")) {
-                        stepsTotal = row.optDouble("valueTotal").toLong()
-                        break
+                    when (row.optString("metricType")) {
+                        "steps" -> if (!row.isNull("valueTotal")) {
+                            stepsTotal = row.optDouble("valueTotal").toLong()
+                        }
+                        "heart_rate" -> {
+                            if (!row.isNull("valueAvg")) heartRateAvg = row.optDouble("valueAvg")
+                            if (!row.isNull("valueMin")) heartRateMin = row.optDouble("valueMin")
+                            if (!row.isNull("valueMax")) heartRateMax = row.optDouble("valueMax")
+                        }
+                        "resting_heart_rate" -> if (!row.isNull("valueAvg")) {
+                            restingHeartRateAvg = row.optDouble("valueAvg")
+                        }
                     }
                 }
                 val legacy = JSONObject()
                     .put("date", localDate)
                     .put("stepsTotal", stepsTotal)
-                    .put("heartRateAvg", hr.first)
-                    .put("heartRateMin", hr.second)
-                    .put("heartRateMax", hr.third)
-                    .put("restingHeartRateAvg", resting)
+                    .put("heartRateAvg", heartRateAvg)
+                    .put("heartRateMin", heartRateMin)
+                    .put("heartRateMax", heartRateMax)
+                    .put("restingHeartRateAvg", restingHeartRateAvg)
                     .put("source", "health_connect")
                 apiClient.uploadWearableDailySummary(userId, accessToken, legacy.toString())
             }
@@ -994,6 +1055,16 @@ class HealthConnectService(
     private fun todayRange(): Pair<Instant, Instant> {
         val start = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
         return start to Instant.now()
+    }
+
+    private fun mergeJsonArrays(chunks: List<JSONArray>): JSONArray {
+        val merged = JSONArray()
+        chunks.forEach { chunk ->
+            for (index in 0 until chunk.length()) {
+                merged.put(chunk.get(index))
+            }
+        }
+        return merged
     }
 
     private fun metricJson(

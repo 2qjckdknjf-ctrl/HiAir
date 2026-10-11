@@ -24,11 +24,16 @@ class WorkRestRecommendation(BaseModel):
 
 
 class WorkSafetyEnvironmentInput(BaseModel):
-    """Minimal occupational assessment inputs; WBGT is optional and must not be inferred."""
+    """Occupational assessment inputs.
+
+    Prefer measured WBGT. Estimated meteo WBGT is allowed only when labeled via
+    ``wbgt_estimated=True`` and must never be presented as instrument WBGT.
+    """
 
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
     wbgt_c: float | None = None
+    wbgt_estimated: bool = False
     heat_index_c: float | None = None
 
 
@@ -48,3 +53,30 @@ class SiteRiskResponse(BaseModel):
     assessedAt: str
     environmentalSource: str | None = None
     assessment: SiteRiskAssessment
+
+
+class WorkSiteCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    timezone: str | None = None
+
+
+class WorkSite(BaseModel):
+    id: str
+    userId: str
+    name: str
+    lat: float
+    lon: float
+    timezone: str | None = None
+    createdAt: str | None = None
+
+
+class WorkSiteListResponse(BaseModel):
+    sites: list[WorkSite] = Field(default_factory=list)
+
+
+class WorkSiteWbgtIngestRequest(BaseModel):
+    wbgtC: float = Field(ge=-50, le=60)
+    measuredAt: str
+    source: str = "instrument"

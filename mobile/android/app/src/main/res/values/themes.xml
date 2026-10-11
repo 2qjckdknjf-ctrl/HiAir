@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="hiair_night_top">#0E1226</color>
-    <color name="hiair_night_bottom">#181D38</color>
-    <color name="hiair_text_primary">#F0F4FF</color>
-    <color name="hiair_cta_start">#5DD5C4</color>
-    <color name="hiair_cta_end">#8B7BFF</color>
+    <color name="hiair_night_top">#050B16</color>
+    <color name="hiair_night_bottom">#0B1730</color>
+    <color name="hiair_text_primary">#F4F7FF</color>
+    <color name="hiair_cta_start">#21D7FF</color>
+    <color name="hiair_cta_mid">#3D7BFF</color>
+    <color name="hiair_cta_end">#8C5CFF</color>
 
     <style name="Theme.HiAir" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowBackground">@drawable/hiair_splash_background</item>

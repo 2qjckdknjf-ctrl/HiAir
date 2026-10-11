@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from app.models.air import (
     AlertDecision,
@@ -14,11 +15,14 @@ from app.models.alert_decision import (
 )
 from app.services.localization import normalize_language, t
 from app.services.risk_level_contract import normalize_air_level_value
+import app.services.adaptation_sensitivity as adaptation_sensitivity
 import app.services.air_repository as air_repository
 import app.services.alert_cooldown as alert_cooldown
 import app.services.alert_decision_engine as alert_decision_engine
 import app.services.observability as observability
+import app.services.personal_load_engine as personal_load_engine
 import app.services.settings_repository as settings_repository
+import app.services.wearable_service as wearable_service
 
 
 def _severity_from_risk_level(level: str) -> AlertSeverity:
@@ -66,7 +70,11 @@ def evaluate_alert(
 ) -> AlertDecision:
     lang = normalize_language(language)
     user_settings = settings_repository.get_user_settings(profile.user_id)
-    now_hour = datetime.now(timezone.utc).hour
+    try:
+        tz = ZoneInfo(profile.timezone or "UTC")
+    except Exception:
+        tz = ZoneInfo("UTC")
+    now_hour = datetime.now(tz).hour
     if not user_settings.push_alerts_enabled:
         return AlertDecision(
             shouldSend=False,
@@ -106,6 +114,29 @@ def evaluate_alert(
         else DecisionReason.SIGNIFICANT_CHANGE
     )
     cooldown_minutes = alert_cooldown.cooldown_minutes_for_alert_type(alert_type.value)
+    # 1.6: when personal baselines show recovery strain, alert one step earlier.
+    try:
+        load_input = wearable_service.build_personal_load_input(profile.user_id)
+        load_result = personal_load_engine.compute_personal_load_score(load_input)
+    except Exception:
+        load_result = None
+    effective_threshold, _boost_reasons = adaptation_sensitivity.effective_alert_threshold(
+        user_settings.alert_threshold,
+        load_result,
+    )
+
+    # Resolve quiet-hours state once in the orchestrator. The decision engine
+    # remains the canonical suppression-order implementation, while this seam
+    # keeps wall-clock evaluation deterministic/testable and avoids evaluating
+    # timezone logic twice in different layers.
+    quiet_hours_active = _is_quiet_hours(
+        user_settings.quiet_hours_start,
+        user_settings.quiet_hours_end,
+        now_hour,
+    )
+    quiet_start = user_settings.quiet_hours_start if quiet_hours_active else None
+    quiet_end = user_settings.quiet_hours_end if quiet_hours_active else None
+
     gate = alert_decision_engine.decide_alert(
         AlertCandidate(
             alertType=alert_type.value,
@@ -113,8 +144,8 @@ def evaluate_alert(
             reasonCode=reason_code,
             profileId=profile.profile_id,
             localHour=now_hour,
-            quietHoursStart=user_settings.quiet_hours_start,
-            quietHoursEnd=user_settings.quiet_hours_end,
+            quietHoursStart=quiet_start,
+            quietHoursEnd=quiet_end,
             cooldownMinutesRemaining=air_repository.minutes_until_alert_cooldown_elapsed(
                 profile.profile_id,
                 cooldown_minutes=cooldown_minutes,
@@ -123,7 +154,7 @@ def evaluate_alert(
             alreadySentFingerprint=already_sent,
             fingerprint=dedupe_key,
             actionable=current_level in ("high", "very_high") or alert_type == AlertType.RISK_INCREASE,
-            personalThresholdMet=_personal_threshold_met(user_settings.alert_threshold, current_level),
+            personalThresholdMet=_personal_threshold_met(effective_threshold, current_level),
         )
     )
     observability.record_alert_decision(

@@ -13,6 +13,8 @@ INIT_DB_LOCK_KEY = 8_314_159_265
 MAX_DEADLOCK_RETRIES = 4
 
 SUPABASE_AUTH_MIGRATIONS = {
+    "030_work_sites_supabase_rls.sql",
+
     "003_supabase_auth_rls.sql",
     "010_public_tables_rls_lockdown.sql",
     "011_supabase_auth_user_fk_fixup.sql",

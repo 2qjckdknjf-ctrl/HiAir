@@ -2,7 +2,7 @@
 
 **App:** HiAir  
 **Application ID:** `com.hiair`  
-**Version:** 0.1.0 (`versionCode` 2)
+**Version:** 1.0 (`versionCode` 188, identity with iOS build 188)
 
 ## Pre-upload (engineering)
 

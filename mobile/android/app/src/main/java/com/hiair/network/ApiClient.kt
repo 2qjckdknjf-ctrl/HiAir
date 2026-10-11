@@ -5,9 +5,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 
-class ApiHttpException(val statusCode: Int, message: String) : RuntimeException(message)
+class ApiHttpException(
+    val statusCode: Int,
+    message: String,
+    val body: String = "",
+) : RuntimeException(message)
 
-class ApiClient(private val baseUrl: String) {
+open class ApiClient(private val baseUrl: String) {
     data class AuthState(
         val userId: String,
         val accessToken: String,
@@ -65,6 +69,16 @@ class ApiClient(private val baseUrl: String) {
         return request("POST", endpoint, json)
     }
 
+    /** Password-grant session via backend bridge. 404 means the route is absent. */
+    fun supabaseEmailSession(email: String, password: String, signup: Boolean): String {
+        val path = if (signup) "/api/auth/supabase/signup" else "/api/auth/supabase/session"
+        val json = JSONObject().apply {
+            put("email", email)
+            put("password", password)
+        }.toString()
+        return requestStrict("POST", "$baseUrl$path", json)
+    }
+
     fun listProfiles(userId: String, accessToken: String?): String {
         val endpoint = "$baseUrl/api/profiles"
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
@@ -88,7 +102,7 @@ class ApiClient(private val baseUrl: String) {
         return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
     }
 
-    fun updateProfileLocation(
+    open fun updateProfileLocation(
         userId: String,
         accessToken: String?,
         profileId: String,
@@ -157,6 +171,38 @@ class ApiClient(private val baseUrl: String) {
         placeId: String,
     ): String {
         val endpoint = "$baseUrl/api/places/$placeId"
+        return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun getTravelSession(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/travel/session"
+        return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
+    }
+
+    fun startTravelSession(
+        userId: String,
+        accessToken: String? = null,
+        placeId: String,
+        until: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/travel/session"
+        val json = JSONObject().apply {
+            put("placeId", placeId)
+            if (!until.isNullOrBlank()) {
+                put("until", until)
+            }
+        }.toString()
+        return requestStrict("POST", endpoint, json, authHeaders(userId, accessToken))
+    }
+
+    fun clearTravelSession(
+        userId: String,
+        accessToken: String? = null,
+    ): String {
+        val endpoint = "$baseUrl/api/travel/session"
         return requestStrict("DELETE", endpoint, null, authHeaders(userId, accessToken))
     }
 
@@ -264,6 +310,8 @@ class ApiClient(private val baseUrl: String) {
         activity: String,
         durationMinutes: Int? = null,
         intensity: String? = null,
+        earliestStart: String? = null,
+        latestStart: String? = null,
         placeId: String? = null,
     ): String {
         val endpoint = "$baseUrl/api/planner/activity-plan"
@@ -275,6 +323,12 @@ class ApiClient(private val baseUrl: String) {
             }
             if (!intensity.isNullOrBlank()) {
                 put("intensity", intensity)
+            }
+            if (!earliestStart.isNullOrBlank()) {
+                put("earliestStart", earliestStart)
+            }
+            if (!latestStart.isNullOrBlank()) {
+                put("latestStart", latestStart)
             }
             if (!placeId.isNullOrBlank()) {
                 put("placeId", placeId)
@@ -541,7 +595,7 @@ class ApiClient(private val baseUrl: String) {
             allowRefresh = true
         )
         if (code !in 200..299) {
-            throw ApiHttpException(code, "HTTP $code for $endpoint")
+            throw ApiHttpException(code, "HTTP $code for $endpoint", payload)
         }
         return payload
     }

@@ -18,6 +18,7 @@ data class RenderContext(
     val persistSession: () -> Unit,
     val clearSession: () -> Unit,
     val rerender: () -> Unit,
+    val restorePurchases: () -> Unit = {},
     val presentationOnly: Boolean = false,
 ) {
     fun l(key: String): String = AndroidL10n.t(key, rootShell.settingsViewModel.state.preferredLanguage)

@@ -42,16 +42,16 @@ final class MainTabScrollHittabilityUITests: XCTestCase {
         tabButton.tap()
 
         let target = app.descendants(matching: .any)[bottomID]
-        for _ in 0..<12 where !target.isHittable {
+        let tabBar = app.descendants(matching: .any)["tab.bar"]
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 4), "Missing tab.bar chrome")
+        for _ in 0..<12 {
+            if target.exists && target.isHittable && target.frame.maxY < tabBar.frame.minY - 4 { break }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
         XCTAssertTrue(target.waitForExistence(timeout: 8), "Missing bottom control \(bottomID) on \(tabID)")
         XCTAssertTrue(target.isHittable, "Bottom control \(bottomID) not hittable on \(tabID)")
-
-        let tabBar = app.descendants(matching: .any)["tab.bar"]
-        XCTAssertTrue(tabBar.waitForExistence(timeout: 4), "Missing tab.bar chrome")
 
         let targetBottom = target.frame.maxY
         let barTop = tabBar.frame.minY

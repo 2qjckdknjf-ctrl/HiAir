@@ -27,6 +27,8 @@ final class DashboardViewModel: ObservableObject {
 
     private let apiClient = APIClient.live()
     private let healthService = HealthKitService.shared
+    private var refreshGeneration: UInt64 = 0
+    private var enrichmentTask: Task<Void, Never>?
 
     func refresh(
         userId: String,
@@ -34,6 +36,10 @@ final class DashboardViewModel: ObservableObject {
         profileId: String?,
         language: String
     ) async {
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+        enrichmentTask?.cancel()
+        enrichmentTask = nil
         loading = true
         loadFailed = false
         exposureReducedMarked = false
@@ -41,8 +47,10 @@ final class DashboardViewModel: ObservableObject {
         protectedDayStatus = ""
         familyRiskOverview = nil
         defer {
-            loading = false
-            hasLoadedOnce = true
+            if generation == refreshGeneration {
+                loading = false
+                hasLoadedOnce = true
+            }
         }
         guard let profileId, !profileId.isEmpty else {
             riskLevel = "unknown"
@@ -64,30 +72,39 @@ final class DashboardViewModel: ObservableObject {
         }
         do {
             ProductAnalytics.track("forecast_fetch_started", properties: ["surface": "dashboard"])
-            // Phase 1: risk only — paints hero as soon as current-risk returns.
-            async let riskTask = apiClient.fetchCurrentRisk(
+            let hazardsTask = Task {
+                try await apiClient.fetchHazards(
+                    profileId: profileId,
+                    userId: userId,
+                    accessToken: accessToken
+                )
+            }
+            let familyRiskTask = Task {
+                try await apiClient.fetchFamilyRiskOverview(
+                    userId: userId,
+                    accessToken: accessToken
+                )
+            }
+            let wearableTask = Task {
+                try await apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
+            }
+            let summaryTask = Task {
+                try await apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
+            }
+            let morningTask = Task {
+                try await apiClient.fetchAIReport(
+                    kind: "morning",
+                    profileId: profileId,
+                    userId: userId,
+                    accessToken: accessToken
+                )
+            }
+            let result = try await apiClient.fetchCurrentRisk(
                 profileId: profileId,
                 userId: userId,
                 accessToken: accessToken
             )
-            async let hazardsTask = apiClient.fetchHazards(
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken
-            )
-            async let familyRiskTask = apiClient.fetchFamilyRiskOverview(
-                userId: userId,
-                accessToken: accessToken
-            )
-            async let wearableTask = apiClient.fetchWearableToday(userId: userId, accessToken: accessToken)
-            async let summaryTask = apiClient.fetchHealthSummary(userId: userId, accessToken: accessToken)
-            async let morningTask = apiClient.fetchAIReport(
-                kind: "morning",
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken
-            )
-            let result = try await riskTask
+            guard generation == refreshGeneration else { return }
             // Prefer live connectionState over sync-gated refresh (Connected ≠ full sync done).
             let live = healthService.connectionState
             switch live {
@@ -142,7 +159,8 @@ final class DashboardViewModel: ObservableObject {
             } else {
                 nearestSafeWindow = HiAirL10n.t("dashboard.no_safe_window", lang: language)
             }
-            // End skeleton as soon as risk is ready; enrichments fill in below.
+            // End skeleton as soon as risk is ready; caller (launch / pull-to-refresh)
+            // must not wait on AI or wearable enrichments.
             loading = false
             hasLoadedOnce = true
             ProductAnalytics.track(
@@ -154,12 +172,19 @@ final class DashboardViewModel: ObservableObject {
                 ]
             )
 
-            // Phase 2: optional enrichments (must not delay first useful UI).
-            hazardsResponse = try? await hazardsTask
-            familyRiskOverview = try? await familyRiskTask
-            wearableToday = try? await wearableTask
-            healthSummary = try? await summaryTask
-            morningReport = try? await morningTask
+            enrichmentTask = Task { @MainActor [weak self] in
+                let hazards = try? await hazardsTask.value
+                let family = try? await familyRiskTask.value
+                let wearable = try? await wearableTask.value
+                let summary = try? await summaryTask.value
+                let morning = try? await morningTask.value
+                guard let self, generation == self.refreshGeneration else { return }
+                self.hazardsResponse = hazards
+                self.familyRiskOverview = family
+                self.wearableToday = wearable
+                self.healthSummary = summary
+                self.morningReport = morning
+            }
         } catch {
             ProductAnalytics.track("forecast_fetch_failed", properties: ["surface": "dashboard"])
             loadFailed = true

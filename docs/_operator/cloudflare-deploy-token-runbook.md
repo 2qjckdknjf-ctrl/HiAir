@@ -40,12 +40,13 @@ Template: use Cloudflare dashboard → **My Profile → API Tokens → Create To
 6. Update **`CLOUDFLARE_API_TOKEN`** with the new custom token
 7. Confirm **`CLOUDFLARE_ACCOUNT_ID`** is set
 
-8. Local preflight (optional, do not print token):
+8. Local preflight (optional, do not print token). Prefer the secret file — verify/rotate
+   read `backend/.secrets/cloudflare_api_token` before any shell env (avoids stale OAuth):
 
 ```bash
-export CLOUDFLARE_API_TOKEN='<paste>'
-export CLOUDFLARE_ACCOUNT_ID='<account-id>'
+# after create_cloudflare_custom_deploy_token.py OR manual paste into the secret file:
 python3 scripts/ops/verify_cloudflare_deploy_token.py
+python3 scripts/ops/rotate_cloudflare_github_token.py
 ```
 
 9. Re-run workflow: **Actions → Backend Deploy Production → Run workflow** on `main`
@@ -81,3 +82,19 @@ python3 scripts/release/sync_github_env_secrets.py \
 ```
 
 Prefer **custom token in `.env.local`** over OAuth refresh for production stability.
+
+
+## Automated Custom Token (preferred)
+
+1. In Cloudflare Dashboard create a one-time **Create Additional Tokens** bootstrap token.
+2. Locally:
+
+```bash
+export CLOUDFLARE_BOOTSTRAP_TOKEN='...'
+export CLOUDFLARE_ACCOUNT_ID='864f04d729c24f574a228558b40d7b82'
+python3 scripts/ops/create_cloudflare_custom_deploy_token.py
+python3 scripts/ops/rotate_cloudflare_github_token.py
+python3 scripts/ops/verify_cloudflare_deploy_token.py
+```
+
+3. Revoke the bootstrap token after the long-lived deploy token is verified.
