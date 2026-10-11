@@ -1,0 +1,70 @@
+{
+  "ios_source_sha": "995b10e9e35026c42a11cafa70e81766ed0dbd1d",
+  "ios_version": "1.2",
+  "ios_build": 301,
+  "android_source_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+  "android_version": "1.2.0",
+  "android_version_code": 301,
+  "clean_source": true,
+  "merged_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+  "deployed_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+  "pull_request": 86,
+  "production_deploy_run": 38137446480,
+  "pages_deploy_run": 38137446475,
+  "web_deployed_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+  "current_product_plan": "docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md",
+  "release_constraints": "docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md",
+  "artifacts": [
+    {
+      "path": ".evidence/HiAir-1.2-301.ipa",
+      "sha256": "9eaa50acf9802079b0e3e83e3414e605ea24d09f6e1a8f9138fc6e1d3e917e04",
+      "bytes": 9067922,
+      "source_sha": "995b10e9e35026c42a11cafa70e81766ed0dbd1d",
+      "distribution": "TestFlight"
+    },
+    {
+      "path": ".evidence/android-play-301/app-release.aab",
+      "sha256": "c757525ec40c52f55cb7a7833b0ef94fbf45e7f630bfe6a5161ab58b16641c05",
+      "bytes": 8818298,
+      "source_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+      "distribution": "Google Play internal"
+    }
+  ],
+  "live_ai_smoke": "PASS",
+  "feature_surfaces_smoke": "PASS_AFTER_DEPLOY_COMPLETED",
+  "free_action_single_window": "PASS",
+  "synthetic_account_cleanup": "PASS",
+  "testflight": {
+    "build_id": "b58cf698-9216-4606-bedf-ef2d15cd7505",
+    "processing_state": "VALID",
+    "internal_state": "IN_BETA_TESTING"
+  },
+  "google_play": {
+    "track": "internal",
+    "version_code": 301,
+    "release_status": "completed",
+    "run_id": 38137649354,
+    "source_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
+    "upload_and_edit_commit": "SUCCESS",
+    "artifact_id": 11701277247
+  },
+  "physical_ios": {
+    "device": "iPhone 17 Pro",
+    "os": "27.0.1",
+    "source_sha": "995b10e9e35026c42a11cafa70e81766ed0dbd1d",
+    "configuration": "Release / Apple Development",
+    "result_bundle": ".evidence/action-physical-301-live.xcresult",
+    "executed": 1,
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0,
+    "session_restore": "PASS",
+    "tab_navigation": "PASS",
+    "live_action": "PASS",
+    "native_calendar_cancel": "PASS",
+    "sandbox_purchase_restore": "PENDING_OWNER_SYSTEM_CONFIRMATION",
+    "full_matrix": "NOT_COMPLETED"
+  },
+  "physical_android": "DEVICE_UNAVAILABLE_OWNER_CONFIRMED",
+  "public_submission": "NOT_REQUESTED_NOT_SUBMITTED"
+}

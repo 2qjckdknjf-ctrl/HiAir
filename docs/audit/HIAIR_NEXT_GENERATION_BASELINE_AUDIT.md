@@ -1,6 +1,6 @@
 # Current ACTION reconciliation — 2026-10-11
 
-Current base is protected main d6fd513d. Runtime baseline: backend 833a06e4, iOS/Android internal build 300; see release manifest and operator registry. The historical audit below records September findings and is not the current branch/governance verdict.
+Current protected main contains PR86 (`48ed1a09`). Runtime baseline: API/web `48ed1a09`, iOS/Android internal build 301; current release manifest and operator registry contain store/device receipts. The historical audit below records September findings and is not the current branch/governance verdict.
 
 | Original gap | Current disposition |
 |---|---|

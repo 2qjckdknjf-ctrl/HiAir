@@ -1,7 +1,7 @@
 # HiAir 1.2 — Action Implementation Spec
 
-**Status:** current ACTION closure in validation; see docs/_operator/DELIVERY_REGISTRY.json and current baseline audit.
-**Branch:** `fix/hiair-action-tail-closure-2026-10-11` from protected main
+**Status:** ACTION engineering delivered in PR86 / 48ed1a09; API/web and internal build 301 verified. Physical Android/full device/store acceptance remains partial; see registry and REAL_DEVICE_QA_REPORT.md.
+**Delivered branch:** `fix/hiair-action-tail-closure-2026-10-11` → protected main via PR86
 **Parent roadmap:** `docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md`  
 **Audit:** `docs/audit/HIAIR_NEXT_GENERATION_BASELINE_AUDIT.md`
 
@@ -192,7 +192,7 @@ If the backend provider remains hourly, UI may still display activity duration (
 
 ## 7. P1 — Mobile Action controls
 
-Current backend supports duration, intensity, earliest/latest and place selection. Current inspected mobile flows do not expose all of those controls.
+Backend and both clients now expose duration, intensity, place and optional time preferences (reference timezone/DST). Requirements below describe the delivered controls, not a request to implement them again.
 
 ### iOS required controls
 
@@ -311,11 +311,11 @@ No medical claims.
 
 ## 11. Premium reconciliation
 
-Current `/api/planner/activity-plan` is gated behind `extended_forecast`.
+Delivered decision: `HIAIR_ACTION_FREE_CORE_DECISION_2026-10-11.md`. `/api/planner/activity-plan` returns one trustworthy window for basic access; `extended_forecast` retains the full paid contract. Entitlement failures remain failures. The candidate discussion below is historical rationale, not an instruction to restore the old 402 gate.
 
 New product strategy proposes a useful free safety/action layer with Premium for deeper intelligence.
 
-Do not change entitlement behavior in the ranking slice.
+The original ranking-only slice preserved entitlement behavior; PR86 subsequently implemented the separately documented free-core decision with regression/store review.
 
 Create a separate product/engineering decision before store behavior changes. Evaluate:
 
@@ -339,7 +339,7 @@ Any entitlement migration requires Store/analytics/regression review.
 
 ## 12. Calendar
 
-After core Action controls are stable, add native **Add to Calendar** if the product decision remains approved.
+Delivered native **Add to Calendar**: iOS EventKitUI confirmation (legacy permission on iOS 16), Android ACTION_INSERT. No ingestion; no fake Android save event.
 
 ### iOS
 
@@ -495,3 +495,7 @@ No exact GPS or health raw values in product analytics.
 - `CODE_COMPLETE` only if code + tests have been executed successfully;
 - otherwise `QA_PENDING` or `PARTIAL`;
 - do not claim production verification until deployed/runtime evidence exists.
+
+## Current acceptance checkpoint — 2026-10-11
+
+Backend/client engineering, CI, production API/web, signed 301 internal delivery and physical iPhone live ACTION/calendar are verified. Physical Android is unavailable; genuine iPhone Sandbox purchase/restore and the broader isolated-device regression matrix are not yet certified. Forecast ranking replay reports no regressions, but does not prove beta-quality uplift. No new Action lifecycle table is needed for the delivered local calendar/basic acceptance semantics. Reuse this implementation before opening a new task; the next product phase remains separately scoped.
