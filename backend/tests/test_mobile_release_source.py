@@ -14,10 +14,12 @@ def test_mobile_guard_allows_docs_but_rejects_diverged_api_and_feature_source(tm
     git('init','-q','-b','main')
     git('config','user.name','Test');git('config','user.email','test@example.invalid')
     (tmp_path/'backend').mkdir();(tmp_path/'backend/app.py').write_text('first')
+    (tmp_path/'mobile/ios').mkdir(parents=True);(tmp_path/'mobile/ios/source.swift').write_text('first')
     git('add','.');git('commit','-qm','baseline');baseline=git('rev-parse','HEAD')
     (tmp_path/'note.md').write_text('docs');git('add','.');git('commit','-qm','docs');docs=git('rev-parse','HEAD')
     git('update-ref','refs/remotes/origin/main',docs)
     assert module.validate_source(docs,baseline,tmp_path)['api_sha']==baseline
+    module.validate_artifact_checkout(baseline,docs,'mobile/ios',tmp_path)
     git('switch','-qc','feature')
     (tmp_path/'backend/app.py').write_text('changed');git('add','.');git('commit','-qm','feature');feature=git('rev-parse','HEAD')
     with pytest.raises(ValueError,match='reachable'):
@@ -26,6 +28,10 @@ def test_mobile_guard_allows_docs_but_rejects_diverged_api_and_feature_source(tm
     with pytest.raises(ValueError,match='differs'):
         module.validate_source(feature,baseline,tmp_path)
     assert module.validate_source(feature,feature,tmp_path)['source_sha']==feature
+    (tmp_path/'mobile/ios/source.swift').write_text('changed');git('add','.');git('commit','-qm','mobile')
+    mobile=git('rev-parse','HEAD')
+    with pytest.raises(ValueError,match='mobile source differs'):
+        module.validate_artifact_checkout(feature,mobile,'mobile/ios',tmp_path)
     with pytest.raises(ValueError,match='immutable'):
         module.validate_source(feature,'not-a-sha',tmp_path)
 

@@ -39,13 +39,21 @@ def source_from_manifest(artifact, manifest, root=ROOT):
     raise ValueError('Artifact is absent from its release manifest')
 
 
+def validate_artifact_checkout(source_sha, checkout_sha, platform_path, root=ROOT):
+    trees=[subprocess.check_output(['git','rev-parse',f'{sha}:{platform_path}'],cwd=root,text=True).strip()
+           for sha in (source_sha,checkout_sha)]
+    if trees[0]!=trees[1]:
+        raise ValueError('Artifact mobile source differs from this checkout; rebuild before upload')
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--artifact',type=Path)
     parser.add_argument('--manifest',type=Path)
     args=parser.parse_args()
     if bool(args.artifact)!=bool(args.manifest): parser.error('artifact and manifest must be provided together')
-    source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    checkout=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    source=checkout
     if args.artifact:
         try: source=source_from_manifest(args.artifact,args.manifest)
         except ValueError as error: raise SystemExit(str(error))
@@ -58,7 +66,11 @@ def main():
     with urllib.request.urlopen(request,timeout=30,context=context) as response: health=json.load(response)
     if health.get('status')!='ok' or health.get('service')!='hiair-backend':
         raise SystemExit('Production API health is invalid')
-    try: result=validate_source(source,health.get('deploy_git_sha'))
+    try:
+        result=validate_source(source,health.get('deploy_git_sha'))
+        if args.artifact:
+            platform='mobile/ios' if args.artifact.suffix=='.ipa' else 'mobile/android'
+            validate_artifact_checkout(source,checkout,platform)
     except ValueError as error: raise SystemExit(str(error))
     print(json.dumps(result))
     return 0
