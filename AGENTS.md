@@ -1,3 +1,5 @@
+> Product sequence: docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md → current ACTION specification. October amendments remain release/security/research constraints. Finish ACTION before AMBIENT/ROUTES/TWIN/HOME; do not reimplement integrated capabilities.
+
 ## Current delivery source of truth
 - Canonical clean checkout: `/Users/alex/Projects/HIAir-main`. Integration work: `/Users/alex/Projects/HIAir-integration`. `/Users/alex/Projects/HIAir` remains a preserved legacy checkout and shared Git storage; do not develop from its dirty design branch.
 - Before a task, read `docs/_operator/CURRENT_DELIVERY_STATUS.md`, `docs/_operator/DELIVERY_REGISTRY.json`, and the latest October amendments in `docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md`. Run `python3 scripts/ops/task_preflight.py` from the chosen clean checkout.

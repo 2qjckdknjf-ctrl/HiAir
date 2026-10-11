@@ -152,3 +152,18 @@ def test_empty_forecast_is_honest() -> None:
     assert plan.recommendedStart is None
     assert plan.windows == []
     assert plan.dataQuality == "unavailable"
+
+
+def test_action_reuses_canonical_air_hazard_including_no2():
+    from app.services import hazard_engine
+    from app.models.activity_plan import ActivityIntensity
+    from app.services.activity_plan_engine import score_hour
+    profile=_profile().model_copy(update={'profile_type':ProfileType.ASTHMA_SENSITIVE,
+                                         'respiratory_sensitivity_level':3})
+    environment=_env('2026-08-21T07:00:00+02:00').model_copy(update={'no2':200})
+    assert hazard_engine.score_air(environment,profile).level.value in ('high','very_high')
+    for activity in (ActivityType.RUNNING, ActivityType.VENTILATION):
+        assessment=score_hour(activity=activity,intensity=ActivityIntensity.LOW,
+            profile=profile,environment=environment)
+        assert assessment.tier.value=='avoid'
+        assert 'no2_elevated' in assessment.reasonCodes

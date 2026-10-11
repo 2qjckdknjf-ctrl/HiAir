@@ -24,12 +24,12 @@ on:
           - inProgress
           - halted
       version_name:
-        description: Android versionName (defaults to 1.2.0)
+        description: Android versionName (defaults to RELEASE_TRAIN.json)
         required: false
         type: string
-        default: "1.2.0"
+        default: ""
       version_code:
-        description: Android versionCode (defaults to max(300, run_number))
+        description: Android versionCode (defaults to max(release train, run_number))
         required: false
         type: string
       changes_not_sent_for_review:
@@ -61,6 +61,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify main and production source
+        working-directory: .
+        run: python3 scripts/release/check_mobile_release_source.py
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -118,25 +124,29 @@ jobs:
 
       - name: Resolve release metadata
         id: release_meta
+        env:
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          INPUT_TRACK: ${{ inputs.track }}
+          INPUT_STATUS: ${{ inputs.status }}
         run: |
-          if [ -n "${{ github.event.inputs.version_name }}" ]; then
-            version_name="${{ github.event.inputs.version_name }}"
-          else
-            version_name="1.2.0"
-          fi
-          if [ -n "${{ github.event.inputs.version_code }}" ]; then
-            version_code="${{ github.event.inputs.version_code }}"
-          else
-            run_number="${{ github.run_number }}"
-            version_code="$run_number"
-            if [ "$run_number" -lt 300 ]; then
-              version_code=300
-            fi
-          fi
-          echo "version_code=${version_code}" >> "$GITHUB_OUTPUT"
-          echo "version_name=${version_name}" >> "$GITHUB_OUTPUT"
-          echo "track=${{ github.event.inputs.track || 'internal' }}" >> "$GITHUB_OUTPUT"
-          echo "status=${{ github.event.inputs.status || 'completed' }}" >> "$GITHUB_OUTPUT"
+          python3 <<'PY'
+          import json, os, re
+          from pathlib import Path
+          train = json.loads(Path('../../docs/release/RELEASE_TRAIN.json').read_text())
+          name = os.getenv('INPUT_VERSION_NAME') or train['android_version_name']
+          code = int(os.getenv('INPUT_VERSION_CODE') or max(train['android_version_code'], int(os.environ['GITHUB_RUN_NUMBER'])))
+          if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.+_-]{0,49}', name) or not 1 <= code <= 2100000000:
+              raise SystemExit('Invalid release version')
+          metadata = {'version_name': name, 'version_code': code,
+              'track': os.getenv('INPUT_TRACK') or 'internal',
+              'status': os.getenv('INPUT_STATUS') or 'completed'}
+          if metadata['track'] not in ('internal', 'alpha', 'beta', 'production') or metadata['status'] not in ('completed', 'draft', 'inProgress', 'halted'):
+              raise SystemExit('Invalid release track/status')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for key, value in metadata.items():
+                  output.write(f'{key}={value}\n')
+          PY
 
       - name: Build release AAB
         env:

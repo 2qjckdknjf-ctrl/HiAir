@@ -788,6 +788,7 @@ struct ActivityWindow: Codable, Identifiable, Hashable {
 }
 
 struct ActivityPlanResponse: Codable {
+    var planningAccess: String? = nil
     let profileId: String
     let activity: String
     let intensity: String

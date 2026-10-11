@@ -123,9 +123,9 @@ class OpenMeteoWeatherProvider:
             provenance=MetricProvenance(
                 provider=self.name,
                 product="forecast",
-                observed_at=timestamp,
+                forecast_for=timestamp,
                 fetched_at=fetched_at,
-                kind=EnvironmentalDataKind.OBSERVED,
+                kind=EnvironmentalDataKind.FORECAST,
             ),
             missing_metrics=missing,
             quality=ForecastQuality.COMPLETE if not missing else ForecastQuality.PARTIAL,
@@ -223,9 +223,9 @@ class OpenMeteoAirQualityProvider:
             provenance=MetricProvenance(
                 provider=self.name,
                 product="air-quality",
-                observed_at=timestamp,
+                forecast_for=timestamp,
                 fetched_at=fetched_at,
-                kind=EnvironmentalDataKind.OBSERVED,
+                kind=EnvironmentalDataKind.FORECAST,
             ),
             missing_metrics=missing,
             quality=ForecastQuality.COMPLETE if not missing else ForecastQuality.PARTIAL,

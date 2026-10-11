@@ -1,5 +1,10 @@
 package com.hiair.ui.render
 
+import android.content.Intent
+import android.provider.CalendarContract
+import java.time.OffsetDateTime
+import com.hiair.analytics.ProductAnalytics
+import com.hiair.ui.planner.ActionTimePreference
 import android.view.Gravity
 import android.view.View
 import android.widget.AdapterView
@@ -129,10 +134,46 @@ internal object ActivityPlannerCard {
                 addView(placeSpinner)
             }
             addView(V2Ui.spacer(activity, 8))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.time")))
+            addView(Spinner(activity).apply {
+                val options = ActionTimePreference.values()
+                adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item,
+                    options.map { ctx.l("planner.activity.time.${it.id}") })
+                setSelection(options.indexOf(plannerState.selectedTimePreference), false)
+                isEnabled = plannerState.activityTimezone.isNotBlank()
+                contentDescription = ctx.l("planner.activity.time")
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        if (options[position] == plannerViewModel.state.selectedTimePreference) return
+                        plannerViewModel.selectTimePreference(options[position])
+                        plannerViewModel.hasAttemptedActivityPlanLoad = false
+                        loadActivityPlan(ctx)
+                    }
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                }
+            })
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.activity.resolution")))
             addView(statusView)
             addView(V2Ui.spacer(activity, 6))
             addView(windowsView)
             addView(recommendedView)
+            val calendarStart = runCatching { OffsetDateTime.parse(plannerState.activityRecommendedStartRaw) }.getOrNull()
+            if (calendarStart != null) {
+                val calendarIntent = Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
+                    .putExtra(CalendarContract.Events.TITLE, "HiAir · " + activityLabels[selectedIndex])
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, calendarStart.toInstant().toEpochMilli())
+                    .putExtra(CalendarContract.EXTRA_EVENT_END_TIME,
+                        calendarStart.plusMinutes(plannerState.selectedDurationMinutes.toLong()).toInstant().toEpochMilli())
+                if (calendarIntent.resolveActivity(activity.packageManager) != null) {
+                    addView(HiAirComponents.secondaryButton(activity, ctx.l("planner.activity.calendar")).apply {
+                        setOnClickListener {
+                            runCatching { activity.startActivity(calendarIntent) }
+                                .onSuccess { ProductAnalytics.track("action_calendar_editor_opened", mapOf("platform" to "android")) }
+                                .onFailure { statusView.text = ctx.l("common.unavailable") }
+                        }
+                    })
+                }
+            }
             if (plannerState.activityRecommendedStartRaw.isNotBlank()) {
                 addView(V2Ui.spacer(activity, 6))
                 addView(
@@ -149,11 +190,12 @@ internal object ActivityPlannerCard {
             if (
                 plannerState.activityForecastAvailable &&
                 plannerState.activityWindows.isNotEmpty() &&
-                !plannerState.activityPlanMarked
+                !plannerState.activityPlanMarked &&
+                plannerState.activityRecommendedStartRaw.isNotBlank()
             ) {
                 addView(V2Ui.spacer(activity, 8))
                 addView(
-                    HiAirComponents.secondaryButton(activity, ctx.l("planner.activity.mark_planned")).apply {
+                    HiAirComponents.secondaryButton(activity, ctx.l(if (plannerState.activityPlanningAccess == "basic") "planner.activity.accept" else "planner.activity.mark_planned")).apply {
                         setOnClickListener {
                             Thread {
                                 val resolvedProfileId = rootShell.settingsViewModel.ensureProfile()

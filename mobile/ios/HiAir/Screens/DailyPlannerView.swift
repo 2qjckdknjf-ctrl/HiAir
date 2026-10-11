@@ -19,6 +19,19 @@ final class DailyPlannerViewModel: ObservableObject {
     @Published var selectedActivity = "walking"
     @Published var selectedDurationMinutes = 30
     @Published var selectedIntensity = "low"
+    @Published var selectedTimePreference: ActionTimePreference = .any
+    private var activityRequestGeneration = 0
+    private(set) var activityResponsePlaceId: String?
+
+    var actionTimezone: String {
+        if activityResponsePlaceId == selectedPlaceId,
+           TimeZone(identifier: activityTimezoneIdentifier) != nil { return activityTimezoneIdentifier }
+        if let id = selectedPlaceId {
+            let zone = savedPlaces.first { $0.id == id }?.timezone ?? ""
+            return TimeZone(identifier: zone) == nil ? "" : zone
+        }
+        return TimeZone(identifier: timezoneIdentifier) == nil ? "" : timezoneIdentifier
+    }
     @Published var selectedPlaceId: String? = nil
     @Published var savedPlaces: [SavedPlace] = []
     @Published var activityPlanMarked = false
@@ -42,7 +55,9 @@ final class DailyPlannerViewModel: ObservableObject {
         forecastSurface.hasDisplayableData || !hourlyItems.isEmpty || !safeWindows.isEmpty
     }
 
-    private let apiClient = APIClient.live()
+    private let apiClient: APIClient
+
+    init(apiClient: APIClient = .live()) { self.apiClient = apiClient }
 
     func refresh(
         profileId: String,
@@ -124,13 +139,10 @@ final class DailyPlannerViewModel: ObservableObject {
             }()
             if premiumCode == 402 {
                 premiumLocked = true
-                activityPremiumLocked = true
-                onPremiumRequired?()
+                activityPremiumLocked = false
                 let message = HiAirL10n.t("planner.premium_required", lang: language)
                 forecastSurface = .premiumLocked(message: message)
-                activitySurface = .premiumLocked(message: message)
                 statusText = message
-                activityStatusText = message
             } else {
                 let message = HiAirL10n.t("planner.empty.unavailable.body", lang: language)
                 forecastSurface = .failed(message: message)
@@ -149,6 +161,10 @@ final class DailyPlannerViewModel: ObservableObject {
             safeWindows = []
             ventilationWindows = []
             forecastAvailable = false
+        }
+        if premiumLocked {
+            await refreshActivityPlan(profileId: profileId, userId: userId, accessToken: accessToken,
+                                      language: language, onPremiumRequired: onPremiumRequired)
         }
     }
 
@@ -190,12 +206,28 @@ final class DailyPlannerViewModel: ObservableObject {
         userId: String,
         accessToken: String,
         language: String,
-        onPremiumRequired: (() -> Void)? = nil
+        onPremiumRequired: (() -> Void)? = nil,
+        allowTimezoneRetry: Bool = true
     ) async {
         guard !profileId.isEmpty else { return }
+        activityRequestGeneration += 1
+        let generation = activityRequestGeneration
+        let requestedActivity = selectedActivity
+        let requestedDuration = selectedDurationMinutes
+        let requestedIntensity = selectedIntensity
+        let requestedPlaceId = selectedPlaceId
+        let requestedPreference = selectedTimePreference
+        let requestedZone = actionTimezone
+        let bounds = requestedPreference.bounds(timezone: requestedZone)
+        func isCurrentRequest() -> Bool {
+            generation == activityRequestGeneration && requestedPlaceId == selectedPlaceId &&
+                requestedPreference == selectedTimePreference && requestedActivity == selectedActivity &&
+                requestedDuration == selectedDurationMinutes && requestedIntensity == selectedIntensity
+        }
         activityPlanLoading = true
         activitySurface = .loading
-        defer { activityPlanLoading = false }
+        activityPlan = nil
+        defer { if generation == activityRequestGeneration { activityPlanLoading = false } }
         activityPremiumLocked = false
         activityPlanMarked = false
         activityPlanMarkStatus = ""
@@ -210,18 +242,32 @@ final class DailyPlannerViewModel: ObservableObject {
             )
             let payload = ActivityPlanRequest(
                 profileId: profileId,
-                activity: selectedActivity,
-                durationMinutes: selectedDurationMinutes,
-                intensity: selectedIntensity,
-                earliestStart: nil,
-                latestStart: nil,
-                placeId: selectedPlaceId
+                activity: requestedActivity,
+                durationMinutes: requestedDuration,
+                intensity: requestedIntensity,
+                earliestStart: bounds.earliest,
+                latestStart: bounds.latest,
+                placeId: requestedPlaceId
             )
             let plan = try await apiClient.createActivityPlan(
                 payload: payload,
                 userId: userId,
                 accessToken: accessToken
             )
+            guard isCurrentRequest() else { return }
+            activityResponsePlaceId = requestedPlaceId
+            activityTimezoneIdentifier = plan.timezone
+            if requestedPreference != .any, bounds.earliest == nil || requestedZone != plan.timezone {
+                if allowTimezoneRetry, TimeZone(identifier: plan.timezone) != nil {
+                    await refreshActivityPlan(profileId: profileId, userId: userId, accessToken: accessToken,
+                        language: language, onPremiumRequired: onPremiumRequired, allowTimezoneRetry: false)
+                } else {
+                    let message = HiAirL10n.t("planner.activity.forecast_unavailable", lang: language)
+                    activitySurface = .failed(message: message)
+                    activityStatusText = message
+                }
+                return
+            }
             activityPlan = plan
             activityTimezoneIdentifier = plan.timezone
             activityStatusText = ""
@@ -259,6 +305,7 @@ final class DailyPlannerViewModel: ObservableObject {
                 )
             }
         } catch let error as APIError {
+            guard isCurrentRequest() else { return }
             ProductAnalytics.track(
                 "activity_plan_fetch_failed",
                 properties: ["activity": selectedActivity]
@@ -282,6 +329,7 @@ final class DailyPlannerViewModel: ObservableObject {
             }
             activityPlan = nil
         } catch {
+            guard isCurrentRequest() else { return }
             ProductAnalytics.track(
                 "activity_plan_fetch_failed",
                 properties: ["activity": selectedActivity]
@@ -307,6 +355,13 @@ final class DailyPlannerViewModel: ObservableObject {
         language: String,
         onPremiumRequired: (() -> Void)? = nil
     ) async {
+        guard activityPlan?.recommendedStart != nil else { return }
+        if activityPlan?.planningAccess == "basic" {
+            activityPlanMarked = true
+            activityPlanMarkStatus = HiAirL10n.t("planner.activity.accepted_local", lang: language)
+            ProductAnalytics.track("action_plan_accepted", properties: ["access": "basic", "persistence": "local"])
+            return
+        }
         await recordProtectedDayEvent(
             profileId: profileId,
             userId: userId,
@@ -504,6 +559,7 @@ struct DailyPlannerView: View {
     @EnvironmentObject var session: AppSession
     @StateObject private var viewModel = DailyPlannerViewModel()
     @State private var selectedDate = Date()
+    @State private var calendarDraft: ActionCalendarDraft?
 
     var body: some View {
         HiAirAdaptiveLayout { width, mode in
@@ -621,6 +677,12 @@ struct DailyPlannerView: View {
             }
         }
         .hiAirPageBackground()
+        .sheet(item: $calendarDraft) { draft in
+            ActionCalendarEditor(draft: draft) { saved in
+                if saved { ProductAnalytics.track("action_plan_calendar_added", properties: ["platform": "ios"]) }
+                calendarDraft = nil
+            }
+        }
         .task {
             if UITestBootstrap.disableAutoProfileBootstrap {
                 if session.profileId.isEmpty {
@@ -945,6 +1007,25 @@ struct DailyPlannerView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                Picker(session.l("planner.activity.time"), selection: $viewModel.selectedTimePreference) {
+                    ForEach(ActionTimePreference.allCases, id: \.self) { preference in
+                        Text(session.l("planner.activity.time.\(preference.rawValue)")).tag(preference)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(viewModel.actionTimezone.isEmpty)
+                .accessibilityIdentifier("planner.action.time")
+                .onChange(of: viewModel.selectedTimePreference) { _ in
+                    Task {
+                        await viewModel.refreshActivityPlan(profileId: session.profileId, userId: session.userId,
+                            accessToken: session.accessToken, language: session.preferredLanguage,
+                            onPremiumRequired: { session.showPaywall = true })
+                    }
+                }
+                Text(session.l("planner.activity.resolution"))
+                    .font(AuroraTokens.Typography.caption)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+
                 if !viewModel.savedPlaces.isEmpty {
                     Picker(session.l("planner.activity.place"), selection: Binding(
                         get: { viewModel.selectedPlaceId ?? "" },
@@ -990,11 +1071,22 @@ struct DailyPlannerView: View {
                     )
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.primaryText)
+                    Button(session.l("planner.activity.calendar")) {
+                        Task {
+                            calendarDraft = await ActionCalendarDraft.prepare(
+                                title: "HiAir · " + session.l("planner.activity.\(viewModel.selectedActivity)"),
+                                startISO: recommended,
+                                durationMinutes: viewModel.activityPlan?.durationMinutes ?? viewModel.selectedDurationMinutes)
+                            if calendarDraft != nil { ProductAnalytics.track("action_calendar_editor_opened", properties: ["platform": "ios"]) }
+                        }
+                    }
+                    .buttonStyle(HiAirSecondaryButtonStyle())
+                    .accessibilityIdentifier("planner.action.calendar")
                 }
 
                 if let plan = viewModel.activityPlan, plan.isForecastAvailable, !plan.windows.isEmpty {
-                    if !viewModel.activityPlanMarked {
-                        Button(session.l("planner.activity.mark_planned")) {
+                    if !viewModel.activityPlanMarked, plan.recommendedStart != nil {
+                        Button(session.l(plan.planningAccess == "basic" ? "planner.activity.accept" : "planner.activity.mark_planned")) {
                             Task {
                                 await viewModel.markActivityPlanned(
                                     profileId: session.profileId,
@@ -1097,11 +1189,19 @@ struct DailyPlannerView: View {
     }
 
     private func localizedReasonCodes(_ codes: [String]) -> String {
-        codes.prefix(3).map { code in
-            let key = "planner.activity.reason.\(code)"
-            let localized = session.l(key)
-            return localized == key ? code : localized
-        }.joined(separator: " · ")
+        var reasons: [String] = []
+        for code in codes {
+            let direct = "planner.activity.reason.\(code)"
+            let alias: String
+            if code.contains("heat") || code == "high_humidity" { alias = "heat" }
+            else if code.contains("uv") { alias = "uv" }
+            else if ["no2_elevated", "pm10_elevated", "ozone_elevated", "profile_respiratory_sensitivity", "aqi", "pm25", "ozone"].contains(code) { alias = "air" }
+            else { alias = code }
+            let key = session.l(direct) == direct ? "planner.activity.reason.\(alias)" : direct
+            let value = session.l(key)
+            if value != key && !reasons.contains(value) { reasons.append(value) }
+        }
+        return reasons.prefix(3).joined(separator: " · ")
     }
 
     private func humanActivityTime(_ raw: String) -> String {

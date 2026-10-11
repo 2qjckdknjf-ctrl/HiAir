@@ -96,9 +96,20 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
-            echo "CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set; skipping Pages deploy."
-            exit 0
+            echo "Production Pages deploy requires Cloudflare credentials."
+            exit 1
           fi
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          Path('web/release.json').write_text(json.dumps({
+              'source_sha': os.environ['GITHUB_SHA'],
+              'workflow_run': os.environ['GITHUB_RUN_ID'],
+              'deployed_at': datetime.now(timezone.utc).isoformat(),
+              'build_config': ['growth_events_url', 'release_metadata'],
+          }, indent=2) + '\n')
+          PY
           cd web
           npx --yes wrangler@4 pages deploy . \
             --project-name=hiair-web \

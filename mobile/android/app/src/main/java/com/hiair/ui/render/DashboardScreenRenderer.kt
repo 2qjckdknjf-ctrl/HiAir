@@ -319,7 +319,7 @@ internal object DashboardScreenRenderer {
                 metricRow(
                     ctx,
                     ctx.l("hazards.overall"),
-                    "${hazardLevelLabel(ctx, overall)} (${state.hazardsOverallScore ?: 0})",
+                    "${hazardLevelLabel(ctx, overall)} (${state.hazardsOverallScore?.toString() ?: "—"})",
                 ),
             )
             state.hazardLines.filter { it.available }.forEach { line ->

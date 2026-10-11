@@ -10,6 +10,7 @@ import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.i18n.AndroidL10n
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicLong
 import java.util.Calendar
 import java.util.Locale
 import org.json.JSONArray
@@ -64,6 +65,10 @@ data class PlannerState(
     val activityRecommendedStart: String = "",
     val activityRecommendedStartRaw: String = "",
     val earliestStartOverride: String = "",
+    val selectedTimePreference: ActionTimePreference = ActionTimePreference.ANY,
+    val activityTimezone: String = "",
+    val activityTimezonePlaceId: String = "",
+    val activityPlanningAccess: String = "full",
     val activityPremiumRequired: Boolean = false,
     val activityForecastAvailable: Boolean = true,
 )
@@ -71,7 +76,10 @@ data class PlannerState(
 class DailyPlannerViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
+    private val activityRequestGeneration = AtomicLong()
+
     fun reset() {
+        activityRequestGeneration.incrementAndGet()
         hasAttemptedAutoLoad = false
         hasAttemptedActivityCatalogLoad = false
         hasAttemptedActivityPlanLoad = false
@@ -127,6 +135,7 @@ class DailyPlannerViewModel(
     fun selectActivity(activityId: String) {
         if (activityId.isBlank() || activityId == state.selectedActivityId) return
         val catalogEntry = state.activityCatalog.firstOrNull { it.id == activityId }
+        activityRequestGeneration.incrementAndGet()
         state = state.copy(
             selectedActivityId = activityId,
             selectedDurationMinutes = catalogEntry?.defaultDurationMinutes
@@ -149,6 +158,7 @@ class DailyPlannerViewModel(
 
     fun selectDurationMinutes(durationMinutes: Int) {
         if (durationMinutes !in ACTION_DURATION_OPTIONS || durationMinutes == state.selectedDurationMinutes) return
+        activityRequestGeneration.incrementAndGet()
         state = state.copy(
             selectedDurationMinutes = durationMinutes,
             activityWindows = emptyList(),
@@ -168,6 +178,7 @@ class DailyPlannerViewModel(
     fun selectIntensity(intensity: String) {
         val normalized = intensity.lowercase()
         if (normalized !in ACTION_INTENSITY_OPTIONS || normalized == state.selectedIntensity) return
+        activityRequestGeneration.incrementAndGet()
         state = state.copy(
             selectedIntensity = normalized,
             activityWindows = emptyList(),
@@ -181,8 +192,17 @@ class DailyPlannerViewModel(
         ProductAnalytics.track("activity_intensity_changed", mapOf("intensity" to normalized))
     }
 
+    fun selectTimePreference(preference: ActionTimePreference) {
+        if (preference == state.selectedTimePreference) return
+        activityRequestGeneration.incrementAndGet()
+        state = state.copy(selectedTimePreference = preference, earliestStartOverride = "",
+            activityWindows = emptyList(), activityRecommendedStart = "", activityRecommendedStartRaw = "")
+        ProductAnalytics.track("action_time_preference_selected", mapOf("preference" to preference.id))
+    }
+
     fun selectPlace(placeId: String) {
         if (placeId == state.selectedPlaceId) return
+        activityRequestGeneration.incrementAndGet()
         state = state.copy(
             selectedPlaceId = placeId,
             activityPlanMarked = false,
@@ -197,6 +217,7 @@ class DailyPlannerViewModel(
     fun tryThirtyMinutesLater(): Boolean {
         val raw = state.activityRecommendedStartRaw.takeIf { it.isNotBlank() } ?: return false
         val shifted = shiftIsoByMinutesForUi(raw, 30) ?: return false
+        activityRequestGeneration.incrementAndGet()
         state = state.copy(
             earliestStartOverride = shifted,
             activityWindows = emptyList(),
@@ -230,6 +251,13 @@ class DailyPlannerViewModel(
         profileId: String,
         preferredLanguage: String,
     ) {
+        if (state.activityRecommendedStartRaw.isBlank()) return
+        if (state.activityPlanningAccess == "basic") {
+            state = state.copy(activityPlanMarked = true,
+                activityPlanMarkStatus = l("planner.activity.accepted_local", preferredLanguage))
+            ProductAnalytics.track("action_plan_accepted", mapOf("access" to "basic", "persistence" to "local"))
+            return
+        }
         recordProtectedDayEvent(
             userId = userId,
             accessToken = accessToken,
@@ -343,13 +371,22 @@ class DailyPlannerViewModel(
         accessToken: String?,
         profileId: String,
         preferredLanguage: String,
+        allowTimezoneRetry: Boolean = true,
     ) {
-        val activityId = state.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID }
-        val catalogEntry = state.activityCatalog.firstOrNull { it.id == activityId }
-        val duration = state.selectedDurationMinutes.takeIf { it in ACTION_DURATION_OPTIONS }
+        val generation = activityRequestGeneration.incrementAndGet()
+        val actionState = state
+        val responseZoneValid = runCatching { ZoneId.of(actionState.activityTimezone) }.isSuccess
+        val zone = if (responseZoneValid && actionState.activityTimezonePlaceId == actionState.selectedPlaceId) {
+            actionState.activityTimezone
+        } else actionState.savedPlaces.firstOrNull { it.id == actionState.selectedPlaceId }?.timezone
+            ?.takeIf { runCatching { ZoneId.of(it) }.isSuccess }.orEmpty()
+        val bounds = actionState.selectedTimePreference.bounds(zone)
+        val activityId = actionState.selectedActivityId.ifBlank { DEFAULT_ACTIVITY_ID }
+        val catalogEntry = actionState.activityCatalog.firstOrNull { it.id == activityId }
+        val duration = actionState.selectedDurationMinutes.takeIf { it in ACTION_DURATION_OPTIONS }
             ?: catalogEntry?.defaultDurationMinutes
             ?: 30
-        val intensity = state.selectedIntensity.takeIf { it in ACTION_INTENSITY_OPTIONS }
+        val intensity = actionState.selectedIntensity.takeIf { it in ACTION_INTENSITY_OPTIONS }
             ?: catalogEntry?.defaultIntensity
             ?: "moderate"
         state = state.copy(
@@ -364,7 +401,7 @@ class DailyPlannerViewModel(
                 "activity" to activityId,
                 "duration_bucket" to duration.toString(),
                 "intensity" to intensity,
-                "time_shifted" to state.earliestStartOverride.isNotBlank().toString(),
+                "time_shifted" to actionState.earliestStartOverride.isNotBlank().toString(),
             ),
         )
         try {
@@ -375,11 +412,28 @@ class DailyPlannerViewModel(
                 activity = activityId,
                 durationMinutes = duration,
                 intensity = intensity,
-                earliestStart = state.earliestStartOverride.takeIf { it.isNotBlank() },
-                placeId = state.selectedPlaceId.takeIf { it.isNotBlank() },
+                earliestStart = actionState.earliestStartOverride.takeIf { it.isNotBlank() } ?: bounds.first,
+                latestStart = bounds.second,
+                placeId = actionState.selectedPlaceId.takeIf { it.isNotBlank() },
             )
+            if (generation != activityRequestGeneration.get()) return
+            val responseZone = JSONObject(raw).optString("timezone")
+            state = state.copy(activityTimezone = responseZone, activityTimezonePlaceId = actionState.selectedPlaceId)
+            if (actionState.selectedTimePreference != ActionTimePreference.ANY &&
+                (bounds.first == null || zone != responseZone)) {
+                if (allowTimezoneRetry && runCatching { ZoneId.of(responseZone) }.isSuccess) {
+                    refreshActivityPlan(userId, accessToken, profileId, preferredLanguage, false)
+                } else {
+                    state = state.copy(activityPlanLoading = false, activityWindows = emptyList(),
+                        activityRecommendedStart = "", activityRecommendedStartRaw = "",
+                        activityPlanStatusText = l("planner.activity.forecast_unavailable", preferredLanguage))
+                }
+                return
+            }
             val parsed = parseActivityPlan(raw, preferredLanguage)
             state = state.copy(
+                activityTimezone = JSONObject(raw).optString("timezone"),
+                activityPlanningAccess = JSONObject(raw).optString("planningAccess", "full"),
                 activityPlanLoading = false,
                 activityPlanStatusText = parsed.statusText,
                 activityWindows = parsed.windows,
@@ -410,6 +464,7 @@ class DailyPlannerViewModel(
                 )
             }
         } catch (error: ApiHttpException) {
+            if (generation != activityRequestGeneration.get()) return
             ProductAnalytics.track("activity_plan_fetch_failed", mapOf("activity" to activityId))
             val premiumRequired = error.statusCode == 402
             state = state.copy(
@@ -426,6 +481,7 @@ class DailyPlannerViewModel(
                 activityForecastAvailable = false,
             )
         } catch (_: Exception) {
+            if (generation != activityRequestGeneration.get()) return
             ProductAnalytics.track("activity_plan_fetch_failed", mapOf("activity" to activityId))
             state = state.copy(
                 activityPlanLoading = false,
@@ -468,6 +524,10 @@ class DailyPlannerViewModel(
                 activityRecommendedStart = actionState.activityRecommendedStart,
                 activityRecommendedStartRaw = actionState.activityRecommendedStartRaw,
                 earliestStartOverride = actionState.earliestStartOverride,
+                selectedTimePreference = actionState.selectedTimePreference,
+                activityTimezone = actionState.activityTimezone,
+                activityTimezonePlaceId = actionState.activityTimezonePlaceId,
+                activityPlanningAccess = actionState.activityPlanningAccess,
                 activityPremiumRequired = actionState.activityPremiumRequired,
                 activityForecastAvailable = actionState.activityForecastAvailable,
             )
@@ -588,11 +648,26 @@ class DailyPlannerViewModel(
                     )
                     val tierLabel = localizedActivityTier(tier, preferredLanguage)
                     val line = if (range.isBlank()) tierLabel else "$tierLabel: $range"
-                    windowLines.add(ActivityWindowLine(tier = tier, line = line))
+                    val codes = item.optJSONArray("reasonCodes") ?: JSONArray()
+                    val reasons = (0 until codes.length()).mapNotNull { index ->
+                        val code = codes.optString(index)
+                        val normalized = when {
+                            code in listOf("heat", "air", "uv", "low_heat", "good_air", "personal_load", "child_caution", "air_data_unavailable") -> code
+                            code.contains("heat") || code == "high_humidity" -> "heat"
+                            code.contains("uv") -> "uv"
+                            code in listOf("no2_elevated", "pm10_elevated", "ozone_elevated", "profile_respiratory_sensitivity", "aqi", "pm25", "ozone") -> "air"
+                            else -> code
+                        }
+                        val key = "planner.activity.reason.$normalized"
+                        l(key, preferredLanguage).takeIf { it != key }
+                    }.distinct().take(3).joinToString(" · ")
+                    windowLines.add(ActivityWindowLine(tier = tier,
+                        line = if (reasons.isBlank()) line else "$line\n$reasons"))
                 }
             }
             val recommendedStartRaw = json.optString("recommendedStart")
-                .takeIf { it.isNotBlank() && forecastAvailable }
+                .takeIf { !json.isNull("recommendedStart") && forecastAvailable &&
+                    runCatching { OffsetDateTime.parse(it) }.isSuccess }
                 .orEmpty()
             val recommendedStart = recommendedStartRaw
                 .takeIf { it.isNotBlank() }

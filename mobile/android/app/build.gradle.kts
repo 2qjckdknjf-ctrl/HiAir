@@ -41,7 +41,7 @@ android {
         applicationId = "com.hiair"
         minSdk = 26
         targetSdk = 36
-        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 300
+        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 301
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -3,8 +3,8 @@
 **Project:** HiAir  
 **Execution target:** Codex / Cursor Agent  
 **Repository:** `2qjckdknjf-ctrl/HiAir`  
-**Working branch:** `codex/hiair-nextgen-phase0-action`  
-**Upstream upgrade stack:** `feat/hiair-1.2-best-time-planner`  
+**Working base:** protected `main`; see DELIVERY_REGISTRY.json for active task branches
+**Historical upgrade stack:** integrated into main through PR83
 **Product direction:** Personal Environmental Intelligence System → Personal Climate OS  
 **Execution model:** audit → design → implement → test → runtime evidence → PR  
 

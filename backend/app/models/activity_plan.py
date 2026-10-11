@@ -1,8 +1,9 @@
 """HiAir 1.2 — Best Time / Activity Planner contracts (additive)."""
 
 from enum import Enum
+from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ActivityType(str, Enum):
@@ -46,6 +47,21 @@ class ActivityPlanRequest(BaseModel):
     latestStart: str | None = None
     placeId: str | None = None
 
+    @model_validator(mode="after")
+    def validate_start_bounds(self):
+        bounds = []
+        for value in (self.earliestStart, self.latestStart):
+            if value is None:
+                bounds.append(None)
+                continue
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.utcoffset() is None:
+                raise ValueError("Activity start bounds require a timezone offset")
+            bounds.append(parsed)
+        if all(bound is not None for bound in bounds) and bounds[0] > bounds[1]:
+            raise ValueError("earliestStart must not exceed latestStart")
+        return self
+
 
 class ActivityHourAssessment(BaseModel):
     hour: str
@@ -64,6 +80,7 @@ class ActivityWindow(BaseModel):
 
 
 class ActivityPlanResponse(BaseModel):
+    planningAccess: str = "full"
     profileId: str
     activity: ActivityType
     intensity: ActivityIntensity
@@ -78,6 +95,7 @@ class ActivityPlanResponse(BaseModel):
     hourly: list[ActivityHourAssessment] = Field(default_factory=list)
     windows: list[ActivityWindow] = Field(default_factory=list)
     recommendedStart: str | None = None
+    recommendedWindow: ActivityWindow | None = None
     personalLoadScore: int | None = None
     personalLoadLevel: str | None = None
     personalLoadReasonCodes: list[str] = Field(default_factory=list)

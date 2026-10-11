@@ -1,7 +1,7 @@
 # HiAir 1.2 — Action Implementation Spec
 
-**Status:** IN_PROGRESS  
-**Branch:** `codex/hiair-nextgen-phase0-action`  
+**Status:** current ACTION closure in validation; see docs/_operator/DELIVERY_REGISTRY.json and current baseline audit.
+**Branch:** `fix/hiair-action-tail-closure-2026-10-11` from protected main
 **Parent roadmap:** `docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md`  
 **Audit:** `docs/audit/HIAIR_NEXT_GENERATION_BASELINE_AUDIT.md`
 
@@ -83,7 +83,7 @@ Any new/custom activity must be a later additive change with scoring semantics a
 
 ## 4. P0 — Correct Best Time ranking
 
-### Current defect
+### Historical defect (resolved in main)
 
 `_pick_recommended_start()` currently scans chronologically and returns the first contiguous chunk whose points have the preferred tier.
 

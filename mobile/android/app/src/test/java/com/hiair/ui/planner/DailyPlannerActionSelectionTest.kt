@@ -48,4 +48,12 @@ class DailyPlannerActionSelectionTest {
     fun invalidRecommendedTimeCannotBeShifted() {
         assertEquals(null, DailyPlannerViewModel.shiftIsoByMinutesForUi("not-a-time", 30))
     }
+
+    @Test
+    fun jsonNullRecommendationCannotBecomeAnAcceptedAction() {
+        val parsed = DailyPlannerViewModel.parseActivityPlan(
+            """{"timezone":"Europe/Madrid","forecastAvailable":true,"windows":[],"recommendedStart":null}""", "en")
+        assertEquals("", parsed.recommendedStartRaw)
+        assertEquals("", parsed.recommendedStart)
+    }
 }

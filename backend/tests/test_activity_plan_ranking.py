@@ -92,3 +92,32 @@ def test_merged_window_confidence_uses_weakest_hour() -> None:
     assert len(plan.windows) == 1
     assert plan.windows[0].tier.value == "best"
     assert plan.windows[0].confidence == 0.85
+
+
+def test_missing_hour_cannot_be_used_as_continuous_activity():
+    points = [_env('2026-08-21T07:00:00+02:00', feels_like=23),
+              _env('2026-08-21T09:00:00+02:00', feels_like=23)]
+    plan = activity_plan_engine.build_activity_plan(profile=_profile(), environment=points[0],
+        hourly_points=points, activity=ActivityType.RUNNING, duration_minutes=90)
+    assert plan.recommendedStart is None
+    assert len(plan.windows) == 2
+
+
+def test_latest_start_keeps_following_hour_for_duration_validation():
+    points = [_env('2026-08-21T07:00:00+02:00', feels_like=23),
+              _env('2026-08-21T08:00:00+02:00', feels_like=23)]
+    plan = activity_plan_engine.build_activity_plan(profile=_profile(), environment=points[0],
+        hourly_points=list(reversed(points)), activity=ActivityType.RUNNING, duration_minutes=90,
+        earliest_start=points[0].timestamp, latest_start=points[0].timestamp)
+    assert plan.recommendedStart == points[0].timestamp
+    assert plan.recommendedWindow.end == "2026-08-21T08:30:00+02:00"
+
+
+def test_action_bounds_reject_invalid_naive_and_reversed_dates():
+    import pytest
+    from pydantic import ValidationError
+    from app.models.activity_plan import ActivityPlanRequest
+    for bounds in [dict(earliestStart='not-a-date'), dict(earliestStart='2026-08-21T07:00:00'),
+                   dict(earliestStart='2026-08-21T09:00:00Z', latestStart='2026-08-21T08:00:00Z')]:
+        with pytest.raises(ValidationError):
+            ActivityPlanRequest(profileId='p', activity='walking', **bounds)
