@@ -1,0 +1,120 @@
+{
+  "evaluation_time": "2026-10-11T10:42:42.845352+00:00",
+  "source": "captured live Open-Meteo hourly forecasts",
+  "scope": "ranking score / contract quality, not forecast accuracy or health outcome validation",
+  "cases": [
+    {
+      "city": "Barcelona",
+      "activity": "running",
+      "duration_minutes": 45,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": 92.0,
+      "selected_score": 92.0,
+      "delta": 0.0,
+      "honest_unavailable": false
+    },
+    {
+      "city": "Barcelona",
+      "activity": "walking",
+      "duration_minutes": 90,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": 92.0,
+      "selected_score": 92.0,
+      "delta": 0.0,
+      "honest_unavailable": false
+    },
+    {
+      "city": "Barcelona",
+      "activity": "ventilation",
+      "duration_minutes": 30,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": 90.0,
+      "selected_score": 90.0,
+      "delta": 0.0,
+      "honest_unavailable": false
+    },
+    {
+      "city": "Dubai",
+      "activity": "running",
+      "duration_minutes": 45,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": null,
+      "selected_score": null,
+      "delta": null,
+      "honest_unavailable": true
+    },
+    {
+      "city": "Dubai",
+      "activity": "walking",
+      "duration_minutes": 90,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": null,
+      "selected_score": null,
+      "delta": null,
+      "honest_unavailable": true
+    },
+    {
+      "city": "Dubai",
+      "activity": "ventilation",
+      "duration_minutes": 30,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": null,
+      "selected_score": null,
+      "delta": null,
+      "honest_unavailable": true
+    },
+    {
+      "city": "Los Angeles",
+      "activity": "running",
+      "duration_minutes": 45,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": 92.0,
+      "selected_score": 92.0,
+      "delta": 0.0,
+      "honest_unavailable": false
+    },
+    {
+      "city": "Los Angeles",
+      "activity": "walking",
+      "duration_minutes": 90,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": 92.0,
+      "selected_score": 92.0,
+      "delta": 0.0,
+      "honest_unavailable": false
+    },
+    {
+      "city": "Los Angeles",
+      "activity": "ventilation",
+      "duration_minutes": 30,
+      "freshness": "live",
+      "quality": "complete",
+      "available_hours": 48,
+      "baseline_score": 90.0,
+      "selected_score": 90.0,
+      "delta": 0.0,
+      "honest_unavailable": false
+    }
+  ],
+  "improved": 0,
+  "unchanged": 6,
+  "regressed": 0,
+  "mean_score_delta": 0.0,
+  "verdict": "PASS"
+}

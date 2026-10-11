@@ -6,7 +6,7 @@ AI may explain reason codes later — it must not invent environmental values or
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import ceil
 
 from app.models.activity_plan import (
@@ -19,7 +19,7 @@ from app.models.activity_plan import (
     ActivityWindowTier,
 )
 from app.models.air import EnvironmentalInput, ProfileType, RiskLevel, UserProfileContext
-from app.services import air_risk_engine
+from app.services import air_risk_engine, hazard_engine
 from app.services.personal_load_engine import PersonalLoadInput, compute_personal_load_score
 
 
@@ -127,6 +127,10 @@ def _score_outdoor_hour(
 ) -> tuple[ActivityWindowTier, int, list[str]]:
     heat_risk, heat_reasons = air_risk_engine._heat_risk(environment, profile)
     air_risk, air_reasons = air_risk_engine._air_risk(environment, profile)
+    canonical_air = hazard_engine.score_air(environment, profile)
+    if canonical_air.available:
+        air_risk = air_risk_engine._max_risk(air_risk, RiskLevel(canonical_air.level.value))
+        air_reasons = sorted(set(air_reasons + canonical_air.reasonCodes))
     outdoor = air_risk_engine._max_risk(heat_risk, air_risk)
     outdoor_order = _RISK_ORDER[outdoor]
     reasons = sorted(set(heat_reasons + air_reasons))
@@ -192,6 +196,10 @@ def score_hour(
 ) -> ActivityHourAssessment:
     if activity == ActivityType.VENTILATION:
         tier, score, reasons = _score_ventilation(environment)
+        canonical_air = hazard_engine.score_air(environment, profile)
+        if canonical_air.available and canonical_air.level.value in ("high", "very_high"):
+            tier, score = ActivityWindowTier.AVOID, 20
+            reasons = sorted(set(reasons + canonical_air.reasonCodes + ["air"]))
     else:
         tier, score, reasons = _score_outdoor_hour(
             activity=activity,
@@ -248,7 +256,7 @@ def _merge_windows(
         )
 
     for point in hourly[1:]:
-        if point.tier == run_tier:
+        if point.tier == run_tier and _parse_iso(point.hour) - _parse_iso(last_hour) == timedelta(hours=1):
             run_scores.append(point.score)
             run_reasons.extend(point.reasonCodes)
             run_hours.append(point.hour)
@@ -286,6 +294,11 @@ def _pick_recommended_start(
 
     for index in range(0, len(hourly) - need_hours + 1):
         chunk = hourly[index : index + need_hours]
+        if any(
+            _parse_iso(right.hour) - _parse_iso(left.hour) != timedelta(hours=1)
+            for left, right in zip(chunk, chunk[1:])
+        ):
+            continue
         tier = chunk[0].tier
         if tier not in _TIER_PRIORITY or not all(point.tier == tier for point in chunk):
             continue
@@ -333,13 +346,12 @@ def build_activity_plan(
         load_level = load_result.level
         load_reasons = list(load_result.reason_codes)
 
-    points = [
-        slot
-        for slot in hourly_points
-        if _within_flex(slot.timestamp, earliest_start, latest_start)
-    ] if (earliest_start or latest_start) else list(hourly_points)
+    # Bounds constrain candidate starts, not the forecast intervals needed to
+    # validate the entire activity. Keep subsequent intervals at latestStart.
+    all_points = sorted(hourly_points, key=lambda slot: _parse_iso(slot.timestamp))
+    points = [slot for slot in all_points if _within_flex(slot.timestamp, earliest_start, latest_start)]
 
-    hourly = [
+    all_hourly = [
         score_hour(
             activity=activity,
             intensity=resolved_intensity,
@@ -347,15 +359,28 @@ def build_activity_plan(
             environment=slot,
             personal_load_score=load_score,
         )
-        for slot in points
+        for slot in all_points
     ]
+    hourly = [slot for slot in all_hourly if _within_flex(slot.hour, earliest_start, latest_start)]
     windows = _merge_windows(hourly, points)
     available = len(points) > 0
     recommended = (
-        _pick_recommended_start(hourly, points, resolved_duration, earliest_start, latest_start)
+        _pick_recommended_start(all_hourly, all_points, resolved_duration, earliest_start, latest_start)
         if available
         else None
     )
+    recommended_window = None
+    if recommended:
+        index = next(i for i, point in enumerate(all_hourly) if point.hour == recommended)
+        chunk = all_hourly[index:index + max(1, ceil(resolved_duration / 60))]
+        recommended_window = ActivityWindow(
+            tier=chunk[0].tier, start=recommended,
+            end=(_parse_iso(recommended) + timedelta(minutes=resolved_duration)).isoformat(),
+            score=int(sum(point.score for point in chunk) / len(chunk)),
+            reasonCodes=sorted({reason for point in chunk for reason in point.reasonCodes}),
+            confidence=_window_confidence([point.hour for point in chunk],
+                                          {point.timestamp: point for point in all_points}),
+        )
 
     return ActivityPlanResponse(
         profileId=profile.profile_id,
@@ -374,6 +399,7 @@ def build_activity_plan(
         hourly=hourly,
         windows=windows,
         recommendedStart=recommended,
+        recommendedWindow=recommended_window,
         personalLoadScore=load_score if personal_load is not None else None,
         personalLoadLevel=load_level,
         personalLoadReasonCodes=load_reasons,

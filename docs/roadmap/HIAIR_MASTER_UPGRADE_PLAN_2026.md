@@ -759,9 +759,11 @@ HiAir reaches the intended 10/10 product state when:
 
 ---
 
-# 13. Current Next Action
+# 13. Historical delivery checkpoint (superseded by the 2026–2027 specification)
 
-**Active stack branch:** `feat/hiair-1.2-best-time-planner`  
+Current product sequence: [2026–2027 spec](HIAIR_MASTER_SPEC_2026_2027.md). Read the operator registry for source/build/deploy status. The following table describes historical releases.
+
+**Historical stack branch:** `feat/hiair-1.2-best-time-planner`
 
 | Release | Status |
 |---------|--------|

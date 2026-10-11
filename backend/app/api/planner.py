@@ -120,9 +120,15 @@ def create_activity_plan(
     user_id: str = Depends(get_current_user_id),
 ) -> ActivityPlanResponse:
     try:
-        entitlement_service.require_feature(
-            user_id, "extended_forecast", "extended_forecast_enabled"
-        )
+        full_access = True
+        try:
+            entitlement_service.require_feature(
+                user_id, "extended_forecast", "extended_forecast_enabled"
+            )
+        except HTTPException as exc:
+            if exc.status_code != 402:
+                raise
+            full_access = False
         profile = air_api._resolve_profile_for_user(payload.profileId, user_id)
         lat = profile.home_lat
         lon = profile.home_lon
@@ -141,7 +147,7 @@ def create_activity_plan(
         environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
         personal_load = wearable_service.build_personal_load_input(user_id, environment)
-        return activity_plan_engine.build_activity_plan(
+        plan = activity_plan_engine.build_activity_plan(
             profile=profile,
             environment=environment,
             hourly_points=hourly_points,
@@ -157,6 +163,12 @@ def create_activity_plan(
             sources=forecast.sources if forecast is not None else None,
             missing_metrics=forecast.missing_metrics if forecast is not None else None,
         )
+        if not full_access:
+            plan = plan.model_copy(update={
+                "hourly": [], "windows": [plan.recommendedWindow] if plan.recommendedWindow else [],
+                "planningAccess": "basic",
+            })
+        return plan
     except HTTPException:
         raise
     except RuntimeError as exc:

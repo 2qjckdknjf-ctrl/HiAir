@@ -46,7 +46,7 @@ targets:
         INFOPLIST_FILE: HiAir/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.hiair.app
         SWIFT_VERSION: 5.0
-        CURRENT_PROJECT_VERSION: 300
+        CURRENT_PROJECT_VERSION: 301
         # Live App Store is 1.1 (Apple ID 6773610034). Do not upload 1.0.1.
         # Next intentional train is 1.2. Bump only on an explicit iOS release.
         MARKETING_VERSION: "1.2"
@@ -60,6 +60,7 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
           HiAir uses your location to estimate heat and air-quality risk for your current area — for example, to show today's outdoor risk and safer walk windows near you.
+        INFOPLIST_KEY_NSCalendarsUsageDescription: HiAir opens a calendar editor to add your selected activity after you confirm. It does not read or upload your calendar.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
           HiAir reads activity, heart, sleep, breathing, temperature, and related Apple Health summaries to personalize air and heat wellness guidance. HiAir does not diagnose or treat medical conditions.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-

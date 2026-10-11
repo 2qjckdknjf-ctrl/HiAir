@@ -674,23 +674,18 @@ struct DashboardView: View {
                     title: dg("weather"),
                     value: String(format: "%.0f°C", env.temperature),
                     subtitle: weatherConditionLabel(env),
-                    footnote: String(
-                        format: "%@ %.0f° · %@ %.0f%%",
-                        dg("feels"),
-                        env.feelsLike,
-                        dg("humidity"),
-                        env.humidity ?? 0
-                    ),
+                    footnote: "\(dg("feels")) \(String(format: "%.0f°", env.feelsLike)) · " +
+                        "\(dg("humidity")) \(env.humidity.map { String(format: "%.0f%%", $0) } ?? "—")",
                     icon: (env.uv ?? 0) >= 5 ? "sun.max.fill" : "cloud.sun.fill",
                     accent: HiAirColors.Risk.moderate
                 )
                 HiAirGlassMetricTile(
                     title: dg("aqi"),
-                    value: "\(env.aqi ?? 0)",
-                    subtitle: aqiStatusLabel(env.aqi ?? 0),
-                    footnote: String(format: "PM2.5 %.0f µg/m³", env.pm25 ?? 0),
+                    value: env.aqi.map(String.init) ?? "—",
+                    subtitle: env.aqi.map(aqiStatusLabel) ?? session.l("dashboard.reason_unavailable"),
+                    footnote: env.pm25.map { String(format: "PM2.5 %.0f µg/m³", $0) } ?? "PM2.5 —",
                     icon: "aqi.medium",
-                    accent: aqiAccent(env.aqi ?? 0)
+                    accent: env.aqi.map(aqiAccent) ?? HiAirColors.Text.secondary
                 )
             }
             .onAppear { ProductAnalytics.track("risk_breakdown_viewed") }

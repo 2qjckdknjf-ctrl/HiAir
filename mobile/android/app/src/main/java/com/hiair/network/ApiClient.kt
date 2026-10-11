@@ -303,7 +303,7 @@ open class ApiClient(private val baseUrl: String) {
         return requestStrict("GET", endpoint, null, authHeaders(userId, accessToken))
     }
 
-    fun createActivityPlan(
+    open fun createActivityPlan(
         userId: String,
         accessToken: String? = null,
         profileId: String,

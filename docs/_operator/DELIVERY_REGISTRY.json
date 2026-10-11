@@ -134,6 +134,17 @@
       "merged_sha": null,
       "deployed_sha": null,
       "artifact": null
+    },
+    {
+      "id": "HIAIR-ACTION-CLOSURE",
+      "scenario": "Finish existing ACTION bounds, calendar, free core, hazard consistency and release evidence",
+      "owner": "integration",
+      "status": "VALIDATION_IN_PROGRESS",
+      "existing_implementation": "backend/app/services/activity_plan_engine.py; mobile/ios/HiAir/Screens/DailyPlannerView.swift; mobile/android/app/src/main/java/com/hiair/ui/render/ActivityPlannerCard.kt",
+      "branch": "fix/hiair-action-tail-closure-2026-10-11",
+      "merged_sha": null,
+      "deployed_sha": null,
+      "artifact": null
     }
   ],
   "archived_worktrees": 18,
@@ -176,5 +187,7 @@
   "production_current": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
   "source_candidate": "3c15a9c5bb392eec21189153cafc54d504271b7a",
   "pull_request": 83,
-  "release_manifest": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
+  "release_manifest": "docs/release/RELEASE_MANIFEST_2026-10-11.json",
+  "product_plan": "docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md",
+  "action_spec": "docs/roadmap/HIAIR_1_2_ACTION_SPEC.md"
 }

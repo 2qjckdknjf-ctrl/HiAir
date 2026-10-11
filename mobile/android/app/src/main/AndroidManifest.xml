@@ -24,6 +24,10 @@
     <uses-permission android:name="android.permission.health.READ_BODY_TEMPERATURE" />
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <intent>
+            <action android:name="android.intent.action.INSERT" />
+            <data android:mimeType="vnd.android.cursor.dir/event" />
+        </intent>
     </queries>
     <application
         android:allowBackup="false"

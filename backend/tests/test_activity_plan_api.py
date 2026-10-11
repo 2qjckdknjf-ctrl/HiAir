@@ -154,3 +154,53 @@ def test_activity_plan_empty_forecast_is_honest(monkeypatch) -> None:
         assert body["dataQuality"] == "unavailable"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_free_action_keeps_one_recommendation_without_full_forecast(monkeypatch):
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+    app.dependency_overrides[deps.get_current_user_id] = lambda: 'user-1'
+    def locked(*args, **kwargs):
+        raise HTTPException(status_code=402, detail='Premium required')
+    monkeypatch.setattr(planner_api.entitlement_service, 'require_feature', locked)
+    monkeypatch.setattr(air_api, '_resolve_profile_for_user', lambda *args: _profile())
+    monkeypatch.setattr(planner_api.air_environment_service, 'load_environment', lambda *args, **kwargs: _env())
+    forecast = SimpleNamespace(current=None, generated_at='2026-08-21T06:55:00+02:00',
+        freshness=SimpleNamespace(value='live'), quality=SimpleNamespace(value='complete'),
+        sources=['openmeteo'], missing_metrics=[])
+    monkeypatch.setattr(air_api, '_load_forecast_or_none', lambda *args: forecast)
+    monkeypatch.setattr(planner_api, 'forecast_to_hourly_inputs', lambda _: [_env(),
+        _env('2026-08-21T08:00:00+02:00', feels_like=38),
+        _env('2026-08-21T09:00:00+02:00')])
+    monkeypatch.setattr(planner_api.wearable_service, 'build_personal_load_input', lambda *args: None)
+    try:
+        response = client.post('/api/planner/activity-plan', headers=_auth(),
+            json={'profileId':'profile-1','activity':'walking'})
+        assert response.status_code == 200, response.text
+        body=response.json()
+        assert body['planningAccess']=='basic'
+        assert body['recommendedStart'] is not None
+        assert len(body['windows'])==1
+        assert body['hourly']==[]
+        assert body['sources']==['openmeteo']
+        monkeypatch.setattr(air_api, '_load_forecast_or_none', lambda *args: None)
+        monkeypatch.setattr(planner_api, 'forecast_to_hourly_inputs', lambda _: [])
+        empty=client.post('/api/planner/activity-plan', headers=_auth(),
+            json={'profileId':'profile-1','activity':'walking'}).json()
+        assert empty['recommendedStart'] is None and empty['windows']==[]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_free_core_does_not_hide_entitlement_service_failure(monkeypatch):
+    from fastapi import HTTPException
+    app.dependency_overrides[deps.get_current_user_id] = lambda: 'user-1'
+    def failed(*args, **kwargs):
+        raise HTTPException(status_code=503, detail='Unavailable')
+    monkeypatch.setattr(planner_api.entitlement_service, 'require_feature', failed)
+    try:
+        response=client.post('/api/planner/activity-plan', headers=_auth(),
+            json={'profileId':'profile-1','activity':'walking'})
+        assert response.status_code == 503
+    finally:
+        app.dependency_overrides.clear()

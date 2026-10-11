@@ -1,3 +1,26 @@
+# Current ACTION reconciliation — 2026-10-11
+
+Current base is protected main d6fd513d. Runtime baseline: backend 833a06e4, iOS/Android internal build 300; see release manifest and operator registry. The historical audit below records September findings and is not the current branch/governance verdict.
+
+| Original gap | Current disposition |
+|---|---|
+| A first-valid ranking | Integrated in main; regression tests preserved |
+| B hourly resolution | Explicitly retained conservative whole-hour validation; UI disclosure, no fabricated sub-hour data |
+| C merged confidence | Already minimum across all intervals; retained, not reimplemented |
+| D durable lifecycle | Not required for local calendar export; free acceptance local, premium uses existing Protected Day events |
+| E canonical hazards | ACTION reuses canonical air hazard assessment, including NO₂; UV/heat/PM10/ozone existing core retained. Hourly pollen/smoke are unavailable in the provider contract and not copied from current observations into future windows |
+| F free core | Decision HIAIR_ACTION_FREE_CORE_DECISION_2026-10-11.md: one recommendation free, alternatives/full forecast Premium; store verification unchanged |
+| Mobile controls | Duration/intensity/place existing; local-time preferences added in both clients with DST/rollover tests |
+| Calendar | Native editor / explicit confirmation, no unrelated-calendar ingestion |
+| Missing forecast continuity | Fixed: gaps cannot merge or satisfy activity duration |
+| Latest-start coverage | Fixed: keep following forecast intervals to validate duration while preserving bounded response |
+| Physical/store certification | Separate current-candidate evidence required; Android hardware unavailable per owner |
+| Product quality | Ranking non-regression on captured live forecasts; real-world acceptance improvement not established |
+
+Full build/deploy/device receipts are updated after execution in the ACTION closure report. New roadmap sequence is ACTION → AMBIENT → ROUTES → CLIMATE TWIN → HOME+CARE; do not start later releases under this closure task.
+
+---
+
 # HiAir Next-Generation Baseline Audit
 
 **Status:** IN_PROGRESS — PHASE 0 BACKEND SLICE VERIFIED / MOBILE ACTION SLICE IN_PROGRESS  

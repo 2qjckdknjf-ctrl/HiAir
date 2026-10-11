@@ -1,3 +1,5 @@
+> Product sequence: docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md → current ACTION specification. October amendments remain release/security/research constraints. Finish ACTION before AMBIENT/ROUTES/TWIN/HOME; do not reimplement integrated capabilities.
+
 # HiAir delivery rules
 
 Read the root AGENTS.md, docs/_operator/CURRENT_DELIVERY_STATUS.md and docs/_operator/DELIVERY_REGISTRY.json before implementation. The latest plan is docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md, including its October amendments.
