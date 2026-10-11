@@ -1831,6 +1831,7 @@ struct SettingsView: View {
             )
             session.applyEntitlement(status.entitlement)
             restoreConfirmedPremium = status.entitlement?.isPremium == true
+                && subscriptionService.lastRestoreVerifiedTransactionCount > 0
             restoreMessage = (status.entitlement?.isPremium == true || session.isPremium)
                 ? session.l("paywall.restore_success")
                 : session.l("paywall.restore_nothing")

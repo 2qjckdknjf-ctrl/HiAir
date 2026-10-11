@@ -18,6 +18,7 @@ final class SubscriptionService: ObservableObject {
     @Published private(set) var catalogState: PaywallCatalogState = .idle
     @Published private(set) var isLoading = false
     @Published private(set) var isPurchaseInProgress = false
+    @Published private(set) var lastRestoreVerifiedTransactionCount = 0
     @Published var lastError: String?
 
     private var updatesTask: Task<Void, Never>?
@@ -385,6 +386,7 @@ final class SubscriptionService: ObservableObject {
         }
 
         SubscriptionDiagnostics.log("restore_started")
+        lastRestoreVerifiedTransactionCount = 0
         let signedTransactions = try await Self.collectRestoreEntitlements(
             current: { await self.currentSignedEntitlements() },
             sync: {
@@ -424,6 +426,9 @@ final class SubscriptionService: ObservableObject {
             iosSignedTransactions: signedTransactions,
             accessToken: accessToken
         )
+        // Empty restore may return an existing backend entitlement. Only a
+        // non-empty submitted JWS batch proves actual store reverification.
+        lastRestoreVerifiedTransactionCount = signedTransactions.count
         SubscriptionDiagnostics.log(
             "restore_succeeded",
             entitlementActive: response.entitlement?.isPremium == true
