@@ -33,6 +33,7 @@ final class InfoPlistPackagingTests: XCTestCase {
     }
 
     func testBuiltProductInfoPlistHasExpandedRuntimeKeys() throws {
+        let expected = try Self.expectedVersionsFromProjectYml()
         let info = Bundle.main.infoDictionary
         XCTAssertEqual(info?["CFBundleIdentifier"] as? String, "com.hiair.app")
         let marketing = try XCTUnwrap(info?["CFBundleShortVersionString"] as? String)
@@ -41,7 +42,73 @@ final class InfoPlistPackagingTests: XCTestCase {
         XCTAssertFalse(build.contains("$("), "unresolved build number: \(build)")
         XCTAssertFalse(marketing.isEmpty)
         XCTAssertFalse(build.isEmpty)
-        let expectedMarketing = try Self.marketingVersionFromProjectYml()
         XCTAssertEqual(
             marketing,
-            expectedMarketing,
+            expected.marketing,
+            "Release product must expand MARKETING_VERSION (\(expected.marketing)) from build settings / project.yml"
+        )
+        XCTAssertEqual(
+            build,
+            expected.build,
+            "Release product must expand CURRENT_PROJECT_VERSION (\(expected.build)) from build settings / project.yml"
+        )
+        XCTAssertNotEqual(build, "1", "Release product must use CURRENT_PROJECT_VERSION, not plist default 1")
+
+        let supabaseURL = try XCTUnwrap(info?["SUPABASE_URL"] as? String)
+        let apiBase = try XCTUnwrap(info?["API_BASE_URL"] as? String)
+        let anon = try XCTUnwrap(info?["SUPABASE_ANON_KEY"] as? String)
+        XCTAssertFalse(supabaseURL.contains("$("))
+        XCTAssertFalse(apiBase.contains("$("))
+        XCTAssertFalse(anon.contains("$("))
+        XCTAssertFalse(anon.lowercased().contains("service_role"))
+        XCTAssertFalse(anon.contains("sb_secret"))
+
+        let urlTypes = info?["CFBundleURLTypes"] as? [[String: Any]]
+        let schemes = urlTypes?.compactMap { $0["CFBundleURLSchemes"] as? [String] }.flatMap { $0 } ?? []
+        XCTAssertTrue(schemes.contains("hiair"), "auth URL scheme missing from product Info.plist")
+        let queries = info?["LSApplicationQueriesSchemes"] as? [String] ?? []
+        XCTAssertTrue(queries.contains("x-apple-health"))
+
+        XCTAssertNotNil(info?["NSHealthShareUsageDescription"] as? String)
+        XCTAssertNotNil(info?["NSHealthUpdateUsageDescription"] as? String)
+        XCTAssertNotNil(info?["NSLocationWhenInUseUsageDescription"] as? String)
+    }
+
+    private static func expectedVersionsFromProjectYml() throws -> (marketing: String, build: String) {
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<6 {
+            url.deleteLastPathComponent()
+            let candidate = url.appendingPathComponent("project.yml")
+            guard FileManager.default.fileExists(atPath: candidate.path) else { continue }
+            let text = try String(contentsOf: candidate, encoding: .utf8)
+            guard
+                let marketing = firstCapture(in: text, pattern: #"MARKETING_VERSION:\s*"?([0-9][0-9.]*)"?"#),
+                let build = firstCapture(in: text, pattern: #"CURRENT_PROJECT_VERSION:\s*([0-9]+)"#)
+            else {
+                throw XCTSkip("Could not parse MARKETING_VERSION / CURRENT_PROJECT_VERSION from project.yml")
+            }
+            return (marketing, build)
+        }
+        throw XCTSkip("project.yml not found relative to test source")
+    }
+
+    private static func firstCapture(in text: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range), match.numberOfRanges > 1,
+              let capture = Range(match.range(at: 1), in: text) else { return nil }
+        return String(text[capture])
+    }
+
+    private static func locateSourceInfoPlist() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<6 {
+            url.deleteLastPathComponent()
+            let candidate = url.appendingPathComponent("HiAir/Info.plist")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+        }
+        throw XCTSkip("HiAir/Info.plist not found relative to test source")
+    }
+}

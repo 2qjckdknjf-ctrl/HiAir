@@ -17,4 +17,46 @@ class MainScreenRenderer(
     private val persistSession: () -> Unit,
     private val clearSession: () -> Unit,
     private val rerender: () -> Unit,
+    private val restorePurchases: () -> Unit = {},
+) {
+    @Volatile
+    private var presentationOnly: Boolean = false
+
+    fun runPresentationOnly(block: () -> Unit) {
+        presentationOnly = true
+        try {
+            block()
+        } finally {
+            presentationOnly = false
+        }
+    }
+
+    private fun ctx(): RenderContext = RenderContext(
+        activity = activity,
+        rootShell = rootShell,
+        titleView = titleView,
+        bodyContainer = bodyContainer,
+        overlayContainer = overlayContainer,
+        persistSession = persistSession,
+        clearSession = clearSession,
+        rerender = rerender,
         restorePurchases = restorePurchases,
+        presentationOnly = presentationOnly,
+    )
+
+    fun renderFirstRun(onboardingStore: OnboardingStore) {
+        FirstRunOnboardingRenderer.render(ctx(), onboardingStore) { rerender() }
+    }
+
+    fun renderDashboard() = DashboardScreenRenderer.render(ctx())
+
+    fun renderPlanner() = PlannerScreenRenderer.render(ctx())
+
+    fun renderInsights() = InsightsScreenRenderer.render(ctx())
+
+    fun renderSymptoms() = SymptomsScreenRenderer.render(ctx())
+
+    fun renderSettings() = SettingsScreenRenderer.render(ctx())
+
+    fun renderPaywall(paywall: SubscriptionPaywallController) = PaywallScreenRenderer.render(ctx(), paywall)
+}

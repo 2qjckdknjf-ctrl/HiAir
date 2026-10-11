@@ -5,7 +5,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 
-class ApiHttpException(val statusCode: Int, message: String) : RuntimeException(message)
+class ApiHttpException(
+    val statusCode: Int,
+    message: String,
+    val body: String = "",
+) : RuntimeException(message)
 
 class ApiClient(private val baseUrl: String) {
     data class AuthState(
@@ -63,6 +67,16 @@ class ApiClient(private val baseUrl: String) {
             put("password", password)
         }.toString()
         return request("POST", endpoint, json)
+    }
+
+    /** Password-grant session via backend bridge. 404 means the route is absent. */
+    fun supabaseEmailSession(email: String, password: String, signup: Boolean): String {
+        val path = if (signup) "/api/auth/supabase/signup" else "/api/auth/supabase/session"
+        val json = JSONObject().apply {
+            put("email", email)
+            put("password", password)
+        }.toString()
+        return requestStrict("POST", "$baseUrl$path", json)
     }
 
     fun listProfiles(userId: String, accessToken: String?): String {
@@ -581,7 +595,7 @@ class ApiClient(private val baseUrl: String) {
             allowRefresh = true
         )
         if (code !in 200..299) {
-            throw ApiHttpException(code, "HTTP $code for $endpoint")
+            throw ApiHttpException(code, "HTTP $code for $endpoint", payload)
         }
         return payload
     }

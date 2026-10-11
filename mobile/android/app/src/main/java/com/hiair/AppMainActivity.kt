@@ -33,6 +33,8 @@ import com.hiair.health.WearableHealthController
 import com.hiair.health.WearableHealthHost
 import com.hiair.location.LocationBootstrapHost
 import com.hiair.location.LocationController
+import com.hiair.location.PlaceGeocoding
+import com.hiair.location.PlaceGeocodingService
 import com.hiair.ui.render.MainScreenRenderer
 import com.hiair.ui.render.FirstRunOnboardingRenderer
 import kotlinx.coroutines.launch
@@ -68,6 +70,8 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     private lateinit var healthConnectService: HealthConnectService
     private lateinit var wearableHealthController: WearableHealthController
     private lateinit var locationController: LocationController
+    private lateinit var placeGeocoding: PlaceGeocodingService
+    private var lastGeocodeKey: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,6 +81,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         healthConnectService = HealthConnectService(this)
         wearableHealthController = WearableHealthController(this, healthConnectService)
         locationController = LocationController(this, rootShell.settingsViewModel)
+        placeGeocoding = PlaceGeocodingService(this)
         supabaseAuth = SupabaseAuthService(this, sessionStore)
         rootShell.settingsViewModel.configureSupabaseAuth(supabaseAuth)
         restoreSession()
@@ -257,9 +262,12 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             clearSession = {
                 wearableHealthController.cancelPendingOperations()
                 sessionStore.clear()
+                placeGeocoding.invalidateSession()
+                lastGeocodeKey = ""
                 rootShell.settingsViewModel.clearEntitlementState()
             },
-            rerender = ::renderCurrentScreen
+            rerender = ::renderCurrentScreen,
+            restorePurchases = { paywallController.restore(this) },
         )
 
         paywallController.onEntitlementUpdated = { renderCurrentScreen() }
@@ -392,11 +400,18 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
         overlayContainer.removeAllViews()
         updateResponsiveChrome()
         applyStoreScreenshotScrollContract()
+        maybeResolvePlaceName()
         syncNavLabels()
         syncNavSelection()
         updateChromeVisibility()
         if (rootShell.settingsViewModel.state.showPaywall) {
             screenRenderer.renderPaywall(paywallController)
+            publishStoreScreenshotReadiness()
+            return
+        }
+        if (!StoreScreenshotMode.active && !isAuthenticated()) {
+            FirstRunOnboardingRenderer.resetStepForSession(false)
+            screenRenderer.renderFirstRun(onboardingStore)
             publishStoreScreenshotReadiness()
             return
         }
@@ -610,7 +625,37 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
     }
 
     override fun bootstrapLocation(onComplete: () -> Unit) {
-        locationController.bootstrapLocation(onComplete)
+        locationController.bootstrapLocation {
+            lastGeocodeKey = ""
+            maybeResolvePlaceName()
+            onComplete()
+        }
+    }
+
+    private fun maybeResolvePlaceName() {
+        if (StoreScreenshotMode.active) return
+        val settings = rootShell.settingsViewModel.state
+        if (!rootShell.settingsViewModel.hasValidLocation()) return
+        val key = "${settings.userId}:${PlaceGeocoding.coordinateKey(settings.latitude, settings.longitude)}"
+        if (key == lastGeocodeKey && settings.displayPlaceName.isNotBlank()) return
+        lastGeocodeKey = key
+        placeGeocoding.bindAccount(settings.userId)
+        val cached = placeGeocoding.reusablePresentationName(
+            settings.userId,
+            settings.latitude,
+            settings.longitude,
+        )
+        if (!cached.isNullOrBlank()) {
+            rootShell.settingsViewModel.setDisplayPlaceName(cached)
+            return
+        }
+        placeGeocoding.resolveAsync(settings.userId, settings.latitude, settings.longitude) { name ->
+            if (name.isNullOrBlank()) return@resolveAsync
+            runOnUiThread {
+                rootShell.settingsViewModel.setDisplayPlaceName(name)
+                renderCurrentScreen()
+            }
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

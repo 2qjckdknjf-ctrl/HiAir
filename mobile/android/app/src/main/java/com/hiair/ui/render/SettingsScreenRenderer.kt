@@ -1,8 +1,5 @@
 package com.hiair.ui.render
 
-import android.app.AlertDialog
-import android.content.Intent
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
@@ -19,6 +16,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import com.hiair.ui.config.HiAirLegalUrls
 import com.hiair.ui.design.HiAirComponents
 import com.hiair.ui.design.markGeometry
 import com.hiair.ui.design.Tokens
@@ -178,8 +176,8 @@ internal object SettingsScreenRenderer {
         val persistSession = ctx.persistSession
         val clearSession = ctx.clearSession
 
-        bodyContainer.addView(HiAirComponents.screenWordmark(activity, ctx.l("nav.settings")))
-        HiAirComponents.hidePageTitle(titleView)
+        bodyContainer.addView(HiAirComponents.brandHeader(activity, tagline = ctx.l("auth.subtitle"), showOrb = true, orbSizeDp = 96))
+        titleView.text = ctx.l("title.settings")
         bodyContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.subtitle")).apply { textSize = 13f })
         val emailInput = HiAirComponents.inputField(activity, ctx.l("settings.email"))
         val passwordInput = HiAirComponents.inputField(activity, ctx.l("settings.password"))
@@ -474,3 +472,637 @@ internal object SettingsScreenRenderer {
         }
         val deleteAccountButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.delete_account")).apply {
             setOnClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(activity)
+                    .setTitle(ctx.l("settings.delete_account_confirm_title"))
+                    .setMessage(ctx.l("settings.delete_account_confirm_body"))
+                    .setPositiveButton(ctx.l("settings.delete_account_confirm_action")) { _, _ ->
+                        statusText.text = ctx.l("common.loading")
+                        Thread {
+                            val deleted = rootShell.settingsViewModel.deleteAccount()
+                            val updated = rootShell.settingsViewModel.state
+                            activity.runOnUiThread {
+                                if (deleted) {
+                                    clearSession()
+                                    emailInput.setText("")
+                                    passwordInput.setText("")
+                                }
+                                privacyExportSummary.text = updated.privacyExportSummary
+                                statusText.text = updated.statusText
+                            }
+                        }.start()
+                    }
+                    .setNegativeButton(ctx.l("settings.cancel"), null)
+                    .show()
+            }
+        }
+        val loadAiSummaryButton = HiAirComponents.secondaryButton(activity, ctx.l("settings.load_ai_summary")).apply {
+            setOnClickListener {
+                val windowHours = aiWindowInput.text.toString().toIntOrNull() ?: 24
+                rootShell.settingsViewModel.setAiSummaryHours(windowHours)
+                requestAiRefreshDebounced(delayMs = 0L)
+            }
+        }
+
+        aiMetricSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val metric = aiMetricOptions[position.coerceIn(0, aiMetricOptions.lastIndex)]
+                rootShell.settingsViewModel.setAiChartMetric(metric)
+                val state = rootShell.settingsViewModel.state
+                val chartPoints = chartPointsForMetric(state, metric)
+                aiGraphText.text = state.aiTrendGraphText
+                aiTrendChart.setTrendPoints(chartPoints)
+                aiRangeText.text = "${ctx.l("settings.ai_range")}: ${rangeText(chartPoints)}"
+                if (state.aiTrendPoints.isEmpty()) {
+                    requestAiRefreshDebounced()
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        aiModeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val mode = aiModeOptions[position.coerceIn(0, aiModeOptions.lastIndex)]
+                rootShell.settingsViewModel.setAiChartMode(mode)
+                aiTrendChart.setChartMode(mode)
+                if (rootShell.settingsViewModel.state.aiTrendPoints.isEmpty()) {
+                    requestAiRefreshDebounced()
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+
+        val socialAuthRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_google")).apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.launchGoogleOAuth()
+                    statusText.text = ctx.l("auth.oauth_continue")
+                }
+            })
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("auth.sign_in_apple")).apply {
+                setOnClickListener {
+                    rootShell.settingsViewModel.launchAppleOAuth()
+                    statusText.text = ctx.l("auth.oauth_continue")
+                }
+            })
+        }
+
+        fun sectionTitle(key: String): TextView = HiAirComponents.sectionTitle(activity, ctx.l(key))
+
+        val state = rootShell.settingsViewModel.state
+        emailInput.setText(state.email)
+        pushAlertsBox.isChecked = state.pushAlertsEnabled
+        profileAlertingBox.isChecked = state.profileBasedAlerting
+        morningBriefingBox.isChecked = state.morningBriefingEnabled
+        morningBriefingTimeInput.setText(state.morningBriefingTime)
+        quietStartInput.setText(state.quietHoursStart.toString())
+        quietEndInput.setText(state.quietHoursEnd.toString())
+        val thresholdIndex = thresholdOptions.indexOf(state.alertThreshold)
+        if (thresholdIndex >= 0) thresholdSpinner.setSelection(thresholdIndex)
+        val personaIndex = personaOptions.indexOf(state.defaultPersona)
+        if (personaIndex >= 0) personaSpinner.setSelection(personaIndex)
+        val langIndex = languageOptions.indexOf(state.preferredLanguage)
+        if (langIndex >= 0) languageSpinner.setSelection(langIndex)
+        if (state.subscriptionPlans.isNotEmpty()) {
+            val labels = state.subscriptionPlans.map { "${it.second} (${it.first})" }
+            subscriptionSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, labels)
+            val selectedIndex = state.subscriptionPlans.indexOfFirst { it.first == state.selectedPlanId }
+            if (selectedIndex >= 0) subscriptionSpinner.setSelection(selectedIndex)
+        }
+        if (statusText.text.isNullOrBlank() || statusText.text == ctx.l("settings.load_save")) {
+            statusText.text = ctx.l("settings.load_save")
+        }
+        aiSummaryText.text = state.aiSummaryText
+        aiTrendText.text = state.aiTrendText
+        aiGraphText.text = state.aiTrendGraphText
+        applyAiState(state)
+        aiWindowInput.setText(state.aiSummaryHours.toString())
+        val metricIndex = aiMetricOptions.indexOf(state.aiChartMetric)
+        if (metricIndex >= 0) aiMetricSpinner.setSelection(metricIndex, false)
+        val modeIndex = aiModeOptions.indexOf(state.aiChartMode)
+        if (modeIndex >= 0) aiModeSpinner.setSelection(modeIndex, false)
+        aiWindowInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                val parsed = s?.toString()?.toIntOrNull() ?: return
+                val normalized = if (parsed <= 24) 24 else 72
+                if (normalized != rootShell.settingsViewModel.state.aiSummaryHours) {
+                    rootShell.settingsViewModel.setAiSummaryHours(normalized)
+                    requestAiRefreshDebounced()
+                }
+            }
+        })
+
+        val isLoggedIn = state.accessToken.isNotBlank() && state.userId.isNotBlank()
+        val authCard = HiAirComponents.glassAccentContainer(activity).apply {
+            addView(sectionTitle("auth.title"))
+            if (isLoggedIn) {
+                if (state.email.isNotBlank()) {
+                    addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
+                }
+            } else {
+                addView(emailInput)
+                addView(passwordInput)
+                addView(loginButton)
+                addView(signupButton)
+                addView(socialAuthRow)
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("auth.age_note")).apply { textSize = 12f })
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("settings.terms")).apply {
+                        setOnClickListener { HiAirLegalUrls.openTerms(activity) }
+                    },
+                )
+                addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy")).apply {
+                        setOnClickListener { HiAirLegalUrls.openPrivacy(activity) }
+                    },
+                )
+            }
+        }
+        bodyContainer.addView(authCard)
+
+        val wearablesCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.wearables.title"))
+            addView(V2Ui.styledSecondaryText(activity, rootShell.settingsViewModel.state.wearableStatus))
+            val connected = rootShell.settingsViewModel.state.wearableStatus.contains("connected", ignoreCase = true) ||
+                rootShell.settingsViewModel.state.wearableStatus.contains("подключ", ignoreCase = true)
+            if (connected) {
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.disconnect")).apply {
+                    setOnClickListener {
+                        (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = false) { remoteOk ->
+                            rootShell.settingsViewModel.applyWearableRevokeResult(remoteOk, deleteData = false)
+                            statusText.text = rootShell.settingsViewModel.state.statusText
+                            ctx.rerender()
+                        }
+                    }
+                })
+            } else {
+                addView(HiAirComponents.secondaryButton(activity, ctx.l("wearable.consent.connect")).apply {
+                    setOnClickListener {
+                        (activity as? WearableHealthHost)?.requestWearableConnect {
+                            rootShell.settingsViewModel.refreshWearableStatus()
+                            ctx.rerender()
+                        }
+                    }
+                })
+            }
+            addView(HiAirComponents.secondaryButton(activity, ctx.l("settings.wearables.delete")).apply {
+                setOnClickListener {
+                    (activity as? WearableHealthHost)?.revokeWearablesLocalFirst(deleteData = true) { remoteOk ->
+                        rootShell.settingsViewModel.applyWearableRevokeResult(remoteOk, deleteData = true)
+                        statusText.text = rootShell.settingsViewModel.state.statusText
+                        ctx.rerender()
+                    }
+                }
+            })
+        }
+        bodyContainer.addView(wearablesCard)
+        if (!StoreScreenshotMode.active) {
+            rootShell.settingsViewModel.refreshWearableStatus()
+        }
+
+        val securityCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.security_privacy"))
+            if (state.email.isNotBlank()) {
+                addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
+            }
+            addView(exportPrivacyButton)
+            addView(privacyExportSummary)
+            addView(deleteAccountButton)
+            addView(logoutButton)
+        }
+        bodyContainer.addView(securityCard)
+        bodyContainer.addView(statusText)
+
+        val notificationsCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.notifications"))
+            addView(pushAlertsBox)
+            addView(morningBriefingBox)
+            addView(morningBriefingTimeInput)
+            if (state.userId.isBlank()) {
+                addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.briefing_setup_hint")))
+            }
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.morning_briefing_hint")))
+            addView(profileAlertingBox)
+            addView(quietStartInput)
+            addView(quietEndInput)
+            addView(thresholdSpinner)
+            addView(loadButton)
+            addView(saveButton)
+        }
+        bodyContainer.addView(notificationsCard)
+
+        val defaultsCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.profile_defaults"))
+            addView(personaSpinner)
+            addView(languageLabel)
+            addView(languageSpinner)
+        }
+        bodyContainer.addView(defaultsCard)
+
+        val placeNameInput = HiAirComponents.inputField(activity, ctx.l("places.name_hint"))
+        val placeTypeSpinner = Spinner(activity)
+        val placeTypeOptions = listOf("home", "work", "school", "parents", "vacation", "other")
+        val placeTypeLabels = listOf(
+            ctx.l("places.type.home"),
+            ctx.l("places.type.work"),
+            ctx.l("places.type.school"),
+            ctx.l("places.type.parents"),
+            ctx.l("places.type.vacation"),
+            ctx.l("places.type.other"),
+        )
+        placeTypeSpinner.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, placeTypeLabels)
+        val placesStatusView = TextView(activity).apply {
+            text = rootShell.settingsViewModel.state.placesStatusText
+            textSize = 14f
+            setTextColor(Tokens.Text.secondary)
+        }
+        val placesListContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        fun renderPlacesList() {
+            placesListContainer.removeAllViews()
+            val places = rootShell.settingsViewModel.state.savedPlaces
+            if (places.isEmpty()) {
+                placesListContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("places.empty")))
+                return
+            }
+            places.forEach { place ->
+                val row = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                val label = "${place.name} · ${ctx.l("places.type.${place.placeType}")} · ${String.format(Locale.US, "%.2f", place.lat)}, ${String.format(Locale.US, "%.2f", place.lon)}"
+                row.addView(
+                    V2Ui.styledBodyText(activity, label).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        textSize = 13f
+                    },
+                )
+                row.addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("places.delete")).apply {
+                        setOnClickListener {
+                            Thread {
+                                rootShell.settingsViewModel.deleteSavedPlace(place.id)
+                                activity.runOnUiThread {
+                                    placesStatusView.text = rootShell.settingsViewModel.state.placesStatusText
+                                    renderPlacesList()
+                                }
+                            }.start()
+                        }
+                    },
+                )
+                placesListContainer.addView(row)
+            }
+        }
+        if (isLoggedIn) {
+            Thread {
+                rootShell.settingsViewModel.loadPlaces()
+                activity.runOnUiThread {
+                    placesStatusView.text = rootShell.settingsViewModel.state.placesStatusText
+                    renderPlacesList()
+                }
+            }.start()
+        }
+        val placesCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("places.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("places.subtitle")))
+            addView(placesListContainer)
+            addView(V2Ui.spacer(activity, 8))
+            addView(placeNameInput)
+            addView(placeTypeSpinner)
+            addView(
+                HiAirComponents.primaryButton(activity, ctx.l("places.add")).apply {
+                    setOnClickListener {
+                        val typeIndex = placeTypeSpinner.selectedItemPosition.coerceIn(0, placeTypeOptions.lastIndex)
+                        Thread {
+                            rootShell.settingsViewModel.addSavedPlace(
+                                name = placeNameInput.text.toString(),
+                                placeType = placeTypeOptions[typeIndex],
+                            )
+                            activity.runOnUiThread {
+                                placesStatusView.text = rootShell.settingsViewModel.state.placesStatusText
+                                if (rootShell.settingsViewModel.state.placesStatusText == ctx.l("places.added")) {
+                                    placeNameInput.setText("")
+                                }
+                                renderPlacesList()
+                            }
+                        }.start()
+                    }
+                },
+            )
+            addView(placesStatusView)
+        }
+        bodyContainer.addView(placesCard)
+
+        val workWorkloadOptions = listOf("light", "moderate", "heavy", "very_heavy")
+        val workWorkloadLabels = workWorkloadOptions.map { ctx.l("settings.work.workload.$it") }
+        val workRiskText = V2Ui.styledBodyText(activity, rootShell.settingsViewModel.state.workSiteRiskText)
+        val workProxyDisclaimer = V2Ui.styledSecondaryText(activity, ctx.l("settings.work.proxy_disclaimer")).apply {
+            visibility = if (rootShell.settingsViewModel.state.workSiteRiskProxyOnly) View.VISIBLE else View.GONE
+        }
+        val workCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.work.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.work.subtitle")))
+            addView(
+                Spinner(activity).apply {
+                    adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, workWorkloadLabels)
+                    val selectedIndex = workWorkloadOptions.indexOf(rootShell.settingsViewModel.state.workWorkload).coerceAtLeast(0)
+                    setSelection(selectedIndex, false)
+                    onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                            rootShell.settingsViewModel.setWorkWorkload(workWorkloadOptions[position])
+                        }
+                        override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                    }
+                }
+            )
+            addView(
+                HiAirComponents.secondaryButton(
+                    activity,
+                    if (rootShell.settingsViewModel.state.workSiteRiskLoading) {
+                        ctx.l("common.loading")
+                    } else {
+                        ctx.l("settings.work.refresh")
+                    },
+                ).apply {
+                    setOnClickListener {
+                        Thread {
+                            rootShell.settingsViewModel.loadWorkSiteRisk()
+                            activity.runOnUiThread {
+                                workRiskText.text = rootShell.settingsViewModel.state.workSiteRiskText
+                                workProxyDisclaimer.visibility =
+                                    if (rootShell.settingsViewModel.state.workSiteRiskProxyOnly) View.VISIBLE else View.GONE
+                            }
+                        }.start()
+                    }
+                },
+            )
+            addView(workRiskText)
+            addView(workProxyDisclaimer)
+        }
+        bodyContainer.addView(workCard)
+
+        val familyStatusView = TextView(activity).apply {
+            text = rootShell.settingsViewModel.state.familyStatusText
+            textSize = 14f
+            setTextColor(Tokens.Text.secondary)
+        }
+        val familyListContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        fun renderFamilyList() {
+            familyListContainer.removeAllViews()
+            val members = rootShell.settingsViewModel.state.familyMembers
+            val linkedIds = members.map { it.memberProfileId }.toSet()
+            val profileId = rootShell.settingsViewModel.state.profileId
+            if (members.isEmpty()) {
+                familyListContainer.addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.family.empty")))
+            } else {
+                members.forEach { member ->
+                    val row = LinearLayout(activity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    val title = member.label ?: member.memberProfileId
+                    val subtitle = ctx.l("settings.family.relation.${member.relation}")
+                    val riskLabel = FamilyRiskParser.riskLabel(
+                        rootShell.settingsViewModel.state.familyRiskByLinkId[member.id],
+                        rootShell.settingsViewModel.state.preferredLanguage,
+                    )
+                    row.addView(
+                        LinearLayout(activity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            addView(V2Ui.styledBodyText(activity, title).apply { textSize = 14f })
+                            addView(V2Ui.styledSecondaryText(activity, subtitle).apply { textSize = 12f })
+                            if (riskLabel.isNotBlank()) {
+                                addView(V2Ui.styledSecondaryText(activity, riskLabel).apply { textSize = 12f })
+                            }
+                            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        },
+                    )
+                    row.addView(
+                        HiAirComponents.secondaryButton(activity, ctx.l("settings.family.delete")).apply {
+                            setOnClickListener {
+                                Thread {
+                                    rootShell.settingsViewModel.deleteFamilyMember(member.id)
+                                    activity.runOnUiThread {
+                                        familyStatusView.text = rootShell.settingsViewModel.state.familyStatusText
+                                        renderFamilyList()
+                                    }
+                                }.start()
+                            }
+                        },
+                    )
+                    familyListContainer.addView(row)
+                }
+            }
+            val available = rootShell.settingsViewModel.state.availableProfileIds.filter { (id, _) ->
+                id != profileId && id !in linkedIds
+            }
+            available.forEach { (profileId, persona) ->
+                val row = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                row.addView(
+                    V2Ui.styledBodyText(activity, persona).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        textSize = 14f
+                    },
+                )
+                row.addView(
+                    HiAirComponents.secondaryButton(activity, ctx.l("settings.family.add")).apply {
+                        setOnClickListener {
+                            Thread {
+                                rootShell.settingsViewModel.addFamilyMember(
+                                    profileId = profileId,
+                                    relation = "child",
+                                    label = persona,
+                                )
+                                activity.runOnUiThread {
+                                    familyStatusView.text = rootShell.settingsViewModel.state.familyStatusText
+                                    renderFamilyList()
+                                }
+                            }.start()
+                        }
+                    },
+                )
+                familyListContainer.addView(row)
+            }
+        }
+        if (isLoggedIn) {
+            Thread {
+                rootShell.settingsViewModel.refreshAvailableProfiles()
+                rootShell.settingsViewModel.loadFamilyMembers()
+                activity.runOnUiThread {
+                    familyStatusView.text = rootShell.settingsViewModel.state.familyStatusText
+                    renderFamilyList()
+                }
+            }.start()
+        }
+        val familyCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.family.title"))
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.family.subtitle")))
+            addView(familyListContainer)
+            addView(familyStatusView)
+        }
+        bodyContainer.addView(familyCard)
+
+        val upgradePremiumButton = HiAirComponents.primaryButton(activity, ctx.l("settings.upgrade_premium")).apply {
+            setOnClickListener {
+                rootShell.settingsViewModel.requestShowPaywall()
+                ctx.rerender()
+            }
+        }
+
+        val premiumStatusText = V2Ui.styledBodyText(activity, ctx.l("settings.premium_active")).apply {
+            visibility = if (rootShell.settingsViewModel.state.isPremium) View.VISIBLE else View.GONE
+        }
+
+        val subscriptionCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.subscription"))
+            addView(premiumStatusText)
+            if (!rootShell.settingsViewModel.state.isPremium) {
+                addView(upgradePremiumButton)
+            }
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.restore_purchases")).apply {
+                    setOnClickListener {
+                        rootShell.settingsViewModel.setPaywallStatus(ctx.l("paywall.restoring"))
+                        ctx.restorePurchases()
+                    }
+                },
+            )
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.manage_subscription")).apply {
+                    setOnClickListener {
+                        if (!HiAirLegalUrls.openPlayManageSubscriptions(activity)) {
+                            rootShell.settingsViewModel.setPaywallStatus(ctx.l("paywall.browser_unavailable"))
+                        }
+                    }
+                },
+            )
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.support")).apply {
+                    setOnClickListener {
+                        if (!HiAirLegalUrls.openSupport(activity)) {
+                            rootShell.settingsViewModel.setPaywallStatus(ctx.l("paywall.browser_unavailable"))
+                        }
+                    }
+                },
+            )
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.support_email")).apply { textSize = 12f })
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.terms")).apply {
+                    setOnClickListener { HiAirLegalUrls.openTerms(activity) }
+                },
+            )
+            addView(
+                HiAirComponents.secondaryButton(activity, ctx.l("settings.privacy")).apply {
+                    setOnClickListener { HiAirLegalUrls.openPrivacy(activity) }
+                },
+            )
+            if (BuildConfig.DEBUG) {
+                addView(subscriptionSpinner)
+                addView(loadPlansButton)
+                addView(loadSubscriptionButton)
+                addView(activateSubscriptionButton)
+                addView(cancelSubscriptionButton)
+            }
+        }
+        bodyContainer.addView(subscriptionCard)
+
+        val advancedAiContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            addView(aiMetricLabel)
+            addView(aiMetricSpinner)
+            addView(aiModeLabel)
+            addView(aiModeSpinner)
+            addView(aiGraphText)
+            addView(aiRangeText)
+            addView(aiAxisText)
+            addView(aiRequestStatusText)
+            addView(aiLastUpdatedText)
+            addView(aiInlineErrorText)
+            addView(aiRetryButton)
+            addView(aiTrendChart)
+            addView(aiBreakdownText)
+        }
+        val advancedAiToggle = HiAirComponents.secondaryButton(activity, ctx.l("settings.advanced_controls")).apply {
+            setOnClickListener {
+                val expanded = advancedAiContainer.visibility == View.VISIBLE
+                advancedAiContainer.visibility = if (expanded) View.GONE else View.VISIBLE
+                text = if (expanded) {
+                    ctx.l("settings.advanced_controls")
+                } else {
+                    ctx.l("settings.advanced_controls_hide")
+                }
+            }
+        }
+
+        val aiCard = HiAirComponents.cardContainer(activity).apply {
+            addView(sectionTitle("settings.ai_observability"))
+            addView(aiWindowInput)
+            addView(aiSummaryText)
+            addView(aiTrendText)
+            addView(advancedAiToggle)
+            addView(advancedAiContainer)
+            addView(loadAiSummaryButton)
+        }
+
+        if (BuildConfig.DEBUG) {
+            bodyContainer.addView(aiCard)
+        }
+
+        bodyContainer.addView(HiAirComponents.brandMonoFooterView(activity))
+
+        bodyContainer.addView(HiAirComponents.primaryButton(activity, ctx.l("settings.sync_now")).apply {
+            setOnClickListener {
+                statusText.text = ctx.l("common.loading")
+                rootShell.settingsViewModel.setPushAlertsEnabled(pushAlertsBox.isChecked)
+                val selectedThresholdIndex = thresholdSpinner.selectedItemPosition.coerceIn(0, thresholdOptions.lastIndex)
+                rootShell.settingsViewModel.setAlertThreshold(thresholdOptions[selectedThresholdIndex])
+                val selectedPersonaIndex = personaSpinner.selectedItemPosition.coerceIn(0, personaOptions.lastIndex)
+                rootShell.settingsViewModel.setDefaultPersona(personaOptions[selectedPersonaIndex])
+                val selectedLangIndex = languageSpinner.selectedItemPosition.coerceIn(0, languageOptions.lastIndex)
+                rootShell.settingsViewModel.setPreferredLanguage(languageOptions[selectedLangIndex])
+                rootShell.settingsViewModel.setProfileBasedAlerting(profileAlertingBox.isChecked)
+                rootShell.settingsViewModel.setMorningBriefingEnabled(morningBriefingBox.isChecked)
+                rootShell.settingsViewModel.setMorningBriefingTime(morningBriefingTimeInput.text.toString())
+                rootShell.settingsViewModel.setQuietHoursStart(quietStartInput.text.toString().toIntOrNull() ?: 22)
+                rootShell.settingsViewModel.setQuietHoursEnd(quietEndInput.text.toString().toIntOrNull() ?: 7)
+                Thread {
+                    rootShell.settingsViewModel.saveSettings()
+                    val savedState = rootShell.settingsViewModel.state
+                    activity.runOnUiThread {
+                        persistSession()
+                        statusText.text = savedState.statusText
+                    }
+                }.start()
+            }
+        })
+    }
+
+    private fun chartPointsForMetric(state: com.hiair.ui.settings.SettingsState, metric: String): List<Int> {
+        return when (metric) {
+            "fallback" -> state.aiTrendFallbackPoints
+            "guardrail" -> state.aiTrendGuardrailPoints
+            "errors" -> state.aiTrendErrorPoints
+            "timeout" -> state.aiTrendTimeoutPoints
+            "network" -> state.aiTrendNetworkPoints
+            "server" -> state.aiTrendServerPoints
+            else -> state.aiTrendPoints
+        }
+    }
+
+    private fun rangeText(points: List<Int>): String {
+        if (points.isEmpty()) return "-"
+        val min = points.minOrNull() ?: 0
+        val max = points.maxOrNull() ?: 0
+        return "$min-$max"
+    }
+}

@@ -33,6 +33,8 @@ class ForecastTruthParseTest {
         assertTrue(state.statusText.contains("partial", ignoreCase = true))
         assertTrue(state.freshnessText.contains("cached", ignoreCase = true))
         assertEquals(1, state.hourly.size)
+        assertEquals(listOf("low"), state.hourlyRiskLevels)
+        assertEquals(20, state.currentRiskScore)
         assertEquals(1, state.safeWindows.size)
         assertFalse(state.hourly[0].startsWith("20:"))
         assertFalse(state.hourly[0].contains("T08"))

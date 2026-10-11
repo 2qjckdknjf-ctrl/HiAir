@@ -10,6 +10,7 @@ import com.hiair.ui.settings.SettingsViewModel
 import com.hiair.ui.i18n.AndroidL10n
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.util.Calendar
 import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,6 +38,9 @@ data class PlannerState(
     val safeWindows: List<String> = emptyList(),
     val ventilationWindows: List<String> = emptyList(),
     val hourly: List<String> = emptyList(),
+    val hourlyRiskLevels: List<String> = emptyList(),
+    val currentRiskLevel: String = "",
+    val currentRiskScore: Int = 0,
     val peakLine: String = "",
     val premiumRequired: Boolean = false,
     val forecastAvailable: Boolean = true,
@@ -102,6 +106,9 @@ class DailyPlannerViewModel(
                 if (ru) "21:00–22:30 · хороший обмен" else "21:00–22:30 · good air exchange",
             ),
             hourly = hourly,
+            hourlyRiskLevels = hourly.map { it.substringAfterLast(":").trim() },
+            currentRiskLevel = "moderate",
+            currentRiskScore = 45,
             activityRecommendedStart = "19:00",
             activityForecastAvailable = true,
             activityPremiumRequired = false,
@@ -493,6 +500,9 @@ class DailyPlannerViewModel(
                 safeWindows = emptyList(),
                 ventilationWindows = emptyList(),
                 hourly = emptyList(),
+                hourlyRiskLevels = emptyList(),
+                currentRiskLevel = "",
+                currentRiskScore = 0,
                 peakLine = "",
                 premiumRequired = premiumRequired,
                 forecastAvailable = false,
@@ -506,6 +516,9 @@ class DailyPlannerViewModel(
                 safeWindows = emptyList(),
                 ventilationWindows = emptyList(),
                 hourly = emptyList(),
+                hourlyRiskLevels = emptyList(),
+                currentRiskLevel = "",
+                currentRiskScore = 0,
                 peakLine = "",
                 premiumRequired = false,
                 forecastAvailable = false,
@@ -705,14 +718,19 @@ class DailyPlannerViewModel(
                 }
             }
             val hourlyItems = mutableListOf<String>()
+            val hourlyRiskLevels = mutableListOf<String>()
             if (forecastAvailable) {
                 for (i in 0 until hourly.length()) {
                     val item = hourly.getJSONObject(i)
                     val hourLabel = humanHour(item.getString("hour"), preferredLanguage, zoneId)
-                    val riskLabel = localizedRisk(item.getString("overallRisk"), preferredLanguage)
+                    val riskRaw = item.getString("overallRisk")
+                    val riskLabel = localizedRisk(riskRaw, preferredLanguage)
                     hourlyItems.add("$hourLabel: $riskLabel")
+                    hourlyRiskLevels.add(riskRaw)
                 }
             }
+            val currentRiskLevel = currentHourRisk(hourly, hourlyRiskLevels)
+            val currentRiskScore = riskScoreFor(currentRiskLevel)
             val statusText = when {
                 !forecastAvailable -> l("planner.forecast_unavailable", preferredLanguage)
                 dataQuality.equals("partial", ignoreCase = true) -> {
@@ -736,6 +754,9 @@ class DailyPlannerViewModel(
                 safeWindows = safeWindowItems,
                 ventilationWindows = ventilationItems,
                 hourly = hourlyItems,
+                hourlyRiskLevels = hourlyRiskLevels,
+                currentRiskLevel = currentRiskLevel,
+                currentRiskScore = currentRiskScore,
                 peakLine = buildPeakLine(hourly, preferredLanguage, zoneId),
                 premiumRequired = false,
                 forecastAvailable = forecastAvailable,
@@ -825,6 +846,30 @@ class DailyPlannerViewModel(
                 "very_high", "very high" -> 4
                 else -> 0
             }
+        }
+
+        fun riskScoreFor(risk: String): Int {
+            return when (risk.lowercase()) {
+                "low" -> 20
+                "moderate", "medium" -> 45
+                "high" -> 70
+                "very_high", "very high" -> 90
+                else -> 0
+            }
+        }
+
+        private fun currentHourRisk(hourly: JSONArray, levels: List<String>): String {
+            if (levels.isEmpty()) return ""
+            val nowHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            for (i in 0 until hourly.length()) {
+                val rawHour = hourly.optJSONObject(i)?.optString("hour").orEmpty()
+                val parsed = rawHour.take(2).toIntOrNull()
+                    ?: Regex("""T(\d{2})""").find(rawHour)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                if (parsed == nowHour) {
+                    return levels.getOrElse(i) { levels.first() }
+                }
+            }
+            return levels.first()
         }
 
         private fun l(key: String, preferredLanguage: String): String =

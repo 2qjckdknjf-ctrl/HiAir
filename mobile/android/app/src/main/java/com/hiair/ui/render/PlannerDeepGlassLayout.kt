@@ -26,6 +26,7 @@ internal object PlannerDeepGlassLayout {
         val title: String,
         val window: String,
         val level: String,
+        val rawLevel: String = "",
         val temp: String,
         val aqi: String,
         val note: String,
@@ -71,9 +72,14 @@ internal object PlannerDeepGlassLayout {
 
     private fun buildLocationChrome(ctx: RenderContext): LinearLayout {
         val activity = ctx.activity
-        val ru = ctx.rootShell.settingsViewModel.state.preferredLanguage.startsWith("ru")
+        val settings = ctx.rootShell.settingsViewModel.state
         val day = Calendar.getInstance().getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, Locale.getDefault())
-        val locality = if (ru) "Барселона" else "Barcelona"
+        val locality = settings.displayPlaceName.takeIf { it.isNotBlank() }
+            ?: if (ctx.rootShell.settingsViewModel.hasValidLocation()) {
+                ctx.l("location.resolving")
+            } else {
+                ctx.l("location.unknown")
+            }
         val tight = useTightStoreViewport(ctx)
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -95,31 +101,36 @@ internal object PlannerDeepGlassLayout {
 
     private fun buildSummaryRow(ctx: RenderContext, state: PlannerState, ru: Boolean): View {
         val activity = ctx.activity
-        val riskScore = 58
-        val outdoor = state.safeWindows.firstOrNull()
-            ?: if (ru) "18:40–20:20" else "18:40–20:20"
+        val riskLevel = state.currentRiskLevel.ifBlank { "unavailable" }
+        val riskScore = if (state.currentRiskScore > 0) {
+            state.currentRiskScore.toString()
+        } else {
+            ctx.l("common.unavailable")
+        }
+        val outdoor = state.safeWindows.firstOrNull()?.substringBefore(" ·")
+            ?: ctx.l("planner.no_windows")
         val ventilation = state.ventilationWindows.firstOrNull()
-            ?: if (ru) "21:00–22:30" else "21:00–22:30"
+            ?: ctx.l("planner.no_windows")
         val tiles = listOf(
             summaryTile(
                 ctx,
-                if (ru) "Риск" else "Risk",
-                riskScore.toString(),
-                if (ru) "УМЕРЕННЫЙ" else "MODERATE",
-                HiAirComponents.riskAccentHex("moderate"),
+                ctx.l("planner.summary.risk"),
+                riskScore,
+                riskLevelLabel(ctx, riskLevel),
+                HiAirComponents.riskAccentHex(riskLevel),
             ),
             summaryTile(
                 ctx,
-                if (ru) "Лучшее окно" else "Best outdoor",
-                outdoor.substringBefore(" ·").substringBefore(" ·"),
-                if (ru) "Низкое загрязнение" else "Low pollution",
+                ctx.l("planner.summary.outdoor"),
+                outdoor,
+                state.freshnessText.takeIf { it.isNotBlank() } ?: ctx.l("planner.summary.outdoor_caption"),
                 HiAirComponents.riskAccentHex("low"),
             ),
             summaryTile(
                 ctx,
-                if (ru) "Проветривание" else "Ventilation",
-                ventilation.substringBefore(" ·").substringBefore(" ·"),
-                if (ru) "Хороший обмен" else "Good air exchange",
+                ctx.l("planner.window.ventilation"),
+                ventilation,
+                ctx.l("planner.summary.ventilation_caption"),
                 HiAirComponents.riskAccentHex("moderate"),
             ),
         )
@@ -193,12 +204,16 @@ internal object PlannerDeepGlassLayout {
         ).apply {
             topMargin = V2Ui.dp(activity, HiAirSpacing.sm)
         }
-        val hourly = if (com.hiair.StoreScreenshotMode.active) {
-            demoHourly()
-        } else {
-            state.hourly.ifEmpty { demoHourly() }
+        val hourlyLevels = when {
+            state.hourlyRiskLevels.isNotEmpty() -> state.hourlyRiskLevels
+            StoreScreenshotMode.active -> demoHourly().map { it.substringAfterLast(":").trim() }
+            else -> emptyList()
         }
-        chart.bindHourlyRisks(hourly.map { it.substringAfterLast(":", "moderate").trim() })
+        if (hourlyLevels.isNotEmpty()) {
+            chart.bindHourlyRisks(hourlyLevels)
+        } else {
+            card.addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.forecast_unavailable")).apply { textSize = 12f })
+        }
         card.addView(chart)
         if (!tight) {
             state.peakLine.takeIf { it.isNotBlank() }?.let {
@@ -228,7 +243,7 @@ internal object PlannerDeepGlassLayout {
 
     private fun buildDayPartSection(ctx: RenderContext, state: PlannerState, ru: Boolean): View {
         val activity = ctx.activity
-        val cards = dayParts(ru).map { part ->
+        val cards = dayParts(ctx, state).map { part ->
             dayPartCard(ctx, part)
         }
         val requestedColumns = when (com.hiair.ui.design.HiAirResponsiveLayout.layoutMode(activity)) {
@@ -246,41 +261,49 @@ internal object PlannerDeepGlassLayout {
         return host
     }
 
-    private fun dayParts(ru: Boolean): List<DayPartCard> = listOf(
-        DayPartCard(
-            if (ru) "Утро" else "Morning",
-            "06:00–12:00",
-            if (ru) "УМЕРЕННО" else "MODERATE",
-            "21°",
-            "AQI 62",
-            if (ru) "Носите солнцезащитные очки" else "Wear sunglasses outdoors",
-        ),
-        DayPartCard(
-            if (ru) "День" else "Day",
-            "12:00–18:00",
-            if (ru) "ВЫСОКИЙ" else "HIGH",
-            "28°",
-            "AQI 78",
-            if (ru) "Ограничьте активность на улице" else "Limit intense outdoor activity",
-        ),
-        DayPartCard(
-            if (ru) "Вечер" else "Evening",
-            "18:00–24:00",
-            if (ru) "НИЗКИЙ" else "LOW",
-            "24°",
-            "AQI 32",
-            if (ru) "Отличное время для прогулки" else "Perfect time for a walk",
-            selected = true,
-        ),
-        DayPartCard(
-            if (ru) "Ночь" else "Night",
-            "00:00–06:00",
-            if (ru) "НИЗКИЙ" else "LOW",
-            "18°",
-            "AQI 25",
-            if (ru) "Можно проветривать перед сном" else "Great air quality overnight",
-        ),
-    )
+    private fun dayParts(ctx: RenderContext, state: PlannerState): List<DayPartCard> {
+        val levels = state.hourlyRiskLevels
+        val buckets = listOf(
+            Triple(ctx.l("planner.day.morning"), "06:00–12:00", 6 until 12),
+            Triple(ctx.l("planner.day.day"), "12:00–18:00", 12 until 18),
+            Triple(ctx.l("planner.day.evening"), "18:00–24:00", 18 until 24),
+            Triple(ctx.l("planner.day.night"), "00:00–06:00", 0 until 6),
+        )
+        val nowHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return buckets.map { (title, window, hours) ->
+            val slice = hours.mapNotNull { hour -> levels.getOrNull(hour) }
+            val dominant = slice.maxByOrNull { riskWeight(it) } ?: ""
+            DayPartCard(
+                title = title,
+                window = window,
+                level = if (dominant.isBlank()) ctx.l("common.unavailable") else riskLevelLabel(ctx, dominant),
+                rawLevel = dominant,
+                temp = "",
+                aqi = "",
+                note = if (dominant.isBlank()) ctx.l("planner.forecast_unavailable") else riskLevelLabel(ctx, dominant),
+                selected = nowHour in hours,
+            )
+        }
+    }
+
+    private fun riskWeight(risk: String): Int = when (risk.lowercase(Locale.ROOT)) {
+        "low" -> 1
+        "moderate", "medium" -> 2
+        "high" -> 3
+        "very_high", "very high" -> 4
+        else -> 0
+    }
+
+    private fun riskLevelLabel(ctx: RenderContext, level: String): String {
+        val key = when (level.lowercase(Locale.ROOT)) {
+            "low" -> "hazards.level.low"
+            "moderate", "medium" -> "hazards.level.moderate"
+            "high" -> "hazards.level.high"
+            "very_high", "very high" -> "hazards.level.very_high"
+            else -> "common.unavailable"
+        }
+        return ctx.l(key)
+    }
 
     private fun dayPartCard(ctx: RenderContext, part: DayPartCard): LinearLayout {
         val activity = ctx.activity
@@ -301,21 +324,26 @@ internal object PlannerDeepGlassLayout {
                     text = part.level
                     textSize = if (tight) 10f else 11f
                     setTypeface(typeface, Typeface.BOLD)
-                    setTextColor(HiAirRiskStyle.colorForLevel(part.level.lowercase(Locale.ROOT)))
+                    setTextColor(HiAirRiskStyle.colorForLevel(part.rawLevel.ifBlank { part.level }.lowercase(Locale.ROOT)))
                 },
             )
-            addView(V2Ui.styledBodyText(activity, "${part.temp} · ${part.aqi}").apply { textSize = if (tight) 12f else 13f })
+            if (part.temp.isNotBlank() || part.aqi.isNotBlank()) {
+                addView(V2Ui.styledBodyText(activity, "${part.temp} · ${part.aqi}").apply { textSize = if (tight) 12f else 13f })
+            }
             addView(V2Ui.styledSecondaryText(activity, part.note).apply { textSize = if (tight) 11f else 12f })
         }
     }
 
     private fun buildUtilityRow(ctx: RenderContext, state: PlannerState, ru: Boolean): View {
         val activity = ctx.activity
-        val vent = state.ventilationWindows.firstOrNull() ?: "21:00–22:30"
-        val hydration = if (ru) "Выпейте 1 стакан воды" else "Drink 1 glass of water"
+        val vent = state.ventilationWindows.firstOrNull() ?: ctx.l("planner.no_windows")
         val tiles = listOf(
-            utilityCard(ctx, ctx.l("planner.window.ventilation"), vent, if (ru) "Хороший обмен" else "Good air exchange"),
-            utilityCard(ctx, if (ru) "Гидратация" else "Hydration", hydration, if (ru) "Следующее напоминание 12:00" else "Next reminder at 12:00"),
+            utilityCard(
+                ctx,
+                ctx.l("planner.window.ventilation"),
+                vent,
+                state.ventilationMarkStatus.ifBlank { ctx.l("planner.summary.ventilation_caption") },
+            ),
         )
         val host = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -357,20 +385,43 @@ internal object PlannerDeepGlassLayout {
                 setTypeface(typeface, Typeface.BOLD)
             },
         )
-        val walkTime = state.activityRecommendedStart.ifBlank { "19:00" }
+        val walkTime = state.activityRecommendedStart
+        val walkTitle = if (walkTime.isNotBlank()) {
+            ctx.l("planner.action.walk_at").replace("%@", walkTime)
+        } else {
+            ctx.l("planner.action.walk")
+        }
         val actions = listOf(
             actionCard(
                 ctx,
-                if (ru) "Прогулка в $walkTime" else "Walk outside at $walkTime",
-                if (ru) "Низкое загрязнение и комфортная температура" else "Lower pollution and comfortable temperature",
-                if (ru) "Добавить в календарь" else "Add to calendar",
-            ),
+                walkTitle,
+                state.activityPlanMarkStatus.ifBlank { ctx.l("planner.action.walk_body") },
+                ctx.l("planner.activity.mark_planned"),
+            ) {
+                markPlannerEvent(ctx) { settings, profileId ->
+                    ctx.rootShell.plannerViewModel.markActivityPlanned(
+                        userId = settings.userId,
+                        accessToken = settings.accessToken.ifBlank { null },
+                        profileId = profileId,
+                        preferredLanguage = settings.preferredLanguage,
+                    )
+                }
+            },
             actionCard(
                 ctx,
-                if (ru) "Открыть окна после 21:00" else "Open windows after 21:00",
-                if (ru) "Естественное проветривание улучшит воздух" else "Natural ventilation improves indoor air",
-                if (ru) "Напомнить" else "Set reminder",
-            ),
+                ctx.l("planner.action.ventilate"),
+                state.ventilationMarkStatus.ifBlank { ctx.l("planner.action.ventilate_body") },
+                ctx.l("planner.ventilation.mark_used"),
+            ) {
+                markPlannerEvent(ctx) { settings, profileId ->
+                    ctx.rootShell.plannerViewModel.markVentilationUsed(
+                        userId = settings.userId,
+                        accessToken = settings.accessToken.ifBlank { null },
+                        profileId = profileId,
+                        preferredLanguage = settings.preferredLanguage,
+                    )
+                }
+            },
         )
         HiAirGridLayout.addAdaptiveGridRows(
             host,
@@ -381,13 +432,36 @@ internal object PlannerDeepGlassLayout {
         return host
     }
 
-    private fun actionCard(ctx: RenderContext, title: String, body: String, cta: String): LinearLayout {
+    private fun actionCard(
+        ctx: RenderContext,
+        title: String,
+        body: String,
+        cta: String,
+        onClick: () -> Unit,
+    ): LinearLayout {
         val activity = ctx.activity
         return HiAirComponents.cardContainer(activity).apply {
             addView(V2Ui.styledBodyText(activity, title).apply { setTypeface(typeface, Typeface.BOLD) })
             addView(V2Ui.styledSecondaryText(activity, body).apply { textSize = 12f })
-            addView(HiAirComponents.secondaryButton(activity, cta))
+            addView(
+                HiAirComponents.secondaryButton(activity, cta).apply {
+                    setOnClickListener { onClick() }
+                },
+            )
         }
+    }
+
+    private fun markPlannerEvent(
+        ctx: RenderContext,
+        action: (com.hiair.ui.settings.SettingsState, String) -> Unit,
+    ) {
+        val settings = ctx.rootShell.settingsViewModel.state
+        val profileId = settings.profileId.ifBlank { ctx.rootShell.symptomLogViewModel.state.profileId }
+        if (settings.userId.isBlank() || profileId.isBlank()) return
+        Thread {
+            action(settings, profileId)
+            ctx.activity.runOnUiThread { ctx.rerender() }
+        }.start()
     }
 
     private fun buildFooterActions(ctx: RenderContext, state: PlannerState): View {

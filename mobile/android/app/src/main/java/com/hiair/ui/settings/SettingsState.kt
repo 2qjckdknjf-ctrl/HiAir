@@ -93,6 +93,8 @@ data class SettingsState(
     val statusText: String = "-",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val displayPlaceName: String = "",
+    val dateOfBirthMillis: Long? = null,
     val locationSource: String = LocationSource.UNKNOWN.raw,
     val locationRevision: Int = 0,
     val savedPlaces: List<SavedPlaceItem> = emptyList(),
@@ -167,8 +169,18 @@ class SettingsViewModel(
             wearableStatus = if (language.startsWith("ru")) "Health Connect подключён" else "Health Connect connected",
             latitude = 41.2800,
             longitude = 1.9800,
+            displayPlaceName = "Castelldefels",
             locationSource = LocationSource.CACHED.raw,
         )
+    }
+
+    fun setDisplayPlaceName(value: String) {
+        if (state.displayPlaceName == value) return
+        state = state.copy(displayPlaceName = value)
+    }
+
+    fun setDateOfBirthMillis(value: Long?) {
+        state = state.copy(dateOfBirthMillis = value)
     }
 
     fun hasValidLocation(): Boolean = GeoCoordinates.isValid(state.latitude, state.longitude)
@@ -470,30 +482,7 @@ class SettingsViewModel(
             onComplete?.invoke()
             return
         }
-        state = state.copy(loading = true)
-        try {
-            val session = supabaseAuthService?.signUp(state.email, state.password)
-                ?: run {
-                    val json = JSONObject(apiClient.signup(state.email, state.password))
-                    com.hiair.network.SupabaseSession(
-                        userId = json.getString("user_id"),
-                        email = state.email,
-                        accessToken = json.getString("access_token"),
-                        refreshToken = json.optString("refresh_token", ""),
-                    )
-                }
-            state = state.copy(
-                loading = false,
-                userId = session.userId,
-                accessToken = session.accessToken,
-                refreshToken = session.refreshToken,
-                statusText = l("settings.signed_up")
-            )
-            refreshEntitlement(onComplete)
-        } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = l("settings.signup_failed"))
-            onComplete?.invoke()
-        }
+        authenticateEmail(signup = true, onComplete = onComplete)
     }
 
     fun login(onComplete: (() -> Unit)? = null) {
@@ -502,30 +491,71 @@ class SettingsViewModel(
             onComplete?.invoke()
             return
         }
+        authenticateEmail(signup = false, onComplete = onComplete)
+    }
+
+    private fun authenticateEmail(signup: Boolean, onComplete: (() -> Unit)?) {
         state = state.copy(loading = true)
         try {
-            val session = supabaseAuthService?.signIn(state.email, state.password)
-                ?: run {
-                    val json = JSONObject(apiClient.login(state.email, state.password))
-                    com.hiair.network.SupabaseSession(
-                        userId = json.getString("user_id"),
-                        email = state.email,
-                        accessToken = json.getString("access_token"),
-                        refreshToken = json.optString("refresh_token", ""),
-                    )
-                }
+            val session = resolveEmailSession(signup)
             state = state.copy(
                 loading = false,
                 userId = session.userId,
                 accessToken = session.accessToken,
                 refreshToken = session.refreshToken,
-                statusText = l("settings.logged_in")
+                statusText = if (signup) l("settings.signed_up") else l("settings.logged_in"),
             )
             refreshEntitlement(onComplete)
+        } catch (error: ApiHttpException) {
+            val confirmRequired = error.statusCode == 403 &&
+                error.body.contains("confirm", ignoreCase = true)
+            state = state.copy(
+                loading = false,
+                statusText = if (confirmRequired) {
+                    l("auth.confirm_email_short")
+                } else if (signup) {
+                    l("settings.signup_failed")
+                } else {
+                    l("settings.login_failed")
+                },
+            )
+            onComplete?.invoke()
         } catch (_: Exception) {
-            state = state.copy(loading = false, statusText = l("settings.login_failed"))
+            state = state.copy(
+                loading = false,
+                statusText = if (signup) l("settings.signup_failed") else l("settings.login_failed"),
+            )
             onComplete?.invoke()
         }
+    }
+
+    private fun resolveEmailSession(signup: Boolean): com.hiair.network.SupabaseSession {
+        try {
+            val json = JSONObject(apiClient.supabaseEmailSession(state.email, state.password, signup))
+            val bridged = parseAuthSession(json, state.email)
+            if (bridged.refreshToken.isNotBlank()) {
+                return bridged
+            }
+        } catch (error: ApiHttpException) {
+            if (error.statusCode != 404) {
+                throw error
+            }
+        }
+        if (signup) {
+            return supabaseAuthService?.signUp(state.email, state.password)
+                ?: parseAuthSession(JSONObject(apiClient.signup(state.email, state.password)), state.email)
+        }
+        return supabaseAuthService?.signIn(state.email, state.password)
+            ?: parseAuthSession(JSONObject(apiClient.login(state.email, state.password)), state.email)
+    }
+
+    private fun parseAuthSession(json: JSONObject, email: String): com.hiair.network.SupabaseSession {
+        return com.hiair.network.SupabaseSession(
+            userId = json.optString("user_id").ifBlank { json.optString("userId") },
+            email = email,
+            accessToken = json.optString("access_token").ifBlank { json.optString("accessToken") },
+            refreshToken = json.optString("refresh_token").ifBlank { json.optString("refreshToken") },
+        )
     }
 
     fun launchGoogleOAuth() {
@@ -558,6 +588,8 @@ class SettingsViewModel(
             refreshToken = "",
             profileId = "",
             password = "",
+            displayPlaceName = "",
+            dateOfBirthMillis = null,
             isPremium = false,
             subscriptionStatus = "inactive",
             showPaywall = false,

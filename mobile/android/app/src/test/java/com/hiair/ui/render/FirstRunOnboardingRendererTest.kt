@@ -22,4 +22,10 @@ class FirstRunOnboardingRendererTest {
         assertEquals(1, FirstRunOnboardingRenderer.primaryAuthButtonCountForStep(0))
         assertEquals(0, FirstRunOnboardingRenderer.primaryAuthButtonCountForStep(1))
     }
+
+    @Test
+    fun ageStepFollowsValueForLoggedInUsers() {
+        FirstRunOnboardingRenderer.resetStepForSession(isLoggedIn = true)
+        assertEquals(1, FirstRunOnboardingRenderer.currentStep)
+    }
 }
