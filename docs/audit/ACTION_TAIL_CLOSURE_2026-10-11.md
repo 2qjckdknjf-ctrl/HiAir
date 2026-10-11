@@ -15,7 +15,7 @@ Scope: finish the current ACTION engineering slice from the 2026–2027 master s
 - Five-language controls/reason labels. Raw internal reason identifiers are not shown to users. Missing dashboard AQI/PM2.5/humidity and hazard score use unavailable display instead of false zero.
 - Historical roadmap/governance documents reconciled with protected main and the current registry. Pages deploy will publish source/run metadata and fail if production credentials are absent.
 
-Local checks: backend gate PASS (493 tests, 76.50% coverage), iOS 235 unit tests PASS, Android 128 unit tests + lint PASS. Review/CI, immutable deployment and signed build 301 receipts must be recorded after execution; local tests are not delivery evidence.
+Local checks: backend gate PASS (493 tests, 76.50% coverage), iOS 235 unit tests PASS, Android 128 unit tests + lint PASS. PR86 merged as 48ed1a09 after all protected checks passed. Production deployment 38137446480 and Pages 38137446475 PASS; live AI, functional/free-core smoke and synthetic cleanup PASS after deployment completed. Signed build 301 is TestFlight VALID / IN_BETA_TESTING and Play Internal committed (38137649354). Physical iPhone ACTION/calendar check: one executed, zero skipped/failed. See RELEASE_MANIFEST_301_2026-10-11.json.
 
 ## Independent quality evidence
 
@@ -24,7 +24,7 @@ Captured live Open-Meteo forecasts: Barcelona, Dubai, Los Angeles; 9 activity co
 ## External / separate acceptance criteria
 
 - Owner reports no physical Android available. Emulator tests do not close Health Connect/Play Billing physical certification.
-- Full real-device consent/revoke/account-isolation/purchase/restore matrix requires isolated accounts and genuine sandbox receipts. Production verifier unit tests and approved IAP metadata do not substitute for transactions.
+- Full real-device consent/revoke/account-isolation/purchase/restore matrix requires isolated accounts and genuine sandbox receipts. Owner confirms Sandbox configured; purchase/restore awaits system confirmation. Production verifier unit tests and approved IAP metadata do not substitute for transactions.
 - Public store submission requires an explicit owner release instruction, per mobile/AGENTS.md; internal delivery is authorized.
 - Public iOS 1.1 (245) is READY_FOR_SALE but historical source SHA is untraceable from available build metadata. Build 300/301 provenance is tracked; do not invent a historical SHA.
 
@@ -35,3 +35,5 @@ Calendar references: Apple EventKitUI calendar-access documentation and Android 
 Review hardening: basic choice now uses an explicit local confirmation and action_plan_accepted/persistence=local, not a saved-Protected-Day claim. Saved places without a timezone use the returned zone for that same place and refetch constrained plans once; unresolved constraints fail honestly. Cross-place timezone reuse is blocked. Native physical runner isolates Release UI tests from DEBUG-only unit helpers and rejects skipped checks.
 
 Store-source guards: Android/iOS source must be reachable from main and have the same backend tree as live production. iOS binary hash must match its source manifest. Archive/export outputs are retained per build; version defaults come from RELEASE_TRAIN.json. The guard is tested on real temporary Git graphs and tampered/stale artifacts.
+
+Legacy staging run 38137446505 correctly failed strict security checks on stub subscription/verifier configuration. Automatic staging push delivery is retired; manual workflow retains strict checks until isolated live configuration is established. Production is the verified canonical delivery path.

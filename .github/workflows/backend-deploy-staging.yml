@@ -1,14 +1,10 @@
 name: Backend Deploy Staging
 
 on:
+  # Legacy staging uses forbidden stub verifier settings (run 38137446505).
+  # Keep strict validation; resume automatic delivery only after isolated staging
+  # configuration and live store verification have been established.
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "backend/**"
-      - "scripts/release/deploy_backend.sh"
-      - ".github/workflows/backend-deploy-staging.yml"
 
 concurrency:
   group: backend-staging-deploy
