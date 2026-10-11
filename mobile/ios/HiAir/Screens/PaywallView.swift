@@ -551,6 +551,7 @@ private struct PaywallContent: View {
                 userId: session.userId,
                 accessToken: session.accessToken
             )
+            guard !Task.isCancelled, status.userId == session.userId else { return }
             session.applyEntitlement(status.entitlement)
             if status.entitlement?.isPremium == true || session.isPremium {
                 statusMessage = session.l("paywall.restore_success")

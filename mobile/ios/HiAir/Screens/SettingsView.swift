@@ -1829,6 +1829,7 @@ struct SettingsView: View {
                 userId: session.userId,
                 accessToken: session.accessToken
             )
+            guard !Task.isCancelled, status.userId == session.userId else { return }
             session.applyEntitlement(status.entitlement)
             restoreConfirmedPremium = status.entitlement?.isPremium == true
                 && subscriptionService.lastRestoreVerifiedTransactionCount > 0
