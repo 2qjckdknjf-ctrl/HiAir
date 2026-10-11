@@ -96,11 +96,26 @@ def test_score_uv_high_for_peak_index() -> None:
 def test_pollen_and_smoke_unavailable_without_provider() -> None:
     env = _environment()
     profile = _profile()
-    for scorer in (score_pollen, score_smoke):
-        result = scorer(env, profile)
-        assert result.available is False
-        assert result.level == HazardLevel.UNAVAILABLE
-        assert result.unavailableReason == "provider_not_configured"
+    pollen = score_pollen(env, profile)
+    smoke = score_smoke(env, profile)
+    assert pollen.available is False
+    assert pollen.unavailableReason == "pollen_unavailable"
+    assert smoke.available is False
+    assert smoke.unavailableReason == "smoke_unavailable"
+
+
+def test_score_pollen_from_grains() -> None:
+    result = score_pollen(_environment(pollen_grains_m3=80.0), _profile())
+    assert result.available is True
+    assert result.level == HazardLevel.HIGH
+    assert "openmeteo_cams_pollen" in result.reasonCodes
+
+
+def test_score_smoke_from_wildfire_pm10() -> None:
+    result = score_smoke(_environment(wildfire_pm10=55.0), _profile())
+    assert result.available is True
+    assert result.level == HazardLevel.HIGH
+    assert "openmeteo_pm10_wildfires" in result.reasonCodes
 
 
 def test_score_dust_from_pm10() -> None:

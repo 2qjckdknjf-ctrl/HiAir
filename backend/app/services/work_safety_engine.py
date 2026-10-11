@@ -131,6 +131,8 @@ def assess_site_risk(
         thresholds = _wbgt_thresholds(workload, acclimatized)
         risk_level = _risk_from_thresholds(env.wbgt_c, thresholds)
         reason_codes.append("wbgt_assessment")
+        if env.wbgt_estimated:
+            reason_codes.extend(["wbgt_estimated_from_meteo", "not_instrument_wbgt"])
         if not acclimatized:
             reason_codes.append("unacclimatized_worker")
         work_rest = _work_rest(risk_level, workload, proxy_only=False)

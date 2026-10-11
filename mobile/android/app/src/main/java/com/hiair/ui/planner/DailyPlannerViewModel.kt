@@ -60,6 +60,13 @@ data class PlannerState(
 class DailyPlannerViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
+    fun reset() {
+        hasAttemptedAutoLoad = false
+        hasAttemptedActivityCatalogLoad = false
+        hasAttemptedActivityPlanLoad = false
+        state = PlannerState()
+    }
+
     var state: PlannerState = PlannerState()
         private set
 

@@ -79,13 +79,3 @@ enum HiAirAccessibilityID {
         static let priceYearly = "paywall.price_yearly"
         static let restore = "paywall.restore"
         static let legalCopy = "paywall.legal_copy"
-        static let terms = "paywall.terms"
-        static let privacy = "paywall.privacy"
-    }
-
-    enum ProfileEnsure {
-        static let loading = "profile_ensure.loading"
-        static let error = "profile_ensure.error"
-        static let locationAction = "profile_ensure.location_action"
-    }
-}

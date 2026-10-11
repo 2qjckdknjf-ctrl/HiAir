@@ -642,10 +642,9 @@ final class APIClient {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
-        configuration.waitsForConnectivity = true
+        configuration.waitsForConnectivity = false
         if UITestBootstrap.isMockAPIEnabled {
             configuration.protocolClasses = [UITestMockAPIProtocol.self] + (configuration.protocolClasses ?? [])
-            configuration.waitsForConnectivity = false
         }
         return URLSession(configuration: configuration)
     }
@@ -1030,6 +1029,57 @@ final class APIClient {
         guard (200...299).contains(httpResponse.statusCode) else {
             throw APIError.server(statusCode: httpResponse.statusCode)
         }
+    }
+
+    func fetchTravelSession(
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> TravelSession {
+        let url = baseURL.appending(path: "/api/travel/session")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(TravelSession.self, from: data)
+    }
+
+    func startTravelSession(
+        payload: TravelSessionStartRequest,
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> TravelSession {
+        let url = baseURL.appending(path: "/api/travel/session")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(TravelSession.self, from: data)
+    }
+
+    func clearTravelSession(
+        userId: String,
+        accessToken: String? = nil
+    ) async throws -> TravelSession {
+        let url = baseURL.appending(path: "/api/travel/session")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
+
+        let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.server(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(TravelSession.self, from: data)
     }
 
     func fetchAdaptation(

@@ -169,6 +169,27 @@ def test_rate_limit_falls_back(monkeypatch) -> None:
     assert text
 
 
+def test_allow_llm_false_skips_openai(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ai_explanation_service,
+        "settings",
+        _llm_settings(),
+    )
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("OpenAI must not be called on the dashboard path")
+
+    monkeypatch.setattr(ai_explanation_service.httpx, "Client", _boom)
+    text, source = ai_explanation_service.generate_explanation(
+        build_profile(),
+        build_risk(),
+        RecommendationCard(headline="Stay indoors now", summary="s", actions=["a"]),
+        allow_llm=False,
+    )
+    assert source == "template_fallback"
+    assert text
+
+
 def test_classify_llm_failure_timeout() -> None:
     request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
     exc = httpx.ReadTimeout("timeout", request=request)

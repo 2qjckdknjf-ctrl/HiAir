@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Error as PsycopgError
 
@@ -16,10 +18,10 @@ from app.services.air_repository import PERSONA_TO_PROFILE_TYPE
 from app.services.air_score import RISK_LEVEL_TO_SCORE, to_air_environment
 import app.services.air_environment_service as air_environment_service
 import app.services.wearable_service as wearable_service
+import app.services.travel_location as travel_location
 from app.services.forecast.mapping import (
-    apply_freshness_source,
-    forecast_point_to_environmental,
     forecast_to_hourly_inputs,
+    overlay_forecast_current,
 )
 from app.services.forecast.service import get_forecast
 
@@ -71,8 +73,23 @@ def dashboard_overview(
             "total_logs": 0,
         }
 
+    profile_context = travel_location.apply_travel_location_override(
+        user_id,
+        _build_profile_context(profile_id, user_id, persona, lat, lon),
+    )
+    effective_lat = profile_context.home_lat
+    effective_lon = profile_context.home_lon
+
     try:
-        snapshot = air_environment_service.resolve_environment_snapshot(lat=lat, lon=lon)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            snapshot_future = pool.submit(
+                air_environment_service.resolve_environment_snapshot,
+                effective_lat,
+                effective_lon,
+            )
+            forecast_future = pool.submit(_forecast_bundle, effective_lat, effective_lon)
+            snapshot = snapshot_future.result()
+            forecast = forecast_future.result()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     environment = EnvironmentSnapshot(
@@ -83,32 +100,42 @@ def dashboard_overview(
         ozone=snapshot.ozone,
         source=snapshot.source,
         pm10=snapshot.pm10,
+        no2=snapshot.no2,
         uv=snapshot.uv,
         wind_speed=snapshot.wind_speed,
         feels_like=snapshot.feels_like,
         timezone=snapshot.timezone,
+        pollen_grains_m3=snapshot.pollen_grains_m3,
+        wildfire_pm10=snapshot.wildfire_pm10,
+        wbgt_c=snapshot.wbgt_c,
+        wbgt_estimated=snapshot.wbgt_estimated,
+        shortwave_wm2=snapshot.shortwave_wm2,
     )
-    forecast = _forecast_bundle(lat, lon)
     hourly_points = forecast_to_hourly_inputs(forecast) if forecast is not None else []
-    if forecast is not None and forecast.current is not None:
-        mapped = forecast_point_to_environmental(forecast.current)
-        if mapped is not None:
-            mapped = apply_freshness_source(mapped, forecast.freshness.value)
-            environment = EnvironmentSnapshot(
-                temperature_c=mapped.temperature,
-                humidity_percent=mapped.humidity if mapped.humidity is not None else environment.humidity_percent,
-                aqi=mapped.aqi,
-                pm25=mapped.pm25,
-                ozone=mapped.ozone,
-                source=mapped.source,
-                pm10=mapped.pm10,
-                uv=mapped.uv,
-                wind_speed=mapped.wind_speed,
-                feels_like=mapped.feels_like,
-                timezone=mapped.timezone,
-            )
-    profile_context = _build_profile_context(profile_id, user_id, persona, lat, lon)
-    air_environment = to_air_environment(environment, lat, lon)
+    if forecast is not None:
+        live_air = to_air_environment(environment, effective_lat, effective_lon)
+        mapped = overlay_forecast_current(live_air, forecast)
+        environment = EnvironmentSnapshot(
+            temperature_c=mapped.temperature,
+            humidity_percent=mapped.humidity if mapped.humidity is not None else environment.humidity_percent,
+            aqi=mapped.aqi,
+            pm25=mapped.pm25,
+            ozone=mapped.ozone,
+            source=mapped.source,
+            pm10=mapped.pm10,
+            no2=mapped.no2,
+            uv=mapped.uv,
+            wind_speed=mapped.wind_speed,
+            feels_like=mapped.feels_like,
+            timezone=mapped.timezone or environment.timezone,
+            pollen_grains_m3=mapped.pollen_grains_m3,
+            wildfire_pm10=mapped.wildfire_pm10,
+            # Forecast overlay does not invent WBGT — keep live meteo estimate.
+            wbgt_c=environment.wbgt_c,
+            wbgt_estimated=environment.wbgt_estimated,
+            shortwave_wm2=environment.shortwave_wm2,
+        )
+    air_environment = to_air_environment(environment, effective_lat, effective_lon)
     personal_load = wearable_service.build_personal_load_input(user_id, air_environment)
     air_risk = air_risk_engine.evaluate_risk(
         profile_context,

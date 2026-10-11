@@ -10,4 +10,5 @@ enum HiAirSpacing {
     static let xxl: CGFloat = 32
     static let xxxl: CGFloat = 48
     static let hero: CGFloat = 64
+    static let tabBarClearance: CGFloat = 72
 }

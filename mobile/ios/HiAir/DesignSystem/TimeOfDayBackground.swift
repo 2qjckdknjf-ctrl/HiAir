@@ -2,26 +2,28 @@ import SwiftUI
 
 enum TimeOfDayBackground {
     static func gradient(for date: Date = Date()) -> LinearGradient {
-        let phase = TimeOfDayPhase.from(date: date)
-        return LinearGradient(
-            colors: phase.colors,
+        LinearGradient(
+            colors: [
+                HiAirColors.Surface.bg0,
+                TimeOfDayPhase.from(date: date).colors.last ?? HiAirColors.Surface.bg2,
+            ],
             startPoint: .top,
             endPoint: .bottom
         )
     }
 
     static func surfacePrimary(for date: Date = Date()) -> Color {
-        let base = TimeOfDayPhase.from(date: date).colors.first ?? Color.black
-        return base.lightened(by: 0.06)
+        _ = date
+        return HiAirColors.Surface.bg2
     }
 
     static func surfaceSecondary(for date: Date = Date()) -> Color {
-        let base = TimeOfDayPhase.from(date: date).colors.first ?? Color.black
-        return base.lightened(by: 0.12)
+        _ = date
+        return HiAirColors.Surface.bg3
     }
 
     static func surfaceElevated(for date: Date = Date()) -> Color {
-        let base = TimeOfDayPhase.from(date: date).colors.first ?? Color.black
-        return base.lightened(by: 0.18)
+        _ = date
+        return HiAirColors.Surface.bg3.lightened(by: 0.08)
     }
 }

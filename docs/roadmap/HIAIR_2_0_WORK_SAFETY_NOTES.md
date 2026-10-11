@@ -31,8 +31,17 @@ Occupational heat safety layer for worksites and B2B integrations — clearly se
 
 ## Still open
 
-- [ ] WBGT provider / on-site sensor ingestion
+- [x] Work site registry API (`/api/work/sites`)
+- [x] Instrument WBGT ingest (`/api/work/sites/{id}/wbgt-readings`) preferred over meteo estimate
+- [ ] Multi-org B2B admin / API keys / crew scheduling
 - [ ] Site registry and multi-site dashboards
 - [ ] Crew scheduling integrations
 - [ ] B2B admin API keys and org tenancy
 - [x] Production smoke on `api.hiair.io` (`GET /api/work/site-risk` in feature smoke)
+
+
+## WBGT estimate (2026-08-25)
+- When instrument WBGT is absent, `wbgt_estimate.estimate_outdoor_wbgt_c` derives outdoor WBGT from T/RH/wind/shortwave.
+- Reason codes: `wbgt_estimated_from_meteo`, `not_instrument_wbgt`.
+- Never presented as measured occupational WBGT.
+- [x] Mobile WBGT estimated disclaimer (iOS + Android Settings)

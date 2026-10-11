@@ -32,6 +32,7 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
     source = consent.source
     today = date.today()
     sleep_minutes: int | None = None
+    sleep_minutes_baseline_7d: float | None = None
     hrv_ms: float | None = None
     hrv_baseline_7d: float | None = None
     exercise_minutes: float | None = None
@@ -50,6 +51,19 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
         sleep_row = health_sync_repository.get_sleep_for_date(user_id, today)
         if sleep_row and sleep_row.get("total_minutes") is not None:
             sleep_minutes = int(sleep_row["total_minutes"])
+        sleep_window = health_sync_repository.get_sleep_window(
+            user_id,
+            today - timedelta(days=6),
+            today - timedelta(days=1),
+        )
+        sleep_totals = [
+            float(row["total_minutes"])
+            for row in sleep_window
+            if row.get("total_minutes") is not None
+        ]
+        # Require ≥5 prior nights — same honesty bar as adaptation baselines.
+        if len(sleep_totals) >= 5:
+            sleep_minutes_baseline_7d = sum(sleep_totals) / len(sleep_totals)
         # Never compare SDNN against RMSSD — lock method to today's available series.
         hrv_metric = None
         if _metric_primary(today_metrics, "hrv_sdnn") is not None:
@@ -86,6 +100,7 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
         resting_heart_rate_baseline_7d=baseline_7d,
         resting_heart_rate_baseline_30d=baseline_30d,
         sleep_minutes=sleep_minutes,
+        sleep_minutes_baseline_7d=sleep_minutes_baseline_7d,
         hrv_ms=hrv_ms,
         hrv_baseline_7d=hrv_baseline_7d,
         exercise_minutes=exercise_minutes,

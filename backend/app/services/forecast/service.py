@@ -22,8 +22,10 @@ from app.services.forecast.openweather import OpenWeatherProvider
 from app.services.forecast.quality import classify_forecast
 from app.services.forecast.timeutil import upcoming_points, utcnow_iso
 from app.services.forecast.waqi import WaqiAirQualityProvider
+from app.services.singleflight import SingleFlight
 
 logger = logging.getLogger("hiair.forecast")
+_LIVE_FORECAST_FLIGHT = SingleFlight()
 
 
 def build_weather_provider():
@@ -234,7 +236,10 @@ def get_forecast(
             return labeled
 
     try:
-        live = _fetch_live(lat, lon, fetch_hours)
+        live = _LIVE_FORECAST_FLIGHT.do(
+            f"{round(lat, 2)}:{round(lon, 2)}:{fetch_hours}",
+            lambda: _fetch_live(lat, lon, fetch_hours),
+        )
         forecast_cache.put(lat, lon, hours, live)
         return _clip_upcoming(live, hours, reference_now)
     except Exception:

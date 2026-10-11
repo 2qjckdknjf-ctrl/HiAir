@@ -229,6 +229,41 @@ final class ForecastDTOTests: XCTestCase {
         XCTAssertEqual(decoded.places[0].placeType, "home")
     }
 
+    func testTravelSessionDecodes() throws {
+        let activeJson = """
+        {
+          "active": true,
+          "placeId": "place-1",
+          "placeName": "Office",
+          "lat": 40.42,
+          "lon": -3.70,
+          "timezone": "Europe/Madrid",
+          "until": null,
+          "source": "travel"
+        }
+        """.data(using: .utf8)!
+        let active = try JSONDecoder().decode(TravelSession.self, from: activeJson)
+        XCTAssertTrue(active.active)
+        XCTAssertEqual(active.placeId, "place-1")
+        XCTAssertEqual(active.source, "travel")
+
+        let inactiveJson = """
+        {
+          "active": false,
+          "placeId": null,
+          "placeName": null,
+          "lat": null,
+          "lon": null,
+          "timezone": null,
+          "until": null,
+          "source": "home"
+        }
+        """.data(using: .utf8)!
+        let inactive = try JSONDecoder().decode(TravelSession.self, from: inactiveJson)
+        XCTAssertFalse(inactive.active)
+        XCTAssertEqual(inactive.source, "home")
+    }
+
     func testPersonalAdaptationSnapshotDecodes() throws {
         let json = """
         {

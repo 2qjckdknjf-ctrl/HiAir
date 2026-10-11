@@ -17,8 +17,23 @@ def save_environment_snapshot(environment: EnvironmentSnapshot) -> str:
             cur.execute(
                 """
                 INSERT INTO environment_snapshots
-                (id, region_key, timestamp_utc, temperature_c, humidity_percent, aqi, pm25, ozone, source)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (
+                    id,
+                    region_key,
+                    timestamp_utc,
+                    temperature_c,
+                    humidity_percent,
+                    aqi,
+                    pm25,
+                    ozone,
+                    source,
+                    pollen_grains_m3,
+                    wildfire_pm10,
+                    wbgt_c,
+                    wbgt_estimated,
+                    shortwave_wm2
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     snapshot_id,
@@ -30,6 +45,11 @@ def save_environment_snapshot(environment: EnvironmentSnapshot) -> str:
                     environment.pm25,
                     environment.ozone,
                     environment.source,
+                    environment.pollen_grains_m3,
+                    environment.wildfire_pm10,
+                    environment.wbgt_c,
+                    environment.wbgt_estimated,
+                    environment.shortwave_wm2,
                 ),
             )
     return snapshot_id

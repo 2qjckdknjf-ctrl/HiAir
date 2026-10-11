@@ -6,11 +6,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from uuid import uuid4
+
+
+def _ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
 
 
 def _request(
@@ -29,7 +39,7 @@ def _request(
         merged["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=payload, headers=merged, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
             raw = resp.read().decode("utf-8")
             try:
                 return resp.status, json.loads(raw)
@@ -103,12 +113,65 @@ def main() -> int:
         ("family-members", "/api/family/members"),
         ("family-risk-overview", "/api/family/risk-overview"),
         ("places-list", "/api/places"),
+        ("travel-session", "/api/travel/session"),
         ("hazards", f"/api/air/hazards?{urllib.parse.urlencode({'profileId': profile_id})}"),
     ]:
         status, body = _request("GET", f"{base}{path}", headers=auth)
         if status != 200:
             print(f"{name}: FAIL status={status} body={body}")
             return 1
+        if name == "travel-session":
+            if not isinstance(body, dict) or "active" not in body:
+                print(f"travel-session: FAIL missing active key body={body!r}")
+                return 1
+            print(f"travel-session: OK active={body.get('active')}")
+            continue
+        if name == "hazards":
+            if not isinstance(body, dict):
+                print(f"hazards: FAIL non-object body={body!r}")
+                return 1
+            assessment = body.get("assessment")
+            if not isinstance(assessment, dict):
+                print(f"hazards: FAIL missing assessment body={body!r}")
+                return 1
+            hazards = assessment.get("hazards")
+            if not isinstance(hazards, list) or not hazards:
+                print(f"hazards: FAIL empty hazards list body={assessment!r}")
+                return 1
+            by_type = {
+                item.get("hazard"): item
+                for item in hazards
+                if isinstance(item, dict) and item.get("hazard")
+            }
+            for required in ("pollen", "smoke", "dust", "heat", "air", "uv"):
+                item = by_type.get(required)
+                if not isinstance(item, dict):
+                    print(f"hazards: FAIL missing hazard={required} keys={sorted(by_type)}")
+                    return 1
+                available = bool(item.get("available"))
+                level = item.get("level")
+                if available:
+                    if level == "unavailable":
+                        print(f"hazards: FAIL {required} available but level=unavailable")
+                        return 1
+                else:
+                    if level != "unavailable":
+                        print(f"hazards: FAIL {required} unavailable but level={level!r}")
+                        return 1
+                    if not item.get("unavailableReason"):
+                        print(f"hazards: FAIL {required} missing unavailableReason")
+                        return 1
+            env = body.get("environmental")
+            if not isinstance(env, dict) or "pollen_grains_m3" not in env or "wildfire_pm10" not in env:
+                print(f"hazards: FAIL environmental missing pollen/smoke keys body={env!r}")
+                return 1
+            pollen_state = "set" if env.get("pollen_grains_m3") is not None else "null"
+            smoke_state = "set" if env.get("wildfire_pm10") is not None else "null"
+            print(
+                f"hazards: OK pollen={pollen_state} smoke={smoke_state} "
+                f"types={len(by_type)}"
+            )
+            continue
         print(f"{name}: OK")
 
     risk_query = urllib.parse.urlencode({"profileId": profile_id})
@@ -148,10 +211,31 @@ def main() -> int:
 
     site_query = urllib.parse.urlencode({"lat": 41.39, "lon": 2.17, "workload": "moderate"})
     status, body = _request("GET", f"{base}/api/work/site-risk?{site_query}", headers=auth)
-    if status != 200:
+    if status != 200 or not isinstance(body, dict):
         print(f"work-site-risk: FAIL status={status} body={body}")
         return 1
-    print("work-site-risk: OK")
+    assessment = body.get("assessment")
+    if not isinstance(assessment, dict):
+        print(f"work-site-risk: FAIL missing assessment body={body!r}")
+        return 1
+    reason_codes = assessment.get("reasonCodes")
+    if not isinstance(reason_codes, list):
+        print(f"work-site-risk: FAIL missing reasonCodes body={assessment!r}")
+        return 1
+    wbgt_c = assessment.get("wbgtC")
+    if wbgt_c is not None:
+        if "wbgt_estimated_from_meteo" in reason_codes and "not_instrument_wbgt" not in reason_codes:
+            print(f"work-site-risk: FAIL estimated WBGT missing not_instrument_wbgt codes={reason_codes!r}")
+            return 1
+        if "wbgt_unavailable" in reason_codes:
+            print(f"work-site-risk: FAIL wbgtC set with wbgt_unavailable codes={reason_codes!r}")
+            return 1
+        print(f"work-site-risk: OK wbgt=set estimated={'wbgt_estimated_from_meteo' in reason_codes}")
+    else:
+        if "wbgt_unavailable" not in reason_codes and "wbgt_assessment" in reason_codes:
+            print(f"work-site-risk: FAIL null wbgt with wbgt_assessment codes={reason_codes!r}")
+            return 1
+        print("work-site-risk: OK wbgt=null (honest)")
 
     status, body = _request("GET", f"{base}/api/planner/activities", headers=auth)
     if status != 200:
