@@ -2,7 +2,7 @@ import Combine
 import XCTest
 @testable import HiAir
 
-private final class InsightsLoadingProtocol: URLProtocol, @unchecked Sendable {
+private class InsightsLoadingProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: ((InsightsLoadingProtocol) -> Void)?
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -14,6 +14,16 @@ private final class InsightsLoadingProtocol: URLProtocol, @unchecked Sendable {
         client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
+}
+
+private final class EntitlementLoadingProtocol: InsightsLoadingProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var requestHandler: ((InsightsLoadingProtocol) -> Void)?
+    override func startLoading() { Self.requestHandler?(self) }
+}
+
+private final class DashboardLoadingProtocol: InsightsLoadingProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var requestHandler: ((InsightsLoadingProtocol) -> Void)?
+    override func startLoading() { Self.requestHandler?(self) }
 }
 
 final class InsightsLoadingTests: XCTestCase {
@@ -72,18 +82,19 @@ private final class PerformanceCredentials: SessionCredentialStoring {
 final class EntitlementRefreshPerformanceTests: XCTestCase {
     @MainActor func testDuplicateRefreshesShareRequestAndCannotUndoConfirmedPurchase() async {
         let config=URLSessionConfiguration.ephemeral
-        config.protocolClasses=[InsightsLoadingProtocol.self]
+        config.protocolClasses=[EntitlementLoadingProtocol.self]
         let session=URLSession(configuration:config)
         let defaults=UserDefaults(suiteName:"entitlement-perf-"+UUID().uuidString)!
         let model=AppSession(defaults:defaults,credentials:PerformanceCredentials(),
             apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
         model.userId="owned-user"; model.accessToken="test"
-        defer { model.cancelLifecycleForTests(); session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        defer { model.cancelLifecycleForTests(); session.invalidateAndCancel(); EntitlementLoadingProtocol.requestHandler=nil }
         let entered=expectation(description:"Entitlement request held")
         var held: InsightsLoadingProtocol?
         var count=0
         let lock=NSLock()
-        InsightsLoadingProtocol.handler = { request in
+        EntitlementLoadingProtocol.requestHandler = { request in
+            guard request.request.url!.path == "/api/subscriptions/me" else { request.respond("{}",status:503); return }
             lock.lock(); count += 1; held=request; lock.unlock(); entered.fulfill()
         }
         let first=Task { await model.refreshEntitlement() }
@@ -104,16 +115,16 @@ final class EntitlementRefreshPerformanceTests: XCTestCase {
 final class DashboardRequestPriorityTests: XCTestCase {
     @MainActor func testPrimaryRiskCoalescesBeforeEnrichmentStarts() async {
         let config=URLSessionConfiguration.ephemeral
-        config.protocolClasses=[InsightsLoadingProtocol.self]
+        config.protocolClasses=[DashboardLoadingProtocol.self]
         let session=URLSession(configuration:config)
         let model=DashboardViewModel(apiClient:APIClient(baseURL:URL(string:"https://test.invalid")!,session:session))
-        defer { model.cancelRefresh(); session.invalidateAndCancel(); InsightsLoadingProtocol.handler=nil }
+        defer { model.cancelRefresh(); session.invalidateAndCancel(); DashboardLoadingProtocol.requestHandler=nil }
         let entered=expectation(description:"Primary risk held")
         let lock=NSLock()
         var held:InsightsLoadingProtocol?
         var primaryCount=0
         var enrichmentCount=0
-        InsightsLoadingProtocol.handler={ request in
+        DashboardLoadingProtocol.requestHandler={ request in
             lock.lock()
             if request.request.url!.path == "/api/air/current-risk" {
                 primaryCount += 1; held=request; lock.unlock(); entered.fulfill()
@@ -131,6 +142,7 @@ final class DashboardRequestPriorityTests: XCTestCase {
         XCTAssertEqual(primaryCount,1)
         XCTAssertFalse(model.loading)
         XCTAssertEqual(model.riskLevel,"low")
+        await model.cancelAndDrainForTests()
     }
 }
 

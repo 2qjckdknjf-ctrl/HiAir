@@ -43,6 +43,14 @@ final class DashboardViewModel: ObservableObject {
     private var refreshGeneration: UInt64 = 0
     private var enrichmentTask: Task<Void, Never>?
 
+    #if DEBUG
+    func cancelAndDrainForTests() async {
+        let pending = enrichmentTask
+        cancelRefresh()
+        await pending?.value
+    }
+    #endif
+
     func refresh(
         userId: String,
         accessToken: String,
@@ -168,6 +176,7 @@ final class DashboardViewModel: ObservableObject {
 
             let client = apiClient
             enrichmentTask = Task { @MainActor [weak self] in
+                guard !Task.isCancelled else { return }
                 // Structured children inherit cancellation; they cannot outlive a
                 // replacement refresh or keep another tab's primary request queued.
                 async let hazards = try? client.fetchHazards(profileId:profileId,userId:userId,accessToken:accessToken)
