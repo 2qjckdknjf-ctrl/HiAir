@@ -82,6 +82,12 @@ def test_personal_load_hrv_requires_matching_baseline(monkeypatch) -> None:
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
+        "app.services.wearable_service.wearable_repository.get_personal_load_core",
+        lambda *args, **kwargs: {"daily": MagicMock(stepsTotal=1000, heartRateAvg=None,
+            heartRateMax=None, restingHeartRateAvg=None), "steps_hour": 0, "steps_3h": 0,
+            "hr_7d": None, "hr_30d": None, "source": "apple_health"},
+    )
+    monkeypatch.setattr(
         "app.services.wearable_service.health_sync_repository.list_metrics_for_date",
         lambda user_id, local_date: [
             {"metric_type": "hrv_sdnn", "value_avg": 40.0, "value_total": None, "value_latest": None}

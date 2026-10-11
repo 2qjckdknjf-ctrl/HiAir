@@ -306,6 +306,29 @@ def get_sleep_window(user_id: str, start_date: date, end_date: date) -> list[dic
             return list(cur.fetchall())
 
 
+def metric_baselines(user_id: str, days: int = 30) -> dict[str, float | None]:
+    """All per-metric medians with the same quality/count rules, one query."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT metric_type,
+                       CASE WHEN COUNT(COALESCE(value_avg, value_total, value_latest)) >= 5
+                            THEN percentile_cont(0.5) WITHIN GROUP
+                                 (ORDER BY COALESCE(value_avg, value_total, value_latest))
+                            ELSE NULL END AS baseline
+                FROM wearable_metric_daily
+                WHERE user_id = %s
+                  AND local_date >= CURRENT_DATE - (%s || ' days')::INTERVAL
+                  AND quality_state IN ('ok', 'partial')
+                GROUP BY metric_type
+                """,
+                (user_id, days),
+            )
+            return {row["metric_type"]: float(row["baseline"]) if row["baseline"] is not None else None
+                    for row in cur.fetchall()}
+
+
 def metric_baseline(user_id: str, metric_type: str, days: int = 30) -> float | None:
     with get_connection() as conn:
         with conn.cursor() as cur:

@@ -1,6 +1,6 @@
 # Current ACTION reconciliation — 2026-10-11
 
-Current protected main contains PR86 (`48ed1a09`). Runtime baseline: API/web `48ed1a09`, iOS/Android internal build 301; current release manifest and operator registry contain store/device receipts. The historical audit below records September findings and is not the current branch/governance verdict.
+Current protected main contains PR88 (`e826a9e4`). Runtime baseline: API `e826a9e4` / web `48ed1a09`, iOS/Android internal build 302; current release manifest and operator registry contain store/device receipts. The historical audit below records September findings and is not the current branch/governance verdict.
 
 | Original gap | Current disposition |
 |---|---|

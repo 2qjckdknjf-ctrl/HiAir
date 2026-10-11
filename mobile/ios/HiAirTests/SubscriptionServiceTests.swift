@@ -3,6 +3,38 @@ import StoreKit
 @testable import HiAir
 
 final class SubscriptionServiceTests: XCTestCase {
+    @MainActor
+    func testRestoreUsesCurrentVerifiedEntitlementsWithoutSyncPrompt() async throws {
+        var syncCalls = 0
+        let values = try await SubscriptionService.collectRestoreEntitlements(
+            current: { ["verified-current", "verified-current"] }, sync: { syncCalls += 1 })
+        XCTAssertEqual(values, ["verified-current"])
+        XCTAssertEqual(syncCalls, 0)
+    }
+
+    @MainActor
+    func testRestoreSyncsAndRechecksWhenCurrentEntitlementsMissing() async throws {
+        var reads = 0
+        var syncCalls = 0
+        let values = try await SubscriptionService.collectRestoreEntitlements(
+            current: { reads += 1; return reads == 1 ? [] : ["verified-after-sync"] },
+            sync: { syncCalls += 1 })
+        XCTAssertEqual(values, ["verified-after-sync"])
+        XCTAssertEqual(reads, 2)
+        XCTAssertEqual(syncCalls, 1)
+    }
+
+    @MainActor
+    func testRestoreDoesNotInventEntitlementAfterFailedSync() async {
+        var reads = 0
+        do {
+            _ = try await SubscriptionService.collectRestoreEntitlements(
+                current: { reads += 1; return [] },
+                sync: { throw URLError(.cancelled) })
+            XCTFail("Sync cancellation must propagate")
+        } catch { XCTAssertEqual(reads, 1) }
+    }
+
     func testCanonicalProductIds() {
         XCTAssertEqual(StoreProductIDs.monthly, "com.hiair.premium.monthly")
         XCTAssertEqual(StoreProductIDs.yearly, "com.hiair.premium.yearly")

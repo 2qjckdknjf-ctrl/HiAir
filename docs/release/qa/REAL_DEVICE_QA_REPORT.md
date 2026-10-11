@@ -1,20 +1,24 @@
-# Current device certification — build 301
+# Current device certification — build 302
 
-Status: **PARTIAL — full physical/store matrix not certified**.
+Status: **PARTIAL — 302 primary Insights verified; full physical/store matrix remains partial**.
 
-Candidate source `995b10e9e35026c42a11cafa70e81766ed0dbd1d`, merged in PR86 as `48ed1a0964507bb795183041f60d5f5035b1d303`. iOS 1.2 (301), Android 1.2.0 (301). Production API/web: `48ed1a09`. TestFlight VALID / IN_BETA_TESTING; Play Internal upload/edit commit SUCCESS. See RELEASE_MANIFEST_301_2026-10-11.json.
+Signed iOS source `97bf114c9ff950f8774063097fa40b5f03e1cdf0`, PR88 merge/API `e826a9e482f72d78a746ab5a96dc72bc8df6d5cb`. iOS 1.2 (302): TestFlight VALID / IN_BETA_TESTING. Android 1.2.0 (302): Play Internal upload/edit commit SUCCESS. Website remains `48ed1a09`. See RELEASE_MANIFEST_302_2026-10-11.json.
 
 | Scenario | Evidence/result |
 |---|---|
-| Backend regression | 493 tests, gate PASS; current branch CI PASS |
-| iOS regression | 235 unit tests PASS; current branch CI PASS |
-| Android regression | 128 unit tests and lint PASS; current branch CI PASS |
-| iOS packaging | Signed archive/export, HealthKit entitlement/purpose strings, privacy manifest, build 301 PASS |
-| iPhone existing-session / live ACTION / calendar cancel | PASS: Release / Apple Development candidate, one executed UI test, zero skipped/failed; `.evidence/action-physical-301-live.xcresult` |
-| Genuine sandbox purchase + restore | Owner confirms Sandbox configured; transaction not yet certified |
-| Physical Android / Health Connect / Play Billing | Device unavailable, as confirmed by owner |
+| Backend regression | 498 tests / 76.52% coverage, protected CI 38142180313 PASS |
+| iOS regression | 241 unit, protected CI 38142180329 PASS |
+| Android regression | Required CI 38142180317 PASS; 128 unit/lint baseline |
+| iOS packaging | Clean signed archive/export/hash; TestFlight 302 VALID / IN_BETA_TESTING |
+| Physical installed candidate | Device readback 1.2 (302); explicit install preserves owner data |
+| iPhone existing-session / live ACTION / calendar cancel | Previous 301 PASS, one UI test/zero skipped; `.evidence/action-physical-301-live.xcresult` |
+| Monthly Sandbox purchase | 301: owner confirmed; StoreKit verified → backend HTTP 200 / active entitlement |
+| Genuine Sandbox restore | Started on 301; completion unverified, owner asked to repeat on 302 |
+| Primary paid Insights cellular latency | 302 post-activation PASS 5.44s; one executed/zero skipped/failed, `.evidence/perf-302-post-restore-insights.xcresult`. Earlier Premium-locked attempt preserved as failed, not counted as paid loading |
+| Invalid initial purported 302 test | Actually launched installed 301; excluded from 302 certification. Runner now installs proven candidate and reads installed version before testing |
+| Physical Android / Health Connect / Play Billing | Device unavailable, owner confirmed |
 | Full consent/revoke/delete/account-switch/offline/language matrix | Not completed on current physical candidate; use isolated accounts |
 
-Private logs/screenshots stay in `.evidence/`; never put owner health values, coordinates, identifiers, receipts or credentials in this report. The physical runner rejects stale binaries and skipped checks.
+Private logs/screenshots remain in `.evidence/`; no owner health values, coordinates, identifiers, receipts or credentials belong in this report. The runner verifies source tree, installed version, actual deployed app fingerprint and test counts. A dismissed spinner or paywall response does not certify successful paid data loading.
 
-Previous checkpoints are preserved in [historical QA](archive/REAL_DEVICE_QA_HISTORY_THROUGH_2026-10-11.md). Historical blocked/failed builds are not the status of build 301. App Store 1.1 (245) remains the public build; internal delivery is a separate state.
+Previous 300/301 checkpoints are preserved in manifests and [historical QA](archive/REAL_DEVICE_QA_HISTORY_THROUGH_2026-10-11.md). Public App Store 1.1 (245) and internal delivery are separate states.

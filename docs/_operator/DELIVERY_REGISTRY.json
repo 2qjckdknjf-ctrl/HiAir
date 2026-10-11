@@ -3,7 +3,7 @@
   "canonical_base": "main",
   "integration_branch": null,
   "production_before": "c3730d988bdde2ba7771c4a20ee00a496a051b8b",
-  "plan": "docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md",
+  "plan": "docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md",
   "tasks": [
     {
       "id": "HIAIR-SEC-000",
@@ -21,10 +21,10 @@
       "owner": "integration",
       "status": "INTERNAL_DELIVERY_DEVICE_CERTIFICATION_PENDING",
       "existing_implementation": "docs/release/RELEASE_TRAIN.json",
-      "merged_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
-      "deployed_sha": "48ed1a0964507bb795183041f60d5f5035b1d303",
-      "artifact": "docs/release/RELEASE_MANIFEST_301_2026-10-11.json",
-      "pull_request": 86
+      "merged_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+      "deployed_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+      "artifact": "docs/release/RELEASE_MANIFEST_302_2026-10-11.json",
+      "pull_request": 88
     },
     {
       "id": "HIAIR-PRED-002",
@@ -149,20 +149,28 @@
       "pull_request": 86,
       "remaining_acceptance": [
         "Physical Android ACTION/Health Connect/Play Billing",
-        "Genuine iPhone sandbox purchase/restore",
+        "Genuine iPhone sandbox restore (monthly purchase verified)",
         "Full current-device isolation/consent/offline matrix"
       ]
     },
     {
       "id": "HIAIR-PERF-002",
-      "scenario": "Fix measured 20\u201334s dashboard latency, Insights sequential wait and duplicate subscription refresh",
+      "scenario": "Fix measured 20–34s dashboard latency, Insights sequential wait and duplicate subscription refresh",
       "owner": "integration",
-      "status": "VALIDATION_IN_PROGRESS",
+      "status": "302_INSIGHTS_VERIFIED_HEALTH_RESTORE_FOLLOWUP_IN_VALIDATION",
       "branch": "fix/hiair-runtime-performance-2026-10-11",
       "existing_implementation": "backend/app/services/db.py; mobile/ios/HiAir/Screens/InsightsView.swift; mobile/ios/HiAir/AppSession.swift",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+      "deployed_sha": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+      "artifact": "docs/release/RELEASE_MANIFEST_302_2026-10-11.json",
+      "pull_request": 88,
+      "production_deploy_run": 38142648465,
+      "runtime_readback_run": 38143497089,
+      "remaining_acceptance": [
+        "Deploy health read batching and Apple restore follow-up; deliver 303",
+        "Genuine restore completion on 303",
+        "Full physical matrix; Android unavailable"
+      ]
     }
   ],
   "archived_worktrees": 18,
@@ -176,7 +184,7 @@
   },
   "tests": {
     "ios_unit": {
-      "count": 235,
+      "count": 241,
       "result": "PASS"
     },
     "android_unit": {
@@ -184,9 +192,9 @@
       "result": "PASS"
     },
     "backend": {
-      "count": 493,
+      "count": 498,
       "result": "PASS",
-      "coverage_percent": 76.5
+      "coverage_percent": 76.52
     },
     "python_dependency_audit": "PASS",
     "production_live_ai": "PASS",
@@ -194,7 +202,8 @@
     "ios_physical_launch_dashboard": "PASS",
     "full_physical_iap_certification": "NOT_COMPLETED",
     "ios_physical_action_calendar": "PASS_ONE_EXECUTED_ZERO_SKIPPED",
-    "sandbox_purchase_restore": "PURCHASE_VERIFIED_200_ACTIVE_RESTORE_PENDING"
+    "sandbox_purchase_restore": "PURCHASE_301_302_VERIFIED_ACTIVE_RESTORE_COMPLETION_PENDING",
+    "ios_physical_primary_insights": "PASS_302_ONE_EXECUTED_ZERO_SKIPPED_5_44_SECONDS"
   },
   "review_fixes": [
     "Travel/work persistence fails closed",
@@ -204,11 +213,13 @@
     "Travel fields included in privacy export",
     "Existing Android account passwords retain 8-character login minimum"
   ],
-  "production_current": "48ed1a0964507bb795183041f60d5f5035b1d303",
-  "source_candidate": "995b10e9e35026c42a11cafa70e81766ed0dbd1d",
-  "pull_request": 86,
-  "release_manifest": "docs/release/RELEASE_MANIFEST_301_2026-10-11.json",
+  "production_current": "e826a9e482f72d78a746ab5a96dc72bc8df6d5cb",
+  "source_candidate": "97bf114c9ff950f8774063097fa40b5f03e1cdf0",
+  "pull_request": 88,
+  "release_manifest": "docs/release/RELEASE_MANIFEST_302_2026-10-11.json",
   "product_plan": "docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md",
   "action_spec": "docs/roadmap/HIAIR_1_2_ACTION_SPEC.md",
-  "historical_integration_branch": "integrate/hiair-release-2026-10-11"
+  "historical_integration_branch": "integrate/hiair-release-2026-10-11",
+  "release_constraints": "docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md",
+  "web_current": "48ed1a0964507bb795183041f60d5f5035b1d303"
 }

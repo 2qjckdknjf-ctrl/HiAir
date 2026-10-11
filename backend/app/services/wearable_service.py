@@ -21,7 +21,7 @@ def _metric_primary(rows: list[dict], metric_type: str) -> float | None:
     return None
 
 
-def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInput:
+def build_personal_load_input(user_id: str, environment=None, *, _core: dict | None = None) -> PersonalLoadInput:
     try:
         consent = wearable_repository.get_active_consent(user_id)
     except UndefinedTable:
@@ -37,12 +37,14 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
     hrv_baseline_7d: float | None = None
     exercise_minutes: float | None = None
     try:
-        daily = wearable_repository.get_daily_summary(user_id, today, source=source)
-        now = datetime.now(tz=UTC)
-        steps_last_hour = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=1), source=source)
-        steps_last_3h = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=3), source=source)
-        baseline_7d = wearable_repository.resting_hr_baseline(user_id, 7)
-        baseline_30d = wearable_repository.resting_hr_baseline(user_id, 30)
+        core = _core if (_core is not None and _core.get("source") == source
+                         and _core.get("user_id") == user_id and _core.get("local_date") == today
+                         ) else wearable_repository.get_personal_load_core(user_id, today, source)
+        daily = core["daily"]
+        steps_last_hour = core["steps_hour"]
+        steps_last_3h = core["steps_3h"]
+        baseline_7d = core["hr_7d"]
+        baseline_30d = core["hr_30d"]
     except UndefinedTable:
         return PersonalLoadInput(consent_active=False)
 
@@ -128,23 +130,22 @@ def build_personal_load_input(user_id: str, environment=None) -> PersonalLoadInp
 def build_today_response(user_id: str) -> WearableTodayResponse:
     consent = wearable_repository.get_latest_consent(user_id)
     today = date.today()
-    daily = None
     source = consent.source if consent else None
-    if source is not None:
+    core = None
+    daily = None
+    steps_last_hour = steps_last_3h = baseline_7d = baseline_30d = None
+    if consent and consent.isActive and source is not None:
+        core = wearable_repository.get_personal_load_core(user_id, today, source)
+        daily = core["daily"]
+        steps_last_hour = core["steps_hour"]
+        steps_last_3h = core["steps_3h"]
+        baseline_7d = core["hr_7d"]
+        baseline_30d = core["hr_30d"]
+    elif source is not None:
         daily = wearable_repository.get_daily_summary(user_id, today, source=source)
 
-    now = datetime.now(tz=UTC)
-    steps_last_hour = None
-    steps_last_3h = None
-    baseline_7d = None
-    baseline_30d = None
-    if consent and consent.isActive and source is not None:
-        steps_last_hour = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=1), source=source)
-        steps_last_3h = wearable_repository.sum_steps_since(user_id, now - timedelta(hours=3), source=source)
-        baseline_7d = wearable_repository.resting_hr_baseline(user_id, 7)
-        baseline_30d = wearable_repository.resting_hr_baseline(user_id, 30)
-
-    load_input = build_personal_load_input(user_id)
+    # Still recheck active consent; reuse only this request's matching source.
+    load_input = build_personal_load_input(user_id, _core=core)
     load_result = compute_personal_load_score(load_input)
     personal_load = PersonalLoadSummary(
         score=load_result.score,

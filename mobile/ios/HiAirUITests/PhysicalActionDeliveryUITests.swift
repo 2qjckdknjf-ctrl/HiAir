@@ -58,3 +58,28 @@ final class PhysicalRuntimePerformanceUITests: XCTestCase {
         print("Primary physical Insights observed in \(String(format:"%.2f",seconds)) seconds")
     }
 }
+
+/// Explicit restore of the owner's existing Sandbox purchase. No new purchase.
+final class PhysicalRestoreDeliveryUITests: XCTestCase {
+    func testExistingSandboxPurchaseRestoresThroughBackend() throws {
+        guard ProcessInfo.processInfo.environment["HIAIR_RUN_PHYSICAL_QA"] == "1" else {
+            throw XCTSkip("Opt-in physical Release/live-API check")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.hiair.app")
+        app.launch()
+        let tab = app.descendants(matching: .any)["tab.settings"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 30))
+        tab.tap()
+        let restore = app.buttons["settings.restore_purchases"]
+        for _ in 0..<20 {
+            if restore.exists && restore.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(restore.waitForExistence(timeout: 10))
+        XCTAssertTrue(restore.isEnabled)
+        restore.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.restore.success"].firstMatch
+            .waitForExistence(timeout: 20), "Backend did not confirm Premium restoration")
+    }
+}

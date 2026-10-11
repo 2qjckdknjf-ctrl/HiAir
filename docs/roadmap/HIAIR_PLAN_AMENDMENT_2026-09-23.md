@@ -2,7 +2,7 @@
 
 > Последняя корректировка: 2026-10-07 (вечер). Актуальные дополнения по сигналам 7 октября — в последнем разделе; прежние task IDs, очереди и gates сохраняются.
 
-Статус: PLANNED, интеграционный backlog. [Master plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) остаётся каноническим.
+Текущий продуктовый план: [Master Product & Engineering Spec](HIAIR_MASTER_SPEC_2026_2027.md). Этот amendment сохраняет security/release/research constraints; прежний [upgrade plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) — историческая база, интегрированная через PR83. Актуальные реализации и оставшиеся acceptance — в `docs/_operator/DELIVERY_REGISTRY.json`.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
 
 | ID / порядок | План и acceptance criteria |
