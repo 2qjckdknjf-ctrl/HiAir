@@ -25,6 +25,10 @@ def main():
     derived=args.derived_data.resolve()
     destination=f'platform=iOS,id={args.device}'
     if args.mode=='build':
+        if subprocess.check_output(['git','status','--porcelain','--','mobile/ios'],cwd=ROOT,text=True).strip():
+            raise SystemExit('Commit mobile source before building physical QA')
+        source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        mobile_tree=subprocess.check_output(['git','rev-parse','HEAD:mobile/ios'],cwd=ROOT,text=True).strip()
         directory=IOS/'HiAir.xcodeproj/xcshareddata/xcschemes'
         scheme='HiAirPhysicalQA_'+uuid.uuid4().hex[:8]
         temporary=directory/(scheme+'.xcscheme')
@@ -49,6 +53,13 @@ def main():
                 'CODE_SIGN_IDENTITY=Apple Development'],cwd=IOS,check=True)
         finally:
             temporary.unlink(missing_ok=True)
+        if subprocess.check_output(['git','status','--porcelain','--','mobile/ios'],cwd=ROOT,text=True).strip():
+            raise SystemExit('Mobile source changed while building physical QA')
+        current_tree=subprocess.check_output(['git','rev-parse','HEAD:mobile/ios'],cwd=ROOT,text=True).strip()
+        if current_tree != mobile_tree:
+            raise SystemExit('Mobile source commit changed while building physical QA')
+        (derived/'physical-source.json').write_text(json.dumps({'source_sha':source,
+            'ios_tree':mobile_tree, 'scheme':scheme, 'configuration':'Release'},indent=2)+'\n')
     else:
         if not args.expect_sha:
             parser.error('test requires --expect-sha after immutable production deployment')
@@ -56,7 +67,11 @@ def main():
         with urllib.request.urlopen(request,timeout=30,context=ssl.create_default_context(cafile=certifi.where())) as response: health=json.load(response)
         if health.get('deploy_git_sha') != args.expect_sha:
             raise SystemExit('Production SHA mismatch: physical QA not started')
-        runs=sorted((derived/'Build/Products').glob('HiAirPhysicalQA_*.xctestrun'),key=lambda p:p.stat().st_mtime)
+        provenance=json.loads((derived/'physical-source.json').read_text())
+        tree=subprocess.check_output(['git','rev-parse','HEAD:mobile/ios'],cwd=ROOT,text=True).strip()
+        if provenance['ios_tree']!=tree:
+            raise SystemExit('Physical test binary is stale; rebuild from current source')
+        runs=list((derived/'Build/Products').glob(provenance['scheme']+'*.xctestrun'))
         if not runs: raise SystemExit('Build physical QA first')
         if args.result.exists(): raise SystemExit('Use a fresh result path; existing evidence preserved')
         subprocess.run(['xcodebuild','test-without-building','-xctestrun',str(runs[-1]),
