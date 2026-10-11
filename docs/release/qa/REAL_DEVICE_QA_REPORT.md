@@ -1,3 +1,17 @@
+# Current certification checkpoint — 2026-10-11
+
+Status: **PARTIAL — full physical/IAP matrix not certified**
+
+Current candidate: iOS 1.2 (300), Android 1.2.0 (300), source 3c15a9c5; backend production 833a06e4. TestFlight build 300 is VALID / IN_BETA_TESTING. Physical iPhone 17 Pro (iOS 27.0.1): install, launch, existing-session restore and live dashboard PASS. Screenshots remain private under .evidence/screenshots; do not copy user identifiers/location/health values into this document.
+
+Physical automation: installed Maestro 2.7 driver does not build under Xcode 27 (unsupported deployment target and missing bundled source files); direct CoreDevice installation/launch/screenshots succeeded. This is an automation limitation, not an observed app crash.
+
+Repeat-launch capture observation: CoreDevice screenshots omit some labels after relaunch, but the owner directly confirmed that the score and level label remain visible on the phone. Record this as a screenshot-capture discrepancy; no missing-label app defect was observed by the owner. Android signed APK install/launch/auth screen also PASS on emulator (not physical certification).
+
+No physical Android connected. Purchase/restore, consent/revoke/delete, offline and full language/notification matrix are NOT COMPLETED on the current physical candidates. Simulator tests do not replace them. Historical device instructions/builds below are superseded; use build 300 and RELEASE_MANIFEST_2026-10-11.json. Do not uninstall/delete the owner's account to run destructive QA; use an isolated test account.
+
+---
+
 # Real Device QA Report
 
 

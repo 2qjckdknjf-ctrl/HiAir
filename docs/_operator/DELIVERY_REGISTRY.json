@@ -9,71 +9,71 @@
       "id": "HIAIR-SEC-000",
       "scenario": "Apple verification dependencies and server-owned deletion RLS",
       "owner": "integration",
-      "status": "INTEGRATED",
+      "status": "DELIVERED",
       "existing_implementation": "backend/requirements.txt; backend/sql/029_account_deletion_server_only_rls.sql",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-REL-001",
       "scenario": "Reconcile deployed API, main, signed artifacts and provenance",
       "owner": "integration",
-      "status": "VALIDATION_IN_PROGRESS",
+      "status": "INTERNAL_DELIVERY_DEVICE_CERTIFICATION_PENDING",
       "existing_implementation": "docs/release/RELEASE_TRAIN.json",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-PRED-002",
       "scenario": "Reuse Forecast/Action/travel/hazard stack and integrate existing ranking/controls",
       "owner": "integration",
-      "status": "INTEGRATED",
+      "status": "BASELINE_DELIVERED_QUALITY_AC_PENDING",
       "existing_implementation": "backend/app/services/activity_plan_engine.py; mobile/ios/HiAir/Screens/DailyPlannerView.swift; mobile/android/app/src/main/java/com/hiair/ui/render/ActivityPlannerCard.kt",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-AUTH-RECOVERY",
       "scenario": "Recover PR56 Apple/OAuth correctness",
       "owner": "integration",
-      "status": "INTEGRATED",
+      "status": "DELIVERED",
       "existing_implementation": "mobile/ios/HiAir/Networking/AppleSignIn.swift",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-LAUNCH-RECOVERY",
       "scenario": "Recover PR57 health/launch speed",
       "owner": "integration",
-      "status": "INTEGRATED",
+      "status": "DELIVERED",
       "existing_implementation": "mobile/ios/HiAir/Services/HealthKitQueryEngine.swift",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-ANDROID-PARITY",
       "scenario": "Recover local onboarding, geocoding and planner work",
       "owner": "integration",
-      "status": "INTEGRATED",
+      "status": "DELIVERED",
       "existing_implementation": "mobile/android/app/src/main/java/com/hiair/location/PlaceGeocodingService.kt",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-PRIVACY-LIFECYCLE",
       "scenario": "Export and delete integrated places/work data",
       "owner": "integration",
-      "status": "INTEGRATED",
+      "status": "DELIVERED",
       "existing_implementation": "backend/tests/test_privacy_feature_lifecycle.py",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": null
+      "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+      "artifact": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
     },
     {
       "id": "HIAIR-ASSURE-003",
@@ -156,10 +156,14 @@
     },
     "backend": {
       "result": "PASS",
-      "coverage_percent": 76.31,
+      "coverage_percent": 76.19,
       "count": 485
     },
-    "python_dependency_audit": "PASS"
+    "python_dependency_audit": "PASS",
+    "production_live_ai": "PASS",
+    "production_feature_surfaces": "PASS",
+    "ios_physical_launch_dashboard": "PASS",
+    "full_physical_iap_certification": "NOT_COMPLETED"
   },
   "review_fixes": [
     "Travel/work persistence fails closed",
@@ -168,5 +172,9 @@
     "HealthKit count uses actual samples",
     "Travel fields included in privacy export",
     "Existing Android account passwords retain 8-character login minimum"
-  ]
+  ],
+  "production_current": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+  "source_candidate": "3c15a9c5bb392eec21189153cafc54d504271b7a",
+  "pull_request": 83,
+  "release_manifest": "docs/release/RELEASE_MANIFEST_2026-10-11.json"
 }

@@ -1,0 +1,68 @@
+{
+  "ios_source_sha": "3c15a9c5bb392eec21189153cafc54d504271b7a",
+  "ios_version": "1.2",
+  "ios_build": 300,
+  "android_version": "1.2.0",
+  "android_version_code": 300,
+  "artifacts": [
+    {
+      "path": ".evidence/HiAir-1.2-300.ipa",
+      "sha256": "4b1ea262c7cb81fa1fc5f7805096d14602487c3f1c45725f49d6018748096745",
+      "bytes": 9023646
+    },
+    {
+      "path": ".evidence/HiAir-1.2.0-300.aab",
+      "sha256": "b06de046491e0f71d0b48c877447c8e97815c16e66edd8d758d64b343e00183e",
+      "bytes": 8811834
+    },
+    {
+      "path": ".evidence/HiAir-1.2.0-300.apk",
+      "sha256": "a8f185a242998185ee511165091389d24f62926919e641e97ad953648d864a81",
+      "bytes": 9494809,
+      "source_sha": "3c15a9c5bb392eec21189153cafc54d504271b7a"
+    },
+    {
+      "path": ".evidence/android-play-300/app-release.aab",
+      "sha256": "f62d522af8285907d3006a9f9b1715e109ac9654e6ff468a9fb8a3fb145e378c",
+      "bytes": 8811831,
+      "source_sha": "828b3eb30d55939563aaa919ae73b81435e4cf16",
+      "distribution": "Google Play internal"
+    }
+  ],
+  "current_release_plan": "docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md",
+  "android_source_sha": "3c15a9c5bb392eec21189153cafc54d504271b7a",
+  "candidate_sha": "3c15a9c5bb392eec21189153cafc54d504271b7a",
+  "clean_source": true,
+  "artifact_code_matches_candidate": true,
+  "merged_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+  "pull_request": 83,
+  "deployed_sha": "833a06e48e3e2faf1c51719e3a3b5f59761736bd",
+  "production_deploy_run": 38130417768,
+  "live_ai_smoke": "PASS",
+  "feature_surfaces_smoke": "PASS",
+  "testflight": {
+    "build_id": "3bf6897d-296a-4009-956f-5f2a23d41741",
+    "processing_state": "VALID",
+    "internal_state": "IN_BETA_TESTING"
+  },
+  "physical_ios": {
+    "install": "PASS",
+    "launch": "PASS",
+    "session_restore": "PASS",
+    "live_dashboard": "PASS",
+    "full_matrix": "NOT_COMPLETED",
+    "repeat_launch_capture_rendering": "OWNER_CONFIRMED_SCORE_AND_LEVEL_VISIBLE"
+  },
+  "physical_android": "NO_PHYSICAL_DEVICE",
+  "public_submission": "NOT_SUBMITTED_OWNER_GATED",
+  "google_play": {
+    "track": "internal",
+    "version_code": 300,
+    "release_status": "completed",
+    "run_id": 38130939253,
+    "source_sha": "828b3eb30d55939563aaa919ae73b81435e4cf16",
+    "upload_and_edit_commit": "SUCCESS",
+    "artifact_id": 11699022952
+  },
+  "android_emulator_install_launch": "PASS"
+}
