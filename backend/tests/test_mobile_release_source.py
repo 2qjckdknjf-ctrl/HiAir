@@ -48,3 +48,17 @@ def test_manifest_rejects_stale_or_changed_binary(tmp_path):
         module.source_from_manifest(artifact,manifest,tmp_path)
     with pytest.raises(ValueError,match='absent'):
         module.source_from_manifest(tmp_path/'different.ipa',manifest,tmp_path)
+
+
+def test_running_code_identity_comes_from_app_files_not_environment_label(tmp_path):
+    from app.services.source_identity import hash_sources
+    def git(*args):
+        return subprocess.check_output(['git',*args],cwd=tmp_path,text=True).strip()
+    git('init','-q','-b','main');git('config','user.name','Test');git('config','user.email','test@example.invalid')
+    app=tmp_path/'backend/app';app.mkdir(parents=True)
+    (app/'main.py').write_text('real code')
+    git('add','.');git('commit','-qm','code');baseline=git('rev-parse','HEAD')
+    assert module.source_digest(baseline,tmp_path)==hash_sources([('main.py',b'real code')])
+    (app/'main.py').write_text('new code')
+    git('add','.');git('commit','-qm','new code');updated=git('rev-parse','HEAD')
+    assert module.source_digest(updated,tmp_path)!=module.source_digest(baseline,tmp_path)

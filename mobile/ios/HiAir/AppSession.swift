@@ -110,6 +110,9 @@ final class AppSession: ObservableObject {
     private var entitlementObserver: NSObjectProtocol?
     private var startupTask: Task<Void, Never>?
     private var inFlightPrepare: Task<SessionPrepareResult, Never>?
+    private var inFlightEntitlement: Task<SubscriptionStatusResponse, Error>?
+    private var entitlementFlightOwner = ""
+    private var entitlementRevision: UInt64 = 0
     private var inFlightEnsureProfile: Task<ProfileEnsureOutcome, Never>?
     /// Best-effort remote revoke of a captured access token (not cancelled on logout).
     private var signOutTask: Task<Void, Never>?
@@ -197,6 +200,9 @@ final class AppSession: ObservableObject {
 
     /// Abandon single-flight session prepare so a replacement account cannot coalesce onto it.
     private func cancelInFlightSessionPrepare() {
+        inFlightEntitlement?.cancel()
+        inFlightEntitlement = nil
+        entitlementFlightOwner = ""
         inFlightPrepare?.cancel()
         inFlightPrepare = nil
     }
@@ -626,6 +632,7 @@ final class AppSession: ObservableObject {
     }
 
     func applyEntitlement(_ entitlement: UserEntitlementResponse?, activationPending: Bool = false) {
+        entitlementRevision &+= 1
         isPremium = entitlement?.isPremium ?? false
         if entitlement?.isPremium == true {
             premiumActivationPending = activationPending
@@ -660,10 +667,27 @@ final class AppSession: ObservableObject {
             premiumActivationPending = false
             return
         }
+        let owner = userId
+        let token = accessToken
+        let revision = entitlementRevision
+        let flightOwner = owner + ":" + token + ":" + String(revision)
+        let task: Task<SubscriptionStatusResponse, Error>
+        if let existing = inFlightEntitlement, entitlementFlightOwner == flightOwner {
+            task = existing
+        } else {
+            inFlightEntitlement?.cancel()
+            task = Task { try await apiClient.fetchMySubscription(userId: owner, accessToken: token) }
+            inFlightEntitlement = task
+            entitlementFlightOwner = flightOwner
+        }
+        defer {
+            if inFlightEntitlement == task { inFlightEntitlement = nil; entitlementFlightOwner = "" }
+        }
         StartupDiagnostics.track("entitlement_refresh_started", profilePresent: !profileId.isEmpty)
         let started = Date()
         do {
-            let status = try await apiClient.fetchMySubscription(userId: userId, accessToken: accessToken)
+            let status = try await task.value
+            guard userId == owner, accessToken == token, entitlementRevision == revision, !Task.isCancelled else { return }
             if status.entitlement?.isPremium == true {
                 confirmPremiumActivation(status.entitlement)
             } else if premiumActivationPending {

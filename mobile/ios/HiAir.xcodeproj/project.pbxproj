@@ -49,6 +49,7 @@
 		546A760CA817447A77E71501 /* HiAirAtmosphericBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30A4008FE420956504C2E27 /* HiAirAtmosphericBackground.swift */; };
 		5740C62DFDE5A26DFA327001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D1E2C509CFB15ACA399B3D /* SettingsView.swift */; };
 		577E155F99492F1BDCA81630 /* ActionTimePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F138F05B478D1052D5C56F5 /* ActionTimePreference.swift */; };
+		5AEA09683A4C48D2D8B8AF67 /* InsightsLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 054B7A2FF4D2727CF1F416F0 /* InsightsLoadingTests.swift */; };
 		5AF89E7C46718EBF20FF1256 /* HealthKitQueryEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB8F8F3FBA8F45C0488F72C /* HealthKitQueryEngine.swift */; };
 		5B71DE90A4457E575BBEC07C /* HiAirMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB46A64A9D06988894EB3978 /* HiAirMotion.swift */; };
 		60600899A0A468E146AD36D5 /* DailyPlannerSurfaceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D642B7BB092A85F6645659 /* DailyPlannerSurfaceState.swift */; };
@@ -144,6 +145,7 @@
 		030CBAFA89BD721FF0066134 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
 		0359E6533DF529BCE268C28D /* ProfileBootstrapCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileBootstrapCard.swift; sourceTree = "<group>"; };
 		03DC1358C9F4B77C3508586E /* HiAirGlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirGlassSurface.swift; sourceTree = "<group>"; };
+		054B7A2FF4D2727CF1F416F0 /* InsightsLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsLoadingTests.swift; sourceTree = "<group>"; };
 		05F7FFC655668DCA70602E65 /* ActionRequestOrderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionRequestOrderingTests.swift; sourceTree = "<group>"; };
 		097CA85FB80A297417CADC70 /* WearableConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableConsentView.swift; sourceTree = "<group>"; };
 		09DF8A3B5814CA415D8D3574 /* AccountEligibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountEligibility.swift; sourceTree = "<group>"; };
@@ -404,6 +406,7 @@
 				CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */,
 				2D9130F80936891489C73F67 /* HiAirTypographyDynamicTypeTests.swift */,
 				CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */,
+				054B7A2FF4D2727CF1F416F0 /* InsightsLoadingTests.swift */,
 				AF5EDBAE81558D23A4B388E6 /* PaywallLocalizationContractTests.swift */,
 				2DAE1DA0A37DFC548AF3687D /* ProfileEnsureTests.swift */,
 				5AC2FF57561B3EFDA6CC22DA /* RuntimeUXRecoveryTests.swift */,
@@ -642,6 +645,7 @@
 				0B19571439FFB543F25751C6 /* HiAirHumanDateTests.swift in Sources */,
 				9CC86DD95DDDF6D53601E006 /* HiAirTypographyDynamicTypeTests.swift in Sources */,
 				620932E297A0EFA3FE5AA010 /* InfoPlistPackagingTests.swift in Sources */,
+				5AEA09683A4C48D2D8B8AF67 /* InsightsLoadingTests.swift in Sources */,
 				7321D183C576FE8BB94645C3 /* PaywallLocalizationContractTests.swift in Sources */,
 				630FD44D484D2D68453486A9 /* ProfileEnsureTests.swift in Sources */,
 				116362F5B5F2F56299C94173 /* RuntimeUXRecoveryTests.swift in Sources */,
@@ -756,7 +760,7 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 301;
+				CURRENT_PROJECT_VERSION = 302;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";
@@ -843,7 +847,7 @@
 				CODE_SIGN_ENTITLEMENTS = HiAir/HiAir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 301;
+				CURRENT_PROJECT_VERSION = 302;
 				DEVELOPMENT_TEAM = 43A4KW5BKB;
 				GENERATE_INFOPLIST_FILE = YES;
 				HIAIR_AUTH_REDIRECT_URI = "hiair://auth/callback";

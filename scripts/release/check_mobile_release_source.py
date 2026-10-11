@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Fail mobile store delivery unless source is in main and API code matches it."""
 import argparse
+import io
+import sys
+import tarfile
 import hashlib
 import json
 import ssl
@@ -10,6 +13,16 @@ import urllib.request
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT/'backend'))
+from app.services.source_identity import hash_sources
+
+
+def source_digest(sha, root=ROOT):
+    archive=subprocess.check_output(['git','archive',sha,'backend/app'],cwd=root)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        return hash_sources((entry.name.removeprefix('backend/app/'),tar.extractfile(entry).read())
+                            for entry in tar.getmembers() if entry.isfile() and entry.name.endswith('.py'))
+
 
 
 def validate_source(source_sha, api_sha, root=ROOT):
@@ -68,6 +81,9 @@ def main():
         raise SystemExit('Production API health is invalid')
     try:
         result=validate_source(source,health.get('deploy_git_sha'))
+        if health.get('app_source_sha256') != source_digest(source):
+            raise ValueError('Running application code does not match source; deployment/rollout is incomplete')
+        result['app_source_sha256']=health['app_source_sha256']
         if args.artifact:
             platform='mobile/ios' if args.artifact.suffix=='.ipa' else 'mobile/android'
             validate_artifact_checkout(source,checkout,platform)

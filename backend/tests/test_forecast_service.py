@@ -55,6 +55,9 @@ def test_get_forecast_uses_configured_openmeteo_fixtures(monkeypatch) -> None:
     assert result.timezone == "Europe/Madrid"
     assert result.current is not None
     assert result.current.temperature_c == 24
+    assert result.current.provenance.kind.value == "forecast"
+    assert result.current.provenance.observed_at is None
+    assert result.current.provenance.forecast_for == result.current.timestamp
     assert result.hourly[0].timestamp.endswith("+02:00")
     # Mid-morning clip: first returned hour is still active (08:00), not midnight.
     assert result.hourly[0].timestamp.startswith("2026-07-15T08:00:00")

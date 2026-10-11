@@ -152,6 +152,17 @@
         "Genuine iPhone sandbox purchase/restore",
         "Full current-device isolation/consent/offline matrix"
       ]
+    },
+    {
+      "id": "HIAIR-PERF-002",
+      "scenario": "Fix measured 20\u201334s dashboard latency, Insights sequential wait and duplicate subscription refresh",
+      "owner": "integration",
+      "status": "NEEDS_NEW_CODE",
+      "branch": "fix/hiair-runtime-performance-2026-10-11",
+      "existing_implementation": "backend/app/services/db.py; mobile/ios/HiAir/Screens/InsightsView.swift; mobile/ios/HiAir/AppSession.swift",
+      "merged_sha": null,
+      "deployed_sha": null,
+      "artifact": null
     }
   ],
   "archived_worktrees": 18,
@@ -183,7 +194,7 @@
     "ios_physical_launch_dashboard": "PASS",
     "full_physical_iap_certification": "NOT_COMPLETED",
     "ios_physical_action_calendar": "PASS_ONE_EXECUTED_ZERO_SKIPPED",
-    "sandbox_purchase_restore": "PENDING_OWNER_SYSTEM_CONFIRMATION"
+    "sandbox_purchase_restore": "PURCHASE_VERIFIED_200_ACTIVE_RESTORE_PENDING"
   },
   "review_fixes": [
     "Travel/work persistence fails closed",

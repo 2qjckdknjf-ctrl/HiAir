@@ -14,13 +14,37 @@ final class InsightsViewModel: ObservableObject {
     @Published var todaySummary: String = ""
     @Published var healthStatusText: String = ""
     @Published var lastError: String? = nil
+    @Published var partialFailure = false
     @Published var loggedDays = 0
     @Published var generatedAtDisplay = ""
     @Published var premiumLocked = false
     @Published var adaptation: PersonalAdaptationSnapshot?
     @Published var windowDays: Int = 30
 
-    private let apiClient = APIClient.live()
+    private let apiClient: APIClient
+    private var refreshGeneration = 0
+    private var refreshOwner = ""
+    private let deadlineNanoseconds: UInt64
+
+    init(apiClient: APIClient = .live(), deadlineNanoseconds: UInt64 = 10_000_000_000) {
+        self.apiClient = apiClient
+        self.deadlineNanoseconds = deadlineNanoseconds
+    }
+
+    var hasContent: Bool { !todaySummary.isEmpty || !items.isEmpty || !trends.isEmpty || !associations.isEmpty || !insufficient.isEmpty || adaptation != nil }
+
+    // DTOs are immutable values transferred once from each request to the main actor.
+    private enum FetchResult: @unchecked Sendable {
+        case history(Result<SymptomHistoryResponse, Error>)
+        case bundle(Result<HealthInsightsBundleDTO, Error>)
+        case patterns(Result<PersonalPatternsResponse, Error>)
+        case adaptation(Result<PersonalAdaptationSnapshot, Error>)
+        case deadline
+    }
+
+    private nonisolated static func capture<T>(_ operation: () async throws -> T) async -> Result<T, Error> {
+        do { return .success(try await operation()) } catch { return .failure(error) }
+    }
 
     var progressFraction: Double {
         Double(min(loggedDays, Self.targetLogDays)) / Double(Self.targetLogDays)
@@ -34,134 +58,112 @@ final class InsightsViewModel: ObservableObject {
         windowDays: Int? = nil,
         onPremiumRequired: (() -> Void)? = nil
     ) async {
-        if let windowDays {
-            self.windowDays = windowDays
+        let days = windowDays ?? self.windowDays
+        self.windowDays = days
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let owner = userId + ":" + profileId
+        if refreshOwner != owner {
+            items = []; trends = []; associations = []; insufficient = []
+            todaySummary = ""; healthStatusText = ""; loggedDays = 0; adaptation = nil; generatedAtDisplay = ""
         }
+        refreshOwner = owner
         loading = true
-        defer { loading = false }
+        lastError = nil
+        partialFailure = false
         premiumLocked = false
-        adaptation = nil
-        do {
-            async let historyTask = apiClient.fetchSymptomHistory(
-                profileId: profileId,
-                userId: userId,
-                accessToken: accessToken
-            )
-            let history: SymptomHistoryResponse
-            do {
-                history = try await historyTask
-            } catch {
-                history = SymptomHistoryResponse(profileId: profileId, items: [])
-            }
-            loggedDays = uniqueLogDays(from: history.items)
-
-            do {
-                let bundle = try await apiClient.fetchHealthInsightsBundle(
-                    profileId: profileId,
-                    userId: userId,
-                    accessToken: accessToken,
-                    windowDays: self.windowDays,
-                    language: language
-                )
-                trends = bundle.trends
-                associations = bundle.associations
-                insufficient = bundle.insufficientData
-                if loggedDays == 0, let have = bundle.insufficientData.first?.have {
-                    loggedDays = have
-                }
-                generatedAtDisplay = HiAirHumanDate.display(
-                    fromISO: bundle.generatedAt,
-                    locale: Locale(identifier: language),
-                    style: .dateTime
-                )
-                todaySummary = formatToday(bundle.today, language: language)
-                if let status = bundle.healthDataStatus {
-                    let syncKey: String
-                    switch (status.syncStatus ?? "").lowercased() {
-                    case "ok", "success", "synced":
-                        syncKey = "insights.sync.ok"
-                    case "partial":
-                        syncKey = "insights.sync.partial"
-                    case "pending", "syncing":
-                        syncKey = "insights.sync.pending"
-                    case "error", "failed":
-                        syncKey = "insights.sync.error"
-                    default:
-                        syncKey = "insights.sync.unknown"
-                    }
-                    let metrics = status.metricDays ?? 0
-                    healthStatusText = String(
-                        format: HiAirL10n.t("insights.health_status", lang: language),
-                        locale: Locale(identifier: language),
-                        metrics,
-                        HiAirL10n.t(syncKey, lang: language)
-                    )
+        let started = Date()
+        var completed = 0
+        var hadFailure = false
+        let client = apiClient
+        let deadline = deadlineNanoseconds
+        defer {
+            if generation == refreshGeneration {
+                loading = false
+                partialFailure = hadFailure
+                if hadFailure {
+                    statusText = HiAirL10n.t("insights.failed", lang: language)
+                    if !hasContent { lastError = statusText }
                 } else {
-                    healthStatusText = HiAirL10n.t("insights.health_status_unknown", lang: language)
+                    let total = trends.count + associations.count + items.count
+                    statusText = total == 0 ? HiAirL10n.t("state.empty.insights.body", lang: language)
+                        : "\(total) \(HiAirL10n.t("insights.count", lang: language))"
                 }
-            } catch let error as APIError {
-                trends = []
-                associations = []
-                insufficient = []
-                if case .server(let code) = error, code == 402 {
-                    premiumLocked = true
-                    onPremiumRequired?()
-                }
-            } catch {
-                trends = []
-                associations = []
-                insufficient = []
+                ProductAnalytics.track("insights_load_finished", properties: [
+                    "duration_ms": String(Int(Date().timeIntervalSince(started) * 1000)),
+                    "result": hadFailure ? "partial_or_failed" : "success"
+                ])
             }
-
-            // Legacy personal patterns remain available for Premium users.
-            do {
-                let patterns = try await apiClient.fetchPersonalPatterns(
-                    profileId: profileId,
-                    userId: userId,
-                    accessToken: accessToken,
-                    windowDays: self.windowDays,
-                    language: language
-                )
-                items = patterns.items
-            } catch let error as APIError {
-                items = []
-                if case .server(let code) = error, code == 402 {
+        }
+        func recordFailure(_ error: Error) {
+            if error is CancellationError { return }
+            hadFailure = true
+            if let api = error as? APIError {
+                switch api {
+                case .server(402), .serverWithDetail(402, _):
+                    if !premiumLocked { onPremiumRequired?() }
                     premiumLocked = true
-                    onPremiumRequired?()
+                default: break
                 }
-            } catch {
-                items = []
             }
-
-            do {
-                adaptation = try await apiClient.fetchAdaptation(
-                    profileId: profileId,
-                    userId: userId,
-                    accessToken: accessToken
-                )
-            } catch let error as APIError {
-                adaptation = nil
-                if case .server(let code) = error, code == 402 {
-                    premiumLocked = true
-                    onPremiumRequired?()
+        }
+        await withTaskGroup(of: FetchResult.self) { group in
+            group.addTask { .history(await Self.capture {
+                try await client.fetchSymptomHistory(profileId: profileId, userId: userId, accessToken: accessToken)
+            }) }
+            group.addTask { .bundle(await Self.capture {
+                try await client.fetchHealthInsightsBundle(profileId: profileId, userId: userId,
+                    accessToken: accessToken, windowDays: days, language: language)
+            }) }
+            group.addTask { .patterns(await Self.capture {
+                try await client.fetchPersonalPatterns(profileId: profileId, userId: userId,
+                    accessToken: accessToken, windowDays: days, language: language)
+            }) }
+            group.addTask { .adaptation(await Self.capture {
+                try await client.fetchAdaptation(profileId: profileId, userId: userId, accessToken: accessToken)
+            }) }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: deadline)
+                return .deadline
+            }
+            for await result in group {
+                guard generation == refreshGeneration, !Task.isCancelled else { group.cancelAll(); break }
+                if case .deadline = result {
+                    hadFailure = true
+                    group.cancelAll()
+                    break
                 }
-            } catch {
-                adaptation = nil
+                completed += 1
+                switch result {
+                case .history(.success(let history)): loggedDays = uniqueLogDays(from: history.items)
+                case .bundle(.success(let bundle)):
+                    trends = bundle.trends; associations = bundle.associations; insufficient = bundle.insufficientData
+                    if loggedDays == 0, let have = bundle.insufficientData.first?.have { loggedDays = have }
+                    generatedAtDisplay = HiAirHumanDate.display(fromISO: bundle.generatedAt,
+                        locale: Locale(identifier: language), style: .dateTime)
+                    todaySummary = formatToday(bundle.today, language: language)
+                    if let status = bundle.healthDataStatus {
+                        let syncKey: String
+                        switch (status.syncStatus ?? "").lowercased() {
+                        case "ok", "success", "synced": syncKey = "insights.sync.ok"
+                        case "partial": syncKey = "insights.sync.partial"
+                        case "pending", "syncing": syncKey = "insights.sync.pending"
+                        case "error", "failed": syncKey = "insights.sync.error"
+                        default: syncKey = "insights.sync.unknown"
+                        }
+                        healthStatusText = String(format: HiAirL10n.t("insights.health_status", lang: language),
+                            locale: Locale(identifier: language), status.metricDays ?? 0,
+                            HiAirL10n.t(syncKey, lang: language))
+                    } else { healthStatusText = HiAirL10n.t("insights.health_status_unknown", lang: language) }
+                    loading = false // Primary cards do not wait for optional legacy/adaptation requests.
+                case .patterns(.success(let patterns)): items = patterns.items
+                case .adaptation(.success(let value)): adaptation = value
+                case .history(.failure(let error)), .bundle(.failure(let error)),
+                     .patterns(.failure(let error)), .adaptation(.failure(let error)): recordFailure(error)
+                case .deadline: break
+                }
+                if completed == 4 { group.cancelAll(); break }
             }
-
-            lastError = nil
-            let totalCards = trends.count + associations.count + items.count
-            statusText = totalCards == 0
-                ? HiAirL10n.t("state.empty.insights.body", lang: language)
-                : "\(totalCards) \(HiAirL10n.t("insights.count", lang: language))"
-        } catch {
-            trends = []
-            associations = []
-            insufficient = []
-            items = []
-            let message = HiAirL10n.t("insights.failed", lang: language)
-            statusText = message
-            lastError = message
         }
     }
 
@@ -242,7 +244,7 @@ struct InsightsView: View {
                             ctaAccessibilityID: HiAirAccessibilityID.Insights.createProfileCTA,
                             onReady: { await refreshInsights() }
                         )
-                    } else if viewModel.loading {
+                    } else if viewModel.loading && !viewModel.hasContent {
                         HiAirLoadingView(message: session.l("insights.loading"))
                             .v2Card()
                     } else if let lastError = viewModel.lastError {
@@ -254,6 +256,11 @@ struct InsightsView: View {
                         )
                         .v2Card()
                     } else {
+                        if viewModel.partialFailure {
+                            HiAirErrorView(title: session.l("common.error.title"),
+                                message: session.l("insights.failed"), retryTitle: session.l("insights.retry"),
+                                onRetry: { Task { await refreshInsights() } }).v2Card()
+                        }
                         windowPicker
                         todayCard
                         adaptationCard
@@ -293,7 +300,7 @@ struct InsightsView: View {
             }
         }
         .hiAirPageBackground()
-        .task {
+        .task(id: session.userId + ":" + session.profileId) {
             if UITestBootstrap.disableAutoProfileBootstrap {
                 return
             }
