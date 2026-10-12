@@ -1,12 +1,7 @@
 name: hiair-api-cloudflare
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "infra/cloudflare/hiair-api/**"
-      - "backend/Dockerfile"
-      - ".github/workflows/hiair-api-cloudflare.yml"
+  # push trigger removed (APR-HIAIR-009): production deploys are manual + reviewer-gated
   workflow_dispatch:
 
 concurrency:
