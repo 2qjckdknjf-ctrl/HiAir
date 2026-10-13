@@ -1,6 +1,6 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
-> Последняя корректировка: 2026-10-07 (вечер). Актуальные дополнения по сигналам 7 октября — в последнем разделе; прежние task IDs, очереди и gates сохраняются.
+> Последняя корректировка: 2026-10-13. Актуальная сверка всех доступных разборов — в последнем разделе; прежние task IDs, очереди и gates сохраняются.
 
 Текущий продуктовый план: [Master Product & Engineering Spec](HIAIR_MASTER_SPEC_2026_2027.md). Этот amendment сохраняет security/release/research constraints; прежний [upgrade plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) — историческая база, интегрированная через PR83. Актуальные реализации и оставшиеся acceptance — в `docs/_operator/DELIVERY_REGISTRY.json`.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
@@ -68,3 +68,7 @@ AC: missing/stale/conflicting providers, uncalibrated model, out-of-domain и in
 HIAIR-KNOWLEDGE-008: WATCH / FUTURE explanatory research, после release и текущего forecast truth/benchmark/ensemble/bias/uncertainty. Core risk/forecast architecture не менять.
 Optional retrieval of licensed provider docs/environmental bulletins/event reports and permitted imagery через shared MultimodalRetrievalProvider; explanation сохраняет sources/time/location/freshness/uncertainty. AQI spike + wildfire bulletin association не established causality; unavailable source → insufficient explanation. Deterministic verified risk values отдельны от retrieved hypotheses.
 AC future: scientific/source review, geographic/time relevance, contradictory/stale bulletins, prompt injection и citation faithfulness; tenant-safe consent/minimization/delete и pre-egress policy. Health data не generic corpus, local embeddings не automatic privacy. EmbeddingGemma candidate requires official availability/license and benchmark, no activation/dependency now.
+
+## Сверка всех доступных AI разборов 2026-10-13
+
+[Актуальная матрица функций и AC](AI_DIGEST_RECONCILIATION_2026-10-13.md) уточняет existing HIAIR-PRED/KNOWLEDGE/ASSURE и H-01/H-05 eval: immediate vs forecast exposure, source-backed explanations, recommendation vs forecast confidence, reproducible candidate benchmark. Существующие forecast/ACTION/health/release реализации не создавать повторно. Shared MCP/local-model/voice integration остаётся после current release/quality и отдельно доказанной необходимости. Source/data/uncertainty tests развивать в существующих suites; core forecasting/risk и flags не менять.

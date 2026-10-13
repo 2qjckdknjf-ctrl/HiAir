@@ -881,3 +881,7 @@ The final product destination is:
 > **THE BEST ACTION FOR THIS PERSON RIGHT NOW**
 
 Every architectural and product decision in this roadmap should make that answer more truthful, useful, personal, explainable and actionable.
+
+## AI разборы и проверка существующих функций 2026-10-13
+
+[Сверка рекомендаций](AI_DIGEST_RECONCILIATION_2026-10-13.md) добавляет критерии качества/источников/уверенности к текущим задачам и сохраняет ACTION-first порядок. Смена модели, on-device forecasting и новый voice/MCP runtime не становятся prerequisite текущего продукта. Release/device acceptance продолжать по DELIVERY_REGISTRY.
