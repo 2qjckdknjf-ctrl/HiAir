@@ -1,6 +1,6 @@
 # HiAir — дополнение к roadmap, 2026-09-23
 
-> Последняя корректировка: 2026-10-13. Актуальная сверка всех доступных разборов — в последнем разделе; прежние task IDs, очереди и gates сохраняются.
+> Последняя консолидация: 2026-10-23. Текущая очередь, доказательства, владельцы и gates — в разделе «Единая очередь 2026-10-23». Датированные разделы ниже сохраняются как история; одинаковые рекомендации не создают новые задачи.
 
 Текущий продуктовый план: [Master Product & Engineering Spec](HIAIR_MASTER_SPEC_2026_2027.md). Этот amendment сохраняет security/release/research constraints; прежний [upgrade plan](HIAIR_MASTER_UPGRADE_PLAN_2026.md) — историческая база, интегрированная через PR83. Актуальные реализации и оставшиеся acceptance — в `docs/_operator/DELIVERY_REGISTRY.json`.
 Baseline main: ea8bd8d5df55c49b9b33d5953b3eb9979f07ea31. Исторические DEPLOYED записи master plan не перепроверены этим docs update.
@@ -72,3 +72,58 @@ AC future: scientific/source review, geographic/time relevance, contradictory/st
 ## Сверка всех доступных AI разборов 2026-10-13
 
 [Актуальная матрица функций и AC](AI_DIGEST_RECONCILIATION_2026-10-13.md) уточняет existing HIAIR-PRED/KNOWLEDGE/ASSURE и H-01/H-05 eval: immediate vs forecast exposure, source-backed explanations, recommendation vs forecast confidence, reproducible candidate benchmark. Существующие forecast/ACTION/health/release реализации не создавать повторно. Shared MCP/local-model/voice integration остаётся после current release/quality и отдельно доказанной необходимости. Source/data/uncertainty tests развивать в существующих suites; core forecasting/risk и flags не менять.
+
+
+## Единая очередь 2026-10-23
+
+Проверен `origin/main` **68a384061f46389f15fb161b9646904838aa65e1** и открытые PR на 23 октября 2026 (Europe/Madrid). Это обновление плана: ни merge, ни deploy, ни store submission не выполняются. Порядок требований: [Master Spec](HIAIR_MASTER_SPEC_2026_2027.md) → этот актуальный раздел → [delivery registry](../_operator/DELIVERY_REGISTRY.json) и отдельные release/device receipts. Исторические документы остаются доказательствами на свою дату, а не дополнительной очередью.
+
+### Реализовано, предложено и ещё не подтверждено
+
+| Состояние | Проверенное основание | Что остаётся открытым |
+|---|---|---|
+| MERGED / CODE_PRESENT: deterministic risk, forecast truth, ACTION bounds/ranking, timezone/DST, hazards, local calendar confirmation, free core | [PR83](https://github.com/2qjckdknjf-ctrl/HiAir/pull/83), [PR86](https://github.com/2qjckdknjf-ctrl/HiAir/pull/86); `backend/app/services/activity_plan_engine.py`, forecast services; existing risk/forecast/alert/activity test suites | Качество на независимом наборе, полная physical-device матрица и актуальная live-доставка не следуют из наличия кода |
+| MERGED / CODE_PRESENT: pool, concurrent Insights, health batching, Apple renewal ordering/restore | [PR88](https://github.com/2qjckdknjf-ctrl/HiAir/pull/88), [PR89](https://github.com/2qjckdknjf-ctrl/HiAir/pull/89) | Registry ещё ссылается на #88/build302; #89 уже merged, но доставка 303 и успешный физический restore этим проходом не подтверждены. Не реализовывать batching/restore повторно |
+| HISTORICAL_RUNTIME_EVIDENCE: build302/API и один iPhone Insights сценарий | [Current delivery status](../_operator/CURRENT_DELIVERY_STATUS.md), [manifest302](../release/RELEASE_MANIFEST_302_2026-10-11.json) | Доказательства от 11 октября; один тест 5.44s не p95 и не полная сертификация. Свежий production SHA не проверялся |
+| PR_ONLY: manual production approval и Play public link | [PR90](https://github.com/2qjckdknjf-ctrl/HiAir/pull/90) OPEN DRAFT, [PR80](https://github.com/2qjckdknjf-ctrl/HiAir/pull/80) OPEN DRAFT | #90 зависит от protected environment reviewers/main-only и последующего staging same-SHA gate; #80 зависит от реально доступной Play-страницы. Их наличие не закрывает gate |
+| PLANNED: full independent benchmark, scoped ROMA adapter, provider comparison/bias/knowledge/voice | Existing HIAIR IDs ниже; [13 October inventory](AI_DIGEST_RECONCILIATION_2026-10-13.md) | Требуются выделенный срез, воспроизводимое доказательство и отдельное решение о выпуске |
+
+### Дедупликация AI Scout и разборов
+
+Проверены файлы и состояние всех трёх draft PR: [#92 / 15 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/92), [#93 / 18 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/93), [#94 / 20 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/94). При первоначальной сверке все были OPEN DRAFT; после проверки замещающего [PR95](https://github.com/2qjckdknjf-ctrl/HiAir/pull/95) все три **CLOSED, NOT MERGED / SUPERSEDED** 23 октября. Ветки и история сохранены, ни один не считается внедрением. Все уникальные рекомендации представлены следующими existing IDs; не переносить dated addendum как отдельные очереди. PR95 остаётся draft и требует review/подтверждения перед merge.
+
+| Источник | Единственное место в очереди |
+|---|---|
+| #92: deterministic engine/provenance, PM2.5/stale/notifications | HIAIR-SEC-000/PRED-002: data integrity и независимый regression corpus |
+| #92: explanation factuality/latency/cost, candidate LLM | HIAIR-KNOWLEDGE-008: offline explanation evaluation; смена модели P2 |
+| #93: Search & Fetch, source trust/freshness; no web-derived measurements | HIAIR-KNOWLEDGE-008 и PRED-002; внешние тексты только explanatory references |
+| #94: Risk Engine coding benchmark | PRED-002, тот же корпус; не второй Risk Engine |
+| #94: alternative compute | RESEARCH-PROVIDERS-006: P2 watch при доказанной потребности |
+| Разборы 21–23 октября: independent monitoring, agent authority, credential brokering, быстрый routing/Decisions API, skill metrics | ASSURE-003 использует общие ROMA/Grow contracts. Decisions API — кандидат в отдельный benchmark explanation/routing; вычисление риска остаётся deterministic. Новые vendor SDK и права не разрешены этой записью |
+
+[Разборы](https://chatgpt.com/c/6ac9d8f6-bca8-83ed-a870-d505bf1c9c69) — входные рекомендации, не доказательства API availability, clinical efficacy или реализации. Последние доступные тексты 21–23 октября были ограничены выгрузкой; непроверенные названия/метрики остаются кандидатами. [Decisions API, 22 октября](https://openai.com/index/decisions-api/) подтверждает bounded classification/choice/score, но не скорость/качество на HiAir; [METR monitoring exercise, 22 октября](https://metr.org/blog/2026-10-22-red-teaming-openai-agent-monitoring/) мотивирует независимую проверку полноты событий и относится к системе на дату упражнения, не доказывает текущее состояние после исправлений. [1Password for AI agents](https://1password.com/blog/1password-for-ai-agents) — возможный Credential Broker adapter; account support и containment сессии ещё не подтверждены. Перед experiment проверить доступность для аккаунта, endpoint/version, data policy, цену/лимиты и воспроизводимость; отсутствие подтверждения блокирует vendor-specific spike, но не общие тесты данных.
+
+### Приоритеты, владельцы, зависимости и приемка
+
+Владельцы ниже — ответственные **роли**, персональное назначение не подтверждено (TBD). P0 — gate до затрагиваемого выпуска; P1 — следующий ограниченный срез; P2 — отложенный experiment. Вехи зависят от доказательств, календарные сроки не обещаются.
+
+| Existing ID / приоритет / состояние | Ответственный / зависимость / веха | Измеримые критерии приемки |
+|---|---|---|
+| HIAIR-SEC-000 + REL-001 / **P0**, hardening delivered, release gaps OPEN | Release/Security lead (TBD); текущие protected checks; **H0** | Сверить #89 main SHA, фактический deployed fingerprint, signed artifact hash, installed version и device run отдельно. До promotion ноль failing обязательных consent/revoke/account-switch/stale/null/store-verifier cases и свежий dependency audit. GitHub alerts inventory вернул 403/disabled; release owner подтверждает рабочий scanning/audit coverage, отсутствие выдачи не считать отсутствием уязвимостей. #90 нельзя считать закрытым без доказанных reviewer/main-only настроек; каждый merge/deploy требует отдельного подтверждения пользователя |
+| HIAIR-PRED-002 / **P0 инварианты, P1 расширение tests**, PARTIAL | Backend/data QA (TBD); H0 для выпуска, offline tests могут готовиться параллельно; **H1** | Один frozen versioned corpus в существующих `test_air_risk_engine`, forecast, alert и activity suites: PM2.5 spikes, missing/stale/future timestamps, units, current-vs-forecast, DST, gaps в hourly intervals, risk-threshold edges, null→not-zero, notification cooldown/quiet hours. Expected outputs задаёт reviewer независимо от изменяющего код агента. 100% critical cases PASS, ноль fabricated measurements; exact SHA/provider/config/dataset hash и raw run evidence |
+| HIAIR-REL-001 / **P0**, DEVICE_ACCEPTANCE_PARTIAL | Mobile QA/Release (TBD); H0/H1; **H2** | iPhone restore и ACTION/calendar/consent/offline/account-switch на установленной candidate version; physical Android ACTION/Health Connect/Play Billing. По каждому тесту executed/pass/fail/skip и устройство. Отсутствующее устройство = BLOCKED, не PASS. Последний historical успешный тест сохраняется |
+| HIAIR-KNOWLEDGE-008 / **P1 offline**, model change **P2** | AI eval + domain reviewer (TBD); H1 facts и approved data policy; **H3** | Baseline template/current model vs candidate на одинаковом замороженном наборе во всех поддерживаемых локалях; не менее 3 повторов. Ноль critical false numerical/risk claims и unauthorized health-data egress; source/time/location/citation, contradiction/no-source/abstention cases. Отчёт factuality, fallback, p50/p95 latency и total cost per independently verified explanation; threshold/budget задать до run. Победитель не назначается по одной vendor-метрике |
+| HIAIR-ASSURE-003 / **P1 контракт, P2 включение**, PLANNED | ROMA adapter + Privacy lead (TBD); H1–H2, readiness ROMA independent verifier / Dynamic Agent Authority / Credential Broker и Grow approval queue; **H4** | Advisory read/propose adapter: task/repo SHA/config/input hash → deterministic expected result → independent verdict. Deny expired/revoked/cross-account scope, logs cover allowed/denied/failed tool actions without raw health/precise location/secrets. У evidence есть retention/source access; no agent self-approval. Включение только после privacy review и готового disable path |
+| HIAIR-RESEARCH-PROVIDERS-006 + BIAS-005 / **P2**, AFTER RELEASE | Data science (TBD); H2 + licensed aligned forecast/observation pairs; **H5** | Pre-registered sample minimum/coverage; issue-before-observation and temporal/geographic holdouts. Raw provider → simple ensemble → correction; MAE/RMSE/bias, extreme slices, missingness, uncertainty calibration и drift отдельно. Никакой production смены без положительного shadow report и отдельного release review |
+| HIAIR-FUTURE-UX-007 / VOICE-004; AMBIENT → ROUTES → TWIN → HOME+CARE / **P2**, DEFERRED | Product owner (TBD); H2, existing master-spec phase gates; later milestone | Для каждого этапа отдельный approved scope и existing-spec AC; consent/minimization/revoke обязательны. Принятие рекомендации не доказывает медицинский эффект. Voice/новый provider/compute лишь после конкретной подтверждённой потребности |
+
+Безопасная последовательность: H0 evidence/release gate → H1 deterministic data regression → H2 real device acceptance → H3 offline explanation comparison → H4 advisory integration → H5 data research и дальнейшие product phases. Tests и проверка публичных provider contracts допускаются параллельно; production действия, реальные health data egress и полномочия не расширяются. Изменения provider/model/config invalidates соответствующий benchmark и требуют повторной независимой проверки.
+
+### Нерешённые блокировки на дату сверки
+
+1. Физический Android и полная device/privacy/store матрица не подтверждены; iPhone restore completion остаётся открытым.
+2. Delivery registry/main расходятся по #89: нужен свежий immutable deployment/artifact/device readback, а не повторная реализация.
+3. #90 OPEN: protected production reviewers/main-only и staging isolation/same-SHA evidence не подтверждены; #80 public Play URL требует живой проверки до изменения CTA.
+4. Независимый corpus/owners и заранее согласованные cost/latency budgets ещё должны быть зафиксированы; новостные API и shared ROMA/Grow adapter readiness не доказаны этой документацией.
+
+5. GitHub Dependabot inventory 23 октября вернул HTTP403 «alerts are disabled»; текущие advisories не удалось перечислить. Нужна проверка scanning coverage/свежего dependency audit перед release; этот docs-проход настройки не меняет.

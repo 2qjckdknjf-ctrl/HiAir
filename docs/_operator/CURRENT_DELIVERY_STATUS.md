@@ -1,4 +1,6 @@
-# Текущее состояние доставки HiAir — 11 октября 2026
+# Состояние доставки HiAir — evidence snapshot 11 октября 2026
+
+> Сверка 2026-10-23: main `68a384061f46389f15fb161b9646904838aa65e1` уже включает [PR89](https://github.com/2qjckdknjf-ctrl/HiAir/pull/89) health batching/restore. Описание «готовятся в 303» ниже — историческое, не актуальная code queue. Свежая доставка 303 и physical restore этим docs-проходом не подтверждены. [Актуальная очередь](../roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md#единая-очередь-2026-10-23) хранит эти gaps; старые PASS/manifest не переименованы в свежие.
 
 Текущий продуктовый план: `docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md`; текущий этап — ACTION. Октябрьские дополнения `HIAIR_PLAN_AMENDMENT_2026-09-23.md` сохраняют security/release/research constraints. AMBIENT → ROUTES → CLIMATE TWIN → HOME+CARE — последующие отдельные этапы; существующий код повторно не реализовывать.
 
