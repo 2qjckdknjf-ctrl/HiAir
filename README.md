@@ -53,7 +53,7 @@ HiAir - мобильный wellness-ассистент по жаре и каче
 - `docs/feat-morning-briefing-spec.md` - спека Morning Briefing.
 - `docs/cycle-aurora-calm-execution-plan.md` - пошаговый план цикла Aurora Calm.
 
-## С чего начинаем сейчас
+## Исторический порядок до октябрьской консолидации
 
 1. Поддерживаем truth-alignment между docs и фактическим кодом.
 2. Закрываем critical/high gaps из `docs/_operator/master-gap-report.md`.
@@ -61,6 +61,6 @@ HiAir - мобильный wellness-ассистент по жаре и каче
 4. Активный цикл: Aurora Calm v2 + Insights — см. `docs/cycle-aurora-calm-execution-plan.md`.
 
 
-## Development planning — 2026-09-23
+## Текущий план — 2026-10-23
 
-Cursor: read [master roadmap](docs/roadmap/HIAIR_MASTER_UPGRADE_PLAN_2026.md) and [planning amendment](docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md) before new feature work.
+Начинать с [Master Product & Engineering Spec](docs/roadmap/HIAIR_MASTER_SPEC_2026_2027.md), [единой очереди P0/P1/P2](docs/roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md#единая-очередь-2026-10-23) и [delivery registry](docs/_operator/DELIVERY_REGISTRY.json). ACTION и health/restore follow-up уже в main; delivery/device acceptance проверяются отдельно. AI Scout #92/#93/#94 сверены и сведены в existing IDs; старые MVP/Aurora/upgrade документы — история требований, не параллельные очереди.

@@ -8,6 +8,8 @@
 **Product direction:** Personal Environmental Intelligence System → Personal Climate OS  
 **Execution model:** audit → design → implement → test → runtime evidence → PR  
 
+**Execution review 2026-10-23:** the [single prioritized queue](HIAIR_PLAN_AMENDMENT_2026-09-23.md#единая-очередь-2026-10-23) consolidates AI Scout #92/#93/#94 into existing IDs, with owners, dependencies and acceptance gates. ACTION engineering is already merged; data quality, actual delivery and device acceptance remain separate. Later phases below retain their gates.
+
 This document supersedes the old release numbering as the next-generation product plan. It MUST be reconciled against real production code before implementation. Existing capabilities must be reused and hardened rather than reimplemented.
 
 ---
