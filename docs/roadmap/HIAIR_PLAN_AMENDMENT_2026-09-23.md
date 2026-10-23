@@ -90,7 +90,7 @@ AC future: scientific/source review, geographic/time relevance, contradictory/st
 
 ### Дедупликация AI Scout и разборов
 
-Проверены файлы и состояние всех трёх draft PR: [#92 / 15 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/92), [#93 / 18 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/93), [#94 / 20 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/94). Все OPEN DRAFT; ни один не считается внедрением. После одобрения этой консолидации их содержание представлено следующими existing IDs; не переносить dated addendum как отдельные очереди. Исходные ветки/PR сохраняются до review, их закрытие не выполнялось.
+Проверены файлы и состояние всех трёх draft PR: [#92 / 15 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/92), [#93 / 18 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/93), [#94 / 20 октября](https://github.com/2qjckdknjf-ctrl/HiAir/pull/94). При первоначальной сверке все были OPEN DRAFT; после проверки замещающего [PR95](https://github.com/2qjckdknjf-ctrl/HiAir/pull/95) все три **CLOSED, NOT MERGED / SUPERSEDED** 23 октября. Ветки и история сохранены, ни один не считается внедрением. Все уникальные рекомендации представлены следующими existing IDs; не переносить dated addendum как отдельные очереди. PR95 остаётся draft и требует review/подтверждения перед merge.
 
 | Источник | Единственное место в очереди |
 |---|---|
