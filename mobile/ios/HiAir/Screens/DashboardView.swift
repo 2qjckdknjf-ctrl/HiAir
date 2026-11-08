@@ -559,6 +559,17 @@ struct DashboardView: View {
             onConnect: { showWearableConsent = true },
             onOpenSettings: {
                 HealthKitService.openHealthApp()
+            },
+            onRetryRevoke: {
+                Task {
+                    guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
+                    // Retry incomplete revoke/cleanup for the same owner — never reconnect.
+                    await HealthKitService.shared.revokeConsent(
+                        userId: session.userId,
+                        accessToken: session.accessToken
+                    )
+                    viewModel.wearableConnectionState = HealthKitService.shared.connectionState
+                }
             }
         )
     }
@@ -608,10 +619,7 @@ struct DashboardView: View {
             .buttonStyle(.plain)
 
             Spacer()
-            HiAirLivePill(
-                isLive: !viewModel.loading && viewModel.environmental != nil,
-                label: dg("live")
-            )
+            freshnessPill
             Image("HiAirWordmark")
                 .renderingMode(.original)
                 .resizable()
@@ -1130,6 +1138,35 @@ struct DashboardView: View {
             // Never label production UI as "sample/demo" for end users.
             return "dashboard.source_estimated"
         }
+    }
+
+    @ViewBuilder
+    private var freshnessPill: some View {
+        let raw = viewModel.freshness.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = raw.lowercased()
+        let isLive = lower == "live"
+        let label: String = {
+            if viewModel.loading && viewModel.environmental == nil {
+                return session.l("dashboard.freshness_updating")
+            }
+            if viewModel.environmental == nil {
+                return session.l("dashboard.no_data")
+            }
+            switch lower {
+            case "live":
+                return session.l("dashboard.source_live")
+            case "cached":
+                return session.l("dashboard.source_cached")
+            case "stale":
+                return session.l("dashboard.freshness_stale")
+            case "":
+                return session.l("dashboard.source_estimated")
+            default:
+                // Prefer explicit age/source from API when present.
+                return raw
+            }
+        }()
+        HiAirLivePill(isLive: isLive && !viewModel.loading, label: label)
     }
 }
 

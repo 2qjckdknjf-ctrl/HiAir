@@ -152,6 +152,8 @@ struct WearableLoadCardView: View {
     let connectionState: WearableConnectionState
     var onConnect: () -> Void
     var onOpenSettings: () -> Void
+    /// Retry incomplete revoke/cleanup for the same account — never reconnect or resume upload.
+    var onRetryRevoke: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -207,8 +209,9 @@ struct WearableLoadCardView: View {
             Text(session.l("wearable.consent.revoke_failed"))
                 .font(HiAirTypography.bodyMD)
                 .foregroundStyle(HiAirV2Theme.secondaryText)
-            Button(session.l("wearable.consent.retry"), action: onConnect)
+            Button(session.l("wearable.consent.retry_revoke"), action: { onRetryRevoke?() })
                 .buttonStyle(HiAirSecondaryButtonStyle())
+                .disabled(onRetryRevoke == nil)
         case .consentFailed:
             Text(session.l("wearable.consent.failed"))
                 .font(HiAirTypography.bodyMD)

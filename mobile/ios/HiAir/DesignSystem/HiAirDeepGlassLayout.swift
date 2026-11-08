@@ -316,9 +316,13 @@ struct HiAirOutlineCTAButtonStyle: ButtonStyle {
 }
 
 enum HiAirDeepGlassTime {
-    static func hour(from raw: String) -> Int? {
+    static func hour(from raw: String, timeZoneIdentifier: String? = nil) -> Int? {
         if let date = HiAirHumanDate.date(fromISO: raw) {
-            return Calendar.current.component(.hour, from: date)
+            var calendar = Calendar(identifier: .gregorian)
+            if let timeZoneIdentifier, let zone = TimeZone(identifier: timeZoneIdentifier) {
+                calendar.timeZone = zone
+            }
+            return calendar.component(.hour, from: date)
         }
         let digits = raw.prefix(2)
         if digits.count == 2, digits.allSatisfy(\.isNumber) {

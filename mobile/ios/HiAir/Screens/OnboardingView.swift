@@ -51,30 +51,37 @@ struct OnboardingView: View {
                 }
 
                 if step != 0 {
-                    HStack(spacing: 10) {
-                        if canGoBack {
-                            Button(session.l("onboarding.back")) {
-                                step = max(step - 1, 0)
+                    VStack(spacing: 10) {
+                        HStack(spacing: 10) {
+                            if canGoBack {
+                                Button(session.l("onboarding.back")) {
+                                    step = max(step - 1, 0)
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                                .disabled(healthService.connectionState == .consentSaving)
+                            }
+                            Button(primaryButtonTitle) {
+                                Task { await handlePrimaryAction() }
+                            }
+                            .buttonStyle(HiAirGradientButtonStyle())
+                            .disabled(step == 5 && healthService.connectionState == .consentSaving)
+                            .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.finishButton)
+                        }
+                        if step == 5 && healthService.connectionState != .connected
+                            && healthService.connectionState != .consentSaving
+                            && healthService.connectionState != .systemAuthorized {
+                            Button(session.l("wearable.consent.skip")) {
+                                step += 1
                             }
                             .buttonStyle(HiAirSecondaryButtonStyle())
+                            .accessibilityIdentifier("onboarding.health.skip")
                         }
-                        Button(primaryButtonTitle) {
-                            Task { await handlePrimaryAction() }
-                        }
-                        .buttonStyle(HiAirGradientButtonStyle())
-                        .disabled(step == 5 && (healthService.connectionState == .consentSaving))
-                        .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.finishButton)
                     }
-                    HiAirProgressDots(current: min(step, 5), total: 6)
-                        .frame(maxWidth: .infinity)
-                    Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: session.preferredLanguage), step + 1))
-                        .font(HiAirTypography.caption)
-                        .foregroundStyle(HiAirColors.Text.tertiary)
-                        .frame(maxWidth: .infinity)
                 }
+                // Single progress indicator for all steps (intro included).
                 HiAirProgressDots(current: min(step, 5), total: 6)
                     .frame(maxWidth: .infinity)
-                Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: session.preferredLanguage), step + 1))
+                Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: session.preferredLanguage), min(step, 5) + 1))
                     .font(HiAirTypography.caption)
                     .foregroundStyle(HiAirColors.Text.tertiary)
                     .frame(maxWidth: .infinity)
@@ -130,6 +137,14 @@ struct OnboardingView: View {
         }
         if step == 5 {
             if healthService.connectionState == .connected {
+                step += 1
+                return
+            }
+            // Unavailable HealthKit / missing auth must not trap the user on this step.
+            guard healthService.isHealthDataAvailable(),
+                  healthService.configurationIssueMessage() == nil,
+                  !session.userId.isEmpty,
+                  !session.accessToken.isEmpty else {
                 step += 1
                 return
             }
@@ -234,19 +249,15 @@ struct OnboardingView: View {
                 .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.startButton)
 
                 Button {
+                    // No city picker on this step — continue and choose place later in Settings.
                     step = 1
                 } label: {
-                    Label(HiAirDeepGlassCopy.t("manual_location", lang: lang), systemImage: "map")
+                    Label(HiAirDeepGlassCopy.t("location_later", lang: lang), systemImage: "map")
                 }
                 .buttonStyle(HiAirOutlineCTAButtonStyle())
             }
             .padding(HiAirSpacing.md)
             .hiAirGlassSurface(prominence: .standard, glow: HiAirColors.Spectrum.electricBlue)
-
-            HiAirProgressDots(current: 0, total: 6)
-            Text(String(format: HiAirDeepGlassCopy.t("step_of", lang: lang), 1))
-                .font(HiAirTypography.caption)
-                .foregroundStyle(HiAirColors.Text.tertiary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -350,6 +361,14 @@ struct OnboardingView: View {
             Text(session.l("wearable.consent.disclaimer"))
                 .font(AuroraTokens.Typography.caption)
                 .foregroundStyle(HiAirV2Theme.tertiaryText)
+            Text(session.l("onboarding.health.optional_body"))
+                .font(AuroraTokens.Typography.caption)
+                .foregroundStyle(HiAirV2Theme.tertiaryText)
+            if !healthService.isHealthDataAvailable() || healthService.configurationIssueMessage() != nil {
+                Text(session.l("onboarding.health.unavailable_body"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            }
             switch healthService.connectionState {
             case .consentSaving, .systemAuthorized:
                 Text(session.l("wearable.consent.saving"))
@@ -363,6 +382,10 @@ struct OnboardingView: View {
                 Text(session.l("wearable.consent.failed"))
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
+            case .permissionDenied:
+                Text(session.l("wearable.dashboard.denied"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
             default:
                 EmptyView()
             }

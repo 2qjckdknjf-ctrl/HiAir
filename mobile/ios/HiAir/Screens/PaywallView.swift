@@ -120,7 +120,9 @@ private struct PaywallContent: View {
                             Button(session.l("common.close")) { dismiss() }
                                 .font(HiAirTypography.bodyMD.weight(.semibold))
                                 .foregroundStyle(HiAirColors.Spectrum.cyan)
-                                .disabled(purchaseBusy)
+                                // Pending backend verification must remain dismissible;
+                                // only an in-flight StoreKit purchase blocks close.
+                                .disabled(purchasingProductId != nil || subscriptionService.isPurchaseInProgress)
                                 .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
                         }
                     }
@@ -133,8 +135,14 @@ private struct PaywallContent: View {
                 SubscriptionDiagnostics.log("paywall_appeared", resultType: "\(subscriptionService.catalogState)")
                 subscriptionService.loadProducts()
             }
-            .onChange(of: session.isPremium) { isPremium in
-                if isPremium { dismiss() }
+            .onChange(of: session.isPremium) { _ in
+                dismissIfConfirmedPremium()
+            }
+            .onChange(of: session.premiumActivationPending) { _ in
+                dismissIfConfirmedPremium()
+                if session.premiumActivationPending {
+                    statusMessage = session.l("paywall.verify_pending_no_repurchase")
+                }
             }
             .sheet(isPresented: Binding(
                 get: { safariURL != nil },
@@ -147,8 +155,17 @@ private struct PaywallContent: View {
             }
         }
         .preferredColorScheme(.dark)
-        .interactiveDismissDisabled(purchaseBusy)
+        .interactiveDismissDisabled(purchasingProductId != nil || subscriptionService.isPurchaseInProgress)
         .accessibilityIdentifier(HiAirAccessibilityID.Paywall.root)
+    }
+
+    private var hasConfirmedPremium: Bool {
+        session.isPremium && !session.premiumActivationPending
+    }
+
+    private func dismissIfConfirmedPremium() {
+        guard hasConfirmedPremium else { return }
+        dismiss()
     }
 
     private var termsURL: URL { URL(string: "https://hiair.io/terms/")! }
@@ -417,7 +434,8 @@ private struct PaywallContent: View {
     }
 
     private func subscribeDisabledReason(for product: Product) -> String? {
-        if session.isPremium { return "entitlement_active" }
+        if hasConfirmedPremium { return "entitlement_active" }
+        if session.premiumActivationPending { return "verification_pending" }
         if subscriptionService.isLoading { return "loading" }
         if purchaseBusy { return "purchase_in_progress" }
         if product.displayPrice.isEmpty { return "no_product" }
@@ -489,19 +507,23 @@ private struct PaywallContent: View {
                 accessToken: session.accessToken,
                 performPurchase: performPurchase
             )
-            session.applyEntitlement(status.entitlement)
-            if status.entitlement?.isPremium == true || session.isPremium {
+            if let entitlement = status.entitlement, entitlement.isPremium {
+                session.confirmPremiumActivation(entitlement)
+            } else {
+                session.applyEntitlement(status.entitlement)
+            }
+            if hasConfirmedPremium {
                 RuntimePerformanceProbe.end("premium_unlock", success: true)
                 statusMessage = session.l("paywall.success")
                 dismiss()
                 return
             }
-            // Bounded fast /me retries (not 8s foreground debounce).
-            statusMessage = session.l("paywall.verify_pending")
+            // Apple success, HiAir verification still open — never claim success or dismiss.
+            statusMessage = session.l("paywall.verify_pending_no_repurchase")
             for _ in 0..<4 {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 await session.refreshEntitlement()
-                if session.isPremium {
+                if hasConfirmedPremium {
                     RuntimePerformanceProbe.end("premium_unlock", success: true)
                     statusMessage = session.l("paywall.success")
                     dismiss()
@@ -509,7 +531,7 @@ private struct PaywallContent: View {
                 }
             }
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "entitlement_lag")
-            statusMessage = session.l("paywall.verify_pending")
+            statusMessage = session.l("paywall.verify_pending_no_repurchase")
         } catch SubscriptionServiceError.cancelled {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "cancelled")
             statusMessage = session.l("paywall.purchase_cancelled")
@@ -543,6 +565,7 @@ private struct PaywallContent: View {
             statusMessage = session.l("paywall.purchase_in_progress")
             return
         }
+        let alreadyActive = hasConfirmedPremium
         purchasingProductId = "restore"
         defer { purchasingProductId = nil }
         statusMessage = session.l("paywall.restoring")
@@ -552,10 +575,21 @@ private struct PaywallContent: View {
                 accessToken: session.accessToken
             )
             guard !Task.isCancelled, status.userId == session.userId else { return }
-            session.applyEntitlement(status.entitlement)
-            if status.entitlement?.isPremium == true || session.isPremium {
+            if let entitlement = status.entitlement, entitlement.isPremium {
+                session.confirmPremiumActivation(entitlement)
+            } else {
+                session.applyEntitlement(status.entitlement)
+            }
+            let verifiedCount = subscriptionService.lastRestoreVerifiedTransactionCount
+            let entitlementActive = status.entitlement?.isPremium == true
+            if entitlementActive && verifiedCount > 0 {
                 statusMessage = session.l("paywall.restore_success")
                 dismiss()
+            } else if entitlementActive || alreadyActive {
+                statusMessage = session.l("paywall.restore_already_active")
+                if hasConfirmedPremium { dismiss() }
+            } else if verifiedCount > 0 {
+                statusMessage = session.l("paywall.verify_pending_no_repurchase")
             } else {
                 statusMessage = session.l("paywall.restore_nothing")
             }

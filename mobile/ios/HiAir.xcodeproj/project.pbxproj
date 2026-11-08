@@ -107,6 +107,7 @@
 		E98E261451A02F580F8F4884 /* MainTabScrollHittabilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EF67EA453D311B4C7330E9 /* MainTabScrollHittabilityUITests.swift */; };
 		EBE531AFB81B02697667B41F /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64303D1E40994733CC1E0A /* ProductAnalytics.swift */; };
 		EBE8A6456ECE0DB5528DE9A7 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D61A692A21F8137C8C9A0A /* AppSession.swift */; };
+		EC9B0A20C90E3DE4B4C75DA1 /* HourlyRiskChartHonestyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 774B77D8CD765EA7B369EE96 /* HourlyRiskChartHonestyTests.swift */; };
 		EDD042ACAB5408F840DA10C9 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */; };
 		F1FD4A15DAFF7E0E44495F4F /* WearableStatusPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913BE7B3486A1DA732128083 /* WearableStatusPresentation.swift */; };
 		F21832066506A0D19A91D0FF /* HiAirDeepGlassLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A444E750C40287B303263C /* HiAirDeepGlassLayout.swift */; };
@@ -190,6 +191,7 @@
 		6E642A50CBF2DCC12C277E05 /* HiAirAccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirAccessibilityID.swift; sourceTree = "<group>"; };
 		70EAC9352AEDC77C98B4E488 /* AppReviewGuidelineCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewGuidelineCopyTests.swift; sourceTree = "<group>"; };
 		715102D414AC0A39D31813C2 /* HiAirFloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirFloatingTabBar.swift; sourceTree = "<group>"; };
+		774B77D8CD765EA7B369EE96 /* HourlyRiskChartHonestyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourlyRiskChartHonestyTests.swift; sourceTree = "<group>"; };
 		7E043E3C54AF656C2AE3DAF0 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		81AEC3B255250F766121E890 /* StoreProductIDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreProductIDs.swift; sourceTree = "<group>"; };
 		85A830216F3D632CB7F632E5 /* SymptomTaxonomyDTOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomTaxonomyDTOTests.swift; sourceTree = "<group>"; };
@@ -405,6 +407,7 @@
 				979A9003276BD007D952A744 /* HiAirDeepGlassTokenTests.swift */,
 				CD19456D03A4B04C03A0348B /* HiAirHumanDateTests.swift */,
 				2D9130F80936891489C73F67 /* HiAirTypographyDynamicTypeTests.swift */,
+				774B77D8CD765EA7B369EE96 /* HourlyRiskChartHonestyTests.swift */,
 				CCFBA10AF3A09D3861286628 /* InfoPlistPackagingTests.swift */,
 				054B7A2FF4D2727CF1F416F0 /* InsightsLoadingTests.swift */,
 				AF5EDBAE81558D23A4B388E6 /* PaywallLocalizationContractTests.swift */,
@@ -644,6 +647,7 @@
 				1A77C5318CAD3DC901E109F2 /* HiAirDeepGlassTokenTests.swift in Sources */,
 				0B19571439FFB543F25751C6 /* HiAirHumanDateTests.swift in Sources */,
 				9CC86DD95DDDF6D53601E006 /* HiAirTypographyDynamicTypeTests.swift in Sources */,
+				EC9B0A20C90E3DE4B4C75DA1 /* HourlyRiskChartHonestyTests.swift in Sources */,
 				620932E297A0EFA3FE5AA010 /* InfoPlistPackagingTests.swift in Sources */,
 				5AEA09683A4C48D2D8B8AF67 /* InsightsLoadingTests.swift in Sources */,
 				7321D183C576FE8BB94645C3 /* PaywallLocalizationContractTests.swift in Sources */,

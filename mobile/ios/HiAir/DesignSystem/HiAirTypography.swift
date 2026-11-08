@@ -106,13 +106,15 @@ extension View {
 }
 
 extension HiAirTypography {
-    static var displayXL: Font { font(.displayXL, sizeCategory: .medium) }
-    static var displayLG: Font { font(.displayLG, sizeCategory: .medium) }
-    static var titleLG: Font { font(.titleLG, sizeCategory: .medium) }
-    static var titleMD: Font { font(.titleMD, sizeCategory: .medium) }
-    static var bodyLG: Font { font(.bodyLG, sizeCategory: .medium) }
-    static var bodyMD: Font { font(.bodyMD, sizeCategory: .medium) }
-    static var caption: Font { font(.caption, sizeCategory: .medium) }
+    // Semantic system fonts scale with Dynamic Type at render time.
+    // Prefer `.hiAirFont(...)` when an explicit sizeCategory is already in scope.
+    static var displayXL: Font { .system(.largeTitle, design: .rounded).weight(.bold) }
+    static var displayLG: Font { .system(.title, design: .default).weight(.bold) }
+    static var titleLG: Font { .system(.title2, design: .default).weight(.semibold) }
+    static var titleMD: Font { .system(.headline, design: .default).weight(.semibold) }
+    static var bodyLG: Font { .system(.body, design: .default).weight(.medium) }
+    static var bodyMD: Font { .system(.subheadline, design: .default).weight(.medium) }
+    static var caption: Font { .system(.caption, design: .default).weight(.semibold) }
 
     #if DEBUG
     static func scaledPointSize(

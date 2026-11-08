@@ -82,7 +82,9 @@ final class InsightsViewModel: ObservableObject {
                 loading = false
                 partialFailure = hadFailure
                 if hadFailure {
-                    statusText = HiAirL10n.t("insights.failed", lang: language)
+                    statusText = hasContent
+                        ? HiAirL10n.t("insights.partial_body", lang: language)
+                        : HiAirL10n.t("insights.failed", lang: language)
                     if !hasContent { lastError = statusText }
                 } else {
                     let total = trends.count + associations.count + items.count
@@ -261,9 +263,20 @@ struct InsightsView: View {
                         .v2Card()
                     } else {
                         if viewModel.partialFailure {
-                            HiAirErrorView(title: session.l("common.error.title"),
-                                message: session.l("insights.failed"), retryTitle: session.l("insights.retry"),
-                                onRetry: { Task { await refreshInsights() } }).v2Card()
+                            // Soft local banner — keep available content visible.
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(session.l("insights.partial_title"))
+                                    .font(AuroraTokens.Typography.titleMD)
+                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                                Text(session.l("insights.partial_body"))
+                                    .font(AuroraTokens.Typography.bodyMD)
+                                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                                Button(session.l("insights.retry")) {
+                                    Task { await refreshInsights() }
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                            }
+                            .v2Card()
                         }
                         windowPicker
                         todayCard
@@ -432,16 +445,22 @@ struct InsightsView: View {
 
     private var premiumLockedCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(session.l("insights.premium_locked.title"))
-                .font(AuroraTokens.Typography.titleMD)
-                .foregroundStyle(HiAirV2Theme.primaryText)
-            Text(session.l("insights.premium_locked.body"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-            Button(session.l("insights.premium_locked.cta")) {
-                session.showPaywall = true
+            if session.premiumActivationPending {
+                Text(session.l("paywall.verify_pending_no_repurchase"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            } else {
+                Text(session.l("insights.premium_locked.title"))
+                    .font(AuroraTokens.Typography.titleMD)
+                    .foregroundStyle(HiAirV2Theme.primaryText)
+                Text(session.l("insights.premium_locked.body"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                Button(session.l("insights.premium_locked.cta")) {
+                    session.showPaywall = true
+                }
+                .buttonStyle(HiAirGradientButtonStyle())
             }
-            .buttonStyle(HiAirGradientButtonStyle())
         }
         .v2Card()
     }
