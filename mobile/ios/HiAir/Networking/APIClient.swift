@@ -1919,6 +1919,8 @@ final class APIClient {
         components.queryItems = [URLQueryItem(name: "profile_id", value: profileId)]
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
+        // Soft enrichment only — never hold the shared session for the full 30s default.
+        request.timeoutInterval = 12
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {

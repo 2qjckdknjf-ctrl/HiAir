@@ -378,6 +378,86 @@ final class SubscriptionService: ObservableObject {
         }
     }
 
+    /// Re-submit unfinished StoreKit transactions to HiAir verify without a new purchase sheet.
+    /// Used when Apple succeeded but backend verify lagged / failed transiently.
+    @discardableResult
+    func retryUnfinishedActivations(
+        userId: String,
+        accessToken: String
+    ) async throws -> SubscriptionStatusResponse? {
+        guard purchaseGuard.begin() else {
+            throw SubscriptionServiceError.purchaseInProgress
+        }
+        isPurchaseInProgress = true
+        defer {
+            purchaseGuard.end()
+            isPurchaseInProgress = false
+        }
+        SubscriptionDiagnostics.log("unfinished_activation_retry_started")
+        let latest = try await processUnfinishedTransactions(
+            userId: userId,
+            accessToken: accessToken,
+            correlationId: "unfinished_retry",
+            failFast: true
+        )
+        SubscriptionDiagnostics.log(
+            "unfinished_activation_retry_finished",
+            entitlementActive: latest?.entitlement?.isPremium == true
+        )
+        return latest
+    }
+
+    /// `Transaction.unfinished` is an open-ended stream — drain current items with a timeout,
+    /// then cancel so restore / activation retry cannot hang forever.
+    private func processUnfinishedTransactions(
+        userId: String,
+        accessToken: String,
+        correlationId: String,
+        failFast: Bool,
+        drainNanoseconds: UInt64 = 800_000_000
+    ) async throws -> SubscriptionStatusResponse? {
+        final class DrainBox: @unchecked Sendable {
+            var latest: SubscriptionStatusResponse?
+            var firstError: Error?
+        }
+        let box = DrainBox()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in
+                for await result in Transaction.unfinished {
+                    try Task.checkCancellation()
+                    guard case .verified(let transaction) = result else { continue }
+                    guard StoreProductIDs.all.contains(transaction.productID) else {
+                        await transaction.finish()
+                        continue
+                    }
+                    do {
+                        box.latest = try await self.processVerifiedTransaction(
+                            result,
+                            transaction: transaction,
+                            userId: userId,
+                            accessToken: accessToken,
+                            correlationId: correlationId
+                        )
+                    } catch {
+                        if failFast {
+                            box.firstError = error
+                            return
+                        }
+                    }
+                }
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: drainNanoseconds)
+            }
+            _ = try await group.next()
+            group.cancelAll()
+            // Allow in-flight verify to settle before reading the box.
+            while let _ = try await group.next() {}
+        }
+        if let firstError = box.firstError { throw firstError }
+        return box.latest
+    }
+
     func restorePurchases(userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
         guard purchaseGuard.begin() else {
             throw SubscriptionServiceError.purchaseInProgress
@@ -404,24 +484,12 @@ final class SubscriptionService: ObservableObject {
                 }
             }
         )
-        for await result in Transaction.unfinished {
-            guard case .verified(let transaction) = result else { continue }
-            guard StoreProductIDs.all.contains(transaction.productID) else {
-                await transaction.finish()
-                continue
-            }
-            do {
-                _ = try await processVerifiedTransaction(
-                    result,
-                    transaction: transaction,
-                    userId: userId,
-                    accessToken: accessToken,
-                    correlationId: "restore_unfinished"
-                )
-            } catch {
-                continue
-            }
-        }
+        _ = try? await processUnfinishedTransactions(
+            userId: userId,
+            accessToken: accessToken,
+            correlationId: "restore_unfinished",
+            failFast: false
+        )
         SubscriptionDiagnostics.log("restore_backend_started", resultType: "current_count=\(signedTransactions.count)")
         let response = try await apiClient.restoreSubscriptions(
             userId: userId,

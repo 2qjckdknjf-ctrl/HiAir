@@ -179,19 +179,29 @@ final class DashboardViewModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 // Structured children inherit cancellation; they cannot outlive a
                 // replacement refresh or keep another tab's primary request queued.
+                // Keep AI morning off the critical enrichment join — it can occupy the
+                // shared URLSession for tens of seconds and starve Insights/Planner.
                 async let hazards = try? client.fetchHazards(profileId:profileId,userId:userId,accessToken:accessToken)
                 async let family = try? client.fetchFamilyRiskOverview(userId:userId,accessToken:accessToken)
                 async let wearable = try? client.fetchWearableToday(userId:userId,accessToken:accessToken)
                 async let summary = try? client.fetchHealthSummary(userId:userId,accessToken:accessToken)
-                async let morning = try? client.fetchAIReport(kind:"morning",profileId:profileId,
-                    userId:userId,accessToken:accessToken)
-                let values = await (hazards,family,wearable,summary,morning)
+                let values = await (hazards, family, wearable, summary)
                 guard let self, !Task.isCancelled, generation == self.refreshGeneration else { return }
                 self.hazardsResponse = values.0
                 self.familyRiskOverview = values.1
                 self.wearableToday = values.2
                 self.healthSummary = values.3
-                self.morningReport = values.4
+                let morningGeneration = generation
+                Task { @MainActor [weak self] in
+                    let morning = try? await client.fetchAIReport(
+                        kind: "morning",
+                        profileId: profileId,
+                        userId: userId,
+                        accessToken: accessToken
+                    )
+                    guard let self, !Task.isCancelled, morningGeneration == self.refreshGeneration else { return }
+                    self.morningReport = morning
+                }
             }
         } catch {
             guard generation == refreshGeneration, !Task.isCancelled else { return }
@@ -476,18 +486,16 @@ struct DashboardView: View {
             )
             let hadProfile = !session.profileId.isEmpty
             let profileBefore = session.profileId
-            let locationRevisionBefore = session.locationRevision
             if UITestBootstrap.disableAutoProfileBootstrap {
                 await reloadDashboard()
             } else if hadProfile {
-                // Returning user: paint from cached profile while prepare runs;
-                // re-fetch only when prepare changes profile or coordinates.
+                // Returning user: paint from cached profile while prepare runs.
+                // Coordinate updates are handled by onChange(locationRevision) — avoid a
+                // second current-risk fetch here (previously doubled cold-start latency).
                 async let prepare = session.prepareSessionForDataFetch(locationService: locationService)
                 await reloadDashboard(skipProfileEnsure: true)
                 _ = await prepare
-                let profileChanged = session.profileId != profileBefore
-                let locationChanged = session.locationRevision != locationRevisionBefore
-                if profileChanged || locationChanged {
+                if session.profileId != profileBefore {
                     await reloadDashboard(skipProfileEnsure: true)
                 }
             } else {
