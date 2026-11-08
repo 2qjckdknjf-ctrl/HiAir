@@ -37,17 +37,21 @@ final class DashboardViewModel: ObservableObject {
         refreshGeneration &+= 1
         riskFlight?.cancel(); riskFlight = nil; riskFlightOwner = ""
         enrichmentTask?.cancel(); enrichmentTask = nil
+        morningEnrichmentTask?.cancel(); morningEnrichmentTask = nil
         loading = false
     }
     private let healthService = HealthKitService.shared
     private var refreshGeneration: UInt64 = 0
     private var enrichmentTask: Task<Void, Never>?
+    private var morningEnrichmentTask: Task<Void, Never>?
 
     #if DEBUG
     func cancelAndDrainForTests() async {
         let pending = enrichmentTask
+        let morning = morningEnrichmentTask
         cancelRefresh()
         await pending?.value
+        await morning?.value
     }
     #endif
 
@@ -192,7 +196,8 @@ final class DashboardViewModel: ObservableObject {
                 self.wearableToday = values.2
                 self.healthSummary = values.3
                 let morningGeneration = generation
-                Task { @MainActor [weak self] in
+                self.morningEnrichmentTask?.cancel()
+                self.morningEnrichmentTask = Task { @MainActor [weak self] in
                     let morning = try? await client.fetchAIReport(
                         kind: "morning",
                         profileId: profileId,

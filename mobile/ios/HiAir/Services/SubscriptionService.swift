@@ -407,8 +407,8 @@ final class SubscriptionService: ObservableObject {
         return latest
     }
 
-    /// `Transaction.unfinished` is an open-ended stream — drain current items with a timeout,
-    /// then cancel so restore / activation retry cannot hang forever.
+    /// `Transaction.unfinished` is an open-ended stream. Bound only the enumeration window;
+    /// already-started HiAir verifies must finish (slow backend is the recovery case).
     private func processUnfinishedTransactions(
         userId: String,
         accessToken: String,
@@ -417,45 +417,44 @@ final class SubscriptionService: ObservableObject {
         drainNanoseconds: UInt64 = 800_000_000
     ) async throws -> SubscriptionStatusResponse? {
         final class DrainBox: @unchecked Sendable {
-            var latest: SubscriptionStatusResponse?
-            var firstError: Error?
+            var pending: [(VerificationResult<Transaction>, Transaction)] = []
         }
         let box = DrainBox()
-        try await withThrowingTaskGroup(of: Void.self) { group in
+        await withTaskGroup(of: Void.self) { group in
             group.addTask { @MainActor in
                 for await result in Transaction.unfinished {
-                    try Task.checkCancellation()
+                    if Task.isCancelled { break }
                     guard case .verified(let transaction) = result else { continue }
                     guard StoreProductIDs.all.contains(transaction.productID) else {
                         await transaction.finish()
                         continue
                     }
-                    do {
-                        box.latest = try await self.processVerifiedTransaction(
-                            result,
-                            transaction: transaction,
-                            userId: userId,
-                            accessToken: accessToken,
-                            correlationId: correlationId
-                        )
-                    } catch {
-                        if failFast {
-                            box.firstError = error
-                            return
-                        }
-                    }
+                    box.pending.append((result, transaction))
                 }
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: drainNanoseconds)
+                try? await Task.sleep(nanoseconds: drainNanoseconds)
             }
-            _ = try await group.next()
+            _ = await group.next()
             group.cancelAll()
-            // Allow in-flight verify to settle before reading the box.
-            while let _ = try await group.next() {}
+            await group.waitForAll()
         }
-        if let firstError = box.firstError { throw firstError }
-        return box.latest
+
+        var latest: SubscriptionStatusResponse?
+        for (result, transaction) in box.pending {
+            do {
+                latest = try await processVerifiedTransaction(
+                    result,
+                    transaction: transaction,
+                    userId: userId,
+                    accessToken: accessToken,
+                    correlationId: correlationId
+                )
+            } catch {
+                if failFast { throw error }
+            }
+        }
+        return latest
     }
 
     func restorePurchases(userId: String, accessToken: String) async throws -> SubscriptionStatusResponse {
@@ -620,21 +619,30 @@ final class SubscriptionService: ObservableObject {
             // that leave Premium UI stuck on pending when entitlement flags lag.
             await transaction.finish()
             return response
-        } catch let error as APIError {
+        } catch {
+            // Any failure (API, cancellation, transport) must free the id for a real retry.
             processedTransactionIds.remove(transaction.id)
-            let statusCode: Int
-            switch error {
-            case .server(let code), .serverWithDetail(let code, _):
-                statusCode = code
-            default:
-                statusCode = 0
+            if let apiError = error as? APIError {
+                let statusCode: Int
+                switch apiError {
+                case .server(let code), .serverWithDetail(let code, _):
+                    statusCode = code
+                default:
+                    statusCode = 0
+                }
+                SubscriptionDiagnostics.log(
+                    "backend_verify_failed",
+                    productId: transaction.productID,
+                    httpStatus: statusCode == 0 ? nil : statusCode,
+                    correlationId: correlationId
+                )
+            } else {
+                SubscriptionDiagnostics.log(
+                    "backend_verify_failed",
+                    productId: transaction.productID,
+                    correlationId: correlationId
+                )
             }
-            SubscriptionDiagnostics.log(
-                "backend_verify_failed",
-                productId: transaction.productID,
-                httpStatus: statusCode == 0 ? nil : statusCode,
-                correlationId: correlationId
-            )
             throw error
         }
     }

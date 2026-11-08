@@ -509,6 +509,7 @@ private struct PaywallContent: View {
             guard session.userId == ownerId else { return }
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
+            guard session.userId == ownerId else { return }
             statusMessage = session.l("paywall.generic_error")
         }
     }
