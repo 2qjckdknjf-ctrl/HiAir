@@ -521,6 +521,12 @@ struct DashboardView: View {
             viewModel.wearableConnectionState = newState
         }
         .onReceive(NotificationCenter.default.publisher(for: .profileLocationDidUpdate)) { notification in
+            // Place-name-only updates already refresh the chip via displayPlaceName —
+            // do not re-hit slow /api/air/current-risk for a label change.
+            if let context = notification.object as? ProfileLocationUpdateContext,
+               context.source == .placeNameResolved {
+                return
+            }
             // Re-evaluate skip inside the Task so a stale post after account switch cannot
             // suppress ensure for the newly signed-in user.
             Task {

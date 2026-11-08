@@ -571,6 +571,7 @@ private struct PaywallContent: View {
             // Late responses from a previous account must not mutate the current session.
             guard session.userId == ownerId, status.userId == ownerId else {
                 RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "owner_mismatch")
+                statusMessage = session.l("paywall.generic_error")
                 return
             }
             if let entitlement = status.entitlement, entitlement.isPremium {
