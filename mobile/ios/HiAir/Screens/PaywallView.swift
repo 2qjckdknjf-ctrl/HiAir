@@ -120,9 +120,7 @@ private struct PaywallContent: View {
                             Button(session.l("common.close")) { dismiss() }
                                 .font(HiAirTypography.bodyMD.weight(.semibold))
                                 .foregroundStyle(HiAirColors.Spectrum.cyan)
-                                // Pending backend verification must remain dismissible;
-                                // only an in-flight StoreKit purchase blocks close.
-                                .disabled(purchasingProductId != nil || subscriptionService.isPurchaseInProgress)
+                                .disabled(blocksInteractiveDismiss)
                                 .accessibilityIdentifier(HiAirAccessibilityID.Paywall.close)
                         }
                     }
@@ -138,11 +136,13 @@ private struct PaywallContent: View {
             .onChange(of: session.isPremium) { _ in
                 dismissIfConfirmedPremium()
             }
-            .onChange(of: session.premiumActivationPending) { _ in
-                dismissIfConfirmedPremium()
-                if session.premiumActivationPending {
+            .onChange(of: session.premiumActivationPending) { pending in
+                if pending {
+                    // Apple confirmed — release UI lock; backend verify continues in the service.
+                    purchasingProductId = nil
                     statusMessage = session.l("paywall.verify_pending_no_repurchase")
                 }
+                dismissIfConfirmedPremium()
             }
             .sheet(isPresented: Binding(
                 get: { safariURL != nil },
@@ -155,12 +155,18 @@ private struct PaywallContent: View {
             }
         }
         .preferredColorScheme(.dark)
-        .interactiveDismissDisabled(purchasingProductId != nil || subscriptionService.isPurchaseInProgress)
+        .interactiveDismissDisabled(blocksInteractiveDismiss)
         .accessibilityIdentifier(HiAirAccessibilityID.Paywall.root)
     }
 
     private var hasConfirmedPremium: Bool {
         session.isPremium && !session.premiumActivationPending
+    }
+
+    /// Only the system StoreKit sheet must trap the UI. Backend verify / AppStore.sync
+    /// continue in SubscriptionService after the user leaves; closing is not a cancel claim.
+    private var blocksInteractiveDismiss: Bool {
+        subscriptionService.isSystemPurchaseSheetActive
     }
 
     private func dismissIfConfirmedPremium() {
@@ -485,7 +491,9 @@ private struct PaywallContent: View {
             return
         }
         #endif
-        guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
+        let ownerId = session.userId
+        let ownerToken = session.accessToken
+        guard !ownerId.isEmpty, !ownerToken.isEmpty else {
             statusMessage = session.l("paywall.auth_required")
             return
         }
@@ -503,10 +511,15 @@ private struct PaywallContent: View {
         do {
             let status = try await subscriptionService.purchase(
                 product,
-                userId: session.userId,
-                accessToken: session.accessToken,
+                userId: ownerId,
+                accessToken: ownerToken,
                 performPurchase: performPurchase
             )
+            // Late responses from a previous account must not mutate the current session.
+            guard session.userId == ownerId, status.userId == ownerId else {
+                RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "owner_mismatch")
+                return
+            }
             if let entitlement = status.entitlement, entitlement.isPremium {
                 session.confirmPremiumActivation(entitlement)
             } else {
@@ -522,7 +535,9 @@ private struct PaywallContent: View {
             statusMessage = session.l("paywall.verify_pending_no_repurchase")
             for _ in 0..<4 {
                 try? await Task.sleep(nanoseconds: 400_000_000)
+                guard session.userId == ownerId else { return }
                 await session.refreshEntitlement()
+                guard session.userId == ownerId else { return }
                 if hasConfirmedPremium {
                     RuntimePerformanceProbe.end("premium_unlock", success: true)
                     statusMessage = session.l("paywall.success")
@@ -530,6 +545,7 @@ private struct PaywallContent: View {
                     return
                 }
             }
+            guard session.userId == ownerId else { return }
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "entitlement_lag")
             statusMessage = session.l("paywall.verify_pending_no_repurchase")
         } catch SubscriptionServiceError.cancelled {
@@ -549,6 +565,7 @@ private struct PaywallContent: View {
             statusMessage = session.l("paywall.generic_error")
         } catch let error as APIError {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "api")
+            guard session.userId == ownerId else { return }
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "generic")
@@ -557,7 +574,9 @@ private struct PaywallContent: View {
     }
 
     private func restore() async {
-        guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
+        let ownerId = session.userId
+        let ownerToken = session.accessToken
+        guard !ownerId.isEmpty, !ownerToken.isEmpty else {
             statusMessage = session.l("paywall.auth_required")
             return
         }
@@ -565,16 +584,15 @@ private struct PaywallContent: View {
             statusMessage = session.l("paywall.purchase_in_progress")
             return
         }
-        let alreadyActive = hasConfirmedPremium
         purchasingProductId = "restore"
         defer { purchasingProductId = nil }
         statusMessage = session.l("paywall.restoring")
         do {
             let status = try await subscriptionService.restorePurchases(
-                userId: session.userId,
-                accessToken: session.accessToken
+                userId: ownerId,
+                accessToken: ownerToken
             )
-            guard !Task.isCancelled, status.userId == session.userId else { return }
+            guard !Task.isCancelled, session.userId == ownerId, status.userId == ownerId else { return }
             if let entitlement = status.entitlement, entitlement.isPremium {
                 session.confirmPremiumActivation(entitlement)
             } else {
@@ -582,10 +600,11 @@ private struct PaywallContent: View {
             }
             let verifiedCount = subscriptionService.lastRestoreVerifiedTransactionCount
             let entitlementActive = status.entitlement?.isPremium == true
+            // Final copy follows the latest confirmed response — not a pre-request flag.
             if entitlementActive && verifiedCount > 0 {
                 statusMessage = session.l("paywall.restore_success")
                 dismiss()
-            } else if entitlementActive || alreadyActive {
+            } else if entitlementActive {
                 statusMessage = session.l("paywall.restore_already_active")
                 if hasConfirmedPremium { dismiss() }
             } else if verifiedCount > 0 {
@@ -596,6 +615,7 @@ private struct PaywallContent: View {
         } catch SubscriptionServiceError.purchaseInProgress {
             statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
+            guard session.userId == ownerId else { return }
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
             statusMessage = session.l("paywall.generic_error")

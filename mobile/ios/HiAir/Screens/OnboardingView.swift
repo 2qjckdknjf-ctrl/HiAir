@@ -67,9 +67,8 @@ struct OnboardingView: View {
                             .disabled(step == 5 && healthService.connectionState == .consentSaving)
                             .accessibilityIdentifier(HiAirAccessibilityID.Onboarding.finishButton)
                         }
-                        if step == 5 && healthService.connectionState != .connected
-                            && healthService.connectionState != .consentSaving
-                            && healthService.connectionState != .systemAuthorized {
+                        // Keep Skip available during delayed consent save so the user is never trapped.
+                        if step == 5 && healthService.connectionState != .connected {
                             Button(session.l("wearable.consent.skip")) {
                                 step += 1
                             }
@@ -100,6 +99,13 @@ struct OnboardingView: View {
         }
     }
 
+    private var healthConnectUnavailable: Bool {
+        !healthService.isHealthDataAvailable()
+            || healthService.configurationIssueMessage() != nil
+            || session.userId.isEmpty
+            || session.accessToken.isEmpty
+    }
+
     private var primaryButtonTitle: String {
         if step == 0 {
             return session.l("onboarding.start")
@@ -108,6 +114,10 @@ struct OnboardingView: View {
             return session.l("onboarding.permissions.allow")
         }
         if step == 5 {
+            // Label must match the action: never say “Connect” when connect cannot run.
+            if healthConnectUnavailable {
+                return session.l("wearable.consent.skip")
+            }
             switch healthService.connectionState {
             case .consentSaving, .systemAuthorized:
                 return session.l("wearable.consent.saving")
@@ -140,12 +150,14 @@ struct OnboardingView: View {
                 step += 1
                 return
             }
-            // Unavailable HealthKit / missing auth must not trap the user on this step.
-            guard healthService.isHealthDataAvailable(),
-                  healthService.configurationIssueMessage() == nil,
-                  !session.userId.isEmpty,
-                  !session.accessToken.isEmpty else {
+            // Unavailable HealthKit / missing auth: primary CTA advances (matches its label).
+            guard !healthConnectUnavailable else {
                 step += 1
+                return
+            }
+            if healthService.connectionState == .consentSaving
+                || healthService.connectionState == .systemAuthorized {
+                // Saving is in flight — primary stays non-connect; Skip remains available.
                 return
             }
             await connectHealthFromOnboarding()

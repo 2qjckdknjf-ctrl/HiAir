@@ -65,16 +65,26 @@ class PlannerHourlyChartView @JvmOverloads constructor(
             canvas.drawLine(left, bottom, right, bottom, axisPaint)
             return
         }
+        fillPaint.shader = LinearGradient(
+            0f, top, 0f, bottom,
+            intArrayOf(0x8821D7FF.toInt(), 0x3321D7FF, 0x0821D7FF),
+            floatArrayOf(0f, 0.45f, 1f),
+            Shader.TileMode.CLAMP,
+        )
         val path = Path()
         var segmentOpen = false
         var lastX = left
+        fun flushFill() {
+            if (!segmentOpen) return
+            path.lineTo(lastX, bottom)
+            path.close()
+            canvas.drawPath(path, fillPaint)
+            path.reset()
+            segmentOpen = false
+        }
         local.indices.forEach { idx ->
             val height = heights[idx] ?: run {
-                if (segmentOpen) {
-                    path.lineTo(lastX, bottom)
-                    path.close()
-                    segmentOpen = false
-                }
+                flushFill()
                 return@forEach
             }
             val x = left + idx * step
@@ -88,18 +98,8 @@ class PlannerHourlyChartView @JvmOverloads constructor(
             }
             lastX = x
         }
-        if (segmentOpen) {
-            path.lineTo(lastX, bottom)
-            path.close()
-            fillPaint.shader = LinearGradient(
-                0f, top, 0f, bottom,
-                intArrayOf(0x8821D7FF.toInt(), 0x3321D7FF, 0x0821D7FF),
-                floatArrayOf(0f, 0.45f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-            canvas.drawPath(path, fillPaint)
-            fillPaint.shader = null
-        }
+        flushFill()
+        fillPaint.shader = null
         val line = Path()
         var lineStarted = false
         local.indices.forEach { idx ->

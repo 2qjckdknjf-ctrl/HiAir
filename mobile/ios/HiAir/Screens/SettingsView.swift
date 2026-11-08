@@ -1866,9 +1866,10 @@ struct SettingsView: View {
             let verifiedCount = subscriptionService.lastRestoreVerifiedTransactionCount
             let entitlementActive = status.entitlement?.isPremium == true
             restoreConfirmedPremium = entitlementActive && verifiedCount > 0
+            // Final copy follows the latest confirmed response — not a pre-request Premium flag.
             if entitlementActive && verifiedCount > 0 {
                 restoreMessage = session.l("paywall.restore_success")
-            } else if entitlementActive || session.isPremium {
+            } else if entitlementActive {
                 restoreMessage = session.l("paywall.restore_already_active")
             } else if verifiedCount > 0 {
                 restoreMessage = session.l("paywall.verify_pending_no_repurchase")

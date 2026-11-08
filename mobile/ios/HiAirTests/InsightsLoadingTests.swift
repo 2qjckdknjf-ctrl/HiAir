@@ -70,6 +70,67 @@ final class InsightsLoadingTests: XCTestCase {
         XCTAssertTrue(model.partialFailure)
         XCTAssertFalse(model.loading)
     }
+
+    @MainActor func testPartialRetryOnlyRequestsFailedSources() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [InsightsLoadingProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel(); InsightsLoadingProtocol.handler = nil }
+
+        nonisolated(unsafe) var paths: [String] = []
+        InsightsLoadingProtocol.handler = { request in
+            let path = request.request.url!.path
+            paths.append(path)
+            if path == "/api/v1/health/insights" {
+                request.respond("""
+                {"profileId":"profile","generatedAt":"2026-10-11T12:00:00Z","today":{"steps":1000},"trends":[],"associations":[],"insufficientData":[]}
+                """)
+            } else if path.contains("adaptation") {
+                request.respond("{}", status: 503)
+            } else if path.contains("patterns") || path.contains("personal") {
+                request.respond("{}", status: 503)
+            } else if path.contains("history") || path.contains("symptoms") {
+                request.respond("{}", status: 503)
+            } else {
+                request.respond("{}", status: 503)
+            }
+        }
+
+        let model = InsightsViewModel(
+            apiClient: APIClient(baseURL: URL(string: "https://test.invalid")!, session: session),
+            deadlineNanoseconds: 5_000_000_000
+        )
+        await model.refresh(profileId: "profile", userId: "owned-user", accessToken: "test", language: "en")
+        XCTAssertTrue(model.hasContent)
+        XCTAssertTrue(model.partialFailure)
+        XCTAssertFalse(model.failedSources.contains(.bundle))
+        XCTAssertFalse(model.failedSources.isEmpty)
+
+        let failed = model.failedSources
+        paths.removeAll()
+        InsightsLoadingProtocol.handler = { request in
+            paths.append(request.request.url!.path)
+            request.respond("{}", status: 503)
+        }
+        await model.refresh(
+            profileId: "profile",
+            userId: "owned-user",
+            accessToken: "test",
+            language: "en",
+            sources: failed
+        )
+        // Successful bundle must not be re-fetched; keep already-loaded today summary.
+        XCTAssertFalse(paths.contains("/api/v1/health/insights"))
+        XCTAssertFalse(model.todaySummary.isEmpty)
+        let retried = Set(paths.compactMap { path -> InsightsViewModel.InsightSource? in
+            if path == "/api/symptoms/history" { return .history }
+            if path == "/api/insights/personal-patterns" { return .patterns }
+            if path == "/api/insights/adaptation" { return .adaptation }
+            if path == "/api/v1/health/insights" { return .bundle }
+            return nil
+        })
+        XCTAssertEqual(retried, failed)
+    }
 }
 
 private final class PerformanceCredentials: SessionCredentialStoring {

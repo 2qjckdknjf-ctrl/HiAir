@@ -562,12 +562,15 @@ struct DashboardView: View {
             },
             onRetryRevoke: {
                 Task {
-                    guard !session.userId.isEmpty, !session.accessToken.isEmpty else { return }
-                    // Retry incomplete revoke/cleanup for the same owner — never reconnect.
-                    await HealthKitService.shared.revokeConsent(
-                        userId: session.userId,
-                        accessToken: session.accessToken
+                    let ownerId = session.userId
+                    let token = session.accessToken
+                    guard !ownerId.isEmpty, !token.isEmpty else { return }
+                    // Repeat the unfinished operation for the same owner — never reconnect.
+                    await HealthKitService.shared.retryPendingRemoteCleanup(
+                        userId: ownerId,
+                        accessToken: token
                     )
+                    guard session.userId == ownerId else { return }
                     viewModel.wearableConnectionState = HealthKitService.shared.connectionState
                 }
             }

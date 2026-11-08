@@ -18,6 +18,9 @@ final class SubscriptionService: ObservableObject {
     @Published private(set) var catalogState: PaywallCatalogState = .idle
     @Published private(set) var isLoading = false
     @Published private(set) var isPurchaseInProgress = false
+    /// True only while the system StoreKit confirmation sheet is presented.
+    /// Backend verify / AppStore.sync keep `isPurchaseInProgress` without trapping the paywall UI.
+    @Published private(set) var isSystemPurchaseSheetActive = false
     @Published private(set) var lastRestoreVerifiedTransactionCount = 0
     @Published var lastError: String?
 
@@ -654,6 +657,8 @@ final class SubscriptionService: ObservableObject {
         userId: String,
         performPurchase: StoreKitPurchase?
     ) async throws -> Product.PurchaseResult {
+        isSystemPurchaseSheetActive = true
+        defer { isSystemPurchaseSheetActive = false }
         let options = Self.purchaseOptions(for: userId)
         if let performPurchase {
             SubscriptionDiagnostics.log("purchase_via_swiftui_action", productId: product.id)

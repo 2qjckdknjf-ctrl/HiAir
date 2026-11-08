@@ -760,14 +760,8 @@ struct DailyPlannerView: View {
                 }
                 HiAirHourlyRiskChart(
                     points: viewModel.hourlyItems,
-                    highlightStartHour: HiAirDeepGlassTime.hour(
-                        from: viewModel.safeWindows.first?.start ?? "",
-                        timeZoneIdentifier: viewModel.timezoneIdentifier
-                    ),
-                    highlightEndHour: HiAirDeepGlassTime.hour(
-                        from: viewModel.safeWindows.first?.end ?? "",
-                        timeZoneIdentifier: viewModel.timezoneIdentifier
-                    ),
+                    highlightStartISO: viewModel.safeWindows.first?.start,
+                    highlightEndISO: viewModel.safeWindows.first?.end,
                     timeZoneIdentifier: viewModel.timezoneIdentifier
                 )
                 if let first = viewModel.safeWindows.first {

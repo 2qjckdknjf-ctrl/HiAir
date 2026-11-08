@@ -493,6 +493,52 @@ final class HealthSyncCoordinatorRaceTests: XCTestCase {
     }
 
     @MainActor
+    func testRevokeFailedRetryRepeatsDeleteNotRevoke() async {
+        let service = await seedConnected("user-a")
+        var deleteAttempts = 0
+        var revokeAttempts = 0
+        service.testRemoteDeleteHandler = {
+            deleteAttempts += 1
+            throw URLError(.timedOut)
+        }
+        service.testRemoteRevokeHandler = {
+            revokeAttempts += 1
+        }
+        await service.deleteHealthData(userId: "user-a", accessToken: "token")
+        XCTAssertEqual(service.connectionState, .revokeFailed)
+        XCTAssertEqual(service.pendingCleanupKind, .deleteHealthData)
+        XCTAssertEqual(service.pendingCleanupUserId, "user-a")
+        XCTAssertEqual(deleteAttempts, 1)
+        XCTAssertEqual(revokeAttempts, 0)
+
+        service.testRemoteDeleteHandler = {
+            deleteAttempts += 1
+        }
+        await service.retryPendingRemoteCleanup(userId: "user-a", accessToken: "token")
+        XCTAssertEqual(deleteAttempts, 2)
+        XCTAssertEqual(revokeAttempts, 0)
+        XCTAssertEqual(service.connectionState, .notConnected)
+        XCTAssertNil(service.pendingCleanupKind)
+    }
+
+    @MainActor
+    func testPendingDeleteDoesNotRunUnderOtherAccount() async {
+        let service = await seedConnected("user-a")
+        service.testRemoteDeleteHandler = { throw URLError(.timedOut) }
+        await service.deleteHealthData(userId: "user-a", accessToken: "token")
+        XCTAssertEqual(service.pendingCleanupUserId, "user-a")
+
+        service.clearAccountSession()
+        service.bindAccount(userId: "user-b")
+        var deleteAttempts = 0
+        service.testRemoteDeleteHandler = { deleteAttempts += 1 }
+        await service.retryPendingRemoteCleanup(userId: "user-b", accessToken: "token-b")
+        XCTAssertEqual(deleteAttempts, 0)
+        XCTAssertEqual(service.pendingCleanupUserId, "user-a")
+        XCTAssertEqual(service.pendingCleanupKind, .deleteHealthData)
+    }
+
+    @MainActor
     func testDashboardStyleSyncRevokePreventsUpload() async {
         let service = await seedConnected("user-a")
         service.testCollectHandler = { ([], nil) }

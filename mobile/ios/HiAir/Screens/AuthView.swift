@@ -278,6 +278,10 @@ struct AuthView: View {
                                     .hiAirInputSurface()
                                     .foregroundStyle(HiAirV2Theme.primaryText)
                                     .accessibilityIdentifier(HiAirAccessibilityID.Auth.passwordField)
+                                Text(session.l("auth.password_rules"))
+                                    .font(HiAirTypography.caption)
+                                    .foregroundStyle(HiAirColors.Text.tertiary)
+                                    .accessibilityIdentifier("auth.password_rules")
                             }
                         }
 

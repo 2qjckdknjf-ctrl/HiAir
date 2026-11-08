@@ -115,4 +115,65 @@ final class MatrixStateScreenshotTests: XCTestCase {
         try savePNG(app, to: outURL.appendingPathComponent("matrix-settings-account-deletion-recovery.png"))
         app.terminate()
     }
+
+    func testCaptureInsightsSuccess() throws {
+        let language = ProcessInfo.processInfo.environment["HIAIR_SHOT_LANGUAGE"] ?? "en"
+        let app = UITestLaunch.launch(
+            language: language,
+            seedAuth: true,
+            seedLocation: true,
+            clearProfile: false,
+            skipOnboarding: true,
+            mockAPI: true,
+            extraEnvironment: shotEnv(extra: [
+                "UITEST_STORE_SHOTS": "1",
+                "UITEST_SELECTED_TAB": "2",
+                "UITEST_PROFILE_ID": "profile-uitest-1",
+            ])
+        )
+        _ = waitForIdentifier(app, "tab.insights", timeout: 12)
+        tapTabBar(app, identifier: "tab.insights")
+        let primary = app.descendants(matching: .any)["insights.primary.ready"]
+        XCTAssertTrue(primary.waitForExistence(timeout: 10), "Insights success must expose primary ready marker before capture")
+        let partialBanner = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "haven’t updated")).firstMatch
+        XCTAssertFalse(partialBanner.exists, "Success capture must not show partial banner")
+        sleepBriefly(0.8)
+        try savePNG(app, to: outURL.appendingPathComponent("matrix-insights-success.png"))
+        app.terminate()
+    }
+
+    func testCaptureInsightsPartial() throws {
+        let language = ProcessInfo.processInfo.environment["HIAIR_SHOT_LANGUAGE"] ?? "en"
+        let app = UITestLaunch.launch(
+            language: language,
+            seedAuth: true,
+            seedLocation: true,
+            clearProfile: false,
+            skipOnboarding: true,
+            mockAPI: true,
+            extraEnvironment: shotEnv(extra: [
+                "UITEST_STORE_SHOTS": "1",
+                "UITEST_MATRIX_STATE": "insights_partial",
+                "UITEST_SELECTED_TAB": "2",
+                "UITEST_PROFILE_ID": "profile-uitest-1",
+            ])
+        )
+        _ = waitForIdentifier(app, "tab.insights", timeout: 12)
+        tapTabBar(app, identifier: "tab.insights")
+        let primary = app.descendants(matching: .any)["insights.primary.ready"]
+        XCTAssertTrue(primary.waitForExistence(timeout: 10), "Partial insights must keep primary content")
+        let partial = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "haven’t updated")).firstMatch
+        XCTAssertTrue(partial.waitForExistence(timeout: 8), "Partial banner must be visible before capture")
+        let retry = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Try again")).firstMatch
+        XCTAssertTrue(retry.waitForExistence(timeout: 4), "Partial retry CTA must be visible before capture")
+        sleepBriefly(0.8)
+        try savePNG(app, to: outURL.appendingPathComponent("matrix-insights-partial.png"))
+        app.terminate()
+    }
+
+    private func tapTabBar(_ app: XCUIApplication, identifier: String) {
+        let tab = app.descendants(matching: .any)[identifier]
+        XCTAssertTrue(tab.waitForExistence(timeout: 8), "Missing tab \(identifier)")
+        tab.tap()
+    }
 }
