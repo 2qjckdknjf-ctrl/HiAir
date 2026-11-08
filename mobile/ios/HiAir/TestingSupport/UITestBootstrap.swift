@@ -145,6 +145,13 @@ enum UITestBootstrap {
             UITestMockAPIProtocol.failNextWithURLError = .notConnectedToInternet
             UITestMockAPIProtocol.failURLErrorPathSubstring = "/api/air/current-risk"
             UITestMockAPIProtocol.failErrorRemainingCount = 99
+        case "insights_partial":
+            // Keep primary insights available; fail only the optional adaptation block.
+            UITestMockAPIProtocol.setRoute(
+                method: "GET",
+                path: "/api/insights/adaptation",
+                response: .json(503, object: ["detail": "uitest adaptation unavailable"])
+            )
         default:
             break
         }
@@ -323,6 +330,43 @@ enum UITestBootstrap {
         )
         UITestMockAPIProtocol.setRoute(
             method: "GET",
+            path: "/api/insights/adaptation",
+            response: .json(
+                200,
+                object: [
+                    "profileId": "profile-uitest-1",
+                    "generatedAt": "2026-08-08T10:00:00Z",
+                    "baselines": [
+                        [
+                            "metric": "resting_heart_rate",
+                            "window": "d7",
+                            "value": 62.0,
+                            "sampleSize": 7,
+                            "confidence": 0.8,
+                            "available": true,
+                        ],
+                        [
+                            "metric": "steps",
+                            "window": "d7",
+                            "value": 6800.0,
+                            "sampleSize": 7,
+                            "confidence": 0.75,
+                            "available": true,
+                        ],
+                    ],
+                    "protectedDays": [
+                        "highRiskPeriodsAvoided": 2,
+                        "workoutsMoved": 1,
+                        "ventilationWindowsUsed": 3,
+                        "poorAirExposureReduced": 1,
+                        "available": true,
+                    ],
+                    "reasonCodes": ["baselines_from_wearable_aggregates"],
+                ]
+            )
+        )
+        UITestMockAPIProtocol.setRoute(
+            method: "GET",
             path: "/api/v1/health/insights",
             response: .json(
                 200,
@@ -481,7 +525,16 @@ enum UITestBootstrap {
                 200,
                 object: [
                     "profileId": "profile-uitest-1",
-                    "items": [],
+                    // Align with metricDays=7 in health insights mock — symptom log days, not all health data.
+                    "items": [
+                        ["id": "s1", "profileId": "profile-uitest-1", "symptomType": "fatigue", "intensity": 2, "note": NSNull(), "loggedAt": "2026-08-02T09:00:00Z"],
+                        ["id": "s2", "profileId": "profile-uitest-1", "symptomType": "headache", "intensity": 1, "note": NSNull(), "loggedAt": "2026-08-03T09:00:00Z"],
+                        ["id": "s3", "profileId": "profile-uitest-1", "symptomType": "fatigue", "intensity": 2, "note": NSNull(), "loggedAt": "2026-08-04T09:00:00Z"],
+                        ["id": "s4", "profileId": "profile-uitest-1", "symptomType": "cough", "intensity": 1, "note": NSNull(), "loggedAt": "2026-08-05T09:00:00Z"],
+                        ["id": "s5", "profileId": "profile-uitest-1", "symptomType": "fatigue", "intensity": 2, "note": NSNull(), "loggedAt": "2026-08-06T09:00:00Z"],
+                        ["id": "s6", "profileId": "profile-uitest-1", "symptomType": "allergy", "intensity": 1, "note": NSNull(), "loggedAt": "2026-08-07T09:00:00Z"],
+                        ["id": "s7", "profileId": "profile-uitest-1", "symptomType": "fatigue", "intensity": 2, "note": NSNull(), "loggedAt": "2026-08-08T09:00:00Z"],
+                    ],
                 ]
             )
         )

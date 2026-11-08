@@ -180,18 +180,12 @@ internal object PlannerDeepGlassLayout {
             }
         }
         card.addView(
-            V2Ui.styledBodyText(activity, if (ru) "Качество воздуха 24 ч" else "24-hour air quality").apply {
+            V2Ui.styledBodyText(activity, if (ru) "Прогноз риска 24 ч" else "24-hour risk forecast").apply {
                 textSize = 16f
                 setTypeface(typeface, Typeface.BOLD)
             },
         )
-        val selector = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            addView(selectorChip(ctx, "AQI", selected = true))
-            addView(selectorChip(ctx, if (ru) "Пыльца" else "Pollen", selected = false))
-        }
-        card.addView(selector)
+        // Pollen/AQI toggles removed until a real alternate data source is wired.
         val chart = PlannerHourlyChartView(activity)
         val tight = useTightStoreViewport(ctx)
         val chartHeightDp = when {
@@ -214,10 +208,10 @@ internal object PlannerDeepGlassLayout {
         }
         if (hourlyLevels.isNotEmpty()) {
             chart.bindHourlyRisks(hourlyLevels)
+            card.addView(chart)
         } else {
             card.addView(V2Ui.styledSecondaryText(activity, ctx.l("planner.forecast_unavailable")).apply { textSize = 12f })
         }
-        card.addView(chart)
         if (!tight) {
             state.peakLine.takeIf { it.isNotBlank() }?.let {
                 card.addView(V2Ui.styledSecondaryText(activity, it).apply { textSize = 12f })

@@ -69,6 +69,7 @@ enum HiAirDeepGlassCopy {
         "why_location.body": "Your location helps HiAir provide accurate, real-time insights about the air around you.",
         "use_location": "Use my location",
         "manual_location": "Set location manually",
+        "location_later": "Continue without location",
         "step_of": "%d of 6",
         "low_pollution": "Lower pollution window.",
         "ventilate_hint": "Good time to ventilate.",
@@ -145,6 +146,7 @@ enum HiAirDeepGlassCopy {
         "why_location.body": "Локация нужна, чтобы HiAir точно оценивал воздух вокруг вас.",
         "use_location": "Использовать мою геолокацию",
         "manual_location": "Указать место вручную",
+        "location_later": "Продолжить без места",
         "step_of": "%d из 6",
         "low_pollution": "Окно с меньшим загрязнением.",
         "ventilate_hint": "Хорошее время проветрить.",
@@ -221,6 +223,7 @@ enum HiAirDeepGlassCopy {
         "why_location.body": "La ubicación permite estimar el aire a tu alrededor.",
         "use_location": "Usar mi ubicación",
         "manual_location": "Definir ubicación manualmente",
+        "location_later": "Continuar sin ubicación",
         "step_of": "%d de 6",
         "low_pollution": "Ventana con menos contaminación.",
         "ventilate_hint": "Buen momento para ventilar.",
@@ -297,6 +300,7 @@ enum HiAirDeepGlassCopy {
         "why_location.body": "La posizione serve a stimare l'aria intorno a te.",
         "use_location": "Usa la mia posizione",
         "manual_location": "Imposta la posizione a mano",
+        "location_later": "Continua senza posizione",
         "step_of": "%d di 6",
         "low_pollution": "Finestra con meno inquinamento.",
         "ventilate_hint": "Buon momento per aerare.",
@@ -373,6 +377,7 @@ enum HiAirDeepGlassCopy {
         "why_location.body": "La localisation permet d'estimer l'air autour de vous.",
         "use_location": "Utiliser ma position",
         "manual_location": "Définir la position manuellement",
+        "location_later": "Continuer sans position",
         "step_of": "%d sur 6",
         "low_pollution": "Fenêtre moins polluée.",
         "ventilate_hint": "Bon moment pour aérer.",
@@ -739,10 +744,46 @@ struct HiAirDateStrip: View {
     }
 }
 
+/// Absolute time domain shared by series, highlight window, axis, and “now” marker.
+struct HiAirChartTimeScale: Equatable {
+    let start: Date
+    let end: Date
+
+    var duration: TimeInterval { max(end.timeIntervalSince(start), 1) }
+
+    static func domain(from points: [AirHourlyRiskPoint]) -> HiAirChartTimeScale? {
+        let dates = points.compactMap { HiAirHumanDate.date(fromISO: $0.hour) }.sorted()
+        guard let first = dates.first, let last = dates.last, last > first else { return nil }
+        return HiAirChartTimeScale(start: first, end: last)
+    }
+
+    /// Fraction in [0, 1] when `date` is inside the domain; otherwise nil.
+    func fraction(for date: Date) -> CGFloat? {
+        guard date >= start, date <= end else { return nil }
+        return CGFloat(date.timeIntervalSince(start) / duration)
+    }
+
+    func x(for date: Date, width: CGFloat) -> CGFloat? {
+        guard let fraction = fraction(for: date) else { return nil }
+        return fraction * width
+    }
+
+    func x(forISO raw: String, width: CGFloat) -> CGFloat? {
+        guard let date = HiAirHumanDate.date(fromISO: raw) else { return nil }
+        return x(for: date, width: width)
+    }
+}
+
 struct HiAirHourlyRiskChart: View {
     var points: [AirHourlyRiskPoint]
-    var highlightStartHour: Int?
-    var highlightEndHour: Int?
+    /// ISO timestamps for the recommended window (place timezone).
+    var highlightStartISO: String? = nil
+    var highlightEndISO: String? = nil
+    /// IANA timezone of the place forecast (not device local) for axis labels / “now”.
+    var timeZoneIdentifier: String? = nil
+
+    private var chartPoints: [AirHourlyRiskPoint] { Array(points.prefix(48)) }
+    private var timeScale: HiAirChartTimeScale? { HiAirChartTimeScale.domain(from: chartPoints) }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -757,11 +798,10 @@ struct HiAirHourlyRiskChart: View {
                 }
                 .frame(height: 140)
                 GeometryReader { geo in
-                    let values = Array(points.prefix(24).map { Self.score(for: $0.overallRisk) })
                     let maxY: CGFloat = 100
                     ZStack(alignment: .leading) {
                         highlightBand(width: geo.size.width, height: geo.size.height)
-                        areaPath(values: values, size: geo.size, maxY: maxY)
+                        areaPath(size: geo.size, maxY: maxY)
                             .fill(
                                 LinearGradient(
                                     colors: [
@@ -775,7 +815,7 @@ struct HiAirHourlyRiskChart: View {
                                 )
                             )
                         currentTimeLine(width: geo.size.width, height: geo.size.height)
-                        linePath(values: values, size: geo.size, maxY: maxY)
+                        linePath(size: geo.size, maxY: maxY)
                             .stroke(
                                 LinearGradient(
                                     colors: [
@@ -793,87 +833,153 @@ struct HiAirHourlyRiskChart: View {
                     }
                 }
                 .frame(height: 140)
+                .accessibilityElement()
+                .accessibilityLabel(accessibilitySummary)
             }
             HStack {
-                ForEach(["00", "04", "08", "12", "16", "20", "24"], id: \.self) { hour in
+                ForEach(axisLabels, id: \.self) { hour in
                     Text(hour)
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(HiAirColors.Text.secondary)
-                    if hour != "24" { Spacer() }
+                    if hour != axisLabels.last { Spacer() }
                 }
             }
             .padding(.leading, 28)
         }
     }
 
-    static func score(for risk: String) -> CGFloat {
+    /// Known risk levels only. Unknown/missing → `nil` (chart gap), not low.
+    static func score(for risk: String) -> CGFloat? {
         switch risk.lowercased() {
         case "low": return 20
         case "moderate", "medium": return 45
         case "high": return 70
         case "very_high", "very high": return 90
-        default: return 20
+        default: return nil
         }
+    }
+
+    private var placeCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        if let timeZoneIdentifier, let zone = TimeZone(identifier: timeZoneIdentifier) {
+            calendar.timeZone = zone
+        }
+        return calendar
+    }
+
+    private var axisLabels: [String] {
+        let calendar = placeCalendar
+        let dates = chartPoints.compactMap { HiAirHumanDate.date(fromISO: $0.hour) }.sorted()
+        guard let first = dates.first, let last = dates.last else {
+            return ["00", "04", "08", "12", "16", "20", "24"]
+        }
+        let mid = dates[dates.count / 2]
+        func label(_ date: Date) -> String {
+            String(format: "%02d", calendar.component(.hour, from: date))
+        }
+        return [label(first), label(mid), label(last)]
+    }
+
+    private var accessibilitySummary: String {
+        let known = chartPoints.compactMap { point -> String? in
+            guard Self.score(for: point.overallRisk) != nil else { return nil }
+            return "\(point.hour) \(point.overallRisk)"
+        }
+        if known.isEmpty { return "Risk forecast unavailable" }
+        return "Hourly risk: " + known.prefix(6).joined(separator: ", ")
     }
 
     @ViewBuilder
     private func highlightBand(width: CGFloat, height: CGFloat) -> some View {
-        if let start = highlightStartHour, let end = highlightEndHour, end > start {
-            let x = width * CGFloat(start) / 24
-            let w = width * CGFloat(end - start) / 24
+        if let scale = timeScale,
+           let startISO = highlightStartISO,
+           let endISO = highlightEndISO,
+           let startDate = HiAirHumanDate.date(fromISO: startISO),
+           let endDate = HiAirHumanDate.date(fromISO: endISO),
+           endDate > startDate,
+           let x0 = scale.x(for: startDate, width: width),
+           let x1 = scale.x(for: endDate, width: width),
+           x1 > x0 {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(HiAirColors.Spectrum.cyan.opacity(0.12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(HiAirColors.Spectrum.cyan.opacity(0.55), lineWidth: 1)
                 )
-                .frame(width: w, height: height)
-                .offset(x: x)
+                .frame(width: x1 - x0, height: height)
+                .offset(x: x0)
         }
     }
 
     @ViewBuilder
     private func currentTimeLine(width: CGFloat, height: CGFloat) -> some View {
-        let hour = Calendar.current.component(.hour, from: Date())
-        let minute = Calendar.current.component(.minute, from: Date())
-        let x = width * (CGFloat(hour) + CGFloat(minute) / 60) / 24
-        Path { path in
-            path.move(to: CGPoint(x: x, y: 0))
-            path.addLine(to: CGPoint(x: x, y: height))
-        }
-        .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-    }
-
-    private func areaPath(values: [CGFloat], size: CGSize, maxY: CGFloat) -> Path {
-        Path { path in
-            guard !values.isEmpty else { return }
-            let step = size.width / CGFloat(max(values.count - 1, 1))
-            for (index, value) in values.enumerated() {
-                let x = CGFloat(index) * step
-                let y = size.height - (value / maxY) * size.height
-                if index == 0 {
-                    path.move(to: CGPoint(x: x, y: size.height))
-                    path.addLine(to: CGPoint(x: x, y: y))
-                } else {
-                    path.addLine(to: CGPoint(x: x, y: y))
-                }
+        // Skip the marker when “now” is outside the forecast domain (partial day / overnight).
+        if let scale = timeScale, let x = scale.x(for: Date(), width: width) {
+            Path { path in
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: height))
             }
-            path.addLine(to: CGPoint(x: size.width, y: size.height))
-            path.closeSubpath()
+            .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
         }
     }
 
-    private func linePath(values: [CGFloat], size: CGSize, maxY: CGFloat) -> Path {
+    private func timedSamples(width: CGFloat) -> [(x: CGFloat, value: CGFloat?)] {
+        guard let scale = timeScale else { return [] }
+        return chartPoints.compactMap { point in
+            guard let date = HiAirHumanDate.date(fromISO: point.hour),
+                  let x = scale.x(for: date, width: width)
+            else { return nil }
+            return (x, Self.score(for: point.overallRisk))
+        }
+    }
+
+    private func areaPath(size: CGSize, maxY: CGFloat) -> Path {
         Path { path in
-            guard !values.isEmpty else { return }
-            let step = size.width / CGFloat(max(values.count - 1, 1))
-            for (index, value) in values.enumerated() {
-                let x = CGFloat(index) * step
+            let samples = timedSamples(width: size.width)
+            guard !samples.isEmpty else { return }
+            var segmentOpen = false
+            var lastX: CGFloat = 0
+            for sample in samples {
+                guard let value = sample.value else {
+                    if segmentOpen {
+                        path.addLine(to: CGPoint(x: lastX, y: size.height))
+                        path.closeSubpath()
+                        segmentOpen = false
+                    }
+                    continue
+                }
                 let y = size.height - (value / maxY) * size.height
-                if index == 0 {
-                    path.move(to: CGPoint(x: x, y: y))
+                if !segmentOpen {
+                    path.move(to: CGPoint(x: sample.x, y: size.height))
+                    path.addLine(to: CGPoint(x: sample.x, y: y))
+                    segmentOpen = true
                 } else {
-                    path.addLine(to: CGPoint(x: x, y: y))
+                    path.addLine(to: CGPoint(x: sample.x, y: y))
+                }
+                lastX = sample.x
+            }
+            if segmentOpen {
+                path.addLine(to: CGPoint(x: lastX, y: size.height))
+                path.closeSubpath()
+            }
+        }
+    }
+
+    private func linePath(size: CGSize, maxY: CGFloat) -> Path {
+        Path { path in
+            let samples = timedSamples(width: size.width)
+            var needsMove = true
+            for sample in samples {
+                guard let value = sample.value else {
+                    needsMove = true
+                    continue
+                }
+                let y = size.height - (value / maxY) * size.height
+                if needsMove {
+                    path.move(to: CGPoint(x: sample.x, y: y))
+                    needsMove = false
+                } else {
+                    path.addLine(to: CGPoint(x: sample.x, y: y))
                 }
             }
         }

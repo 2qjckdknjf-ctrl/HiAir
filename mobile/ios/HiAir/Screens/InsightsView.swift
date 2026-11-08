@@ -5,6 +5,13 @@ import SwiftUI
 final class InsightsViewModel: ObservableObject {
     static let targetLogDays = 7
 
+    enum InsightSource: String, CaseIterable, Hashable {
+        case history
+        case bundle
+        case patterns
+        case adaptation
+    }
+
     @Published var loading = false
     @Published var statusText = ""
     @Published var items: [PersonalPatternInsight] = []
@@ -15,6 +22,7 @@ final class InsightsViewModel: ObservableObject {
     @Published var healthStatusText: String = ""
     @Published var lastError: String? = nil
     @Published var partialFailure = false
+    @Published var failedSources: Set<InsightSource> = []
     @Published var loggedDays = 0
     @Published var generatedAtDisplay = ""
     @Published var premiumLocked = false
@@ -56,33 +64,50 @@ final class InsightsViewModel: ObservableObject {
         accessToken: String,
         language: String,
         windowDays: Int? = nil,
+        sources: Set<InsightSource>? = nil,
         onPremiumRequired: (() -> Void)? = nil
     ) async {
-        let days = windowDays ?? self.windowDays
+        let previousWindow = self.windowDays
+        let days = windowDays ?? previousWindow
+        let windowChanged = days != previousWindow
         self.windowDays = days
         refreshGeneration += 1
         let generation = refreshGeneration
         let owner = userId + ":" + profileId + ":" + String(days) + ":" + language
-        if refreshOwner != owner {
+        if refreshOwner != owner || windowChanged {
             items = []; trends = []; associations = []; insufficient = []
             todaySummary = ""; healthStatusText = ""; loggedDays = 0; adaptation = nil; generatedAtDisplay = ""
+            failedSources = []
         }
         refreshOwner = owner
+        let targets: Set<InsightSource> = {
+            if let sources, !sources.isEmpty { return sources }
+            if !failedSources.isEmpty, !windowChanged { return failedSources }
+            return Set(InsightSource.allCases)
+        }()
         loading = true
         lastError = nil
         partialFailure = false
         premiumLocked = false
         let started = Date()
         var completed = 0
-        var hadFailure = false
+        var nextFailed = failedSources.subtracting(targets)
+        var finishedSources = Set<InsightSource>()
+        let expectedCount = targets.count
         let client = apiClient
         let deadline = deadlineNanoseconds
         defer {
             if generation == refreshGeneration {
                 loading = false
+                // Timed-out targets that never finished count as failed.
+                nextFailed.formUnion(targets.subtracting(finishedSources))
+                failedSources = nextFailed
+                let hadFailure = !nextFailed.isEmpty
                 partialFailure = hadFailure
                 if hadFailure {
-                    statusText = HiAirL10n.t("insights.failed", lang: language)
+                    statusText = hasContent
+                        ? HiAirL10n.t("insights.partial_body", lang: language)
+                        : HiAirL10n.t("insights.failed", lang: language)
                     if !hasContent { lastError = statusText }
                 } else {
                     let total = trends.count + associations.count + items.count
@@ -91,38 +116,48 @@ final class InsightsViewModel: ObservableObject {
                 }
                 ProductAnalytics.track("insights_load_finished", properties: [
                     "duration_ms": String(Int(Date().timeIntervalSince(started) * 1000)),
-                    "result": hadFailure ? "partial_or_failed" : "success"
+                    "result": hadFailure ? "partial_or_failed" : "success",
+                    "sources": targets.map(\.rawValue).sorted().joined(separator: ",")
                 ])
             }
         }
-        func recordFailure(_ error: Error) {
+        func recordFailure(_ source: InsightSource, _ error: Error) {
+            finishedSources.insert(source)
             if error is CancellationError { return }
             if let api = error as? APIError {
                 switch api {
                 case .server(402), .serverWithDetail(402, _):
-                    if !premiumLocked { onPremiumRequired?() }
                     premiumLocked = true
+                    onPremiumRequired?()
                     return // A normal entitlement boundary is not a transport failure.
                 default: break
                 }
             }
-            hadFailure = true
+            nextFailed.insert(source)
         }
         await withTaskGroup(of: FetchResult.self) { group in
-            group.addTask { .history(await Self.capture {
-                try await client.fetchSymptomHistory(profileId: profileId, userId: userId, accessToken: accessToken)
-            }) }
-            group.addTask { .bundle(await Self.capture {
-                try await client.fetchHealthInsightsBundle(profileId: profileId, userId: userId,
-                    accessToken: accessToken, windowDays: days, language: language)
-            }) }
-            group.addTask { .patterns(await Self.capture {
-                try await client.fetchPersonalPatterns(profileId: profileId, userId: userId,
-                    accessToken: accessToken, windowDays: days, language: language)
-            }) }
-            group.addTask { .adaptation(await Self.capture {
-                try await client.fetchAdaptation(profileId: profileId, userId: userId, accessToken: accessToken)
-            }) }
+            if targets.contains(.history) {
+                group.addTask { .history(await Self.capture {
+                    try await client.fetchSymptomHistory(profileId: profileId, userId: userId, accessToken: accessToken)
+                }) }
+            }
+            if targets.contains(.bundle) {
+                group.addTask { .bundle(await Self.capture {
+                    try await client.fetchHealthInsightsBundle(profileId: profileId, userId: userId,
+                        accessToken: accessToken, windowDays: days, language: language)
+                }) }
+            }
+            if targets.contains(.patterns) {
+                group.addTask { .patterns(await Self.capture {
+                    try await client.fetchPersonalPatterns(profileId: profileId, userId: userId,
+                        accessToken: accessToken, windowDays: days, language: language)
+                }) }
+            }
+            if targets.contains(.adaptation) {
+                group.addTask { .adaptation(await Self.capture {
+                    try await client.fetchAdaptation(profileId: profileId, userId: userId, accessToken: accessToken)
+                }) }
+            }
             group.addTask {
                 try? await Task.sleep(nanoseconds: deadline)
                 return .deadline
@@ -130,14 +165,18 @@ final class InsightsViewModel: ObservableObject {
             for await result in group {
                 guard generation == refreshGeneration, !Task.isCancelled else { group.cancelAll(); break }
                 if case .deadline = result {
-                    hadFailure = true
                     group.cancelAll()
                     break
                 }
                 completed += 1
                 switch result {
-                case .history(.success(let history)): loggedDays = uniqueLogDays(from: history.items)
+                case .history(.success(let history)):
+                    finishedSources.insert(.history)
+                    nextFailed.remove(.history)
+                    loggedDays = uniqueLogDays(from: history.items)
                 case .bundle(.success(let bundle)):
+                    finishedSources.insert(.bundle)
+                    nextFailed.remove(.bundle)
                     trends = bundle.trends; associations = bundle.associations; insufficient = bundle.insufficientData
                     if loggedDays == 0, let have = bundle.insufficientData.first?.have { loggedDays = have }
                     generatedAtDisplay = HiAirHumanDate.display(fromISO: bundle.generatedAt,
@@ -160,13 +199,21 @@ final class InsightsViewModel: ObservableObject {
                         "duration_ms": String(Int(Date().timeIntervalSince(started) * 1000))
                     ])
                     loading = false // Primary cards do not wait for optional legacy/adaptation requests.
-                case .patterns(.success(let patterns)): items = patterns.items
-                case .adaptation(.success(let value)): adaptation = value
-                case .history(.failure(let error)), .bundle(.failure(let error)),
-                     .patterns(.failure(let error)), .adaptation(.failure(let error)): recordFailure(error)
+                case .patterns(.success(let patterns)):
+                    finishedSources.insert(.patterns)
+                    nextFailed.remove(.patterns)
+                    items = patterns.items
+                case .adaptation(.success(let value)):
+                    finishedSources.insert(.adaptation)
+                    nextFailed.remove(.adaptation)
+                    adaptation = value
+                case .history(.failure(let error)): recordFailure(.history, error)
+                case .bundle(.failure(let error)): recordFailure(.bundle, error)
+                case .patterns(.failure(let error)): recordFailure(.patterns, error)
+                case .adaptation(.failure(let error)): recordFailure(.adaptation, error)
                 case .deadline: break
                 }
-                if completed == 4 { group.cancelAll(); break }
+                if completed == expectedCount { group.cancelAll(); break }
             }
         }
     }
@@ -261,9 +308,20 @@ struct InsightsView: View {
                         .v2Card()
                     } else {
                         if viewModel.partialFailure {
-                            HiAirErrorView(title: session.l("common.error.title"),
-                                message: session.l("insights.failed"), retryTitle: session.l("insights.retry"),
-                                onRetry: { Task { await refreshInsights() } }).v2Card()
+                            // Soft local banner — keep available content visible.
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(session.l("insights.partial_title"))
+                                    .font(AuroraTokens.Typography.titleMD)
+                                    .foregroundStyle(HiAirV2Theme.primaryText)
+                                Text(session.l("insights.partial_body"))
+                                    .font(AuroraTokens.Typography.bodyMD)
+                                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                                Button(session.l("insights.retry")) {
+                                    Task { await refreshFailedInsights() }
+                                }
+                                .buttonStyle(HiAirSecondaryButtonStyle())
+                            }
+                            .v2Card()
                         }
                         windowPicker
                         todayCard
@@ -341,7 +399,7 @@ struct InsightsView: View {
                     accessToken: session.accessToken,
                     language: session.preferredLanguage,
                     windowDays: days,
-                    onPremiumRequired: { session.showPaywall = true }
+                    onPremiumRequired: { presentPaywallIfNeeded() }
                 )
             }
         } label: {
@@ -432,16 +490,22 @@ struct InsightsView: View {
 
     private var premiumLockedCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(session.l("insights.premium_locked.title"))
-                .font(AuroraTokens.Typography.titleMD)
-                .foregroundStyle(HiAirV2Theme.primaryText)
-            Text(session.l("insights.premium_locked.body"))
-                .font(AuroraTokens.Typography.bodyMD)
-                .foregroundStyle(HiAirV2Theme.secondaryText)
-            Button(session.l("insights.premium_locked.cta")) {
-                session.showPaywall = true
+            if session.premiumActivationPending {
+                Text(session.l("paywall.verify_pending_no_repurchase"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+            } else {
+                Text(session.l("insights.premium_locked.title"))
+                    .font(AuroraTokens.Typography.titleMD)
+                    .foregroundStyle(HiAirV2Theme.primaryText)
+                Text(session.l("insights.premium_locked.body"))
+                    .font(AuroraTokens.Typography.bodyMD)
+                    .foregroundStyle(HiAirV2Theme.secondaryText)
+                Button(session.l("insights.premium_locked.cta")) {
+                    presentPaywallIfNeeded()
+                }
+                .buttonStyle(HiAirGradientButtonStyle())
             }
-            .buttonStyle(HiAirGradientButtonStyle())
         }
         .v2Card()
     }
@@ -642,7 +706,26 @@ struct InsightsView: View {
             userId: session.userId,
             accessToken: session.accessToken,
             language: session.preferredLanguage,
-            onPremiumRequired: { session.showPaywall = true }
+            onPremiumRequired: { presentPaywallIfNeeded() }
         )
+    }
+
+    /// Retry only sections that failed — keep already-loaded content.
+    private func refreshFailedInsights() async {
+        let failed = viewModel.failedSources
+        await viewModel.refresh(
+            profileId: session.profileId,
+            userId: session.userId,
+            accessToken: session.accessToken,
+            language: session.preferredLanguage,
+            sources: failed.isEmpty ? nil : failed,
+            onPremiumRequired: { presentPaywallIfNeeded() }
+        )
+    }
+
+    /// Pending Premium activation must not bounce the buyer back into the paywall.
+    private func presentPaywallIfNeeded() {
+        guard !session.premiumActivationPending else { return }
+        session.showPaywall = true
     }
 }

@@ -19,7 +19,8 @@ enum HiAirColors {
         static let gradientStart = Color(hex: 0x1AE8FF)
         static let gradientMid = Color(hex: 0x4D8CFF)
         static let gradientEnd = Color(hex: 0xA06AFF)
-        static let labelOnGradient = Color(hex: 0xFFFFFF)
+        // Navy on bright cyan/violet CTA stops — white on #1AE8FF is ~1.5:1.
+        static let labelOnGradient = Color(hex: 0x050B16)
     }
 
     enum Spectrum {

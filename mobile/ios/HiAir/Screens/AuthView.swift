@@ -248,18 +248,16 @@ struct AuthView: View {
                             title: "HiAir",
                             subtitle: session.l("brand.tagline"),
                             showOrb: true,
-                            orbSize: min(HiAirScreenMetrics.heroOrbSize(for: width), 120)
+                            orbSize: min(HiAirScreenMetrics.heroOrbSize(for: width), 72)
                         )
                         .padding(.top, HiAirSpacing.sm)
 
-                        Text(session.l("auth.title"))
-                            .font(HiAirTypography.titleMD)
-                            .foregroundStyle(HiAirColors.Text.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
                         HiAirGlassCard {
-                            VStack(spacing: 12) {
-                                TextField(session.l("auth.email"), text: $viewModel.email)
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(session.l("auth.email"))
+                                    .font(HiAirTypography.caption)
+                                    .foregroundStyle(HiAirColors.Text.secondary)
+                                TextField(session.l("auth.email_placeholder"), text: $viewModel.email)
                                     .textInputAutocapitalization(.never)
                                     .keyboardType(.emailAddress)
                                     .textContentType(.username)
@@ -270,13 +268,20 @@ struct AuthView: View {
                                     .foregroundStyle(HiAirV2Theme.primaryText)
                                     .accessibilityIdentifier(HiAirAccessibilityID.Auth.emailField)
 
-                                SecureField(session.l("auth.password"), text: $viewModel.password)
+                                Text(session.l("auth.password"))
+                                    .font(HiAirTypography.caption)
+                                    .foregroundStyle(HiAirColors.Text.secondary)
+                                SecureField(session.l("auth.password_placeholder"), text: $viewModel.password)
                                     .textContentType(.password)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
                                     .hiAirInputSurface()
                                     .foregroundStyle(HiAirV2Theme.primaryText)
                                     .accessibilityIdentifier(HiAirAccessibilityID.Auth.passwordField)
+                                Text(session.l("auth.password_rules"))
+                                    .font(HiAirTypography.caption)
+                                    .foregroundStyle(HiAirColors.Text.tertiary)
+                                    .accessibilityIdentifier("auth.password_rules")
                             }
                         }
 

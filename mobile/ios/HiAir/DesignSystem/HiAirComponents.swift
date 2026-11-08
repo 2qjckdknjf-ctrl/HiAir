@@ -464,6 +464,7 @@ struct HiAirLoadingView: View {
 struct HiAirSkeletonCard: View {
     var lines: Int = 3
     var height: CGFloat = 88
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     var body: some View {
@@ -481,9 +482,15 @@ struct HiAirSkeletonCard: View {
         .padding(HiAirSpacing.md)
         .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
         .hiAirLiquidGlass(cornerRadius: HiAirRadius.md, variant: .regular)
-        .opacity(pulse ? 0.55 : 0.92)
-        .animation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true), value: pulse)
-        .onAppear { pulse = true }
+        .opacity(reduceMotion ? 0.78 : (pulse ? 0.55 : 0.92))
+        .animation(
+            reduceMotion ? nil : .easeInOut(duration: 1.05).repeatForever(autoreverses: true),
+            value: pulse
+        )
+        .onAppear {
+            guard !reduceMotion else { return }
+            pulse = true
+        }
         .accessibilityHidden(true)
     }
 }

@@ -666,7 +666,7 @@ struct DailyPlannerView: View {
                 .disabled(viewModel.loading)
                 .accessibilityIdentifier(HiAirAccessibilityID.Planner.refresh)
 
-                Button(session.l("planner.apply")) {
+                Button(session.l("planner.go_home")) {
                     session.selectedTab = 0
                 }
                 .buttonStyle(HiAirSecondaryButtonStyle())
@@ -754,14 +754,15 @@ struct DailyPlannerView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(HiAirColors.Text.secondary)
                     Spacer()
-                    Text(dg("aqi_us"))
+                    Text(session.l("planner.hourly_risk"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(HiAirColors.Text.tertiary)
                 }
                 HiAirHourlyRiskChart(
                     points: viewModel.hourlyItems,
-                    highlightStartHour: HiAirDeepGlassTime.hour(from: viewModel.safeWindows.first?.start ?? ""),
-                    highlightEndHour: HiAirDeepGlassTime.hour(from: viewModel.safeWindows.first?.end ?? "")
+                    highlightStartISO: viewModel.safeWindows.first?.start,
+                    highlightEndISO: viewModel.safeWindows.first?.end,
+                    timeZoneIdentifier: viewModel.timezoneIdentifier
                 )
                 if let first = viewModel.safeWindows.first {
                     Text("\(dg("recommended")): \(humanWindowRange(first.start, first.end))")

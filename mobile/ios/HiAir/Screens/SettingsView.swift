@@ -1067,6 +1067,7 @@ struct SettingsView: View {
     @State private var showingAIGuide = false
     @State private var showWearableConsent = false
     @State private var showDeleteAccountConfirm = false
+    @State private var showDeleteWearableConfirm = false
     @State private var restoreMessage = ""
     @State private var restoreConfirmedPremium = false
     private let appleDeletionCoordinator = AppleSignInCoordinator()
@@ -1193,29 +1194,39 @@ struct SettingsView: View {
                     Text(session.l("settings.subscription"))
                         .font(AuroraTokens.Typography.titleMD)
                         .foregroundStyle(HiAirV2Theme.primaryText)
-                    Text(
-                        session.isPremium
-                            ? session.l("settings.premium_active")
-                            : session.l("settings.premium_inactive")
-                    )
-                    .font(AuroraTokens.Typography.bodyMD)
-                    .foregroundStyle(HiAirV2Theme.secondaryText)
-                    Button(session.l("settings.upgrade_premium")) {
-                        session.showPaywall = true
+                    Text(premiumStatusLabel)
+                        .font(AuroraTokens.Typography.bodyMD)
+                        .foregroundStyle(HiAirV2Theme.secondaryText)
+                    if session.premiumActivationPending {
+                        Button(session.l("settings.premium_check_access")) {
+                            Task {
+                                await session.refreshEntitlement()
+                                restoreMessage = (session.isPremium && !session.premiumActivationPending)
+                                    ? session.l("paywall.success")
+                                    : session.l("paywall.verify_pending_no_repurchase")
+                            }
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                        .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
+                    } else if session.isPremium {
+                        Button(session.l("settings.manage_subscription")) {
+                            Task { await subscriptionService.showManageSubscriptions() }
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                        .accessibilityIdentifier(HiAirAccessibilityID.Settings.manageSubscription)
+                    } else {
+                        Button(session.l("settings.upgrade_premium")) {
+                            session.showPaywall = true
+                        }
+                        .buttonStyle(HiAirGradientButtonStyle())
+                        .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
                     }
-                    .buttonStyle(HiAirGradientButtonStyle())
-                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.openPaywall)
                     Button(session.l("settings.restore_purchases")) {
                         Task { await restorePurchases() }
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading || subscriptionService.isPurchaseInProgress)
                     .accessibilityIdentifier(HiAirAccessibilityID.Settings.restorePurchases)
-                    Button(session.l("settings.manage_subscription")) {
-                        Task { await subscriptionService.showManageSubscriptions() }
-                    }
-                    .buttonStyle(HiAirSecondaryButtonStyle())
-                    .accessibilityIdentifier(HiAirAccessibilityID.Settings.manageSubscription)
                     if !restoreMessage.isEmpty {
                         Text(restoreMessage)
                             .accessibilityIdentifier(restoreConfirmedPremium ? "settings.restore.success" : "settings.restore.unavailable")
@@ -1644,7 +1655,7 @@ struct SettingsView: View {
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .accessibilityIdentifier("settings.wearables.disconnect")
                     Button(session.l("settings.wearables.delete")) {
-                        Task { await viewModel.deleteWearableData() }
+                        showDeleteWearableConfirm = true
                     }
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .accessibilityIdentifier("settings.wearables.delete")
@@ -1658,6 +1669,18 @@ struct SettingsView: View {
                         Task { await viewModel.refreshWearableStatus() }
                     }
                     .environmentObject(session)
+                }
+                .confirmationDialog(
+                    session.l("settings.wearables.delete_confirm_title"),
+                    isPresented: $showDeleteWearableConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button(session.l("settings.wearables.delete_confirm_action"), role: .destructive) {
+                        Task { await viewModel.deleteWearableData() }
+                    }
+                    Button(session.l("settings.cancel"), role: .cancel) {}
+                } message: {
+                    Text(session.l("settings.wearables.delete_confirm_body"))
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -1818,6 +1841,15 @@ struct SettingsView: View {
         }
     }
 
+    private var premiumStatusLabel: String {
+        if session.premiumActivationPending {
+            return session.l("settings.premium_pending")
+        }
+        return session.isPremium
+            ? session.l("settings.premium_active")
+            : session.l("settings.premium_inactive")
+    }
+
     private func restorePurchases() async {
         restoreConfirmedPremium = false
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
@@ -1831,11 +1863,19 @@ struct SettingsView: View {
             )
             guard !Task.isCancelled, status.userId == session.userId else { return }
             session.applyEntitlement(status.entitlement)
-            restoreConfirmedPremium = status.entitlement?.isPremium == true
-                && subscriptionService.lastRestoreVerifiedTransactionCount > 0
-            restoreMessage = (status.entitlement?.isPremium == true || session.isPremium)
-                ? session.l("paywall.restore_success")
-                : session.l("paywall.restore_nothing")
+            let verifiedCount = subscriptionService.lastRestoreVerifiedTransactionCount
+            let entitlementActive = status.entitlement?.isPremium == true
+            restoreConfirmedPremium = entitlementActive && verifiedCount > 0
+            // Final copy follows the latest confirmed response — not a pre-request Premium flag.
+            if entitlementActive && verifiedCount > 0 {
+                restoreMessage = session.l("paywall.restore_success")
+            } else if entitlementActive {
+                restoreMessage = session.l("paywall.restore_already_active")
+            } else if verifiedCount > 0 {
+                restoreMessage = session.l("paywall.verify_pending_no_repurchase")
+            } else {
+                restoreMessage = session.l("paywall.restore_nothing")
+            }
         } catch {
             restoreMessage = session.l("paywall.generic_error")
         }

@@ -23,6 +23,12 @@ enum WearableConnectionState: String, Equatable {
     case partial
 }
 
+/// Tracks which remote cleanup failed so UI retry repeats the same operation.
+enum WearableRemoteCleanupKind: String, Equatable {
+    case revokeConsent
+    case deleteHealthData
+}
+
 enum HealthConsentTier: Int, CaseIterable {
     case activitySleep = 1
     case heartRecovery = 2
@@ -74,6 +80,9 @@ final class HealthKitService: ObservableObject {
     @Published private(set) var latestSnapshots: [HealthMetricSnapshot] = []
     @Published private(set) var latestSleep: HealthSleepSnapshot?
     @Published private(set) var enabledTiers: Set<Int> = [1]
+    /// Owner of the unfinished remote cleanup; retry must use this account.
+    @Published private(set) var pendingCleanupUserId: String = ""
+    @Published private(set) var pendingCleanupKind: WearableRemoteCleanupKind?
 
     private let store = HKHealthStore()
     private let apiClient = APIClient.live()
@@ -129,6 +138,12 @@ final class HealthKitService: ObservableObject {
             connectionState = .notConnected
             return
         }
+        restorePendingCleanupMarkers()
+        // Unfinished cleanup for this owner outranks Connected presentation.
+        if pendingCleanupUserId == userId, let kind = pendingCleanupKind {
+            connectionState = kind == .deleteHealthData ? .revokeFailed : .remoteRevokePending
+            return
+        }
         if hasDurableConsent(for: userId) {
             connectionState = .connected
         } else if hasSystemAuthorization(for: userId) {
@@ -177,10 +192,16 @@ final class HealthKitService: ObservableObject {
     }
 
     /// Logout / account switch: cancel work and clear presentation; keep HK system permission.
+    /// Account-bound pending remote cleanup markers survive for the owning userId.
     func clearAccountSession() {
         cancelPendingSync()
         boundUserId = ""
-        connectionState = .notConnected
+        // Preserve pending cleanup ownership across logout; presentation returns on rebind.
+        if pendingCleanupKind != nil, !pendingCleanupUserId.isEmpty {
+            connectionState = pendingCleanupKind == .deleteHealthData ? .revokeFailed : .remoteRevokePending
+        } else {
+            connectionState = .notConnected
+        }
         lastSyncError = nil
         lastAuthorizationError = nil
         lastSyncAt = nil
@@ -215,6 +236,10 @@ final class HealthKitService: ObservableObject {
         self.defaults = defaults
         if let saved = defaults.array(forKey: tiersKey) as? [Int], !saved.isEmpty {
             enabledTiers = Set(saved)
+        }
+        restorePendingCleanupMarkers()
+        if pendingCleanupKind != nil, !pendingCleanupUserId.isEmpty {
+            connectionState = pendingCleanupKind == .deleteHealthData ? .revokeFailed : .remoteRevokePending
         }
     }
 
@@ -942,6 +967,7 @@ final class HealthKitService: ObservableObject {
 
     func revokeConsent(userId: String, accessToken: String) async {
         revokeLocalConsentImmediately(userId: userId, presenting: .revoking)
+        persistPendingCleanup(userId: userId, kind: .revokeConsent)
         do {
             if let testRemoteRevokeHandler {
                 try await testRemoteRevokeHandler()
@@ -949,9 +975,11 @@ final class HealthKitService: ObservableObject {
                 _ = try await apiClient.revokeWearableConsent(userId: userId, accessToken: accessToken)
             }
             guard boundUserId.isEmpty || boundUserId == userId else { return }
+            clearPendingCleanup(for: userId)
             connectionState = .notConnected
         } catch {
             guard boundUserId.isEmpty || boundUserId == userId else { return }
+            persistPendingCleanup(userId: userId, kind: .revokeConsent)
             connectionState = .remoteRevokePending
             lastSyncError = error.localizedDescription
             ProductAnalytics.track("health_revoke_remote_failed", properties: ["error_code": "remote"])
@@ -960,6 +988,7 @@ final class HealthKitService: ObservableObject {
 
     func deleteHealthData(userId: String, accessToken: String) async {
         revokeLocalConsentImmediately(userId: userId, presenting: .revoking)
+        persistPendingCleanup(userId: userId, kind: .deleteHealthData)
         let prefix = anchorKeyPrefix
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
             defaults.removeObject(forKey: key)
@@ -972,14 +1001,57 @@ final class HealthKitService: ObservableObject {
                 _ = try await apiClient.deleteWearableData(userId: userId, accessToken: accessToken)
             }
             guard boundUserId.isEmpty || boundUserId == userId else { return }
+            clearPendingCleanup(for: userId)
             connectionState = .notConnected
         } catch {
             guard boundUserId.isEmpty || boundUserId == userId else { return }
+            persistPendingCleanup(userId: userId, kind: .deleteHealthData)
             connectionState = .revokeFailed
             lastSyncError = error.localizedDescription
             ProductAnalytics.track("health_delete_remote_failed", properties: ["error_code": "remote"])
         }
     }
+
+    /// Retry the unfinished remote cleanup for the same owner — never reconnect or resume upload.
+    func retryPendingRemoteCleanup(userId: String, accessToken: String) async {
+        let owner = pendingCleanupUserId.isEmpty ? userId : pendingCleanupUserId
+        guard owner == userId else {
+            // Different account must not inherit another user's pending cleanup.
+            return
+        }
+        switch pendingCleanupKind {
+        case .deleteHealthData, .none where connectionState == .revokeFailed:
+            await deleteHealthData(userId: userId, accessToken: accessToken)
+        case .revokeConsent, .none:
+            await revokeConsent(userId: userId, accessToken: accessToken)
+        }
+    }
+
+    private func clearPendingCleanup(for userId: String) {
+        guard pendingCleanupUserId.isEmpty || pendingCleanupUserId == userId else { return }
+        pendingCleanupUserId = ""
+        pendingCleanupKind = nil
+        defaults.removeObject(forKey: Self.pendingCleanupUserIdKey)
+        defaults.removeObject(forKey: Self.pendingCleanupKindKey)
+    }
+
+    private func persistPendingCleanup(userId: String, kind: WearableRemoteCleanupKind) {
+        pendingCleanupUserId = userId
+        pendingCleanupKind = kind
+        defaults.set(userId, forKey: Self.pendingCleanupUserIdKey)
+        defaults.set(kind.rawValue, forKey: Self.pendingCleanupKindKey)
+    }
+
+    private func restorePendingCleanupMarkers() {
+        let userId = defaults.string(forKey: Self.pendingCleanupUserIdKey) ?? ""
+        let kindRaw = defaults.string(forKey: Self.pendingCleanupKindKey) ?? ""
+        guard !userId.isEmpty, let kind = WearableRemoteCleanupKind(rawValue: kindRaw) else { return }
+        pendingCleanupUserId = userId
+        pendingCleanupKind = kind
+    }
+
+    private static let pendingCleanupUserIdKey = "hiair.health.pendingCleanupUserId"
+    private static let pendingCleanupKindKey = "hiair.health.pendingCleanupKind"
 
     func resetTestHooks() {
         testCollectHandler = nil
