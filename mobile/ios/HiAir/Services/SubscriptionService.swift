@@ -487,8 +487,14 @@ final class SubscriptionService: ObservableObject {
 
         SubscriptionDiagnostics.log("restore_started")
         lastRestoreVerifiedTransactionCount = 0
+        let yielded = RestoreEntitlementYields()
         let signedTransactions = try await Self.collectRestoreEntitlements(
-            current: { await self.currentSignedEntitlements() },
+            current: {
+                try Task.checkCancellation()
+                yielded.reset()
+                self.restorePhase = .readingStore
+                return try await self.currentSignedEntitlements(into: yielded)
+            },
             sync: {
                 self.restorePhase = .awaitingApple
                 SubscriptionDiagnostics.log("restore_store_sync_started")
@@ -500,8 +506,15 @@ final class SubscriptionService: ObservableObject {
                     SubscriptionDiagnostics.log("restore_store_sync_failed", errorDomain: safe.domain, errorCode: safe.code)
                     throw error
                 }
+            },
+            partialResults: { yielded.snapshot() },
+            ensureSession: {
+                try Task.checkCancellation()
+                guard APIClient.getAuthState()?.userId == userId else { throw CancellationError() }
             }
         )
+        try Task.checkCancellation()
+        guard APIClient.getAuthState()?.userId == userId else { throw CancellationError() }
         restorePhase = .verifyingAccess
         _ = try? await processUnfinishedTransactions(
             userId: userId,
@@ -509,6 +522,8 @@ final class SubscriptionService: ObservableObject {
             correlationId: "restore_unfinished",
             failFast: false
         )
+        try Task.checkCancellation()
+        guard APIClient.getAuthState()?.userId == userId else { throw CancellationError() }
         SubscriptionDiagnostics.log("restore_backend_started", resultType: "current_count=\(signedTransactions.count)")
         let response = try await apiClient.restoreSubscriptions(
             userId: userId,
@@ -531,10 +546,26 @@ final class SubscriptionService: ObservableObject {
     // Missing transactions still use explicit user-triggered sync; backend verifies
     // every JWS and remains the authority for ownership, expiry and revocation.
     static func collectRestoreEntitlements(
-        current: () async throws -> [String], sync: () async throws -> Void
+        current: @escaping @MainActor () async throws -> [String],
+        sync: () async throws -> Void,
+        readTimeoutNanoseconds: UInt64 = 8_000_000_000,
+        sleeper: any Nanosleeping = SystemNanosleeper(),
+        partialResults: @escaping @Sendable () -> [String] = { [] },
+        ensureSession: @escaping () async throws -> Void = { try Task.checkCancellation() }
     ) async throws -> [String] {
-        let existing = try await current()
-        if !existing.isEmpty { return Array(Set(existing)) }
+        // StoreKit can leave the initial entitlement sequence suspended indefinitely.
+        // A timeout with no yielded JWS is unknown, never an empty/expired entitlement
+        // or purchase success. JWS already emitted before the stall must still restore.
+        // Explicit restore may then ask App Store to synchronize once.
+        if let existing = try await readRestoreSnapshot(
+            current,
+            timeoutNanoseconds: readTimeoutNanoseconds,
+            sleeper: sleeper,
+            partialResults: partialResults
+        ), !existing.isEmpty {
+            return Array(Set(existing))
+        }
+        try await ensureSession()
         do {
             try await sync()
         } catch {
@@ -542,16 +573,60 @@ final class SubscriptionService: ObservableObject {
             if let storeError = error as? StoreKitError, case .userCancelled = storeError { throw error }
             throw SubscriptionServiceError.restoreStoreUnavailable
         }
-        return Array(Set(try await current()))
+        try await ensureSession()
+        guard let refreshed = try await readRestoreSnapshot(
+            current,
+            timeoutNanoseconds: readTimeoutNanoseconds,
+            sleeper: sleeper,
+            partialResults: partialResults
+        ) else {
+            throw SubscriptionServiceError.restoreStoreUnavailable
+        }
+        return Array(Set(refreshed))
     }
 
-    private func currentSignedEntitlements() async -> [String] {
+    private static func readRestoreSnapshot(
+        _ current: @escaping @MainActor () async throws -> [String],
+        timeoutNanoseconds: UInt64,
+        sleeper: any Nanosleeping,
+        partialResults: @escaping @Sendable () -> [String]
+    ) async throws -> [String]? {
+        // Reuse the existing one-shot race: structured task groups would wait for
+        // a non-cooperative StoreKit child even after its deadline. This reads only;
+        // no late completion can verify a receipt or change entitlement state.
+        let outcome = await HealthKitTimeoutRace.raceAsync(
+            timeoutNanoseconds: timeoutNanoseconds, sleeper: sleeper
+        ) {
+            do { return Result<[String], Error>.success(try await current()) }
+            catch { return .failure(error) }
+        }
+        try Task.checkCancellation()
+        switch outcome {
+        case .value(let result): return try result.get()
+        case .timedOut:
+            let partial = partialResults()
+            SubscriptionDiagnostics.log(
+                "restore_entitlement_read_timed_out",
+                resultType: partial.isEmpty ? "empty" : "yielded=\(partial.count)"
+            )
+            return partial.isEmpty ? nil : partial
+        }
+    }
+
+    private func currentSignedEntitlements(into yielded: RestoreEntitlementYields) async throws -> [String] {
+        try Task.checkCancellation()
         var signed: [String] = []
         for await result in Transaction.currentEntitlements {
+            try Task.checkCancellation()
             guard case .verified(let transaction) = result,
                   StoreProductIDs.all.contains(transaction.productID) else { continue }
-            if let value = try? signedTransactionString(from: result) { signed.append(value) }
+            SubscriptionDiagnostics.recordVerification(transaction, ownerId: restoreOwnerId, outcome: "restore_current")
+            if let value = try? signedTransactionString(from: result) {
+                signed.append(value)
+                yielded.yield(value)
+            }
         }
+        try Task.checkCancellation()
         return signed
     }
 
@@ -908,5 +983,29 @@ enum SubscriptionServiceError: LocalizedError {
         case .verificationFailed:
             return HiAirL10n.t("paywall.verification_failed", lang: lang)
         }
+    }
+}
+
+/// Side channel for JWS already emitted by a StoreKit sequence that may never finish.
+final class RestoreEntitlementYields: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+
+    func yield(_ value: String) {
+        lock.lock()
+        values.append(value)
+        lock.unlock()
+    }
+
+    func snapshot() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+
+    func reset() {
+        lock.lock()
+        values = []
+        lock.unlock()
     }
 }
