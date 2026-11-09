@@ -41,6 +41,32 @@ final class PhysicalInstalledStoreUITests: XCTestCase {
     func testMonthlyPurchaseOnInstalledApp() throws { try openPurchase("monthly") }
     func testYearlyPurchaseOnInstalledApp() throws { try openPurchase("yearly") }
 
+    func testObserveAppleSubscriptionsWithoutPurchase() throws {
+        let app = try app()
+        app.buttons["tab.settings"].tap()
+        let open = app.buttons["settings.open_paywall"]
+        for _ in 0..<12 {
+            if open.exists && open.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(open.exists && open.isHittable)
+        open.tap()
+        let manage = app.buttons["Управлять подпиской"]
+        for _ in 0..<12 {
+            if manage.exists && manage.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(manage.exists && manage.isHittable)
+        manage.tap()
+        // Observe only: do not renew, cancel, change plans, or confirm payments.
+        RunLoop.current.run(until: Date().addingTimeInterval(12))
+        capture(app, "apple-subscriptions")
+        let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screen.name = "apple-subscriptions-full-screen"
+        screen.lifetime = .keepAlways
+        add(screen)
+    }
+
     private func openPurchase(_ period: String) throws {
         let app = try app()
         app.buttons["tab.settings"].tap()
