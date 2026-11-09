@@ -535,7 +535,13 @@ final class SubscriptionService: ObservableObject {
     ) async throws -> [String] {
         let existing = try await current()
         if !existing.isEmpty { return Array(Set(existing)) }
-        try await sync()
+        do {
+            try await sync()
+        } catch {
+            if error is CancellationError || isRequestCanceled(error) { throw error }
+            if let storeError = error as? StoreKitError, case .userCancelled = storeError { throw error }
+            throw SubscriptionServiceError.restoreStoreUnavailable
+        }
         return Array(Set(try await current()))
     }
 
@@ -876,6 +882,7 @@ enum SubscriptionServiceError: LocalizedError {
     case purchaseInProgress
     case verificationFailed
     case purchaseSceneUnavailable
+    case restoreStoreUnavailable
 
     var errorDescription: String? {
         let lang = UserDefaults.standard.string(forKey: "session.preferredLanguage") ?? "ru"
@@ -888,6 +895,8 @@ enum SubscriptionServiceError: LocalizedError {
             return HiAirL10n.t("paywall.generic_error", lang: lang)
         case .purchaseInProgress:
             return HiAirL10n.t("paywall.purchase_in_progress", lang: lang)
+        case .restoreStoreUnavailable:
+            return HiAirL10n.t("paywall.restore_store_unavailable", lang: lang)
         case .verificationFailed:
             return HiAirL10n.t("paywall.verification_failed", lang: lang)
         }

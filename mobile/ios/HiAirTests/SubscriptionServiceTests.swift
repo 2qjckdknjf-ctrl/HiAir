@@ -4,6 +4,21 @@ import StoreKit
 
 final class SubscriptionServiceTests: XCTestCase {
     @MainActor
+    func testFailedAppleSyncStopsRestoreBeforeReadingNewEntitlements() async {
+        var reads = 0
+        do {
+            _ = try await SubscriptionService.collectRestoreEntitlements(
+                current: { reads += 1; return [] },
+                sync: { throw URLError(.notConnectedToInternet) })
+            XCTFail("A failed Apple sync must not continue restoration")
+        } catch SubscriptionServiceError.restoreStoreUnavailable {
+            XCTAssertEqual(reads, 1)
+        } catch {
+            XCTFail("Expected an App Store restore error, got \(error)")
+        }
+    }
+
+    @MainActor
     func testRestoreUsesCurrentVerifiedEntitlementsWithoutSyncPrompt() async throws {
         var syncCalls = 0
         let values = try await SubscriptionService.collectRestoreEntitlements(

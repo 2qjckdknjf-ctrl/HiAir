@@ -674,12 +674,16 @@ private struct PaywallContent: View {
             } else {
                 statusMessage = session.l("paywall.restore_nothing")
             }
+        } catch SubscriptionServiceError.restoreStoreUnavailable {
+            guard !Task.isCancelled, session.userId == ownerId else { return }
+            statusMessage = session.l("paywall.restore_store_unavailable")
         } catch SubscriptionServiceError.purchaseInProgress {
             statusMessage = session.l("paywall.purchase_in_progress")
         } catch let error as APIError {
             guard session.userId == ownerId else { return }
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
+            guard !Task.isCancelled, session.userId == ownerId else { return }
             statusMessage = session.l("paywall.generic_error")
         }
     }
