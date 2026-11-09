@@ -613,6 +613,7 @@ final class SubscriptionService: ObservableObject {
             correlationId: correlationId
         )
         let signed = try signedTransactionString(from: verification)
+        SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId, outcome: "verifying")
         do {
             let response = try await apiClient.verifyIosSubscription(
                 userId: userId,
@@ -620,6 +621,8 @@ final class SubscriptionService: ObservableObject {
                 productId: transaction.productID,
                 accessToken: accessToken
             )
+            SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId,
+                                                       outcome: response.entitlement?.isPremium == true ? "active" : "inactive")
             SubscriptionDiagnostics.log(
                 "backend_verify_succeeded",
                 productId: transaction.productID,
@@ -656,6 +659,7 @@ final class SubscriptionService: ObservableObject {
                 default:
                     statusCode = 0
                 }
+                SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId, outcome: "http_\(statusCode)")
                 SubscriptionDiagnostics.log(
                     "backend_verify_failed",
                     productId: transaction.productID,
@@ -663,6 +667,7 @@ final class SubscriptionService: ObservableObject {
                     correlationId: correlationId
                 )
             } else {
+                SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId, outcome: "transport_error")
                 SubscriptionDiagnostics.log(
                     "backend_verify_failed",
                     productId: transaction.productID,

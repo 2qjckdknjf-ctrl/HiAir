@@ -67,6 +67,30 @@ final class PhysicalInstalledStoreUITests: XCTestCase {
         add(screen)
     }
 
+    func testObserveRestoreWithoutRelaunch() throws {
+        guard ProcessInfo.processInfo.environment["HIAIR_RUN_PHYSICAL_QA"] == "1" else {
+            throw XCTSkip("Explicit physical-device invocation required")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.hiair.app")
+        app.activate()
+        let settings = app.buttons["tab.settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 20))
+        settings.tap()
+        let restore = app.buttons["settings.restore_purchases"]
+        for _ in 0..<12 {
+            if restore.exists && restore.isHittable { break }
+            app.swipeUp()
+        }
+        capture(app, "restore-before")
+        XCTAssertTrue(restore.exists && restore.isHittable && restore.isEnabled)
+        restore.tap()
+        let complete = NSPredicate(format: "enabled == true")
+        let expectation = XCTNSPredicateExpectation(predicate: complete, object: restore)
+        _ = XCTWaiter.wait(for: [expectation], timeout: 40)
+        capture(app, "restore-after")
+    }
+
     private func openPurchase(_ period: String) throws {
         let app = try app()
         app.buttons["tab.settings"].tap()
