@@ -1523,16 +1523,31 @@ final class ProfileEnsureTests: XCTestCase {
         session.userId = "user-1"
         session.accessToken = "token"
         session.refreshToken = "refresh"
+        // logout() clears coordinates — restore a valid home so the second cycle
+        // can proceed past locationGate (mirrors a real post-login location hydrate).
+        session.latitude = 41.28
+        session.longitude = 1.976
         UITestMockAPIProtocol.setRoute(
             method: "GET",
             path: "/api/profiles",
             response: .json(200, object: [])
         )
-        _ = await session.ensureProfileIdIfNeeded()
-        XCTAssertEqual(
-            UITestMockAPIProtocol.requestCount(matching: "/api/profiles", method: "GET"),
-            2
+        let listCountBeforeSecondEnsure = UITestMockAPIProtocol.requestCount(
+            matching: "/api/profiles",
+            method: "GET"
         )
+        let outcome = await session.ensureProfileIdIfNeeded()
+        XCTAssertEqual(outcome, .ready)
+        XCTAssertEqual(session.lastProfileEnsureOutcome, .ready)
+        // Delta (not absolute suite-wide count): a fresh list attempt must happen.
+        // Create may add a recovery list when POST races — accept 1 or 2 new GETs.
+        let listDelta = UITestMockAPIProtocol.requestCount(
+            matching: "/api/profiles",
+            method: "GET"
+        ) - listCountBeforeSecondEnsure
+        XCTAssertGreaterThanOrEqual(listDelta, 1)
+        XCTAssertLessThanOrEqual(listDelta, 2)
+        XCTAssertEqual(session.profileEnsureCycleAttemptCount, 1)
     }
 
     func testRapidEnsureCallsAfterTerminalDoNotCreateNewAttempts() async {

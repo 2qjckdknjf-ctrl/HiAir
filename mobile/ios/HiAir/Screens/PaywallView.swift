@@ -383,7 +383,14 @@ private struct PaywallContent: View {
             Button {
                 handleSubscribeTap(product: product, disabledReason: disabledReason)
             } label: {
-                Text(isPurchasing ? session.l("paywall.purchasing") : session.l(subscribeKey))
+                let title: String = {
+                    if isPurchasing { return session.l("paywall.purchasing") }
+                    if session.premiumActivationPending {
+                        return session.l("settings.premium_check_access")
+                    }
+                    return session.l(subscribeKey)
+                }()
+                Text(title)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(HiAirGradientButtonStyle())
@@ -441,7 +448,7 @@ private struct PaywallContent: View {
 
     private func subscribeDisabledReason(for product: Product) -> String? {
         if hasConfirmedPremium { return "entitlement_active" }
-        if session.premiumActivationPending { return "verification_pending" }
+        // Pending activation must stay tappable so the user can retry unfinished verify.
         if subscriptionService.isLoading { return "loading" }
         if purchaseBusy { return "purchase_in_progress" }
         if product.displayPrice.isEmpty { return "no_product" }
@@ -457,7 +464,54 @@ private struct PaywallContent: View {
             return
         }
         SubscriptionDiagnostics.log("subscribe_button_tapped", productId: product.id)
-        Task { await purchase(product: product) }
+        Task {
+            if session.premiumActivationPending {
+                await completePendingActivation()
+            } else {
+                await purchase(product: product)
+            }
+        }
+    }
+
+    /// Apple sheet already succeeded — only re-run HiAir verify for unfinished transactions.
+    private func completePendingActivation() async {
+        let ownerId = session.userId
+        let ownerToken = session.accessToken
+        guard !ownerId.isEmpty, !ownerToken.isEmpty else {
+            statusMessage = session.l("paywall.auth_required")
+            return
+        }
+        guard purchasingProductId == nil, !subscriptionService.isPurchaseInProgress else {
+            statusMessage = session.l("paywall.purchase_in_progress")
+            return
+        }
+        purchasingProductId = "activation_retry"
+        defer { purchasingProductId = nil }
+        statusMessage = session.l("paywall.verify_pending_no_repurchase")
+        do {
+            let status = try await subscriptionService.retryUnfinishedActivations(
+                userId: ownerId,
+                accessToken: ownerToken
+            )
+            guard session.userId == ownerId else { return }
+            if let entitlement = status?.entitlement, entitlement.isPremium {
+                session.confirmPremiumActivation(entitlement)
+            }
+            await session.refreshEntitlement()
+            guard session.userId == ownerId else { return }
+            if hasConfirmedPremium {
+                statusMessage = session.l("paywall.success")
+                dismiss()
+            } else {
+                statusMessage = session.l("paywall.verify_pending_no_repurchase")
+            }
+        } catch let error as APIError {
+            guard session.userId == ownerId else { return }
+            statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
+        } catch {
+            guard session.userId == ownerId else { return }
+            statusMessage = session.l("paywall.generic_error")
+        }
     }
 
     private func benefitRow(_ text: String) -> some View {
@@ -518,6 +572,7 @@ private struct PaywallContent: View {
             // Late responses from a previous account must not mutate the current session.
             guard session.userId == ownerId, status.userId == ownerId else {
                 RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "owner_mismatch")
+                statusMessage = session.l("paywall.generic_error")
                 return
             }
             if let entitlement = status.entitlement, entitlement.isPremium {
@@ -566,6 +621,7 @@ private struct PaywallContent: View {
         } catch let error as APIError {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "api")
             guard session.userId == ownerId else { return }
+            // Keep Activating + unfinished Apple transaction; subscribe stays tappable for verify retry.
             statusMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
             RuntimePerformanceProbe.end("premium_unlock", success: false, errorCode: "generic")

@@ -683,19 +683,25 @@ final class APIClient {
 
     static func configuredURLSession() -> URLSession {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 60
+        // Primary UX should fail closed before a 30s hang; enrichment can still use
+        // per-request timeouts (e.g. AI morning = 12s).
+        configuration.timeoutIntervalForRequest = 18
+        configuration.timeoutIntervalForResource = 45
         configuration.waitsForConnectivity = false
+        configuration.httpMaximumConnectionsPerHost = 6
         if UITestBootstrap.isMockAPIEnabled {
             configuration.protocolClasses = [UITestMockAPIProtocol.self] + (configuration.protocolClasses ?? [])
         }
         return URLSession(configuration: configuration)
     }
 
+    /// Process-wide session so Dashboard / Insights / HealthKit / Paywall reuse connections.
+    private static let sharedLiveSession: URLSession = configuredURLSession()
+
     static func live(session: URLSession? = nil) -> APIClient {
         APIClient(
             baseURL: resolveBaseURL(),
-            session: session ?? configuredURLSession()
+            session: session ?? sharedLiveSession
         )
     }
 
@@ -1919,6 +1925,8 @@ final class APIClient {
         components.queryItems = [URLQueryItem(name: "profile_id", value: profileId)]
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
+        // Soft enrichment only — never hold the shared session for the full 30s default.
+        request.timeoutInterval = 12
         applyAuthHeaders(to: &request, accessToken: accessToken, userId: userId)
         let (data, httpResponse) = try await sendRequestWithAutoRefresh(request)
         guard (200...299).contains(httpResponse.statusCode) else {

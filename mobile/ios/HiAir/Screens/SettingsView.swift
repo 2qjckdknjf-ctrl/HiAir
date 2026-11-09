@@ -1200,7 +1200,20 @@ struct SettingsView: View {
                     if session.premiumActivationPending {
                         Button(session.l("settings.premium_check_access")) {
                             Task {
+                                let ownerId = session.userId
+                                let token = session.accessToken
+                                guard !ownerId.isEmpty, !token.isEmpty else { return }
+                                do {
+                                    _ = try await subscriptionService.retryUnfinishedActivations(
+                                        userId: ownerId,
+                                        accessToken: token
+                                    )
+                                } catch {
+                                    // Fall through to /me refresh for lagging entitlements.
+                                }
+                                guard session.userId == ownerId else { return }
                                 await session.refreshEntitlement()
+                                guard session.userId == ownerId else { return }
                                 restoreMessage = (session.isPremium && !session.premiumActivationPending)
                                     ? session.l("paywall.success")
                                     : session.l("paywall.verify_pending_no_repurchase")
