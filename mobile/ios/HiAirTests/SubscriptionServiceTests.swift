@@ -4,6 +4,18 @@ import StoreKit
 
 final class SubscriptionServiceTests: XCTestCase {
     @MainActor
+    func testPurchaseOwnershipConflictHasLocalizedRecoveryInstructions() {
+        let service = SubscriptionService(testingFetcher: MockProductFetcher(result: .success([])))
+        let error = APIError.serverWithDetail(statusCode: 403, detail: "Purchase is already linked to another account.")
+        for lang in ["ru", "en", "es", "it", "fr"] {
+            let message = service.userFacingMessage(for: error, language: lang)
+            XCTAssertEqual(message, HiAirL10n.t("paywall.purchase_other_account", lang: lang))
+            XCTAssertTrue(message.contains("hello@hiair.io"))
+            XCTAssertNotEqual(message, "Purchase is already linked to another account.")
+        }
+    }
+
+    @MainActor
     func testFailedAppleSyncStopsRestoreBeforeReadingNewEntitlements() async {
         var reads = 0
         do {

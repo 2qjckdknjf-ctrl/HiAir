@@ -743,6 +743,9 @@ final class SubscriptionService: ObservableObject {
         switch error {
         case .serverWithDetail(_, let detail):
             let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed == "Purchase is already linked to another account." {
+                return HiAirL10n.t("paywall.purchase_other_account", lang: lang)
+            }
             if !trimmed.isEmpty {
                 return trimmed
             }
