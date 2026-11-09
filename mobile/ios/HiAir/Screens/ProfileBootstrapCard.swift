@@ -13,7 +13,7 @@ struct ProfileBootstrapCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(session.l(titleKey))
+            Text(session.l(isProfileLoadFailure ? "profile.ensure.load_failed_title" : titleKey))
                 .font(HiAirTypography.titleMD)
                 .foregroundStyle(HiAirV2Theme.primaryText)
             Text(session.l(resolvedBodyKey))
@@ -80,11 +80,13 @@ struct ProfileBootstrapCard: View {
         return session.lastProfileEnsureOutcome?.suggestsLocationRecovery == true
     }
 
+    private var isProfileLoadFailure: Bool {
+        guard let outcome = session.lastProfileEnsureOutcome else { return false }
+        return outcome.suggestsLoadFailureCopy(phase: session.lastProfileEnsurePhase)
+    }
+
     private var resolvedBodyKey: String {
-        if let outcome = session.lastProfileEnsureOutcome, outcome.messageKey != nil {
-            return bodyKey
-        }
-        return bodyKey
+        isProfileLoadFailure ? "profile.ensure.load_failed_body" : bodyKey
     }
 
     private var resolvedCtaKey: String {

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from uuid import UUID, uuid4
 
 
 def select_device(inventory):
@@ -23,10 +24,24 @@ def verify_summary(summary):
     return total
 
 
+def create_fresh_device(inventory, selected):
+    """Avoid migrating the runner image's existing device data; keep its type/runtime."""
+    runtime = next((runtime for runtime, devices in inventory.get('devices', {}).items()
+                    if any(device.get('udid') == selected['udid'] for device in devices)), None)
+    device_type = selected.get('deviceTypeIdentifier')
+    if not runtime or not device_type:
+        raise ValueError('Cannot create a matching fresh simulator without runtime and device type')
+    identifier = subprocess.check_output(['xcrun', 'simctl', 'create',
+        f'HiAir-CI-{uuid4().hex[:8]}', device_type, runtime], text=True, timeout=30).strip()
+    UUID(identifier)  # Reject malformed output rather than targeting an existing device.
+    return {**selected, 'udid': identifier, 'state': 'Shutdown'}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', choices=['prepare', 'verify'])
     parser.add_argument('--select-only', action='store_true')
+    parser.add_argument('--fresh', action='store_true', help='Create a matching disposable CI simulator')
     parser.add_argument('--result', type=Path)
     args = parser.parse_args()
     if args.mode == 'verify':
@@ -39,6 +54,8 @@ def main():
     inventory = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))
     device = select_device(inventory)
     if not args.select_only:
+        if args.fresh:
+            device = create_fresh_device(inventory, device)
         if device.get('state') != 'Booted':
             subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True,
                 stdout=sys.stderr, stderr=sys.stderr, timeout=30)

@@ -74,6 +74,7 @@ final class HealthKitService: ObservableObject {
     static let shared = HealthKitService()
 
     @Published private(set) var connectionState: WearableConnectionState = .notConnected
+    @Published private(set) var consentFailureMessageKey = "wearable.consent.failed"
     @Published private(set) var lastSyncError: String?
     @Published private(set) var lastAuthorizationError: String?
     @Published private(set) var lastSyncAt: Date?
@@ -85,7 +86,7 @@ final class HealthKitService: ObservableObject {
     @Published private(set) var pendingCleanupKind: WearableRemoteCleanupKind?
 
     private let store = HKHealthStore()
-    private let apiClient = APIClient.live()
+    private let apiClient: APIClient
     private let consentVersion = "health-intelligence-v1"
     private let defaults: UserDefaults
     private let tiersKey = "hiair.health.enabledTiers"
@@ -133,6 +134,7 @@ final class HealthKitService: ObservableObject {
 
     /// Bind / rehydrate account-scoped Health presentation after login.
     func bindAccount(userId: String) {
+        if boundUserId != userId { consentFailureMessageKey = "wearable.consent.failed" }
         boundUserId = userId
         guard !userId.isEmpty else {
             connectionState = .notConnected
@@ -196,6 +198,7 @@ final class HealthKitService: ObservableObject {
     func clearAccountSession() {
         cancelPendingSync()
         boundUserId = ""
+        consentFailureMessageKey = "wearable.consent.failed"
         // Preserve pending cleanup ownership across logout; presentation returns on rebind.
         if pendingCleanupKind != nil, !pendingCleanupUserId.isEmpty {
             connectionState = pendingCleanupKind == .deleteHealthData ? .revokeFailed : .remoteRevokePending
@@ -232,8 +235,9 @@ final class HealthKitService: ObservableObject {
     /// Production uses `.standard`. Unit tests may inject an ephemeral suite so
     /// coordinator races do not share mutable presentation state with the host
     /// app's `HealthKitService.shared` (logout always clears shared).
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, apiClient: APIClient = .live()) {
         self.defaults = defaults
+        self.apiClient = apiClient
         if let saved = defaults.array(forKey: tiersKey) as? [Int], !saved.isEmpty {
             enabledTiers = Set(saved)
         }
@@ -524,6 +528,7 @@ final class HealthKitService: ObservableObject {
         let expectedUserId = userId
         if boundUserId.isEmpty || boundUserId == expectedUserId {
             connectionState = .consentSaving
+            consentFailureMessageKey = "wearable.consent.failed"
         }
         let tiers = enabledTiers
         do {
@@ -563,6 +568,17 @@ final class HealthKitService: ObservableObject {
             }
         } catch {
             if boundUserId.isEmpty || boundUserId == expectedUserId {
+                switch ProfileEnsureMapper.outcome(for: error).category {
+                case .server: consentFailureMessageKey = "wearable.consent.server_unavailable"
+                case .network: consentFailureMessageKey = "wearable.consent.network_failed"
+                case .auth:
+                    if case .needsAuthentication = ProfileEnsureMapper.outcome(for: error) {
+                        consentFailureMessageKey = "auth.session_expired"
+                    } else {
+                        consentFailureMessageKey = "wearable.consent.failed"
+                    }
+                default: consentFailureMessageKey = "wearable.consent.failed"
+                }
                 connectionState = .consentFailed
                 clearConsentPersisted(for: expectedUserId)
             }

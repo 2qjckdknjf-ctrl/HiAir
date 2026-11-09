@@ -98,6 +98,16 @@ enum ProfileEnsureOutcome: Equatable, Sendable {
             return false
         }
     }
+
+    /// Load-failed title/body is for list lookup outages only — never auth, paywall, cancel, or create-phase.
+    func suggestsLoadFailureCopy(phase: ProfileEnsurePhase) -> Bool {
+        switch phase {
+        case .list:
+            return suggestsNetworkRetry
+        case .idle, .locationGate, .create:
+            return false
+        }
+    }
 }
 
 enum ProfileEnsureFailureReason: Equatable, Sendable {
@@ -130,7 +140,9 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
             return "profile.ensure.transport"
         case .cancelled:
             return "profile.ensure.cancelled"
-        case .server, .unknown:
+        case .server:
+            return "profile.ensure.unavailable"
+        case .unknown:
             return "profile.ensure.failed"
         }
     }

@@ -1,3 +1,5 @@
+> Recovery 2026-11-09: after owner payment, the existing production Supabase project resumed to ACTIVE_HEALTHY. iPhone 17 Pro / iOS 27.2 passed real dashboard and Health connection on development-signed 307; server readback confirmed consent and aggregate upload. Launch-to-visible-risk: 6.113s on 307; four successful 306 samples: 7.105–7.198s. TestFlight 307 delivery and subscription acceptance remain pending. See [incident evidence](../audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md). Historical delivery records below do not override this status.
+
 # Состояние доставки HiAir — evidence snapshot 11 октября 2026
 
 > Сверка 2026-10-23: main `68a384061f46389f15fb161b9646904838aa65e1` уже включает [PR89](https://github.com/2qjckdknjf-ctrl/HiAir/pull/89) health batching/restore. Описание «готовятся в 303» ниже — историческое, не актуальная code queue. Свежая доставка 303 и physical restore этим docs-проходом не подтверждены. [Актуальная очередь](../roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md#единая-очередь-2026-10-23) хранит эти gaps; старые PASS/manifest не переименованы в свежие.
