@@ -238,6 +238,26 @@ final class AppSessionLogoutRemoteRevokeTests: XCTestCase {
     }
 
     @MainActor
+    func testLogoutRemovesOnlyOwnersVerificationHistory() async throws {
+        let harness = IsolatedSessionDurableHarness()
+        defer { harness.tearDown() }
+        let session = harness.makeSession(revoker: RecordingRemoteSessionRevoker())
+        installLocalSession(session, userId: "user-a", accessToken: "bearer-a")
+        let url = try XCTUnwrap(FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first)
+            .appendingPathComponent("subscription-verification.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let history = [["ownerId": "user-a", "transactionId": "a"], ["ownerId": "user-b", "transactionId": "b"]]
+        try JSONSerialization.data(withJSONObject: history).write(to: url)
+        session.logout()
+        let remaining = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: String]])
+        XCTAssertEqual(remaining, [["ownerId": "user-b", "transactionId": "b"]])
+        XCTAssertNil(APIClient.getAuthState()) // Late verification cannot pass the current-owner guard.
+        SubscriptionDiagnostics.clearVerificationHistory(ownerId: "user-b")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        await session.awaitRemoteRevokeForTests()
+    }
+
+    @MainActor
     func testLogoutCapturesTokenClearsLocalAndRevokesExactlyOnce() async {
         let harness = IsolatedSessionDurableHarness()
         defer { harness.tearDown() }

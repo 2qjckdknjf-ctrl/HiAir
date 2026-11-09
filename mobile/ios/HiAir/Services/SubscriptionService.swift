@@ -22,6 +22,20 @@ final class SubscriptionService: ObservableObject {
     /// Backend verify / AppStore.sync keep `isPurchaseInProgress` without trapping the paywall UI.
     @Published private(set) var isSystemPurchaseSheetActive = false
     @Published private(set) var lastRestoreVerifiedTransactionCount = 0
+    enum RestorePhase: String {
+        case idle, readingStore, awaitingApple, verifyingAccess
+
+        var messageKey: String? {
+            switch self {
+            case .idle: return nil
+            case .readingStore: return "paywall.restoring"
+            case .awaitingApple: return "paywall.restore_apple_signin"
+            case .verifyingAccess: return "paywall.restore_verifying"
+            }
+        }
+    }
+    @Published private(set) var restorePhase: RestorePhase = .idle
+    @Published private(set) var restoreOwnerId = ""
     @Published var lastError: String?
 
     private var updatesTask: Task<Void, Never>?
@@ -462,9 +476,13 @@ final class SubscriptionService: ObservableObject {
             throw SubscriptionServiceError.purchaseInProgress
         }
         isPurchaseInProgress = true
+        restoreOwnerId = userId
+        restorePhase = .readingStore
         defer {
             purchaseGuard.end()
             isPurchaseInProgress = false
+            restorePhase = .idle
+            restoreOwnerId = ""
         }
 
         SubscriptionDiagnostics.log("restore_started")
@@ -472,6 +490,7 @@ final class SubscriptionService: ObservableObject {
         let signedTransactions = try await Self.collectRestoreEntitlements(
             current: { await self.currentSignedEntitlements() },
             sync: {
+                self.restorePhase = .awaitingApple
                 SubscriptionDiagnostics.log("restore_store_sync_started")
                 do {
                     try await AppStore.sync()
@@ -483,6 +502,7 @@ final class SubscriptionService: ObservableObject {
                 }
             }
         )
+        restorePhase = .verifyingAccess
         _ = try? await processUnfinishedTransactions(
             userId: userId,
             accessToken: accessToken,
@@ -515,7 +535,13 @@ final class SubscriptionService: ObservableObject {
     ) async throws -> [String] {
         let existing = try await current()
         if !existing.isEmpty { return Array(Set(existing)) }
-        try await sync()
+        do {
+            try await sync()
+        } catch {
+            if error is CancellationError || isRequestCanceled(error) { throw error }
+            if let storeError = error as? StoreKitError, case .userCancelled = storeError { throw error }
+            throw SubscriptionServiceError.restoreStoreUnavailable
+        }
         return Array(Set(try await current()))
     }
 
@@ -587,6 +613,7 @@ final class SubscriptionService: ObservableObject {
             correlationId: correlationId
         )
         let signed = try signedTransactionString(from: verification)
+        SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId, outcome: "verifying")
         do {
             let response = try await apiClient.verifyIosSubscription(
                 userId: userId,
@@ -594,6 +621,8 @@ final class SubscriptionService: ObservableObject {
                 productId: transaction.productID,
                 accessToken: accessToken
             )
+            SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId,
+                                                       outcome: response.entitlement?.isPremium == true ? "active" : "inactive")
             SubscriptionDiagnostics.log(
                 "backend_verify_succeeded",
                 productId: transaction.productID,
@@ -630,6 +659,7 @@ final class SubscriptionService: ObservableObject {
                 default:
                     statusCode = 0
                 }
+                SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId, outcome: "http_\(statusCode)")
                 SubscriptionDiagnostics.log(
                     "backend_verify_failed",
                     productId: transaction.productID,
@@ -637,6 +667,7 @@ final class SubscriptionService: ObservableObject {
                     correlationId: correlationId
                 )
             } else {
+                SubscriptionDiagnostics.recordVerification(transaction, ownerId: userId, outcome: "transport_error")
                 SubscriptionDiagnostics.log(
                     "backend_verify_failed",
                     productId: transaction.productID,
@@ -717,6 +748,9 @@ final class SubscriptionService: ObservableObject {
         switch error {
         case .serverWithDetail(_, let detail):
             let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed == "Purchase is already linked to another account." {
+                return HiAirL10n.t("paywall.purchase_other_account", lang: lang)
+            }
             if !trimmed.isEmpty {
                 return trimmed
             }
@@ -856,6 +890,7 @@ enum SubscriptionServiceError: LocalizedError {
     case purchaseInProgress
     case verificationFailed
     case purchaseSceneUnavailable
+    case restoreStoreUnavailable
 
     var errorDescription: String? {
         let lang = UserDefaults.standard.string(forKey: "session.preferredLanguage") ?? "ru"
@@ -868,6 +903,8 @@ enum SubscriptionServiceError: LocalizedError {
             return HiAirL10n.t("paywall.generic_error", lang: lang)
         case .purchaseInProgress:
             return HiAirL10n.t("paywall.purchase_in_progress", lang: lang)
+        case .restoreStoreUnavailable:
+            return HiAirL10n.t("paywall.restore_store_unavailable", lang: lang)
         case .verificationFailed:
             return HiAirL10n.t("paywall.verification_failed", lang: lang)
         }

@@ -1327,6 +1327,7 @@ final class AppSession: ObservableObject {
 
     /// Owning logout / auth-expiry durable clear. Caller must hold a current ownership generation.
     private func clearDurableSessionStorage() {
+        SubscriptionDiagnostics.clearVerificationHistory(ownerId: userId)
         credentials.deleteValue(forKey: Keys.userId)
         credentials.deleteValue(forKey: Keys.email)
         credentials.deleteValue(forKey: Keys.accessToken)
@@ -2096,6 +2097,10 @@ enum HiAirL10n {
             "paywall.auth_required": "Сначала войдите в аккаунт.",
             "paywall.purchasing": "Оформление покупки…",
             "paywall.restoring": "Восстановление…",
+            "paywall.purchase_other_account": "Эта покупка привязана к другому аккаунту HiAir. Войдите в аккаунт, в котором оформляли подписку, и восстановите покупки. Если доступ к нему потерян, напишите hello@hiair.io. Повторная покупка не решит привязку.",
+            "paywall.restore_store_unavailable": "App Store не завершил восстановление. Проверьте подключение и вход в аккаунт Apple на устройстве, затем повторите восстановление. Покупать подписку заново не нужно.",
+            "paywall.restore_apple_signin": "Ожидаем App Store. Если появилось окно входа Apple, завершите его на устройстве. Повторная покупка не нужна.",
+            "paywall.restore_verifying": "Проверяем восстановленные покупки в HiAir…",
             "paywall.asc_hint": "Если ошибка повторяется, проверьте Paid Apps Agreement, Tax и Banking в App Store Connect.",
             "paywall.retry": "Повторить",
             "paywall.restore": "Восстановить покупки",
@@ -2992,6 +2997,10 @@ enum HiAirL10n {
             "paywall.auth_required": "Sign in to your account first.",
             "paywall.purchasing": "Processing purchase…",
             "paywall.restoring": "Restoring…",
+            "paywall.purchase_other_account": "This purchase belongs to another HiAir account. Sign in to the account used for the subscription and restore purchases. If you cannot access it, contact hello@hiair.io. Buying again will not resolve the account link.",
+            "paywall.restore_store_unavailable": "App Store could not complete restoration. Check your connection and Apple account sign-in on this device, then retry restoring. You do not need to buy again.",
+            "paywall.restore_apple_signin": "Waiting for App Store. If Apple asks you to sign in, complete it on your device. No new purchase is needed.",
+            "paywall.restore_verifying": "Verifying restored purchases with HiAir…",
             "paywall.asc_hint": "If this keeps failing, confirm Paid Apps Agreement, Tax, and Banking are Active in App Store Connect.",
             "paywall.retry": "Retry",
             "paywall.restore": "Restore purchases",
@@ -3220,6 +3229,10 @@ enum HiAirL10n {
             "auth.email": "Correo",
             "auth.password": "Contraseña",
             "auth.password_placeholder": "Introduce la contraseña",
+            "paywall.purchase_other_account": "Esta compra está vinculada a otra cuenta de HiAir. Accede a la cuenta usada para la suscripción y restaura las compras. Si no puedes acceder, escribe a hello@hiair.io. Volver a comprar no resolverá la vinculación.",
+            "paywall.restore_store_unavailable": "App Store no pudo completar la restauración. Comprueba la conexión y el inicio de sesión de Apple en este dispositivo y vuelve a restaurar. No necesitas comprar de nuevo.",
+            "paywall.restore_apple_signin": "Esperando al App Store. Si Apple pide iniciar sesión, hazlo en el dispositivo. No necesitas comprar de nuevo.",
+            "paywall.restore_verifying": "Verificando las compras restauradas con HiAir…",
             "auth.password_rules": "Para registrarse: mín. 12 caracteres, A/a/0-9/símbolo",
             "auth.sign_up": "Registrarse",
             "auth.log_in": "Iniciar sesión",
@@ -3512,6 +3525,10 @@ enum HiAirL10n {
             "auth.email": "Email",
             "auth.password": "Password",
             "auth.password_placeholder": "Inserisci la password",
+            "paywall.purchase_other_account": "Questo acquisto è collegato a un altro account HiAir. Accedi all’account usato per l’abbonamento e ripristina gli acquisti. Se non puoi accedere, scrivi a hello@hiair.io. Acquistare di nuovo non risolverà il collegamento.",
+            "paywall.restore_store_unavailable": "App Store non ha completato il ripristino. Controlla la connessione e l’accesso Apple sul dispositivo, poi riprova il ripristino. Non serve acquistare di nuovo.",
+            "paywall.restore_apple_signin": "In attesa di App Store. Se Apple richiede di accedere, completa l’accesso sul dispositivo. Non serve un nuovo acquisto.",
+            "paywall.restore_verifying": "Verifica degli acquisti ripristinati con HiAir…",
             "auth.password_rules": "Per la registrazione: min. 12 caratteri, A/a/0-9/simbolo",
             "auth.sign_up": "Registrati",
             "auth.log_in": "Accedi",
@@ -3758,6 +3775,10 @@ enum HiAirL10n {
             "auth.email": "Email",
             "auth.password": "Mot de passe",
             "auth.password_placeholder": "Entrez le mot de passe",
+            "paywall.purchase_other_account": "Cet achat est lié à un autre compte HiAir. Connectez-vous au compte utilisé pour l’abonnement et restaurez les achats. Si vous ne pouvez pas y accéder, contactez hello@hiair.io. Un nouvel achat ne résoudra pas ce lien.",
+            "paywall.restore_store_unavailable": "L’App Store n’a pas terminé la restauration. Vérifiez la connexion et votre connexion Apple sur cet appareil, puis réessayez la restauration. Aucun nouvel achat nécessaire.",
+            "paywall.restore_apple_signin": "En attente de l’App Store. Si Apple demande une connexion, effectuez-la sur l’appareil. Aucun nouvel achat nécessaire.",
+            "paywall.restore_verifying": "Vérification des achats restaurés auprès de HiAir…",
             "auth.password_rules": "Pour l'inscription: min. 12 caracteres, A/a/0-9/symbole",
             "auth.sign_up": "S'inscrire",
             "auth.log_in": "Se connecter",

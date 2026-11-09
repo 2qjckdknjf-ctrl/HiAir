@@ -72,7 +72,6 @@ enum UITestBootstrap {
             UITestMockAPIProtocol.reset()
             UITestMockAPIProtocol.isEnabled = true
             let env = ProcessInfo.processInfo.environment
-            applyMatrixStateMocks(env)
             if let status = Int(env["UITEST_PROFILES_STATUS"] ?? ""), status != 200 {
                 UITestMockAPIProtocol.reset(
                     listProfiles: .json(status, object: ["detail": "uitest status \(status)"]),
@@ -106,6 +105,8 @@ enum UITestBootstrap {
             if env["UITEST_STORE_SHOTS"] == "1" {
                 installStoreScreenshotMocks()
             }
+            // Scenario overrides must win over the shared success fixtures.
+            applyMatrixStateMocks(env)
         }
     }
 
