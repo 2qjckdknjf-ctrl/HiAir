@@ -1,4 +1,4 @@
-> Recovery 2026-11-09: after owner payment, the existing production Supabase project resumed to ACTIVE_HEALTHY; SQL confirmed the current account’s profile and active Health consent are preserved. Client recovery correction is locally verified. Physical recovery QA and TestFlight 307 delivery are pending. See [incident evidence](../audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md). Historical delivery records below do not override this status.
+> Recovery 2026-11-09: after owner payment, the existing production Supabase project resumed to ACTIVE_HEALTHY. iPhone 17 Pro / iOS 27.2 passed real dashboard and Health connection on development-signed 307; server readback confirmed consent and aggregate upload. Launch-to-visible-risk: 6.113s on 307; four successful 306 samples: 7.105–7.198s. TestFlight 307 delivery and subscription acceptance remain pending. See [incident evidence](../audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md). Historical delivery records below do not override this status.
 
 # Состояние доставки HiAir — evidence snapshot 11 октября 2026
 
