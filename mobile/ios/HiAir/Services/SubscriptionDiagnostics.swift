@@ -33,6 +33,22 @@ enum SubscriptionDiagnostics {
         try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
+    @MainActor
+    static func clearVerificationHistory(ownerId: String) {
+        guard !ownerId.isEmpty,
+              let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }
+        let url = directory.appendingPathComponent("subscription-verification.json")
+        guard let data = try? Data(contentsOf: url),
+              let history = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] else { return }
+        let remaining = history.filter { $0["ownerId"] != ownerId }
+        guard remaining.count != history.count else { return }
+        if remaining.isEmpty {
+            try? FileManager.default.removeItem(at: url)
+        } else if let data = try? JSONSerialization.data(withJSONObject: remaining, options: [.sortedKeys]) {
+            try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
+    }
+
     static func log(
         _ event: String,
         productId: String? = nil,

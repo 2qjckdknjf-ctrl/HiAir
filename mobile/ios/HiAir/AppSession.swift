@@ -1327,6 +1327,7 @@ final class AppSession: ObservableObject {
 
     /// Owning logout / auth-expiry durable clear. Caller must hold a current ownership generation.
     private func clearDurableSessionStorage() {
+        SubscriptionDiagnostics.clearVerificationHistory(ownerId: userId)
         credentials.deleteValue(forKey: Keys.userId)
         credentials.deleteValue(forKey: Keys.email)
         credentials.deleteValue(forKey: Keys.accessToken)
