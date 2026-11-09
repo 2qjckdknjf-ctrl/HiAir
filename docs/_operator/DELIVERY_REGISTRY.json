@@ -197,12 +197,22 @@
       "id": "HIAIR-RESTORE-308",
       "scenario": "Bound stalled StoreKit entitlement reads during explicit restore without a new purchase",
       "owner": "iOS subscription recovery",
-      "status": "IMPLEMENTED_TARGETED_TESTS_PASSED_RELEASE_PENDING",
+      "status": "TESTFLIGHT_AVAILABLE_DEVICE_RESTORE_PENDING",
       "existing_implementation": "mobile/ios/HiAir/Services/SubscriptionService.swift; mobile/ios/HiAir/Screens/SettingsView.swift",
-      "evidence": "docs/audit/TESTFLIGHT_307_DEVICE_2026-11-09.md",
-      "merged_sha": null,
+      "evidence": "docs/audit/TESTFLIGHT_308_RESTORE_2026-11-09.md",
+      "merged_sha": "aafa6b45762a7d66916d0b7ee1803c9a04d87933",
       "deployed_sha": null,
-      "artifact": null
+      "artifact": "docs/release/RELEASE_MANIFEST_308_2026-11-09.json",
+      "source_sha": "aacd89e6abc56c17041aa792ff6cb57c8240e5d8",
+      "pull_request": 102,
+      "testflight": "VALID_IN_BETA_TESTING_INTERNAL_GROUP_CONFIRMED",
+      "backend_deployment": "UNCHANGED_LIVE_TREE_VERIFIED",
+      "remaining_gaps": [
+        "TestFlight 308 installation and restore acceptance pending",
+        "Exact prior ownership-conflict transaction unidentified; no ownership mapping changed",
+        "No new monthly/yearly purchase; no active restoration certified",
+        "Physical Android and wider UX audit remain open"
+      ]
     }
   ],
   "archived_worktrees": 18,

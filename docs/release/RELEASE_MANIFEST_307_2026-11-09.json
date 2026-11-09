@@ -53,7 +53,7 @@
     }
   },
   "testflight_installed": true,
-  "subscription_acceptance": "OPEN: exact prior TestFlight conflict transaction and monthly/yearly/restore not confirmed",
+  "subscription_acceptance": "OPEN: monthly/yearly catalog verified, but active purchase/restoration and exact prior TestFlight ownership-conflict transaction not certified",
   "merged_at": "2026-11-09T14:27:36Z",
   "ci_head": "3252b6b4c2d39bccedcef7f8836b97daa8378e74",
   "ci": {
@@ -86,7 +86,7 @@
   "backend_deployment": "UNCHANGED: existing live backend tree matched release guard; no new deployment",
   "android_physical": "NOT_VERIFIED",
   "public_app_store_submission": "NOT_REQUESTED_NOT_SUBMITTED",
-  "next_action": "Deliver the bounded restore-read correction as 308, then verify its TestFlight restore without a new purchase; exact prior conflict transaction remains unidentified.",
+  "next_action": "Install and verify delivered TestFlight 308 without a new purchase; exact prior ownership-conflict transaction remains unidentified.",
   "testflight_device_verification": {
     "device": "iPhone 17 Pro",
     "os": "iOS 27.2 (24B119)",
