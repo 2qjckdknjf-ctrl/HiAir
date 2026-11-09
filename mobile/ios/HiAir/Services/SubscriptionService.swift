@@ -22,6 +22,20 @@ final class SubscriptionService: ObservableObject {
     /// Backend verify / AppStore.sync keep `isPurchaseInProgress` without trapping the paywall UI.
     @Published private(set) var isSystemPurchaseSheetActive = false
     @Published private(set) var lastRestoreVerifiedTransactionCount = 0
+    enum RestorePhase: String {
+        case idle, readingStore, awaitingApple, verifyingAccess
+
+        var messageKey: String? {
+            switch self {
+            case .idle: return nil
+            case .readingStore: return "paywall.restoring"
+            case .awaitingApple: return "paywall.restore_apple_signin"
+            case .verifyingAccess: return "paywall.restore_verifying"
+            }
+        }
+    }
+    @Published private(set) var restorePhase: RestorePhase = .idle
+    @Published private(set) var restoreOwnerId = ""
     @Published var lastError: String?
 
     private var updatesTask: Task<Void, Never>?
@@ -462,9 +476,13 @@ final class SubscriptionService: ObservableObject {
             throw SubscriptionServiceError.purchaseInProgress
         }
         isPurchaseInProgress = true
+        restoreOwnerId = userId
+        restorePhase = .readingStore
         defer {
             purchaseGuard.end()
             isPurchaseInProgress = false
+            restorePhase = .idle
+            restoreOwnerId = ""
         }
 
         SubscriptionDiagnostics.log("restore_started")
@@ -472,6 +490,7 @@ final class SubscriptionService: ObservableObject {
         let signedTransactions = try await Self.collectRestoreEntitlements(
             current: { await self.currentSignedEntitlements() },
             sync: {
+                self.restorePhase = .awaitingApple
                 SubscriptionDiagnostics.log("restore_store_sync_started")
                 do {
                     try await AppStore.sync()
@@ -483,6 +502,7 @@ final class SubscriptionService: ObservableObject {
                 }
             }
         )
+        restorePhase = .verifyingAccess
         _ = try? await processUnfinishedTransactions(
             userId: userId,
             accessToken: accessToken,

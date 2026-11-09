@@ -68,6 +68,7 @@
 		77E0A0837CB889643F23BF59 /* RuntimePerformanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B2908A1BCD2026DD269B92 /* RuntimePerformanceProbe.swift */; };
 		7837D1F77705C9D2BC02FEA9 /* AuthPresentationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBED4F6F701C65757527860C /* AuthPresentationAnchor.swift */; };
 		79DDAA28852A36E88E5C25D4 /* SettingsDisconnectLocalFirstTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67847104B8F30C42099F2318 /* SettingsDisconnectLocalFirstTests.swift */; };
+		7E38B14727AC6DA9636BE03D /* PhysicalInstalledStoreUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98D7D05D4C4971F595931C8A /* PhysicalInstalledStoreUITests.swift */; };
 		83C91EF17F575EB1EE6DD355 /* PlaceGeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFCD764FFBC4E01ED44F0E0 /* PlaceGeocodingService.swift */; };
 		841C3D6FD329442C7C057429 /* AtmosphericParticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */; };
 		8C7E9E65CF3BC8D45B3E8274 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6B1CF7645DD4B0B92F0CA11F /* LaunchScreen.storyboard */; };
@@ -202,6 +203,7 @@
 		93EEF3FD465B8193BE67529E /* HiAirTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HiAirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		979A9003276BD007D952A744 /* HiAirDeepGlassTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirDeepGlassTokenTests.swift; sourceTree = "<group>"; };
 		9877705B2259F97CBA762758 /* UITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestSupport.swift; sourceTree = "<group>"; };
+		98D7D05D4C4971F595931C8A /* PhysicalInstalledStoreUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicalInstalledStoreUITests.swift; sourceTree = "<group>"; };
 		9BD707A08B6657EF85395B26 /* HiAirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiAirApp.swift; sourceTree = "<group>"; };
 		9EADDAA7388600A083B23465 /* AtmosphericParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphericParticles.swift; sourceTree = "<group>"; };
 		A0B75F7FAF52543E6F33F582 /* TimeOfDayBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDayBackground.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 				A6F8963CB387D9686FCCA407 /* MatrixStateScreenshotTests.swift */,
 				6271A449AEAD56D90FA84F44 /* PaywallScrollSafeAreaUITests.swift */,
 				6C745A7B39AAD229E48259B2 /* PhysicalActionDeliveryUITests.swift */,
+				98D7D05D4C4971F595931C8A /* PhysicalInstalledStoreUITests.swift */,
 				CD6016001EE09F02386BE539 /* ProfileBootstrapUITests.swift */,
 				C3651307EA7A3A1B7E774475 /* StoreScreenshotTests.swift */,
 				9877705B2259F97CBA762758 /* UITestSupport.swift */,
@@ -621,6 +624,7 @@
 				333D29BF8123F577DBCDE4C9 /* MatrixStateScreenshotTests.swift in Sources */,
 				0F2C85A156AB3B2CE5167341 /* PaywallScrollSafeAreaUITests.swift in Sources */,
 				6EDAF7DB190E9D47DAB28809 /* PhysicalActionDeliveryUITests.swift in Sources */,
+				7E38B14727AC6DA9636BE03D /* PhysicalInstalledStoreUITests.swift in Sources */,
 				3C339CF04AB0792F4EC985A3 /* ProfileBootstrapUITests.swift in Sources */,
 				A6AC593E5E23C8188366AC9E /* StoreScreenshotTests.swift in Sources */,
 				C30E487232AD1079B0F38B2B /* UITestSupport.swift in Sources */,

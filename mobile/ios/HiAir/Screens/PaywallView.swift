@@ -101,7 +101,13 @@ private struct PaywallContent: View {
                                 .font(HiAirTypography.caption)
                                 .foregroundStyle(HiAirColors.Text.secondary)
 
-                            if !statusMessage.isEmpty {
+                            if subscriptionService.restoreOwnerId == session.userId,
+                               let key = subscriptionService.restorePhase.messageKey {
+                                Text(session.l(key))
+                                    .font(HiAirTypography.bodyMD)
+                                    .foregroundStyle(HiAirColors.Text.secondary)
+                                    .accessibilityIdentifier("paywall.restore.progress")
+                            } else if !statusMessage.isEmpty {
                                 Text(statusMessage)
                                     .font(HiAirTypography.bodyMD)
                                     .foregroundStyle(HiAirColors.Text.secondary)

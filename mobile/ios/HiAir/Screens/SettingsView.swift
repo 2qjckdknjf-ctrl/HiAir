@@ -1240,7 +1240,13 @@ struct SettingsView: View {
                     .buttonStyle(HiAirSecondaryButtonStyle())
                     .disabled(viewModel.loading || subscriptionService.isPurchaseInProgress)
                     .accessibilityIdentifier(HiAirAccessibilityID.Settings.restorePurchases)
-                    if !restoreMessage.isEmpty {
+                    if subscriptionService.restoreOwnerId == session.userId,
+                       let key = subscriptionService.restorePhase.messageKey {
+                        Text(session.l(key))
+                            .accessibilityIdentifier("settings.restore.progress")
+                            .font(AuroraTokens.Typography.caption)
+                            .foregroundStyle(HiAirV2Theme.secondaryText)
+                    } else if !restoreMessage.isEmpty {
                         Text(restoreMessage)
                             .accessibilityIdentifier(restoreConfirmedPremium ? "settings.restore.success" : "settings.restore.unavailable")
                             .font(AuroraTokens.Typography.caption)
@@ -1864,6 +1870,8 @@ struct SettingsView: View {
     }
 
     private func restorePurchases() async {
+        let ownerId = session.userId
+        let ownerToken = session.accessToken
         restoreConfirmedPremium = false
         guard !session.userId.isEmpty, !session.accessToken.isEmpty else {
             restoreMessage = session.l("paywall.auth_required")
@@ -1871,10 +1879,10 @@ struct SettingsView: View {
         }
         do {
             let status = try await subscriptionService.restorePurchases(
-                userId: session.userId,
-                accessToken: session.accessToken
+                userId: ownerId,
+                accessToken: ownerToken
             )
-            guard !Task.isCancelled, status.userId == session.userId else { return }
+            guard !Task.isCancelled, session.userId == ownerId, status.userId == ownerId else { return }
             session.applyEntitlement(status.entitlement)
             let verifiedCount = subscriptionService.lastRestoreVerifiedTransactionCount
             let entitlementActive = status.entitlement?.isPremium == true
@@ -1890,6 +1898,7 @@ struct SettingsView: View {
                 restoreMessage = session.l("paywall.restore_nothing")
             }
         } catch {
+            guard !Task.isCancelled, session.userId == ownerId else { return }
             restoreMessage = session.l("paywall.generic_error")
         }
     }
