@@ -63,6 +63,102 @@ final class SubscriptionServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testHungReadSubmitsAlreadyYieldedEntitlementsWithoutSync() async throws {
+        let delayed = OneShotCompletionGate<[String]>()
+        let firstReadStarted = TestAsyncGate()
+        let releaseSecondDeadline = TestAsyncGate()
+        let sleeper = InitialRestoreReadTimeoutSleeper(
+            firstReadStarted: firstReadStarted,
+            releaseSecondDeadline: releaseSecondDeadline
+        )
+        let yielded = RestoreEntitlementYields()
+        var syncCalls = 0
+        let values = try await SubscriptionService.collectRestoreEntitlements(
+            current: {
+                yielded.yield("monthly-jws")
+                yielded.yield("yearly-jws")
+                firstReadStarted.open()
+                return await withCheckedContinuation { continuation in
+                    delayed.wait { continuation.resume(returning: $0) }
+                }
+            },
+            sync: { syncCalls += 1 },
+            readTimeoutNanoseconds: 1,
+            sleeper: sleeper,
+            partialResults: { yielded.snapshot() }
+        )
+        XCTAssertEqual(syncCalls, 0)
+        XCTAssertEqual(Set(values), ["monthly-jws", "yearly-jws"])
+        delayed.complete(["stale-first-read"])
+        releaseSecondDeadline.open()
+        await Task.yield()
+        XCTAssertEqual(Set(values), ["monthly-jws", "yearly-jws"])
+    }
+
+    @MainActor
+    func testHungPostSyncReadSubmitsAlreadyYieldedEntitlements() async throws {
+        let delayed = OneShotCompletionGate<[String]>()
+        let yielded = RestoreEntitlementYields()
+        var reads = 0
+        var syncCalls = 0
+        let values = try await SubscriptionService.collectRestoreEntitlements(
+            current: {
+                reads += 1
+                if reads == 1 { return [] }
+                yielded.yield("verified-after-sync")
+                return await withCheckedContinuation { continuation in
+                    delayed.wait { continuation.resume(returning: $0) }
+                }
+            },
+            sync: { syncCalls += 1 },
+            readTimeoutNanoseconds: 1,
+            sleeper: ImmediateNanosleeper(),
+            partialResults: { yielded.snapshot() }
+        )
+        XCTAssertEqual(syncCalls, 1)
+        XCTAssertEqual(values, ["verified-after-sync"])
+        delayed.complete(["late-transaction"])
+    }
+
+    @MainActor
+    func testTimedOutRestoreDoesNotSyncAfterSessionChange() async {
+        let delayed = OneShotCompletionGate<[String]>()
+        let firstReadStarted = TestAsyncGate()
+        let releaseSecondDeadline = TestAsyncGate()
+        let sleeper = InitialRestoreReadTimeoutSleeper(
+            firstReadStarted: firstReadStarted,
+            releaseSecondDeadline: releaseSecondDeadline
+        )
+        var syncCalls = 0
+        var sessionOwner = "user-a"
+        do {
+            _ = try await SubscriptionService.collectRestoreEntitlements(
+                current: {
+                    sessionOwner = "user-b"
+                    firstReadStarted.open()
+                    return await withCheckedContinuation { continuation in
+                        delayed.wait { continuation.resume(returning: $0) }
+                    }
+                },
+                sync: { syncCalls += 1 },
+                readTimeoutNanoseconds: 1,
+                sleeper: sleeper,
+                ensureSession: {
+                    try Task.checkCancellation()
+                    guard sessionOwner == "user-a" else { throw CancellationError() }
+                }
+            )
+            XCTFail("Session change must cancel restore before App Store sync")
+        } catch is CancellationError {
+            XCTAssertEqual(syncCalls, 0)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        delayed.complete([])
+        releaseSecondDeadline.open()
+    }
+
+    @MainActor
     func testCancelledStoreReadNeverStartsSync() async {
         let started = TestAsyncGate()
         let delayed = OneShotCompletionGate<[String]>()
