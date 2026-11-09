@@ -1,0 +1,77 @@
+{
+  "build": "308",
+  "version": "1.2",
+  "source_sha": "aacd89e6abc56c17041aa792ff6cb57c8240e5d8",
+  "clean_source": true,
+  "pr": "https://github.com/2qjckdknjf-ctrl/HiAir/pull/102",
+  "artifact": {
+    "path": "mobile/ios/build/releases/aacd89e6abc5-xAYqSL/export/HiAir.ipa",
+    "sha256": "ec1d2057850940c1f240f24e37a93c74c5a6f61fa2470bcc8c52d2c3c919e829"
+  },
+  "signing": "exported IPA strict codesign verification PASS; HealthKit packaging PASS",
+  "local_tests": {
+    "unit_passed": 262,
+    "failed": 0,
+    "skipped": 0,
+    "result": "mobile/ios/build/device-qa/restore-308-2026-11-09/hiair-308-reviewed-unit.xcresult"
+  },
+  "ci": {
+    "ios": {
+      "run": 42702685380,
+      "attempt": 2,
+      "status": "SUCCESS",
+      "attempt_1": "FAILED_BEFORE_TESTS: simulator migration exceeded 300s boot deadline; unchanged rerun",
+      "unit_passed": 262,
+      "failed": 0,
+      "skipped": 0
+    },
+    "android": {
+      "run": 42702685398,
+      "status": "SUCCESS_SCOPED_UNCHANGED"
+    },
+    "backend": {
+      "run": 42702685199,
+      "status": "SUCCESS_SCOPED_UNCHANGED"
+    },
+    "bugbot": "SUCCESS_NO_FINDINGS",
+    "security": "SUCCESS"
+  },
+  "merge_sha": "aafa6b45762a7d66916d0b7ee1803c9a04d87933",
+  "upload": "SUCCESS",
+  "asc": {
+    "build_id": "58b5a6fd-1c7f-4424-a713-25f2affb3c19",
+    "processing_state": "VALID",
+    "uploaded_date": "2026-11-09T13:54:04-08:00",
+    "internal_state": "IN_BETA_TESTING",
+    "external_state": "READY_FOR_BETA_SUBMISSION",
+    "internal_group_membership": {
+      "group_name": "вт",
+      "group_id": "827c14b0-82d8-40a2-b15b-11c498279ef9",
+      "build_present": true,
+      "complete_page": true
+    }
+  },
+  "testflight_installed": false,
+  "physical_qa": {
+    "status": "PENDING_TESTFLIGHT_INSTALL",
+    "prior_build_evidence": "docs/audit/TESTFLIGHT_307_DEVICE_2026-11-09.md",
+    "latest_device_observation": "2026-11-09T21:59:15Z: connected iPhone not found; installation/check await owner"
+  },
+  "subscription_acceptance": "OPEN: no new purchase; active restoration and exact prior ownership conflict remain unverified",
+  "backend_deployment": "UNCHANGED_LIVE_TREE_AND_FINGERPRINT_VERIFIED",
+  "ownership_mutation": "NONE",
+  "android_physical": "NOT_VERIFIED",
+  "public_app_store_submission": "NOT_REQUESTED_NOT_SUBMITTED",
+  "merged_at": "2026-11-09T21:51:10Z",
+  "release_guard": {
+    "source_sha": "aacd89e6abc56c17041aa792ff6cb57c8240e5d8",
+    "api_sha": "3ac1596ee8dc9ffdf6555958a2c373fbb585ce1c",
+    "backend_tree": "9c020acfce91f9feec23cce4d95f545d9df04cb3",
+    "app_source_sha256": "0da0811b532be44a5ca7025598abadbd1ea67e0ab172ba416fda5e36095c7c90"
+  },
+  "mobile_tree_matches_ci_and_merge": true,
+  "ci_head": "aacd89e6abc56c17041aa792ff6cb57c8240e5d8",
+  "delivery_uuid": "58b5a6fd-1c7f-4424-a713-25f2affb3c19",
+  "upload_completed_at": "2026-11-09T21:53:06Z",
+  "next_action": "Install TestFlight 308 and verify restoration without a new purchase; compare exact store/backend result. Prior ownership-conflict transaction remains unidentified."
+}
