@@ -1,0 +1,90 @@
+{
+  "build": "307",
+  "version": "1.2",
+  "source_sha": "23bb0b7e1487508998302481a9ef465c854efb48",
+  "pr": "https://github.com/2qjckdknjf-ctrl/HiAir/pull/100",
+  "artifact": {
+    "path": "mobile/ios/build/releases/23bb0b7e1487-4N0I4z/export/HiAir.ipa",
+    "sha256": "f480a43d1b429062a431fc1471c6c587b8889f3cd2019e1328482af5fb58273e"
+  },
+  "signing": "exported IPA codesign --verify --deep --strict PASS; HealthKit packaging PASS",
+  "db": "existing hiair-prod restored ACTIVE_HEALTHY; no user-record migration or ownership mutation",
+  "physical_qa": {
+    "device": "iPhone 17 Pro",
+    "os": "iOS 27.2 (24B119)",
+    "distribution": "development signed; NOT TestFlight",
+    "build": "307",
+    "network": "5G",
+    "observed_language": "Russian",
+    "dashboard": "PASS",
+    "launch_to_visible_risk_seconds": 6.112807035446167,
+    "freshness": "cached",
+    "health": "PASS, active consent and aggregate upload read back from production DB",
+    "consent_updated_at": "2026-11-09T13:45:46.898988Z",
+    "aggregate_updated_at": "2026-11-09T13:45:52.494212Z",
+    "result": "/tmp/hiair-307-physical-recovery.xcresult",
+    "repeat_launch_to_visible_risk_seconds": [
+      6.960080981254578,
+      6.962810039520264,
+      6.990043997764587
+    ],
+    "repeat_result": "/tmp/hiair-307-physical-repeat.xcresult",
+    "source_sha": "42e3e558077d452f46ac79c381050598dca11bcc"
+  },
+  "local_tests": {
+    "unit": 256,
+    "profile_ui": 8,
+    "result": "/tmp/hiair-307-reviewed-regression.xcresult",
+    "non_outage_before_result": "/tmp/hiair-307-nonoutage-before.xcresult"
+  },
+  "merge_sha": "38c6ba9979a983ad51c849c864f8e3234a93e2d0",
+  "upload": "SUCCESS",
+  "asc": {
+    "build_id": "2031a9aa-8bbe-4997-8f5c-fd7b172f43fb",
+    "processing_state": "VALID",
+    "uploaded_date": "2026-11-09T06:30:34-08:00",
+    "internal_state": "IN_BETA_TESTING",
+    "external_state": "READY_FOR_BETA_SUBMISSION",
+    "internal_group_membership": {
+      "group_name": "вт",
+      "group_id": "827c14b0-82d8-40a2-b15b-11c498279ef9",
+      "build_present": true,
+      "evidence": "GET /v1/betaGroups/827c14b0-82d8-40a2-b15b-11c498279ef9/builds returned build 307; complete page, no next link"
+    }
+  },
+  "testflight_installed": false,
+  "subscription_acceptance": "OPEN: exact prior TestFlight conflict transaction and monthly/yearly/restore not confirmed",
+  "merged_at": "2026-11-09T14:27:36Z",
+  "ci_head": "3252b6b4c2d39bccedcef7f8836b97daa8378e74",
+  "ci": {
+    "ios": {
+      "run": 42632571397,
+      "status": "SUCCESS",
+      "unit_passed": 256,
+      "skipped": 0
+    },
+    "android": {
+      "run": 42632571881,
+      "status": "SUCCESS"
+    },
+    "backend": {
+      "run": 42632571841,
+      "status": "SUCCESS"
+    },
+    "security": "SUCCESS"
+  },
+  "release_guard": {
+    "source_sha": "23bb0b7e1487508998302481a9ef465c854efb48",
+    "api_sha": "3ac1596ee8dc9ffdf6555958a2c373fbb585ce1c",
+    "backend_tree": "9c020acfce91f9feec23cce4d95f545d9df04cb3",
+    "app_source_sha256": "0da0811b532be44a5ca7025598abadbd1ea67e0ab172ba416fda5e36095c7c90"
+  },
+  "delivery_uuid": "2031a9aa-8bbe-4997-8f5c-fd7b172f43fb",
+  "upload_completed_at": "2026-11-09T14:29:48Z",
+  "clean_source": true,
+  "mobile_tree_matches_ci_and_merge": true,
+  "backend_deployment": "UNCHANGED: existing live backend tree matched release guard; no new deployment",
+  "android_physical": "NOT_VERIFIED",
+  "public_app_store_submission": "NOT_REQUESTED_NOT_SUBMITTED",
+  "next_action": "Reconnect/unlock iPhone, install 1.2 (307) through TestFlight without deleting app data, verify installed distribution and repeat dashboard/Health checks; monthly/yearly/restore ownership-conflict acceptance remains open."
+}

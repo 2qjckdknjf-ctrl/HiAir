@@ -21,7 +21,7 @@ The API liveness endpoint still reported `status=ok`, source `3ac1596ee8dc9ffdf6
 
 Evidence: `/tmp/hiair-307-profile-health-verified.xcresult` and matching log. These are simulator checks; physical recovery evidence is recorded separately below.
 
-Build 307 is a local candidate. Its clean source and hash belong to the generated release manifest. TestFlight delivery is pending the protected PR checks and release guard.
+The initial local candidate has been superseded by the reviewed, clean-source IPA described in the final delivery section below. Its generated sidecar was not rewritten.
 
 ## Recovery boundary
 
@@ -45,7 +45,7 @@ On 9 November, iPhone 17 Pro / iOS 27.2 (24B119), cellular 5G, observed Russian 
 
 These samples establish recovery on the connected phone, not p95 performance, offline/account-switch coverage, or a TestFlight installation. Dynamic Type, Motion/Transparency and accessibility acceptance were not newly measured here. Monthly/yearly purchase, restore, and the prior TestFlight ownership conflict remain separate open scenarios; no entitlement transfer or purchase was performed in this recovery pass. Android was not physically tested.
 
-Next: complete required checks/review on the final PR source, merge without bypass, run the release guard, upload 307 and confirm processing/internal availability, then independently verify its TestFlight installation.
+The protected checks, merge, release guard and TestFlight processing/internal availability are now complete; installation of the uploaded binary remains pending as detailed below.
 
 ## Review follow-up
 
@@ -56,3 +56,19 @@ Three further physical 307 dashboard launches before this presentation-only foll
 First GitHub iOS run `42628688983` failed before unit execution: simulator boot stalled in LaunchServices data migration and exceeded the bounded timeout. Logs: `/tmp/hiair-307-ci-first-diagnostics/hiair-simulator-boot.log`. An unchanged retry was requested; this infrastructure failure is not counted as an application test PASS.
 
 The retry reproduced the same LaunchServices migration timeout on the same image-provided simulator UUID. CI preparation now creates a fresh simulator with the selected device's exact type and runtime instead of migrating its existing data. It does not erase existing devices, change the test suite, relax boot/test timeouts, skip tests, or change the all-passed/zero-skipped result gate. Unit checks cover matching runtime/type, missing metadata and malformed creation output; the actual CI run remains the acceptance criterion.
+
+
+## Final checks and TestFlight delivery
+
+- Final PR100 head `3252b6b4c2d39bccedcef7f8836b97daa8378e74`: [iOS CI](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/42632571397) SUCCESS (256 passed, zero failed/skipped); [Android CI](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/42632571881) SUCCESS; [backend smoke/gates](https://github.com/2qjckdknjf-ctrl/HiAir/actions/runs/42632571841) SUCCESS; Security Reviewer SUCCESS. The fresh simulator initialized and executed the unchanged unit suite. The old Autofix check on a superseded head was still marked IN_PROGRESS; it is not represented as completed.
+- [PR100](https://github.com/2qjckdknjf-ctrl/HiAir/pull/100) merged normally at 14:27:36 UTC as `38c6ba9979a983ad51c849c864f8e3234a93e2d0`, without bypass/admin. Reviewed profile-copy thread resolved only after the failing-before/passing-after UI checks.
+- Uploaded source `23bb0b7e1487508998302481a9ef465c854efb48`, clean source. Its mobile tree matches final CI head and merge; the later commit changes only CI/docs. Exported IPA signature verification and HealthKit packaging checks PASS. IPA SHA256 `f480a43d1b429062a431fc1471c6c587b8889f3cd2019e1328482af5fb58273e`.
+- The standard release guard passed against fresh origin/main ancestry and live backend fingerprint. Backend source remains `3ac1596ee8dc9ffdf6555958a2c373fbb585ce1c`, matching the unchanged backend tree. No backend deployment or schema migration was performed in this recovery.
+- Upload succeeded at 14:29:48 UTC. ASC delivery/build ID `2031a9aa-8bbe-4997-8f5c-fd7b172f43fb`; ASC uploaded date 14:30:34 UTC. Processing **VALID**, internal state **IN_BETA_TESTING**. Reverse group-membership readback confirmed 307 in existing internal group **вт** (`827c14b0-82d8-40a2-b15b-11c498279ef9`), with no pagination omitted. External state remains READY_FOR_BETA_SUBMISSION; no public submission.
+- Durable source/IPA/CI/store/device receipt: [RELEASE_MANIFEST_307_2026-11-09.json](../release/RELEASE_MANIFEST_307_2026-11-09.json). The build-generated IPA sidecar remains untouched.
+
+## Remaining acceptance
+
+The iPhone disconnected after development-build checks. TestFlight installation of the uploaded source is **not yet confirmed**. Reconnect/unlock, install 1.2 (307) from TestFlight without deleting app data, independently check distribution/build, then repeat dashboard and Health persistence checks. Do not relabel development-signed 307 evidence as TestFlight evidence.
+
+Both App Store products are APPROVED with actual pricing/availability records, but this is catalog evidence only. Monthly/yearly purchase, restore and the exact prior TestFlight conflict transaction remain open. No repeat purchase, subscription transfer or direct consent edit was performed. Full offline/account-switch/accessibility coverage and physical Android remain unverified.

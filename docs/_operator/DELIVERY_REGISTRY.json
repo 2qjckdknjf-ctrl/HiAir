@@ -176,12 +176,21 @@
       "id": "HIAIR-PROFILE-HEALTH-307",
       "scenario": "Recover unavailable profile and Health consent after production database suspension",
       "owner": "mobile/backend recovery",
-      "status": "DATABASE_RESTORED_PHYSICAL_RECOVERY_VERIFIED_TESTFLIGHT_PENDING",
+      "status": "TESTFLIGHT_AVAILABLE_PHYSICAL_INSTALL_AND_IAP_PENDING",
       "existing_implementation": "mobile/ios/HiAir/Services/HealthKitService.swift; mobile/ios/HiAir/Screens/ProfileBootstrapCard.swift",
       "evidence": "docs/audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md",
-      "merged_sha": null,
-      "deployed_sha": null,
-      "artifact": "mobile/ios/build/latest-release.json (local candidate only)"
+      "merged_sha": "38c6ba9979a983ad51c849c864f8e3234a93e2d0",
+      "deployed_sha": "3ac1596ee8dc9ffdf6555958a2c373fbb585ce1c",
+      "artifact": "docs/release/RELEASE_MANIFEST_307_2026-11-09.json",
+      "pull_request": 100,
+      "backend_deployment": "UNCHANGED_LIVE_TREE_VERIFIED",
+      "physical_recovery": "DEVELOPMENT_307_DASHBOARD_AND_HEALTH_PASSED_WITH_SERVER_READBACK",
+      "testflight": "VALID_IN_BETA_TESTING_INTERNAL_GROUP_CONFIRMED",
+      "remaining_gaps": [
+        "Install and verify the uploaded TestFlight 307 binary on iPhone",
+        "Resolve exact prior TestFlight ownership conflict and verify monthly/yearly/restore",
+        "Full offline/account-switch/accessibility matrix and physical Android remain unverified"
+      ]
     }
   ],
   "archived_worktrees": 18,
