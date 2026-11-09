@@ -82,7 +82,7 @@ struct ProfileBootstrapCard: View {
 
     private var isProfileLoadFailure: Bool {
         guard let outcome = session.lastProfileEnsureOutcome else { return false }
-        return outcome.category != .none && outcome.category != .location
+        return outcome.suggestsLoadFailureCopy(phase: session.lastProfileEnsurePhase)
     }
 
     private var resolvedBodyKey: String {

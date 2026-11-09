@@ -539,6 +539,37 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertFalse(ProfileEnsureOutcome.needsAuthentication.suggestsLocationRecovery)
     }
 
+    func testLoadFailureCopyOnlyForListPhaseLookupOutages() {
+        let listOutages: [ProfileEnsureOutcome] = [
+            .failure(.unavailable),
+            .failure(.server),
+            .failure(.offline),
+            .failure(.transport),
+            .failure(.decode),
+            .failure(.unknown),
+        ]
+        for outcome in listOutages {
+            XCTAssertTrue(outcome.suggestsLoadFailureCopy(phase: .list), "\(outcome)")
+            XCTAssertFalse(outcome.suggestsLoadFailureCopy(phase: .create), "\(outcome)")
+            XCTAssertFalse(outcome.suggestsLoadFailureCopy(phase: .locationGate), "\(outcome)")
+            XCTAssertFalse(outcome.suggestsLoadFailureCopy(phase: .idle), "\(outcome)")
+        }
+
+        let nonOutages: [ProfileEnsureOutcome] = [
+            .ready,
+            .needsAuthentication,
+            .needsLocation,
+            .failure(.unauthorized),
+            .failure(.forbidden),
+            .failure(.premiumRequired),
+            .failure(.cancelled),
+        ]
+        for outcome in nonOutages {
+            XCTAssertFalse(outcome.suggestsLoadFailureCopy(phase: .list), "\(outcome)")
+            XCTAssertFalse(outcome.suggestsLoadFailureCopy(phase: .create), "\(outcome)")
+        }
+    }
+
     // MARK: - Foreground cycle: ensure-once (TF 159 P1)
 
     /// Mirrors Dashboard `.onReceive(.profileLocationDidUpdate)` ensure decision.
