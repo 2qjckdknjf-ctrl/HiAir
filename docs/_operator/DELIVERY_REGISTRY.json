@@ -176,7 +176,7 @@
       "id": "HIAIR-PROFILE-HEALTH-307",
       "scenario": "Recover unavailable profile and Health consent after production database suspension",
       "owner": "mobile/backend recovery",
-      "status": "TESTFLIGHT_AVAILABLE_PHYSICAL_INSTALL_AND_IAP_PENDING",
+      "status": "TESTFLIGHT_INSTALLED_DATA_HEALTH_VERIFIED_RESTORE_FAILED",
       "existing_implementation": "mobile/ios/HiAir/Services/HealthKitService.swift; mobile/ios/HiAir/Screens/ProfileBootstrapCard.swift",
       "evidence": "docs/audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md",
       "merged_sha": "38c6ba9979a983ad51c849c864f8e3234a93e2d0",
@@ -184,13 +184,25 @@
       "artifact": "docs/release/RELEASE_MANIFEST_307_2026-11-09.json",
       "pull_request": 100,
       "backend_deployment": "UNCHANGED_LIVE_TREE_VERIFIED",
-      "physical_recovery": "DEVELOPMENT_307_DASHBOARD_AND_HEALTH_PASSED_WITH_SERVER_READBACK",
+      "physical_recovery": "TESTFLIGHT_307_DASHBOARD_AND_HEALTH_PASSED_WITH_SERVER_READBACK",
       "testflight": "VALID_IN_BETA_TESTING_INTERNAL_GROUP_CONFIRMED",
       "remaining_gaps": [
-        "Install and verify the uploaded TestFlight 307 binary on iPhone",
-        "Resolve exact prior TestFlight ownership conflict and verify monthly/yearly/restore",
+        "Restore hung reading Apple entitlements; fix tracked as HIAIR-RESTORE-308",
+        "Exact prior TestFlight ownership-conflict transaction remains unidentified",
+        "Monthly/yearly catalog verified; no new purchase and no active-entitlement restoration certified",
         "Full offline/account-switch/accessibility matrix and physical Android remain unverified"
       ]
+    },
+    {
+      "id": "HIAIR-RESTORE-308",
+      "scenario": "Bound stalled StoreKit entitlement reads during explicit restore without a new purchase",
+      "owner": "iOS subscription recovery",
+      "status": "IMPLEMENTED_TARGETED_TESTS_PASSED_RELEASE_PENDING",
+      "existing_implementation": "mobile/ios/HiAir/Services/SubscriptionService.swift; mobile/ios/HiAir/Screens/SettingsView.swift",
+      "evidence": "docs/audit/TESTFLIGHT_307_DEVICE_2026-11-09.md",
+      "merged_sha": null,
+      "deployed_sha": null,
+      "artifact": null
     }
   ],
   "archived_worktrees": 18,

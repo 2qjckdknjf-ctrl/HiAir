@@ -1900,6 +1900,9 @@ struct SettingsView: View {
         } catch SubscriptionServiceError.restoreStoreUnavailable {
             guard !Task.isCancelled, session.userId == ownerId else { return }
             restoreMessage = session.l("paywall.restore_store_unavailable")
+        } catch let error as APIError {
+            guard !Task.isCancelled, session.userId == ownerId else { return }
+            restoreMessage = subscriptionService.userFacingMessage(for: error, language: session.preferredLanguage)
         } catch {
             guard !Task.isCancelled, session.userId == ownerId else { return }
             restoreMessage = session.l("paywall.generic_error")

@@ -4,6 +4,91 @@ import StoreKit
 
 final class SubscriptionServiceTests: XCTestCase {
     @MainActor
+    func testHungInitialStoreReadFallsBackToOneExplicitSync() async throws {
+        let delayed = OneShotCompletionGate<[String]>()
+        let firstReadStarted = TestAsyncGate()
+        let releaseSecondDeadline = TestAsyncGate()
+        let sleeper = InitialRestoreReadTimeoutSleeper(firstReadStarted: firstReadStarted, releaseSecondDeadline: releaseSecondDeadline)
+        var reads = 0
+        var syncCalls = 0
+        let values = try await SubscriptionService.collectRestoreEntitlements(
+            current: {
+                reads += 1
+                if reads == 1 {
+                    firstReadStarted.open()
+                    return await withCheckedContinuation { continuation in
+                        delayed.wait { continuation.resume(returning: $0) }
+                    }
+                }
+                return ["verified-after-sync"]
+            },
+            sync: { syncCalls += 1 },
+            readTimeoutNanoseconds: 1,
+            sleeper: sleeper
+        )
+        XCTAssertEqual(syncCalls, 1)
+        XCTAssertEqual(reads, 2)
+        XCTAssertEqual(values, ["verified-after-sync"])
+        // A non-cooperative first read completing later cannot replace the result.
+        delayed.complete(["stale-first-read"])
+        releaseSecondDeadline.open()
+        await Task.yield()
+        XCTAssertEqual(values, ["verified-after-sync"])
+    }
+
+    @MainActor
+    func testHungPostSyncReadIsUnavailableNotEmptyOrPremium() async {
+        let delayed = OneShotCompletionGate<[String]>()
+        var reads = 0
+        var syncCalls = 0
+        do {
+            _ = try await SubscriptionService.collectRestoreEntitlements(
+                current: {
+                    reads += 1
+                    if reads == 1 { return [] }
+                    return await withCheckedContinuation { continuation in
+                        delayed.wait { continuation.resume(returning: $0) }
+                    }
+                },
+                sync: { syncCalls += 1 },
+                readTimeoutNanoseconds: 1,
+                sleeper: ImmediateNanosleeper()
+            )
+            XCTFail("Unknown store state must not be returned as an empty successful restore")
+        } catch SubscriptionServiceError.restoreStoreUnavailable {
+            XCTAssertEqual(syncCalls, 1)
+            XCTAssertEqual(reads, 2)
+        } catch { XCTFail("Unexpected error: \(error)") }
+        delayed.complete(["late-transaction"])
+    }
+
+    @MainActor
+    func testCancelledStoreReadNeverStartsSync() async {
+        let started = TestAsyncGate()
+        let delayed = OneShotCompletionGate<[String]>()
+        var syncCalls = 0
+        let task = Task { @MainActor in
+            try await SubscriptionService.collectRestoreEntitlements(
+                current: {
+                    started.open()
+                    return await withCheckedContinuation { continuation in
+                        delayed.wait { continuation.resume(returning: $0) }
+                    }
+                },
+                sync: { syncCalls += 1 }
+            )
+        }
+        await started.wait()
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("Cancellation must propagate")
+        } catch is CancellationError { XCTAssertEqual(syncCalls, 0) }
+        catch { XCTFail("Unexpected error: \(error)") }
+        delayed.complete(["late-transaction"])
+    }
+
+    @MainActor
     func testPurchaseOwnershipConflictHasLocalizedRecoveryInstructions() {
         let service = SubscriptionService(testingFetcher: MockProductFetcher(result: .success([])))
         let error = APIError.serverWithDetail(statusCode: 403, detail: "Purchase is already linked to another account.")
@@ -170,6 +255,23 @@ final class SubscriptionServiceTests: XCTestCase {
         let options = SubscriptionService.purchaseOptions(for: userId)
         XCTAssertFalse(options.isEmpty)
         XCTAssertNotNil(SubscriptionService.appAccountToken(from: userId))
+    }
+}
+
+private actor InitialRestoreReadTimeoutSleeper: Nanosleeping {
+    let firstReadStarted: TestAsyncGate
+    let releaseSecondDeadline: TestAsyncGate
+    private var calls = 0
+
+    init(firstReadStarted: TestAsyncGate, releaseSecondDeadline: TestAsyncGate) {
+        self.firstReadStarted = firstReadStarted
+        self.releaseSecondDeadline = releaseSecondDeadline
+    }
+
+    func sleep(nanoseconds: UInt64) async {
+        calls += 1
+        if calls == 1 { await firstReadStarted.wait() }
+        else { await releaseSecondDeadline.wait() }
     }
 }
 

@@ -85,6 +85,59 @@ final class PhysicalInstalledStoreUITests: XCTestCase {
     func testMonthlyPurchaseOnInstalledApp() throws { try openPurchase("monthly") }
     func testYearlyPurchaseOnInstalledApp() throws { try openPurchase("yearly") }
 
+    /// Catalog evidence only: never invokes either purchase action.
+    func testMonthlyAndYearlyCatalogWithoutPurchase() throws {
+        let app = try app()
+        app.buttons["tab.settings"].tap()
+        let open = app.buttons["settings.open_paywall"]
+        for _ in 0..<12 {
+            if open.exists && open.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(open.exists && open.isHittable)
+        open.tap()
+        for period in ["monthly", "yearly"] {
+            let price = app.staticTexts["paywall.price_\(period)"]
+            XCTAssertTrue(price.waitForExistence(timeout: 30), "Missing real StoreKit price for \(period)")
+            for _ in 0..<10 {
+                if price.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(price.isHittable)
+            XCTAssertTrue(price.label.contains(where: { $0.isNumber }), "Price must contain an actual amount")
+            XCTAssertTrue(app.staticTexts["paywall.length_\(period)"].exists)
+            XCTAssertTrue(app.buttons["paywall.subscribe_\(period)"].exists)
+            capture(app, "catalog-\(period)-no-purchase")
+        }
+        let close = app.buttons["paywall.close"]
+        XCTAssertTrue(close.isHittable && close.isEnabled)
+        close.tap()
+        XCTAssertFalse(app.otherElements["paywall.root"].exists)
+    }
+
+    /// A settled message proves completion, not an active entitlement. Verify the
+    /// recorded result against StoreKit/backend before reporting restored access.
+    func testRestoreSettlesWithoutPurchase() throws {
+        let app = try app()
+        app.buttons["tab.settings"].tap()
+        let restore = app.buttons["settings.restore_purchases"]
+        for _ in 0..<12 {
+            if restore.exists && restore.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(restore.exists && restore.isHittable && restore.isEnabled)
+        capture(app, "restore-settled-before")
+        restore.tap()
+        let outcome = app.staticTexts.matching(NSPredicate(
+            format: "identifier IN %@", ["settings.restore.success", "settings.restore.unavailable"]
+        )).firstMatch
+        XCTAssertTrue(outcome.waitForExistence(timeout: 120), "Restore did not produce a final outcome; inspect any Apple sign-in prompt")
+        capture(app, "restore-settled-result")
+        XCTAssertFalse(outcome.label.isEmpty)
+        XCTAssertFalse(app.staticTexts["settings.restore.progress"].exists)
+        XCTAssertTrue(restore.isEnabled, "Restore action remained locked after completion")
+    }
+
     func testObserveAppleSubscriptionsWithoutPurchase() throws {
         let app = try app()
         app.buttons["tab.settings"].tap()

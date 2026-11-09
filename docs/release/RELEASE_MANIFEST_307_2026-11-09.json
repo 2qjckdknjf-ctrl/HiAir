@@ -52,7 +52,7 @@
       "evidence": "GET /v1/betaGroups/827c14b0-82d8-40a2-b15b-11c498279ef9/builds returned build 307; complete page, no next link"
     }
   },
-  "testflight_installed": false,
+  "testflight_installed": true,
   "subscription_acceptance": "OPEN: exact prior TestFlight conflict transaction and monthly/yearly/restore not confirmed",
   "merged_at": "2026-11-09T14:27:36Z",
   "ci_head": "3252b6b4c2d39bccedcef7f8836b97daa8378e74",
@@ -86,5 +86,25 @@
   "backend_deployment": "UNCHANGED: existing live backend tree matched release guard; no new deployment",
   "android_physical": "NOT_VERIFIED",
   "public_app_store_submission": "NOT_REQUESTED_NOT_SUBMITTED",
-  "next_action": "Reconnect/unlock iPhone, install 1.2 (307) through TestFlight without deleting app data, verify installed distribution and repeat dashboard/Health checks; monthly/yearly/restore ownership-conflict acceptance remains open."
+  "next_action": "Deliver the bounded restore-read correction as 308, then verify its TestFlight restore without a new purchase; exact prior conflict transaction remains unidentified.",
+  "testflight_device_verification": {
+    "device": "iPhone 17 Pro",
+    "os": "iOS 27.2 (24B119)",
+    "distribution": "TestFlight Beta Distribution",
+    "get_task_allow": false,
+    "beta_reports_active": true,
+    "build": "307",
+    "observed_locale": "ru (Apple subscription sheet es)",
+    "network": "cellular 5G",
+    "dashboard": "PASS_ONE_SAMPLE",
+    "launch_to_visible_risk_seconds": 8.362581014633179,
+    "health": "PASS_WITH_SERVER_CONSENT_AND_AGGREGATE_READBACK",
+    "consent_updated_at": "2026-11-09T20:38:08.733679Z",
+    "aggregate_updated_at": "2026-11-09T20:38:14.720595Z",
+    "catalog_monthly": "5.99 EUR / month",
+    "catalog_yearly": "44.99 EUR / year",
+    "restore": "FAILED_NO_FINAL_OUTCOME_AFTER_120_SECONDS",
+    "apple_management": "SANDBOX_SUBSCRIPTION_EXPIRED_23_AUGUST_YEAR_NOT_SHOWN",
+    "evidence": "docs/audit/TESTFLIGHT_307_DEVICE_2026-11-09.md"
+  }
 }
