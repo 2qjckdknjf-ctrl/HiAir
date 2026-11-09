@@ -78,7 +78,7 @@ jobs:
         if: steps.changes.outputs.run == 'true'
         id: simulator
         run: |
-          DEST="$(python3 ../../scripts/ci/ios_runtime_gate.py prepare 2> "${RUNNER_TEMP}/hiair-simulator-boot.log")"
+          DEST="$(python3 ../../scripts/ci/ios_runtime_gate.py prepare --fresh 2> "${RUNNER_TEMP}/hiair-simulator-boot.log")"
           echo "destination=${DEST}" >> "$GITHUB_OUTPUT"
 
       - name: Run iOS unit tests
