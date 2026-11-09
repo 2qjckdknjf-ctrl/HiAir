@@ -130,7 +130,9 @@ enum ProfileEnsureFailureReason: Equatable, Sendable {
             return "profile.ensure.transport"
         case .cancelled:
             return "profile.ensure.cancelled"
-        case .server, .unknown:
+        case .server:
+            return "profile.ensure.unavailable"
+        case .unknown:
             return "profile.ensure.failed"
         }
     }

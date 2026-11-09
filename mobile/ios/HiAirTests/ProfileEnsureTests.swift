@@ -616,7 +616,7 @@ final class ProfileEnsureTests: XCTestCase {
         XCTAssertEqual(session.lastProfileEnsurePhase, .list)
         XCTAssertEqual(session.lastProfileEnsureOutcome?.diagnosticCode, "PE_HTTP_5XX")
         XCTAssertNotEqual(session.lastProfileEnsureOutcome?.diagnosticCode, "PE_NET_TRANSPORT")
-        XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.failed"))
+        XCTAssertEqual(session.profileEnsureUserMessage, session.l("profile.ensure.unavailable"))
     }
 
     func testForegroundEnsureSuccessNotificationReloadsWithoutSecondEnsure() async {

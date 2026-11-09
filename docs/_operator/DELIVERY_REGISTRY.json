@@ -171,6 +171,17 @@
         "Genuine restore completion on 303",
         "Full physical matrix; Android unavailable"
       ]
+    },
+    {
+      "id": "HIAIR-PROFILE-HEALTH-307",
+      "scenario": "Recover unavailable profile and Health consent after production database suspension",
+      "owner": "mobile/backend recovery",
+      "status": "IMPLEMENTED_LOCAL_VERIFIED_BLOCKED_DATABASE_PAYMENT",
+      "existing_implementation": "mobile/ios/HiAir/Services/HealthKitService.swift; mobile/ios/HiAir/Screens/ProfileBootstrapCard.swift",
+      "evidence": "docs/audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md",
+      "merged_sha": null,
+      "deployed_sha": null,
+      "artifact": "mobile/ios/build/latest-release.json (local candidate only)"
     }
   ],
   "archived_worktrees": 18,

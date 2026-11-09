@@ -391,7 +391,7 @@ struct OnboardingView: View {
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(HiAirV2Theme.secondaryText)
             case .consentFailed:
-                Text(session.l("wearable.consent.failed"))
+                Text(session.l(healthService.consentFailureMessageKey))
                     .font(AuroraTokens.Typography.bodyMD)
                     .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
             case .permissionDenied:

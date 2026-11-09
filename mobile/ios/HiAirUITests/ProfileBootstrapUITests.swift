@@ -84,6 +84,9 @@ final class ProfileBootstrapUITests: XCTestCase {
         let cta = waitForIdentifier(app, "dashboard.create_profile")
         cta.tap()
         let error = waitForIdentifier(app, "profile_ensure.error", timeout: 8)
+        XCTAssertTrue(app.staticTexts["Не удалось загрузить профиль"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["Профиль не настроен"].exists,
+                       "Failed lookup must not claim the profile is missing")
         attachScreenshot(app, name: "05-profile-503")
         XCTAssertTrue(error.exists)
         XCTAssertTrue(cta.exists)

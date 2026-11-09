@@ -25,6 +25,47 @@ final class WearableConsentUIStateTests: XCTestCase {
         defaultsSuiteName = nil
     }
 
+    func testServerConsentFailureBlocksUploadsAndRetryPersistsOnlyAfterSuccess() async throws {
+        UITestMockAPIProtocol.isEnabled = true
+        UITestMockAPIProtocol.reset()
+        defer {
+            UITestMockAPIProtocol.reset()
+            UITestMockAPIProtocol.isEnabled = false
+        }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [UITestMockAPIProtocol.self]
+        service = HealthKitService(defaults: defaults, apiClient: APIClient(
+            baseURL: URL(string: "https://example.invalid")!, session: URLSession(configuration: config)))
+        service.seedDurableConsentMarkersForTests(userId: "user-a", authorized: true, consented: false)
+        service.bindAccount(userId: "user-a")
+        UITestMockAPIProtocol.setRoute(method: "POST", path: "/api/v1/wearables/consent",
+                                      response: .json(503, object: ["detail": "Database unavailable"]))
+        do {
+            try await service.saveConsent(userId: "user-a", accessToken: "token")
+            XCTFail("Server refusal must not mark consent saved")
+        } catch {
+            XCTAssertEqual(service.connectionState, .consentFailed)
+            XCTAssertEqual(service.consentFailureMessageKey, "wearable.consent.server_unavailable")
+            XCTAssertTrue(service.hasSystemAuthorization(for: "user-a"))
+            XCTAssertFalse(service.hasDurableConsent(for: "user-a"))
+        }
+        service.startBackgroundHealthSync(userId: "user-a", accessToken: "token", profileId: nil)
+        XCTAssertEqual(service.testUploadAttemptCount, 0)
+        XCTAssertEqual(UITestMockAPIProtocol.requestCount(matching: "daily-summary"), 0)
+        UITestMockAPIProtocol.setRoute(method: "POST", path: "/api/v1/wearables/consent",
+            response: .json(200, object: ["id": "consent-a", "userId": "user-a", "platform": "ios",
+                "source": "apple_health", "stepsEnabled": true, "heartRateEnabled": true,
+                "restingHeartRateEnabled": true, "isActive": true]))
+        try await service.saveConsent(userId: "user-a", accessToken: "token")
+        XCTAssertTrue(service.hasDurableConsent(for: "user-a"))
+        XCTAssertFalse(service.hasDurableConsent(for: "user-b"))
+        XCTAssertEqual(service.connectionState, .connected)
+        XCTAssertEqual(UITestMockAPIProtocol.requestCount(matching: "/consent", method: "POST"), 2)
+        service.bindAccount(userId: "user-b")
+        XCTAssertEqual(service.consentFailureMessageKey, "wearable.consent.failed")
+        XCTAssertNotEqual(service.connectionState, .connected)
+    }
+
     private func localizeRU(_ key: String) -> String {
         HiAirL10n.t(key, lang: "ru")
     }

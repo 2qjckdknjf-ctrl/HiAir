@@ -1,3 +1,5 @@
+> Incident 2026-11-09: production Supabase is INACTIVE and resume was refused because of unpaid organization invoices. API liveness remains OK but does not prove database readiness. Profile/Health recovery is blocked on owner payment; client recovery correction is locally verified, candidate 307 not delivered. See [incident evidence](../audit/PROFILE_HEALTH_OUTAGE_2026-11-09.md). Historical delivery records below do not override this outage.
+
 # Состояние доставки HiAir — evidence snapshot 11 октября 2026
 
 > Сверка 2026-10-23: main `68a384061f46389f15fb161b9646904838aa65e1` уже включает [PR89](https://github.com/2qjckdknjf-ctrl/HiAir/pull/89) health batching/restore. Описание «готовятся в 303» ниже — историческое, не актуальная code queue. Свежая доставка 303 и physical restore этим docs-проходом не подтверждены. [Актуальная очередь](../roadmap/HIAIR_PLAN_AMENDMENT_2026-09-23.md#единая-очередь-2026-10-23) хранит эти gaps; старые PASS/manifest не переименованы в свежие.

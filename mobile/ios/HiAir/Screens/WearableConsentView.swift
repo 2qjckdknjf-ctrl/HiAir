@@ -38,7 +38,7 @@ struct WearableConsentView: View {
                         .buttonStyle(HiAirSecondaryButtonStyle())
                     }
                     if healthService.connectionState == .consentFailed {
-                        Text(session.l("wearable.consent.failed"))
+                        Text(session.l(healthService.consentFailureMessageKey))
                             .font(HiAirTypography.caption)
                             .foregroundStyle(AuroraTokens.ColorPalette.errorSoft)
                     }
@@ -79,6 +79,7 @@ struct WearableConsentView: View {
 
     private func connect() async {
         working = true
+        showHealthPathHint = false
         defer { working = false }
         ProductAnalytics.track("health_connect_started")
         guard healthService.isHealthDataAvailable() else {
@@ -105,7 +106,14 @@ struct WearableConsentView: View {
         let userId = session.userId
         let accessToken = session.accessToken
         let profileId = session.profileId.isEmpty ? nil : session.profileId
-        let granted = await healthService.requestAuthorization(tiers: [1, 2, 3], userId: userId)
+        // A failed server save does not require changing Health permissions again.
+        let granted: Bool
+        if healthService.connectionState == .consentFailed,
+           healthService.hasSystemAuthorization(for: userId) {
+            granted = true
+        } else {
+            granted = await healthService.requestAuthorization(tiers: [1, 2, 3], userId: userId)
+        }
         if granted {
             // Exit system wait immediately — durable consent is the Connected gate.
             RuntimePerformanceProbe.end("health_connect_ui", success: true)
@@ -119,7 +127,6 @@ struct WearableConsentView: View {
                         "error_type": String(describing: type(of: error)),
                     ]
                 )
-                showHealthPathHint = true
                 return
             }
             guard session.userId == userId else { return }
