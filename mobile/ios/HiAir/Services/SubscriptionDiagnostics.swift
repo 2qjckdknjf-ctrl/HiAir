@@ -9,6 +9,7 @@ enum SubscriptionDiagnostics {
     /// access token, email, or health data, and is not uploaded or backed up.
     @MainActor
     static func recordVerification(_ transaction: Transaction, ownerId: String, outcome: String) {
+        guard APIClient.getAuthState()?.userId == ownerId else { return }
         let record: [String: String] = [
             "transactionId": String(transaction.id),
             "originalTransactionId": String(transaction.originalID),
