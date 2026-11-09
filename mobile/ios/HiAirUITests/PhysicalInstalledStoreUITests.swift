@@ -38,6 +38,50 @@ final class PhysicalInstalledStoreUITests: XCTestCase {
         }
     }
 
+    func testDashboardLoadsRealRiskAfterRecovery() throws {
+        let started = Date()
+        let app = try app()
+        app.buttons["tab.dashboard"].tap()
+        let retry = app.buttons["dashboard.create_profile"]
+        if retry.exists && retry.isHittable { retry.tap() }
+        let risk = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label MATCHES[c] %@", "(Низкий|Умеренный|Высокий|Очень высокий|Low|Moderate|High|Very high) [0-9]+"
+        )).firstMatch
+        XCTAssertTrue(risk.waitForExistence(timeout: 45), "No real risk value after database recovery")
+        let elapsed = Date().timeIntervalSince(started)
+        capture(app, "database-recovery-risk")
+        let measurement = XCTAttachment(string: "launch_to_risk_seconds=\(elapsed);risk=\(risk.label)")
+        measurement.name = "useful-data-latency"
+        measurement.lifetime = .keepAlways
+        add(measurement)
+        XCTAssertFalse(app.descendants(matching: .any)["profile_ensure.error"].exists)
+        XCTAssertFalse(app.buttons["dashboard.create_profile"].exists)
+    }
+
+    func testHealthConsentAfterDatabaseRecovery() throws {
+        let app = try app()
+        app.buttons["tab.settings"].tap()
+        let connect = app.buttons["settings.wearables.connect"]
+        for _ in 0..<16 {
+            if connect.exists && connect.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(connect.exists && connect.isHittable)
+        capture(app, "health-before-recovery")
+        connect.tap()
+        let confirm = app.buttons["wearable.consent.continue"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        // Existing scopes only. If Apple asks for permission, the owner confirms on device.
+        let status = app.descendants(matching: .any)["settings.wearables.status"]
+        let connected = NSPredicate(format: "exists == true AND (label CONTAINS[c] %@ OR label CONTAINS[c] %@)", ": подключено", ": connected")
+        let expectation = XCTNSPredicateExpectation(predicate: connected, object: status)
+        let result = XCTWaiter.wait(for: [expectation], timeout: 90)
+        capture(app, "health-after-recovery")
+        XCTAssertEqual(result, .completed, "No connected state; inspect Apple prompt and server consent before claiming success")
+        XCTAssertFalse(confirm.exists, "Consent dialog must close after server success")
+    }
+
     func testMonthlyPurchaseOnInstalledApp() throws { try openPurchase("monthly") }
     func testYearlyPurchaseOnInstalledApp() throws { try openPurchase("yearly") }
 

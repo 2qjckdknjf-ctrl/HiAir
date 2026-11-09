@@ -26,3 +26,9 @@ Build 307 is a local candidate. Its clean source and hash belong to the generate
 ## Required next step
 
 The organization owner must settle the outstanding Supabase invoice. Then retry project resume, wait for ACTIVE_HEALTHY, verify database and authenticated profile/consent requests on the connected iPhone, and only then continue the protected delivery process. Do not create a replacement project, migrate user data, change subscription ownership or pretend a new IPA repairs the billing outage.
+
+## Database recovery after owner payment
+
+On 9 November at approximately 14:13–14:18 Europe/Madrid, the owner confirmed payment and the existing project resume request returned success. Status progressed INACTIVE → COMING_UP → ACTIVE_HEALTHY. Read-only SQL at 13:18:44 UTC confirmed one profile and one active Health consent for the current account; the prior consent timestamp was preserved. No user records or ownership mappings were edited.
+
+The iPhone is connected with HiAir 1.2 (306). The first test runner attempt did not initialize: iOS returned LocalAuthentication cancellation while a phone call was active. This is NOT an application test result. The physical recovery tests and TestFlight 307 delivery remain pending.
