@@ -46,3 +46,11 @@ On 9 November, iPhone 17 Pro / iOS 27.2 (24B119), cellular 5G, observed Russian 
 These samples establish recovery on the connected phone, not p95 performance, offline/account-switch coverage, or a TestFlight installation. Dynamic Type, Motion/Transparency and accessibility acceptance were not newly measured here. Monthly/yearly purchase, restore, and the prior TestFlight ownership conflict remain separate open scenarios; no entitlement transfer or purchase was performed in this recovery pass. Android was not physically tested.
 
 Next: complete required checks/review on the final PR source, merge without bypass, run the release guard, upload 307 and confirm processing/internal availability, then independently verify its TestFlight installation.
+
+## Review follow-up
+
+PR100 review found outage title/body incorrectly applied to auth, profile-limit and cancellation outcomes. Adopted published correction `8d2c5274e21e0a5aab3166221648c01a959b40b6`: lookup-failure copy now requires the list phase and a retryable lookup outcome. New 402/403 UI assertions both failed before the fix (`/tmp/hiair-307-nonoutage-before.xcresult`) and passed after it. Full follow-up: **256 unit + 8 profile UI tests passed**, including RU/EN 503, 401 return to Auth, missing location, successful creation, and actionable 402/403 recovery (`/tmp/hiair-307-reviewed-regression.xcresult`). No required test was skipped or relaxed.
+
+Three further physical 307 dashboard launches before this presentation-only follow-up passed at 6.960, 6.963 and 6.990 seconds (`/tmp/hiair-307-physical-repeat.xcresult`). They are preserved as measurements of that earlier installed source, not of a later TestFlight binary. The final IPA must be rebuilt after the review correction.
+
+First GitHub iOS run `42628688983` failed before unit execution: simulator boot stalled in LaunchServices data migration and exceeded the bounded timeout. Logs: `/tmp/hiair-307-ci-first-diagnostics/hiair-simulator-boot.log`. An unchanged retry was requested; this infrastructure failure is not counted as an application test PASS.

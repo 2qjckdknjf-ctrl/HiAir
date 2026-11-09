@@ -152,6 +152,34 @@ final class ProfileBootstrapUITests: XCTestCase {
         attachScreenshot(app, name: "06-profile-401-auth")
         XCTAssertTrue(auth.exists)
     }
+
+    func testProfileLimitKeepsUpgradeRecoveryWithoutOutageCopy() throws {
+        let app = UITestLaunch.launch(extraEnvironment: ["UITEST_PROFILES_STATUS": "402"])
+        waitForIdentifier(app, "dashboard.create_profile").tap()
+        let error = waitForIdentifier(app, "profile_ensure.error", timeout: 8)
+        XCTAssertTrue(error.label.contains("Достигнут лимит профилей"))
+        XCTAssertFalse(app.staticTexts["Не удалось загрузить профиль"].exists)
+        XCTAssertFalse(app.staticTexts["Для персональных данных нужен доступ к профилю. Повторите загрузку, когда сервис снова станет доступен."].exists)
+        let upgrade = waitForIdentifier(app, "settings.open_paywall", timeout: 3)
+        XCTAssertTrue(upgrade.isHittable, "Profile-limit recovery must remain actionable")
+        XCTAssertFalse(app.descendants(matching: .any)["profile_ensure.location_action"].exists)
+        attachScreenshot(app, name: "profile-limit-recovery")
+    }
+
+    func testProfileForbiddenKeepsAccessRecoveryWithoutOutageCopy() throws {
+        let app = UITestLaunch.launch(extraEnvironment: ["UITEST_PROFILES_STATUS": "403"])
+        let retry = waitForIdentifier(app, "dashboard.create_profile")
+        retry.tap()
+        let error = waitForIdentifier(app, "profile_ensure.error", timeout: 8)
+        XCTAssertTrue(error.label.contains("Нет доступа к профилю"))
+        XCTAssertFalse(app.staticTexts["Не удалось загрузить профиль"].exists)
+        XCTAssertFalse(app.staticTexts["Для персональных данных нужен доступ к профилю. Повторите загрузку, когда сервис снова станет доступен."].exists)
+        XCTAssertTrue(retry.isHittable)
+        XCTAssertTrue(retry.label.contains("Повторить"))
+        XCTAssertFalse(app.buttons["settings.open_paywall"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["profile_ensure.location_action"].exists)
+        attachScreenshot(app, name: "profile-forbidden-recovery")
+    }
 }
 
 final class TabNavigationUITests: XCTestCase {
