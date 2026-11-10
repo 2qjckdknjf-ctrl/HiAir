@@ -8,16 +8,7 @@ on:
         description: "Immutable release SHA to deploy (defaults to selected ref HEAD)"
         required: false
         type: string
-  push:
-    branches:
-      - main
-    paths:
-      - "backend/**"
-      - "infra/cloudflare/hiair-api/**"
-      - "scripts/release/deploy_backend.sh"
-      - "scripts/release/post_deploy_api_smoke.py"
-      - "scripts/ops/deploy_hiair_api_cloudflare.sh"
-      - ".github/workflows/backend-deploy-production.yml"
+  # push trigger removed (APR-HIAIR-009): production deploys are manual + reviewer-gated
 
 concurrency:
   group: backend-production-deploy

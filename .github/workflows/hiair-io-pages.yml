@@ -1,15 +1,7 @@
 name: hiair-io-pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "web/**"
-      - "infra/cloudflare/**"
-      - "scripts/ops/generate_web_seo_content.py"
-      - "scripts/ops/check_web_seo.py"
-      - "scripts/ops/check_web_local_routes.py"
-      - ".github/workflows/hiair-io-pages.yml"
+  # push trigger removed (APR-HIAIR-009): production deploys are manual + reviewer-gated
   pull_request:
     paths:
       - "web/**"
