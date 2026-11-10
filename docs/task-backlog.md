@@ -116,3 +116,19 @@
 
 1. Загрузить готовые артефакты в TestFlight/Internal Test (нужны доступы Apple/Google).
 2. Выполнить `docs/qa-checklist.md` на iOS/Android и зафиксировать баги по шаблону.
+
+
+## Weekly AI reconciliation — 2026-11-10
+
+**Period:** 2026-11-03 through 2026-11-10. **Status:** planning-only, not implementation or deployment. Existing canonical IDs, P0 gates and historical records take precedence. Reconcile with currently open PRs and exact HEAD before marking any item DONE. Evidence = reproducible tests + independent review + SHA + deployment/device receipt where applicable. Source ideas: OpenAI engineering/CAD and agent safety, GitHub Xcode and review telemetry, AI Engineer talks on durable SDLC, factual numeric provenance, adaptive worker economics, rollback, memory validity, and new Anthropic/Meta model announcements. Vendor benchmarks are not local acceptance evidence.
+
+| Priority | Existing workstream / ID | Incremental action and acceptance |
+|---|---|---|
+| P0 | HIAIR-REL-001 / existing release gates | Complete physical-device QA, UX-05/12, data freshness and store receipts on exact build; preserve current deterministic Risk Engine. |
+| P1 | Existing ingestion / provider-quality tests | Missing/stale provider readings must be unknown/blocked, not zero AQI; preserve timestamp, provider, units, source, fallback and alert evidence; test historical edge cases. |
+| P1 | Existing product analytics | Measure real usage, retention and user decisions for Best Time, Morning Briefing and AI explanations before adding AI chat; A/B with privacy protections. |
+| P2 | Local model / visualization research | Evaluate lightweight on-device explanations or maps only after release gates, benchmark latency, battery, accuracy and consent. |
+
+**Implementation order:** close existing P0 first; P1 in bounded non-production pilots; P2 only after evidence-based decision. Owner: project engineering lead (assignment TBD); independent reviewer: ROMA/security or domain QA (assignment TBD). No auto-merge, production writes, payments or live trading from this roadmap update.
+
+**Cross-project dependency:** Grow OS orchestrates; ROMA enforces independent policy/verification in Aistroyka-web; Sasha Memory OS stores permission-scoped evidence. Trading repository/runtime remains unverified; shared trading requirements are point-in-time market data, deterministic calculations, independent risk limits, exchange-state reconciliation, paper trading and kill switch, with no autonomous live orders.
