@@ -132,3 +132,14 @@
 **Implementation order:** close existing P0 first; P1 in bounded non-production pilots; P2 only after evidence-based decision. Owner: project engineering lead (assignment TBD); independent reviewer: ROMA/security or domain QA (assignment TBD). No auto-merge, production writes, payments or live trading from this roadmap update.
 
 **Cross-project dependency:** Grow OS orchestrates; ROMA enforces independent policy/verification in Aistroyka-web; Sasha Memory OS stores permission-scoped evidence. Trading repository/runtime remains unverified; shared trading requirements are point-in-time market data, deterministic calculations, independent risk limits, exchange-state reconciliation, paper trading and kill switch, with no autonomous live orders.
+
+
+### AI feature delta — 2026-11-11
+
+These are **proposed additions to existing workstreams** from the November 11 intelligence review, not claims of shipped functionality or verified vendor capabilities. Validate official release/API/pricing availability before selecting any provider; independent exact-SHA acceptance and existing P0 gates remain mandatory.
+
+- **P1 / existing explanation UI:** benchmark Gemini 4 Carbon or a cheaper model for grounded multilingual explanations of deterministic Risk Engine outputs, with citations, uncertainty, stale-data blocking and privacy checks; do not change Risk Engine thresholds.
+- **P1 / voice accessibility research:** optional voice questions map to the same read-only recommendation and permission context; test interruptions, latency, battery and accessibility only after physical-device/release gates.
+- **P1 / supply-chain:** verify Dependabot alert coverage on inactive supporting repos and dependency snapshots; do not assume alerts disabled.
+
+**Acceptance rule:** record baseline, owner, independent reviewer, test corpus, security/privacy gates, cost per verified task and explicit decision (adopt / defer / reject). No autonomous production actions or merge authorized by this documentation.
