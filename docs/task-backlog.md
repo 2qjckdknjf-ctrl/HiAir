@@ -143,3 +143,17 @@ These are **proposed additions to existing workstreams** from the November 11 in
 - **P1 / supply-chain:** verify Dependabot alert coverage on inactive supporting repos and dependency snapshots; do not assume alerts disabled.
 
 **Acceptance rule:** record baseline, owner, independent reviewer, test corpus, security/privacy gates, cost per verified task and explicit decision (adopt / defer / reject). No autonomous production actions or merge authorized by this documentation.
+
+
+## Gap-only AI roadmap reconciliation — 2026-11-20
+
+**Review period:** 2026-11-12–2026-11-20. Compared this branch with `main` and the existing Nov 10/11 reconciliation. Only incremental acceptance conditions and candidate evaluations are recorded; pre-existing capabilities must not be rebuilt. **PLANNING ONLY / NOT IMPLEMENTED / NOT MERGED.** The owner and independent reviewer remain TBD until assigned. Recheck exact HEAD, CI and production receipts before any DONE status.
+
+| Priority | Existing owner / workstream | Newly identified gap / acceptance evidence |
+|---|---|---|
+| P0 | Existing HIAIR-REL-001 / delivery gates | Physical device/UX/release receipts and exact-build data freshness first. No new AI feature is a prerequisite. |
+| P1 | Existing provider reliability and monitoring | Performance Factory-inspired alert→investigate→independent validation→fix→post-release verification for stale AQI, missing API data, false zero readings and provider outages. Risk Engine remains deterministic. |
+| P1 | Existing optional AI explanation / voice | Benchmark low-cost cloud/local models only on grounded deterministic AQI recommendations, Spanish/Russian accessibility, latency and privacy; no raw health profile to unapproved provider. |
+| P2 | Existing marketing/analytics | Measure verified user action and retention before adding conversational interfaces; avoid claims of improved air-quality prediction without data. |
+
+**Source references:** [OpenAI Performance Factory](https://openai.com/index/how-openai-performance-factory-keeps-chatgpt-fast/), [Google Mirror Dimension](https://blog.google/security/mirror-dimension-for-agents/), [OpenAI frontier risk controls](https://openai.com/index/managing-frontier-ai-risk/). Other recent model/vendor announcements are *candidates requiring independent availability and price validation*, not approved dependencies. No new runtime privileges, model installation, migrations, payments, deployment, PR merge, or trading orders are authorized by this document.
