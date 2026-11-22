@@ -440,6 +440,25 @@ test("the isolated HTTP fixture emits valid inline JavaScript and keeps OFF and 
     const invalidOrigin = await fetch(info.origin + "/api/v1/events", { method: "POST", headers: { origin: "https://hiair.io", "content-type": "application/json" }, body: "{}" });
     assert.equal(invalidOrigin.status, 403);
     assert.equal((await fetch(info.origin + "/__qa/state").then(r => r.json())).records.length, 0);
+    const handoff = await fetch(info.origin + "/handoff?reset=1").then(r=>r.text());
+    assert.match(handoff,/location.assign\('\/handoff-destination'\)/);
+    assert.match(handoff,/href="https:\/\/apps\.apple\.com\/us\/app\/hiair\/id6773610034/);
+    const destination = await fetch(info.origin + "/handoff-destination").then(r=>r.text());
+    const destinationScripts=[...destination.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+    assert.equal(destinationScripts.length,1);
+    assert.doesNotThrow(()=>new vm.Script(destinationScripts[0][1]));
+    assert.match(destination,/history.back\(\)/);
+    const event={productSlug:"hiair",surface:"website",environment:"production",event_version:2,name:"app_store_cta.clicked",
+      event_id:"isolated-handoff-transport-test",anonymousId:"isolated-fixture",session_id:"fixture-session",occurredAt:new Date().toISOString(),
+      properties:{placement:"header",experiment_id:EXPERIMENT,variant_id:TREATMENT,assignment_version:"v1"}};
+    const received=await fetch(info.origin+"/api/v1/events",{method:"POST",headers:{origin:info.origin,"content-type":"application/json",referer:info.origin+"/handoff"},body:JSON.stringify(event)});
+    assert.equal(received.status,202);assert.equal((await received.json()).ok,true);
+    const state=await fetch(info.origin+"/__qa/state").then(r=>r.json());
+    assert.equal(state.records.length,1);const click=state.records[0];
+    assert.equal(click.delayMs,500);assert.ok(Date.parse(click.responseStartedAt)-Date.parse(click.receivedAt)>=450);
+    assert.ok(click.responseFinishedAt);assert.notEqual(click.responseClosedEarly,true);assert.equal(state.serverOutboundRequests,0);
+    await fetch(info.origin+"/handoff");
+    assert.equal((await fetch(info.origin+"/__qa/state").then(r=>r.json())).records.length,1,"back/reload must preserve handoff proof");
   } finally { child.kill("SIGTERM"); await closed; }
 });
 
