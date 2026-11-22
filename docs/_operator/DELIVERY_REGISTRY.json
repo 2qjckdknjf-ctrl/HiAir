@@ -224,7 +224,8 @@
       "deployed_sha": null,
       "artifact": "docs/audit/WEB_GROWTH_MEASUREMENT_2026-11-22.md",
       "validation": "50 web tests; SEO and 28 routes plus404; independent38 focused checks; native local desktop/mobile measurement and rollback",
-      "release_gate": "No merge or website deployment authorized. Experiments remain false. Growth public projection and fresh experiment/evidence approval required before activation."
+      "release_gate": "No merge or website deployment authorized. Experiments remain false. Growth public projection and fresh experiment/evidence approval required before activation.",
+      "pull_request": 105
     }
   ],
   "archived_worktrees": 18,
