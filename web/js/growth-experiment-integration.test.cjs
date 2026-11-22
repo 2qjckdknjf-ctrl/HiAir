@@ -92,7 +92,7 @@ function page(options = {}) {
     const url = new URL(address, ORIGIN);
     assert.equal(url.origin, ORIGIN, "fixture MUST NOT contact production or localhost:3001");
     const body = init.body ? JSON.parse(init.body) : null;
-    const call = { url: url.href, method: init.method || "GET", body, at: now };
+    const call = { url: url.href, method: init.method || "GET", body, at: now, keepalive: init.keepalive === true, signal: init.signal };
     requests.push(call);
     if (body) {
       assert.ok(Buffer.byteLength(init.body) <= 8192);
@@ -159,6 +159,11 @@ function page(options = {}) {
       for (const observer of observers) if (observer.targets.has(header)) observer.callback([{ target: header, intersectionRatio: ratio, isIntersecting: ratio > 0, time: now }], observer);
     },
     visibility(hidden) { document.hidden = hidden; document.visibilityState = hidden ? "hidden" : "visible"; for (const fn of docListeners.get("visibilitychange") || []) fn(); },
+    pagehide(persisted) { for (const fn of [...(windowListeners.get("pagehide") || [])]) fn({ type: "pagehide", persisted: persisted === true }); },
+    async pageshow(persisted) {
+      for (const fn of [...(windowListeners.get("pageshow") || [])]) await fn({ type:"pageshow", persisted:persisted === true });
+      await tickPromises();
+    },
     close() { api.stop(); timers.clear(); },
   };
 }
@@ -341,6 +346,50 @@ test("pending exposure never tags clicks, and its late receipt cannot revive a s
   } finally { gate.resolve(ack()); p.close(); }
 });
 
+test("bfcache handoff preserves the pending click, then revalidates config before new attribution", async () => {
+  const gate = latch();
+  const p = page({ enabled: true, respond: call => call.body?.name === "app_store_cta.clicked" && call.body.event_version === 2 ? gate.promise : undefined });
+  try {
+    await p.ready(); p.intersect(1); await p.advance(1000);
+    assert.equal(p.header.textContent, CTA_COPY);
+    p.header.dispatch("click");
+    p.pagehide(true);
+    await tickPromises();
+    const click = p.requests.filter(r => r.body?.name === "app_store_cta.clicked" && r.body.event_version === 2).at(-1);
+    assert.ok(click, "attributed click must leave the page");
+    assert.equal(click.keepalive, true); assert.equal(click.signal.aborted, false);
+    assert.equal(p.header.textContent, CTA_COPY);
+    assert.equal(p.api.getAttribution("header", "anon-golden-00", "local-session"), null);
+    gate.resolve(ack()); await tickPromises();
+    assert.equal(p.events("app_store_cta.clicked").filter(e => e.event_version === 2).length, 1);
+    await p.pageshow(true);
+    assert.equal(p.requests.filter(r=>r.method === "GET").length, 2);
+    assert.equal(p.header.textContent, CTA_COPY);
+    assert.equal(p.api.getAttribution("header", "anon-golden-00", "local-session"), null);
+    p.intersect(1); await p.advance(1000);
+    assert.ok(p.api.getAttribution("header", "anon-golden-00", "local-session"));
+  } finally { gate.resolve(ack()); p.close(); }
+});
+
+test("a discarding pagehide still delivers the in-flight attributed click", async () => {
+  const gate = latch();
+  const p = page({ enabled: true, respond: call => call.body?.name === "app_store_cta.clicked" && call.body.event_version === 2 ? gate.promise : undefined });
+  try {
+    await p.ready(); p.intersect(1); await p.advance(1000);
+    p.header.dispatch("click");
+    await tickPromises();
+    p.pagehide(false);
+    const click = p.requests.filter(r => r.body?.name === "app_store_cta.clicked" && r.body.event_version === 2).at(-1);
+    assert.ok(click);
+    assert.equal(click.keepalive, true);
+    assert.equal(click.signal.aborted, false);
+    gate.resolve(ack());
+    await tickPromises();
+    assert.equal(p.events("app_store_cta.clicked").filter(e => e.event_version === 2).length, 1);
+    assert.equal(p.events("app_store_cta.clicked").filter(e => e.event_version === 1).length, 0);
+  } finally { gate.resolve(ack()); p.close(); }
+});
+
 test("an unaccepted attributed click restores CONTROL without resending the same action as v1", async () => {
   const p = page({ enabled: true, respond: call => call.body?.name === "app_store_cta.clicked" && call.body.event_version === 2 ? ack(false) : undefined });
   try {
@@ -392,4 +441,55 @@ test("the isolated HTTP fixture emits valid inline JavaScript and keeps OFF and 
     assert.equal(invalidOrigin.status, 403);
     assert.equal((await fetch(info.origin + "/__qa/state").then(r => r.json())).records.length, 0);
   } finally { child.kill("SIGTERM"); await closed; }
+});
+
+
+test("bfcache time without a visibilitychange event never completes an interrupted exposure", async () => {
+  const p=page({enabled:true});
+  try {
+    await p.ready(); p.intersect(1); await p.advance(500);
+    p.pagehide(true); await p.advance(60000);
+    assert.equal(p.events("experiment.exposed").length,0);
+    await p.pageshow(true); p.intersect(1); await p.advance(999);
+    assert.equal(p.events("experiment.exposed").length,0);
+    await p.advance(1); assert.equal(p.events("experiment.exposed").length,1);
+  } finally { p.close(); }
+});
+
+test("a cached page cannot revive a server-stopped experiment", async () => {
+  let reads=0;
+  const p=page({enabled:true,respond:call=>call.method === "GET" && ++reads>1 ? new Response(JSON.stringify({experiments:[]}),{status:200}) : undefined});
+  try {
+    await p.ready(); p.intersect(1); await p.advance(1000);
+    p.pagehide(true); await p.pageshow(true);
+    assert.equal(reads,2); assert.equal(p.header.textContent,"Download");
+    assert.equal(p.api.getAttribution("header","anon-golden-00","local-session"),null);
+    assert.equal(p.events("experiment.assigned").length,1);
+  } finally {p.close();}
+});
+
+for(const action of ["identity-change","explicit-stop"]) test(action+" while cached prevents any resume or stale attribution",async()=>{
+  const p=page({enabled:true});
+  try {
+    await p.ready();p.intersect(1);await p.advance(1000);p.pagehide(true);
+    if(action === "identity-change") p.localStorage.setItem("hiair_growth_anon","different-visitor"); else p.api.stop();
+    await p.pageshow(true);await p.advance(1000);
+    assert.equal(p.header.textContent,"Download");assert.equal(p.requests.filter(r=>r.method === "GET").length,1);
+    assert.equal(p.api.getAttribution("header","anon-golden-00","local-session"),null);
+  } finally {p.close();}
+});
+
+test("old conversion rejection after bfcache restart cannot stop the new generation",async()=>{
+  const gate=latch();
+  const p=page({enabled:true,respond:call=>call.body?.name === "app_store_cta.clicked" && call.body.event_version === 2 ? gate.promise : undefined});
+  try {
+    await p.ready();p.intersect(1);await p.advance(1000);
+    const old=p.api.getAttribution("header","anon-golden-00","local-session");
+    p.header.dispatch("click");await tickPromises();p.pagehide(true);await p.pageshow(true);p.intersect(1);await p.advance(1000);
+    const fresh=p.api.getAttribution("header","anon-golden-00","local-session");
+    assert.equal(fresh.eventId,old.eventId);assert.notEqual(fresh.generation,old.generation);
+    gate.resolve(ack(false));await tickPromises();
+    assert.equal(p.header.textContent,CTA_COPY);assert.equal(p.api.getAttribution("header","anon-golden-00","local-session").generation,fresh.generation);
+    assert.equal(p.events("app_store_cta.clicked").length,1);
+  } finally {gate.resolve(ack());p.close();}
 });
