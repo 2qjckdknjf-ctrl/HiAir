@@ -304,9 +304,10 @@
       body.properties.experiment_id = attribution.experimentId;
       body.properties.variant_id = attribution.variantId;
       body.properties.assignment_version = attribution.assignmentVersion;
-      // One bounded v2 send. A lost response must never create a second v1 event.
+      // One bounded keepalive v2 send. No runtime abort signal, so pagehide cannot cancel the conversion.
+      // A lost response must never create a second v1 event.
       window.HIAIR_GROWTH_EXPERIMENT_CONFIG.requestJson({ url: url, fetch: window.fetch.bind(window), method: "POST",
-        headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: attribution.signal
+        headers: { "content-type": "application/json" }, body: JSON.stringify(body)
       }).then(function (receipt) {
         if (!window.HIAIR_GROWTH_EXPERIMENT_TELEMETRY.accepted(receipt)) throw new Error("click_unverified");
       }).catch(function () { runtime.rejectAttribution(attribution); });

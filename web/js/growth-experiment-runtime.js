@@ -35,7 +35,7 @@
     var s = current;
     if (!s || !live(s) || !s.exposed || placement !== s.input.placement || anonymousId !== s.input.anonymousId || sessionId !== s.input.sessionId) return null;
     return { experimentId: s.experiment.id, variantId: s.chosen.variant_id, assignmentVersion: s.experiment.assignment_version,
-      placement: placement, eventId: s.clickId, generation: s.generation, signal: s.controller.signal };
+      placement: placement, eventId: s.clickId, generation: s.generation };
   }
   function rejectAttribution(context) {
     if (current && context && context.generation === current.generation && context.eventId === current.clickId) stop("click_unverified");
@@ -68,7 +68,8 @@
         experimentId: s.experiment.id, variantId: s.chosen.variant_id, assignmentVersion: s.experiment.assignment_version, placement: input.placement });
     }
     s.identityChanged = function () { if (current === s && !sameIdentity(s)) stop("identity_changed"); };
-    s.pagehide = function () { if (current === s) stop("page_hidden"); };
+    // bfcache restores this heap after pagehide. Stopping here would freeze CONTROL and drop the click.
+    s.pagehide = function (event) { if (event && event.persisted) return; if (current === s) stop("page_hidden"); };
     if (win && typeof win.addEventListener === "function") {
       win.addEventListener("storage", s.identityChanged); win.addEventListener("pagehide", s.pagehide);
     }

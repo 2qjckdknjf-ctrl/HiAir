@@ -92,7 +92,7 @@ function page(options = {}) {
     const url = new URL(address, ORIGIN);
     assert.equal(url.origin, ORIGIN, "fixture MUST NOT contact production or localhost:3001");
     const body = init.body ? JSON.parse(init.body) : null;
-    const call = { url: url.href, method: init.method || "GET", body, at: now };
+    const call = { url: url.href, method: init.method || "GET", body, at: now, keepalive: init.keepalive === true, signal: init.signal };
     requests.push(call);
     if (body) {
       assert.ok(Buffer.byteLength(init.body) <= 8192);
@@ -159,6 +159,7 @@ function page(options = {}) {
       for (const observer of observers) if (observer.targets.has(header)) observer.callback([{ target: header, intersectionRatio: ratio, isIntersecting: ratio > 0, time: now }], observer);
     },
     visibility(hidden) { document.hidden = hidden; document.visibilityState = hidden ? "hidden" : "visible"; for (const fn of docListeners.get("visibilitychange") || []) fn(); },
+    pagehide(persisted) { for (const fn of [...(windowListeners.get("pagehide") || [])]) fn({ type: "pagehide", persisted: persisted === true }); },
     close() { api.stop(); timers.clear(); },
   };
 }
@@ -338,6 +339,48 @@ test("pending exposure never tags clicks, and its late receipt cannot revive a s
     p.api.stop(); gate.resolve(ack()); await tickPromises();
     assert.equal(p.header.textContent, "Download");
     assert.equal(p.api.getAttribution("header", "anon-golden-00", "local-session"), null);
+  } finally { gate.resolve(ack()); p.close(); }
+});
+
+test("bfcache pagehide keeps treatment and does not abort the attributed click", async () => {
+  const gate = latch();
+  const p = page({ enabled: true, respond: call => call.body?.name === "app_store_cta.clicked" && call.body.event_version === 2 ? gate.promise : undefined });
+  try {
+    await p.ready(); p.intersect(1); await p.advance(1000);
+    assert.equal(p.header.textContent, CTA_COPY);
+    p.header.dispatch("click");
+    p.pagehide(true);
+    await tickPromises();
+    const click = p.requests.filter(r => r.body?.name === "app_store_cta.clicked" && r.body.event_version === 2).at(-1);
+    assert.ok(click, "attributed click must leave the page");
+    assert.equal(click.keepalive, true);
+    assert.equal(click.signal.aborted, false);
+    assert.equal(p.header.textContent, CTA_COPY);
+    assert.ok(p.api.getAttribution("header", "anon-golden-00", "local-session"));
+    gate.resolve(ack());
+    await tickPromises();
+    assert.equal(p.events("app_store_cta.clicked").filter(e => e.event_version === 2).length, 1);
+    assert.equal(p.header.textContent, CTA_COPY);
+    assert.ok(p.api.getAttribution("header", "anon-golden-00", "local-session"));
+  } finally { gate.resolve(ack()); p.close(); }
+});
+
+test("a discarding pagehide still delivers the in-flight attributed click", async () => {
+  const gate = latch();
+  const p = page({ enabled: true, respond: call => call.body?.name === "app_store_cta.clicked" && call.body.event_version === 2 ? gate.promise : undefined });
+  try {
+    await p.ready(); p.intersect(1); await p.advance(1000);
+    p.header.dispatch("click");
+    await tickPromises();
+    p.pagehide(false);
+    const click = p.requests.filter(r => r.body?.name === "app_store_cta.clicked" && r.body.event_version === 2).at(-1);
+    assert.ok(click);
+    assert.equal(click.keepalive, true);
+    assert.equal(click.signal.aborted, false);
+    gate.resolve(ack());
+    await tickPromises();
+    assert.equal(p.events("app_store_cta.clicked").filter(e => e.event_version === 2).length, 1);
+    assert.equal(p.events("app_store_cta.clicked").filter(e => e.event_version === 1).length, 0);
   } finally { gate.resolve(ack()); p.close(); }
 });
 
