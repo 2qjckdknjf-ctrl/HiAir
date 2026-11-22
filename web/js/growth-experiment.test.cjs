@@ -25,6 +25,16 @@ function memoryStorage() {
   };
 }
 
+function runtimeInput(overrides = {}) {
+  const doc = { visibilityState:"visible", hidden:false, documentElement:{}, addEventListener(){}, removeEventListener(){} };
+  class Observer { observe(){} unobserve(){} disconnect(){} }
+  return { configApi:config, assignmentApi:assignment, telemetryApi:telemetry, exposureApi:exposure,
+    enabled:true, placement:"header", document:doc, IntersectionObserver:Observer, MutationObserver:Observer,
+    configUrl:"https://growth.example/api/v1/experiments/active", eventsUrl:"https://growth.example/api/v1/events",
+    ctaEl:{textContent:"Download",isConnected:true,childElementCount:0}, storage:memoryStorage(),
+    anonymousId:"anon-golden-00", sessionId:"fixture-session", ...overrides };
+}
+
 function experimentPayload(overrides) {
   return {
     id: EXPERIMENT_ID,
@@ -44,7 +54,7 @@ test("flag off does not fetch config or apply treatment", async () => {
     configUrl: "https://growth.example/api/v1/experiments/active",
     fetch: () => {
       fetches += 1;
-      return Promise.resolve({ ok: true, json: async () => ({ experiments: [experimentPayload()] }) });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ experiments: [experimentPayload()] }) });
     },
     configApi: config,
     assignmentApi: assignment,
@@ -117,9 +127,9 @@ test("assignment_version v2 does not leak v1 sticky assignment", async () => {
   });
   assert.equal(v1.source, "hash");
   assert.equal(v2.source, "hash");
-  assert.notEqual(assignment.storageKey(EXPERIMENT_ID, "v1"), assignment.storageKey(EXPERIMENT_ID, "v2"));
-  assert.ok(storage.getItem(assignment.storageKey(EXPERIMENT_ID, "v1")));
-  assert.ok(storage.getItem(assignment.storageKey(EXPERIMENT_ID, "v2")));
+  assert.notEqual(assignment.storageKey(EXPERIMENT_ID, "v1", "anon-versioned"), assignment.storageKey(EXPERIMENT_ID, "v2", "anon-versioned"));
+  assert.ok(storage.getItem(assignment.storageKey(EXPERIMENT_ID, "v1", "anon-versioned")));
+  assert.ok(storage.getItem(assignment.storageKey(EXPERIMENT_ID, "v2", "anon-versioned")));
 });
 
 test("sticky visitor stays put when allocation weights change for the same version", async () => {
@@ -149,11 +159,12 @@ test("sticky visitor stays put when allocation weights change for the same versi
 test("unknown stored variant is not executed", async () => {
   const storage = memoryStorage();
   storage.setItem(
-    assignment.storageKey(EXPERIMENT_ID, "v1"),
+    assignment.storageKey(EXPERIMENT_ID, "v1", "anon-stale"),
     JSON.stringify({
       variant_id: "99999999-9999-4999-8999-999999999999",
       experiment_id: EXPERIMENT_ID,
       assignment_version: "v1",
+      anonymous_id: "anon-stale",
     }),
   );
   const assigned = await assignment.assignVisitor({
@@ -200,37 +211,22 @@ test("storage unavailable and write failure return CONTROL not treatment", async
   assert.equal(writeFail.reason, "storage_write_failure");
 });
 
-test("exposure requires 50% for 1000ms and retries after transport failure", async () => {
+test("exposure schedules one deadline, resets broken visibility, and requires a receipt", async () => {
   assert.equal(exposure.conditionMet(0.49, 5000), false);
   assert.equal(exposure.conditionMet(0.5, 999), false);
   assert.equal(exposure.conditionMet(0.5, 1000), true);
-  let now = 0;
-  let attempts = 0;
+  let now = 0, timer, attempts = 0, acknowledged = 0;
   const watcher = exposure.watchExposure({
-    experimentId: EXPERIMENT_ID,
-    variantId: CONTROL,
-    anonymousId: "anon",
-    placement: "header",
-    now: () => now,
-    send: () => {
-      attempts += 1;
-      if (attempts === 1) {
-        return Promise.reject(new Error("network"));
-      }
-      return Promise.resolve();
-    },
+    experimentId: EXPERIMENT_ID, variantId: CONTROL, anonymousId: "anon", placement: "header",
+    now: () => now, setTimeout: fn => { timer=fn; return 1; }, clearTimeout: () => { timer=null; },
+    send: async () => { attempts++; return {ok:true}; }, onAcknowledged:()=>{acknowledged++;}
   });
-  watcher.onRatio(0.5);
-  now = 1000;
-  watcher.onRatio(0.5);
-  await Promise.resolve();
-  await Promise.resolve();
-  watcher.onRatio(0.5);
-  now = 2000;
-  watcher.onRatio(0.5);
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(attempts, 2);
+  watcher.onRatio(.5); now=600; watcher.onRatio(.49);
+  assert.equal(timer,null);
+  now=1000;watcher.onRatio(.5); now=2000; timer();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(attempts,1); assert.equal(acknowledged,1);
+  watcher.onRatio(.5);assert.equal(attempts,1);watcher.stop();
 });
 
 test("public config rejects script payloads and applies textContent only", () => {
@@ -257,7 +253,7 @@ test("control fallback matrix never applies treatment", async () => {
       input: {
         enabled: true,
         configUrl: "https://growth.example/api/v1/experiments/active",
-        fetch: () => Promise.resolve({ ok: true, json: async () => ({ experiments: [] }) }),
+        fetch: () => Promise.resolve({ ok: true, status: 200, json: async () => ({ experiments: [] }) }),
       },
     },
     {
@@ -265,7 +261,7 @@ test("control fallback matrix never applies treatment", async () => {
       input: {
         enabled: true,
         configUrl: "https://growth.example/api/v1/experiments/active",
-        fetch: () => Promise.resolve({ ok: true, json: async () => ({ experiments: [{ id: "x" }] }) }),
+        fetch: () => Promise.resolve({ ok: true, status: 200, json: async () => ({ experiments: [{ id: "x" }] }) }),
       },
     },
     {
@@ -276,6 +272,7 @@ test("control fallback matrix never applies treatment", async () => {
         fetch: () =>
           Promise.resolve({
             ok: true,
+            status: 200,
             json: async () => ({
               experiments: [
                 experimentPayload({
@@ -294,6 +291,7 @@ test("control fallback matrix never applies treatment", async () => {
         fetch: () =>
           Promise.resolve({
             ok: true,
+            status: 200,
             json: async () => ({
               experiments: [
                 experimentPayload({
@@ -312,7 +310,7 @@ test("control fallback matrix never applies treatment", async () => {
   ];
   for (const row of cases) {
     cta.textContent = "Download on the App Store";
-    const result = await runtime.start({
+    const result = await runtime.start(runtimeInput({
       configApi: config,
       assignmentApi: assignment,
       telemetryApi: telemetry,
@@ -320,16 +318,15 @@ test("control fallback matrix never applies treatment", async () => {
       ctaEl: cta,
       anonymousId: "anon",
       sessionId: "s1",
-      eventsUrl: "",
       ...row.input,
-    });
+    }));
     assert.equal(result.variant, "CONTROL", row.name);
     assert.equal(cta.textContent, "Download on the App Store", row.name);
   }
 });
 
 test("runtime fail-closed when fetch throws", async () => {
-  const result = await runtime.start({
+  const result = await runtime.start(runtimeInput({
     enabled: true,
     configUrl: "https://growth.example/api/v1/experiments/active",
     fetch: () => Promise.reject(new Error("down")),
@@ -340,6 +337,38 @@ test("runtime fail-closed when fetch throws", async () => {
     anonymousId: "anon",
     sessionId: "s1",
     storage: memoryStorage(),
-  });
+  }));
   assert.equal(result.variant, "CONTROL");
+});
+
+
+test("bounded transport rejects oversized UTF-8 requests before sending and oversized responses before parsing", async () => {
+  let requests=0;
+  await assert.rejects(config.requestJson({url:"https://fixture.invalid/events",method:"POST",body:"😀".repeat(2049),fetch:async()=>{requests++;}}),/request_too_large/);
+  assert.equal(requests,0);
+  await assert.rejects(config.requestJson({url:"https://fixture.invalid/config",fetch:async()=>new Response('"'+"x".repeat(16385)+'"',{status:200})}),/response_too_large/);
+});
+
+test("config request deadline aborts a never-settling response and ignores a late success", async () => {
+  let resolveFetch, signal;
+  const pending=config.requestJson({url:"https://fixture.invalid/config",timeoutMs:10,
+    fetch:(_url,options)=>{signal=options.signal;return new Promise(resolve=>{resolveFetch=resolve;});}});
+  await assert.rejects(pending,/transport_timeout/);
+  assert.equal(signal.aborted,true);
+  resolveFetch(new Response(JSON.stringify({experiments:[]}),{status:200}));
+  await new Promise(resolve=>setImmediate(resolve));
+});
+
+test("telemetry accepts only consistent durable acknowledgement bodies and status", async () => {
+  const base={configApi:config,url:"https://fixture.invalid/events",eventId:"fixture-id",anonymousId:"fixture-anon",sessionId:"fixture-session",
+    occurredAt:new Date().toISOString(),name:"experiment.assigned",placement:"header",experimentId:EXPERIMENT_ID,variantId:TREATMENT,assignmentVersion:"v1"};
+  for (const [status,body,valid] of [
+    [202,{ok:true,stored:true,duplicate:false},true], [200,{ok:true,stored:false,duplicate:true},true],
+    [200,{ok:true,stored:true,duplicate:false},false], [202,{ok:true,stored:false,duplicate:true},false],
+    [202,{ok:true,stored:true,duplicate:true},false], [202,{ok:true,stored:false,duplicate:false},false],
+    [202,{ok:false,stored:true,duplicate:false},false], [202,{ok:true},false], [200,{error:"wrong service"},false]
+  ]) {
+    const send=telemetry.send({...base,fetch:async()=>new Response(JSON.stringify(body),{status})});
+    if(valid) assert.equal((await send).ok,true); else await assert.rejects(send,/receipt_unverified/);
+  }
 });

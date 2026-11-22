@@ -27,26 +27,19 @@
    * Returns null when Web Crypto is missing or throws (fail closed).
    */
   function sha256Hex(value) {
-    var cryptoObj = webCrypto();
-    if (!cryptoObj || !cryptoObj.subtle || typeof cryptoObj.subtle.digest !== "function") {
-      return Promise.resolve(null);
-    }
-    if (typeof TextEncoder !== "function") {
-      return Promise.resolve(null);
-    }
-    var bytes;
+    var cryptoObj, bytes;
     try {
+      cryptoObj = webCrypto();
+      if (!cryptoObj || !cryptoObj.subtle || typeof cryptoObj.subtle.digest !== "function" || typeof TextEncoder !== "function") return Promise.resolve(null);
       bytes = new TextEncoder().encode(value);
-    } catch (error) {
-      return Promise.resolve(null);
-    }
-    return cryptoObj.subtle.digest("SHA-256", bytes).then(bytesToHex).catch(function () {
+    } catch (_) { return Promise.resolve(null); }
+    return Promise.resolve().then(function () { return cryptoObj.subtle.digest("SHA-256", bytes); }).then(bytesToHex).catch(function () {
       return null;
     });
   }
 
   function bucketFromHex(hex) {
-    if (!hex || typeof hex !== "string" || hex.length < 12) {
+    if (typeof hex !== "string" || !/^[a-f0-9]{64}$/.test(hex)) {
       return null;
     }
     var bits = parseInt(hex.slice(0, 12), 16);
@@ -150,11 +143,11 @@
     });
   }
 
-  function storageKey(experimentId, assignmentVersion) {
-    return STORAGE_PREFIX + experimentId + ":" + assignmentVersion;
+  function storageKey(experimentId, assignmentVersion, anonymousId) {
+    return STORAGE_PREFIX + experimentId + ":" + assignmentVersion + ":" + (anonymousId || "");
   }
 
-  function parseSticky(raw, experimentId, assignmentVersion, allocation) {
+  function parseSticky(raw, experimentId, assignmentVersion, anonymousId, allocation) {
     if (!raw) {
       return null;
     }
@@ -167,10 +160,10 @@
     if (!parsed || typeof parsed.variant_id !== "string") {
       return null;
     }
-    if (parsed.experiment_id && parsed.experiment_id !== experimentId) {
+    if (parsed.experiment_id !== experimentId || parsed.anonymous_id !== anonymousId) {
       return null;
     }
-    if (parsed.assignment_version && parsed.assignment_version !== assignmentVersion) {
+    if (parsed.assignment_version !== assignmentVersion) {
       return null;
     }
     var known = findVariant(allocation, parsed.variant_id);
@@ -183,25 +176,26 @@
     return known;
   }
 
-  function readSticky(storage, experimentId, assignmentVersion, allocation) {
+  function readSticky(storage, experimentId, assignmentVersion, anonymousId, allocation) {
     if (!storage || typeof storage.getItem !== "function") {
       return null;
     }
     try {
-      return parseSticky(storage.getItem(storageKey(experimentId, assignmentVersion)), experimentId, assignmentVersion, allocation);
+      return parseSticky(storage.getItem(storageKey(experimentId, assignmentVersion, anonymousId)), experimentId, assignmentVersion, anonymousId, allocation);
     } catch (error) {
       return null;
     }
   }
 
-  function writeSticky(storage, experimentId, assignmentVersion, variantId) {
+  function writeSticky(storage, experimentId, assignmentVersion, anonymousId, variantId) {
     if (!storage || typeof storage.setItem !== "function" || typeof storage.getItem !== "function") {
       return false;
     }
-    var key = storageKey(experimentId, assignmentVersion);
+    var key = storageKey(experimentId, assignmentVersion, anonymousId);
     var payload = JSON.stringify({
       variant_id: variantId,
       assigned_at: new Date().toISOString(),
+      anonymous_id: anonymousId,
       experiment_id: experimentId,
       assignment_version: assignmentVersion,
     });
@@ -212,7 +206,7 @@
         return false;
       }
       var parsed = JSON.parse(raw);
-      return parsed && parsed.variant_id === variantId;
+      return parsed && parsed.variant_id === variantId && parsed.anonymous_id === anonymousId && parsed.experiment_id === experimentId && parsed.assignment_version === assignmentVersion;
     } catch (error) {
       return false;
     }
@@ -228,26 +222,19 @@
     if (!storage || typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
       return Promise.resolve(controlResult(allocation, "storage_unavailable"));
     }
-    var sticky = readSticky(storage, input.experimentId, input.assignmentVersion, allocation);
-    if (sticky) {
-      return Promise.resolve({
-        variant_id: sticky.variant_id,
-        role: sticky.role,
-        source: "sticky",
-      });
-    }
+    if (typeof input.anonymousId !== "string" || !input.anonymousId || input.anonymousId.length > 128 ||
+      typeof input.sessionId === "string" && input.sessionId.length > 128) return Promise.resolve(controlResult(allocation, "missing_identity"));
+    // Recheck crypto even for cached assignments: a stale treatment cannot bypass a failed prerequisite.
     return assignFromHash(input).then(function (hashed) {
-      if (!hashed) {
-        return controlResult(allocation, "assignment_failure");
-      }
-      if (hashed.source !== "hash") {
-        return hashed;
-      }
-      if (!writeSticky(storage, input.experimentId, input.assignmentVersion, hashed.variant_id)) {
+      if (!hashed || hashed.source !== "hash") return hashed || controlResult(allocation, "assignment_failure");
+      var sticky = readSticky(storage, input.experimentId, input.assignmentVersion, input.anonymousId, allocation);
+      var chosen = sticky || { variant_id: hashed.variant_id, role: hashed.role };
+      if (!writeSticky(storage, input.experimentId, input.assignmentVersion, input.anonymousId, chosen.variant_id)) {
         return controlResult(allocation, "storage_write_failure");
       }
-      return hashed;
-    });
+      return { variant_id: chosen.variant_id, role: chosen.role, source: sticky ? "sticky" : "hash",
+        bucket: hashed.bucket, sha256_prefix: hashed.sha256_prefix };
+    }).catch(function () { return controlResult(allocation, "assignment_failure"); });
   }
 
   return {

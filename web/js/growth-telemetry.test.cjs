@@ -119,9 +119,18 @@ test("flag off does not start experiment runtime or emit experiment telemetry", 
   );
 });
 
-test("production HTML does not load experiment scripts", () => {
+test("production HTML loads experiment helpers once before the disabled bootstrap", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-  assert.equal(html.includes("growth-experiment"), false);
+  const scripts = [...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map((match) => match[1]);
+  assert.deepEqual(scripts, [
+    "/js/store-links.js",
+    "/js/growth-experiment-assignment.js",
+    "/js/growth-experiment-config.js",
+    "/js/growth-experiment-exposure.js",
+    "/js/growth-experiment-telemetry.js",
+    "/js/growth-experiment-runtime.js",
+    "/js/main.js",
+  ]);
   const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
   assert.match(main, /var HIAIR_EXPERIMENTS_ENABLED = false;/);
 });

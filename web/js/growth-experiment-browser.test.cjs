@@ -151,6 +151,7 @@ test("1000 browser sticky visitors stay put across reload and new session", asyn
     });
     firstIds.push(assigned.variant_id);
   }
+  assert.equal(new Set(firstIds).size, 2, "Independent visitor identities must exercise both arms");
   const reloaded = loadAssignment();
   for (let i = 0; i < 1000; i += 1) {
     const again = await reloaded.assignVisitor({
@@ -167,4 +168,26 @@ test("1000 browser sticky visitors stay put across reload and new session", asyn
     }
   }
   assert.equal(switches, 0);
+});
+
+
+test("cached treatment cannot bypass crypto or durable storage failures", async () => {
+  const storage = memoryStorage(), original = loadAssignment();
+  const selection = {experimentId:EXPERIMENT_ID,assignmentVersion:"v1",anonymousId:"anon-golden-00",allocation,storage};
+  assert.equal((await original.assignVisitor(selection)).role,"TREATMENT");
+  for (const crypto of [undefined,{subtle:{digest(){throw Error("crypto failed");}}}]) {
+    const unavailable = loadAssignment({crypto});
+    const result=await unavailable.assignVisitor(selection);
+    assert.equal(result.role,"CONTROL");assert.equal(result.source,"control_fallback");
+  }
+  const failedWrite = await original.assignVisitor({...selection,storage:{getItem:storage.getItem,setItem(){throw Error("quota");}}});
+  assert.equal(failedWrite.role,"CONTROL");assert.equal(failedWrite.source,"control_fallback");
+});
+
+test("a new anonymous identity cannot inherit another visitor's cached treatment", async () => {
+  const storage=memoryStorage(),api=loadAssignment();
+  const first=await api.assignVisitor({experimentId:EXPERIMENT_ID,assignmentVersion:"v1",anonymousId:"anon-golden-00",allocation,storage});
+  const second=await api.assignVisitor({experimentId:EXPERIMENT_ID,assignmentVersion:"v1",anonymousId:"anon-golden-01",allocation,storage});
+  assert.equal(first.role,"TREATMENT");assert.equal(second.role,"CONTROL");assert.equal(second.source,"hash");
+  assert.notEqual(api.storageKey(EXPERIMENT_ID,"v1","anon-golden-00"),api.storageKey(EXPERIMENT_ID,"v1","anon-golden-01"));
 });

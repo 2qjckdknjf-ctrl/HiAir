@@ -275,14 +275,19 @@
       return;
     }
     properties = properties || {};
+    var anonymousId = growthAnonymousId();
+    var sessionId = growthSessionId();
+    var runtime = window.HIAIR_GROWTH_EXPERIMENT;
+    var attribution = HIAIR_EXPERIMENTS_ENABLED && name === "app_store_cta.clicked" && runtime && typeof runtime.getAttribution === "function"
+      ? runtime.getAttribution(properties.placement, anonymousId, sessionId) : null;
     var body = {
       productSlug: "hiair",
       surface: "website",
       environment: "production",
-      anonymousId: growthAnonymousId(),
-      session_id: growthSessionId(),
-      event_id: growthEventId(name, properties.placement || "unknown"),
-      event_version: 1,
+      anonymousId: anonymousId,
+      session_id: sessionId,
+      event_id: attribution ? attribution.eventId : growthEventId(name, properties.placement || "unknown"),
+      event_version: attribution ? 2 : 1,
       name: name,
       occurredAt: new Date().toISOString(),
       properties: Object.assign(
@@ -295,6 +300,18 @@
         properties
       ),
     };
+    if (attribution) {
+      body.properties.experiment_id = attribution.experimentId;
+      body.properties.variant_id = attribution.variantId;
+      body.properties.assignment_version = attribution.assignmentVersion;
+      // One bounded v2 send. A lost response must never create a second v1 event.
+      window.HIAIR_GROWTH_EXPERIMENT_CONFIG.requestJson({ url: url, fetch: window.fetch.bind(window), method: "POST",
+        headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: attribution.signal
+      }).then(function (receipt) {
+        if (!window.HIAIR_GROWTH_EXPERIMENT_TELEMETRY.accepted(receipt)) throw new Error("click_unverified");
+      }).catch(function () { runtime.rejectAttribution(attribution); });
+      return;
+    }
     try {
       fetch(url, {
         method: "POST",
@@ -320,6 +337,35 @@
   }
 
   var HIAIR_EXPERIMENTS_ENABLED = false;
+
+  // The owner-controlled source flag has no URL, local-storage, or global override.
+  if (HIAIR_EXPERIMENTS_ENABLED && window.HIAIR_GROWTH_EXPERIMENT) {
+    try {
+      var headerCtas = document.querySelectorAll('.js-app-store-cta[data-placement="header"]');
+      growthAnonymousId(); growthSessionId();
+      function experimentIdentity() {
+        var anonymous = window.localStorage.getItem("hiair_growth_anon");
+        var session = window.sessionStorage.getItem("hiair_growth_session");
+        if (typeof anonymous !== "string" || !anonymous || anonymous === "anon" || anonymous.length > 128 || anonymous.trim() !== anonymous ||
+          typeof session !== "string" || !session || session === "session" || session.length > 128 || session.trim() !== session) return null;
+        return { anonymousId: anonymous, sessionId: session };
+      }
+      var durableIdentity = experimentIdentity();
+      if (!durableIdentity) throw new Error("identity_unavailable");
+      var eventsUrl = growthOsEventsUrl();
+      var configUrl = new URL(eventsUrl);
+      if (headerCtas.length === 1 && configUrl.pathname === "/api/v1/events" && !configUrl.search && !configUrl.hash) {
+        configUrl.pathname = "/api/v1/experiments/active";
+        configUrl.search = "?product=hiair&surface=website&placement=header";
+        window.HIAIR_GROWTH_EXPERIMENT.start({ enabled: true, placement: "header", ctaEl: headerCtas[0],
+          eventsUrl: eventsUrl, configUrl: configUrl.toString(), fetch: window.fetch.bind(window),
+          anonymousId: durableIdentity.anonymousId, sessionId: durableIdentity.sessionId, storage: window.localStorage,
+          identity: experimentIdentity,
+          document: document, window: window, IntersectionObserver: window.IntersectionObserver, MutationObserver: window.MutationObserver
+        }).catch(function () { window.HIAIR_GROWTH_EXPERIMENT.stop(); });
+      }
+    } catch (_) { window.HIAIR_GROWTH_EXPERIMENT.stop(); }
+  }
 
   var storeCtas = document.querySelectorAll(".js-app-store-cta");
   if (storeCtas.length) {
@@ -435,7 +481,4 @@
     trackedViews.forEach(function (el) { viewObserver.observe(el); });
   }
 
-  if (HIAIR_EXPERIMENTS_ENABLED && window.HIAIR_GROWTH_EXPERIMENT && typeof window.HIAIR_GROWTH_EXPERIMENT.start === "function") {
-    window.HIAIR_GROWTH_EXPERIMENT.start({ enabled: true });
-  }
 })();
