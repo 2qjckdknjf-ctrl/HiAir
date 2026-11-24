@@ -435,7 +435,7 @@
     trackedViews.forEach(function (el) { viewObserver.observe(el); });
   }
 
-  if (HIAIR_EXPERIMENTS_ENABLED && window.HIAIR_GROWTH_EXPERIMENT && typeof window.HIAIR_GROWTH_EXPERIMENT.start === "function") {
-    window.HIAIR_GROWTH_EXPERIMENT.start({ enabled: true });
+  if (window.HIAIR_GROWTH_EXPERIMENT && typeof window.HIAIR_GROWTH_EXPERIMENT.start === "function") {
+    window.HIAIR_GROWTH_EXPERIMENT.start({ enabled: HIAIR_EXPERIMENTS_ENABLED });
   }
 })();

@@ -93,8 +93,9 @@ test("view event is not duplicated for the same placement", () => {
   assert.equal(body.event_id, "id-1");
 });
 
-test("flag off does not start experiment runtime or emit experiment telemetry", () => {
+test("flag off starts helpers with enabled false and emits no experiment telemetry", () => {
   let starts = 0;
+  let lastEnabled = null;
   const calls = [];
   const win = fakeWindow({
     eventsUrl: "https://growth.example/api/v1/events",
@@ -104,13 +105,15 @@ test("flag off does not start experiment runtime or emit experiment telemetry", 
     },
   });
   win.HIAIR_GROWTH_EXPERIMENT = {
-    start: () => {
+    start: (input) => {
       starts += 1;
-      return Promise.resolve({ variant: "TREATMENT" });
+      lastEnabled = Boolean(input && input.enabled);
+      return Promise.resolve({ variant: "CONTROL", reason: "flag_off" });
     },
   };
   loadMain(win);
-  assert.equal(starts, 0);
+  assert.equal(starts, 1);
+  assert.equal(lastEnabled, false);
   const names = calls.map((call) => JSON.parse(call[1].body).name);
   assert.ok(names.every((name) => name === "app_store_cta.viewed" || name === "app_store_cta.clicked"));
   assert.equal(
@@ -119,11 +122,21 @@ test("flag off does not start experiment runtime or emit experiment telemetry", 
   );
 });
 
-test("production HTML does not load experiment scripts", () => {
+test("production HTML loads experiment helpers with treatment flag off", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-  assert.equal(html.includes("growth-experiment"), false);
+  for (const name of [
+    "growth-experiment-assignment.js",
+    "growth-experiment-config.js",
+    "growth-experiment-telemetry.js",
+    "growth-experiment-exposure.js",
+    "growth-experiment-runtime.js",
+  ]) {
+    assert.equal(html.includes(name), true, name);
+  }
   const main = fs.readFileSync(path.join(__dirname, "main.js"), "utf8");
   assert.match(main, /var HIAIR_EXPERIMENTS_ENABLED = false;/);
+  assert.match(main, /start\(\{ enabled: HIAIR_EXPERIMENTS_ENABLED \}\)/);
+  assert.equal(main.includes("start({ enabled: true })"), false);
 });
 
 test("click emits once and CTA still works if telemetry rejects", () => {
