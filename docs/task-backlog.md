@@ -157,3 +157,13 @@ These are **proposed additions to existing workstreams** from the November 11 in
 | P2 | Existing marketing/analytics | Measure verified user action and retention before adding conversational interfaces; avoid claims of improved air-quality prediction without data. |
 
 **Source references:** [OpenAI Performance Factory](https://openai.com/index/how-openai-performance-factory-keeps-chatgpt-fast/), [Google Mirror Dimension](https://blog.google/security/mirror-dimension-for-agents/), [OpenAI frontier risk controls](https://openai.com/index/managing-frontier-ai-risk/). Other recent model/vendor announcements are *candidates requiring independent availability and price validation*, not approved dependencies. No new runtime privileges, model installation, migrations, payments, deployment, PR merge, or trading orders are authorized by this document.
+
+
+## Codex / Cursor execution delta — 2026-11-24
+
+Planning reconciliation for 21–24 November; incorporates previously unrecorded 21–22 November recommendations. Existing workstreams and IDs own these acceptance extensions; do not duplicate implemented features. Vendor names/releases are research candidates from daily digests, not independently verified dependencies. Before execution, read current main, this planning branch and active implementation PRs; reconcile against code and evidence. Main blob at review: `e4f2339c0a71a684787a138677f8e318798bf48b`. P0 existing blockers first; P1 bounded sandbox pilots; P2 research. Owner/reviewer TBD. No production changes, automatic merge, purchases or live trading authorized.
+
+- P0 existing release/privacy gates: verify API secrets absent from commits, prompts and logs; approved final inference providers, retention and user-data minimization; synthetic incident/revocation test.
+- P2 existing provider reliability: evaluate Strands Decider for classifying source failures and support events, not AQI forecasts or risk thresholds; benchmark against rules and abstain on uncertainty. Preserve deterministic Risk Engine and device/release priority.
+
+**Codex/Cursor execution contract:** produce gap matrix (implemented/partial/missing/blocked), map each item to existing task ID, implement only verified gaps on separate implementation branch, preserve existing tests and add negative/regression tests, report exact SHA, reproducible commands/results, independent reviewer verdict, cost and remaining blockers. Do not mark DONE on documentation or build alone. Validate candidate upstream documentation and licenses before installing or sending data. Stop on missing permissions or unsafe effects.
