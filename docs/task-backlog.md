@@ -167,3 +167,15 @@ Planning reconciliation for 21–24 November; incorporates previously unrecorded
 - P2 existing provider reliability: evaluate Strands Decider for classifying source failures and support events, not AQI forecasts or risk thresholds; benchmark against rules and abstain on uncertainty. Preserve deterministic Risk Engine and device/release priority.
 
 **Codex/Cursor execution contract:** produce gap matrix (implemented/partial/missing/blocked), map each item to existing task ID, implement only verified gaps on separate implementation branch, preserve existing tests and add negative/regression tests, report exact SHA, reproducible commands/results, independent reviewer verdict, cost and remaining blockers. Do not mark DONE on documentation or build alone. Validate candidate upstream documentation and licenses before installing or sending data. Stop on missing permissions or unsafe effects.
+
+
+## Cursor execution specification — 2026-11-26
+
+Planning-only delta for 25–26 November. Read current main and active implementation PRs first; map to existing IDs, implement only confirmed gaps. Vendor claims require primary-source verification. Existing P0 gates remain first. Proposed numerical thresholds are initial configurable test defaults, not measured results. No auto-merge, deployment, purchases, ad activation or live trading. Owner/reviewer TBD.
+
+### P1 — existing analytics and provider reliability
+Reconcile HiAir PR #105 and Growth PR #68 current HEAD/status before changes; existing disabled experiments remain disabled absent approval. Define privacy-minimized event contract for App Store click, first useful recommendation, repeat use and retention; dedupe, consent, schema compatibility, test synthetic events end-to-end. Evaluate Google Ads iOS measurement/target ROAS only after verifying availability and lawful data handling; never send precise location or health data to ad platforms. No activation or spend.
+Prototype two-stage anomaly research: detect unusual AQI/source behavior, independently verify with timestamped observations and deterministic rules, distinguish missing/stale data from actual pollution. Holdout test false positives/negatives; do not modify Risk Engine thresholds or release gates.
+
+### Cursor delivery contract
+Work in a separate implementation branch; report gap matrix, changed files, reproducible commands, test receipts, exact commit SHA, independent verdict, rollback and remaining blockers. Never mark DONE from documentation/build alone. Stop on missing authorization, hardware access or provider compatibility; report NOT_RUN rather than fabricate evidence.
