@@ -663,11 +663,20 @@ internal object SettingsScreenRenderer {
             rootShell.settingsViewModel.refreshWearableStatus()
         }
 
+        val productAnalyticsBox = CheckBox(activity).apply {
+            text = ctx.l("settings.product_analytics")
+            isChecked = state.productAnalyticsEnabled
+            setOnCheckedChangeListener { _, checked ->
+                rootShell.settingsViewModel.setProductAnalyticsEnabled(checked)
+            }
+        }
         val securityCard = HiAirComponents.cardContainer(activity).apply {
             addView(sectionTitle("settings.security_privacy"))
             if (state.email.isNotBlank()) {
                 addView(V2Ui.styledBodyText(activity, state.email).apply { textSize = 15f })
             }
+            addView(productAnalyticsBox)
+            addView(V2Ui.styledSecondaryText(activity, ctx.l("settings.product_analytics_hint")))
             addView(exportPrivacyButton)
             addView(privacyExportSummary)
             addView(deleteAccountButton)

@@ -38,6 +38,7 @@ from app.api.wearables import router as wearables_router
 from app.api.work import router as work_router
 from app.core.settings import _is_protected_env, settings, validate_runtime_settings
 from app.services.observability import record_request
+from app.services.secret_redaction import install_secret_redaction
 
 logger = logging.getLogger("hiair.api")
 if not logger.handlers:
@@ -45,6 +46,15 @@ if not logger.handlers:
 
 
 def create_app() -> FastAPI:
+    install_secret_redaction(
+        extra_secrets=[
+            settings.openai_api_key,
+            settings.jwt_secret,
+            settings.supabase_service_role_key,
+            settings.supabase_anon_key,
+            settings.subscription_webhook_secret,
+        ]
+    )
     validate_runtime_settings(settings)
     is_protected_env = _is_protected_env(settings.app_env)
     app = FastAPI(

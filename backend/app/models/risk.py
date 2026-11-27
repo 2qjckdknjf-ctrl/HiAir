@@ -40,6 +40,11 @@ class EnvironmentSnapshot(BaseModel):
     wbgt_c: float | None = None
     wbgt_estimated: bool = False
     shortwave_wm2: float | None = None
+    # Runtime provenance (not required in DB cache rows).
+    weather_provider: str | None = None
+    aqi_provider: str | None = None
+    received_at: str | None = None
+    data_quality: str = "complete"
 
 
 class RiskEstimateRequest(BaseModel):

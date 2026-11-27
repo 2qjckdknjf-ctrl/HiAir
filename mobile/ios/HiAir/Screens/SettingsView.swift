@@ -44,6 +44,9 @@ final class SettingsViewModel: ObservableObject {
     @Published var userId = ""
     @Published var accessToken = ""
     @Published var pushAlertsEnabled = true
+    @Published var productAnalyticsEnabled = ProductAnalytics.analyticsConsentGranted {
+        didSet { ProductAnalytics.setAnalyticsConsent(productAnalyticsEnabled) }
+    }
     @Published var riskThreshold = "high"
     @Published var quietHoursStart = 22
     @Published var quietHoursEnd = 7
@@ -1711,6 +1714,10 @@ struct SettingsView: View {
                             .font(AuroraTokens.Typography.bodyMD)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                     }
+                    Toggle(session.l("settings.product_analytics"), isOn: $viewModel.productAnalyticsEnabled)
+                    Text(session.l("settings.product_analytics_hint"))
+                        .font(AuroraTokens.Typography.caption)
+                        .foregroundStyle(HiAirV2Theme.tertiaryText)
                     Button(viewModel.loading ? session.l("settings.loading") : session.l("settings.privacy_export")) {
                         Task { await viewModel.exportPrivacyData() }
                     }

@@ -1,6 +1,7 @@
 import argparse
 import os
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from dotenv import dotenv_values
 
@@ -248,6 +249,10 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
     _check_positive_int(env, checks, "RETENTION_SECRET_ROTATION_EVENTS_DAYS")
 
     openai_key = env.get("OPENAI_API_KEY", "").strip()
+    openai_base_url = env.get(
+        "OPENAI_BASE_URL",
+        "https://api.openai.com/v1/chat/completions",
+    ).strip()
     if protected_env and not openai_key:
         checks.append(
             CheckResult(
@@ -257,6 +262,18 @@ def _run_checks(env: dict[str, str]) -> list[CheckResult]:
         )
     elif openai_key:
         checks.append(CheckResult("OK", "OPENAI_API_KEY is configured."))
+
+    openai_host = (urlparse(openai_base_url).hostname or "").lower()
+    if openai_key or protected_env:
+        if openai_host == "api.openai.com":
+            checks.append(CheckResult("OK", "OPENAI_BASE_URL host is on the approved inference allowlist."))
+        else:
+            checks.append(
+                CheckResult(
+                    "ERROR",
+                    f"OPENAI_BASE_URL host {openai_host!r} is not approved for final inference.",
+                )
+            )
 
     sample_fallback_raw = env.get("ENVIRONMENT_ALLOW_SAMPLE_FALLBACK", "").strip().lower()
     if protected_env:

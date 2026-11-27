@@ -5,6 +5,7 @@ from app.models.air import EnvironmentalInput, UserProfileContext
 from app.models.risk import EnvironmentSnapshot
 import app.services.air_repository as air_repository
 from app.services.environment_service import build_sample_snapshot, fetch_live_snapshot
+from app.services.observability import record_provider_reliability_signal
 from app.services.singleflight import SingleFlight
 
 _LIVE_ENV_FLIGHT = SingleFlight()
@@ -59,9 +60,18 @@ def _with_meteo_wbgt_if_missing(snapshot: EnvironmentSnapshot) -> EnvironmentSna
     return snapshot.model_copy(update={"wbgt_c": wbgt_c, "wbgt_estimated": True})
 
 
+def _snapshot_data_quality(cached: EnvironmentSnapshot) -> str:
+    if cached.aqi is None and cached.pm25 is None and cached.ozone is None:
+        return "unavailable"
+    if cached.aqi is None or cached.pm25 is None or cached.ozone is None:
+        return "partial"
+    return "complete"
+
+
 def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
     """Return an honesty-labeled snapshot from a DB row, or None if unusable."""
     original_source = str(cached.source or "").strip().lower()
+    quality = _snapshot_data_quality(cached)
     # Never re-label persisted sample/mock rows as "cached" — that would
     # serve synthetic air data under a live/cache honesty label.
     if original_source in (SOURCE_SAMPLE, "mock"):
@@ -85,6 +95,10 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
                     wbgt_c=cached.wbgt_c,
                     wbgt_estimated=cached.wbgt_estimated,
                     shortwave_wm2=cached.shortwave_wm2,
+                    weather_provider=cached.weather_provider,
+                    aqi_provider=cached.aqi_provider,
+                    received_at=cached.received_at,
+                    data_quality=quality,
                 )
             )
         return None
@@ -107,6 +121,10 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
             wbgt_c=cached.wbgt_c,
             wbgt_estimated=cached.wbgt_estimated,
             shortwave_wm2=cached.shortwave_wm2,
+            weather_provider=cached.weather_provider,
+            aqi_provider=cached.aqi_provider,
+            received_at=cached.received_at,
+            data_quality=quality,
         )
     )
 
@@ -191,20 +209,30 @@ def resolve_environment_snapshot(
             wbgt_c=live.wbgt_c,
             wbgt_estimated=live.wbgt_estimated,
             shortwave_wm2=live.shortwave_wm2,
+            weather_provider=live.weather_provider,
+            aqi_provider=live.aqi_provider,
+            received_at=live.received_at or datetime.now(timezone.utc).isoformat(),
+            data_quality=live.data_quality,
         )
         try:
             air_repository.save_resolved_environment_snapshot(resolved, lat=lat, lon=lon)
         except Exception:
             # Cache write must never fail the live response.
             pass
+        if resolved.data_quality == "unavailable":
+            record_provider_reliability_signal("missing_api_data", open_incident=True)
+        elif resolved.data_quality == "partial":
+            record_provider_reliability_signal("missing_api_data")
         return resolved
     except Exception:
-        pass
+        record_provider_reliability_signal("provider_outage", open_incident=True)
 
     if deferred_cached is not None:
+        record_provider_reliability_signal("stale_aqi")
         return deferred_cached
 
     if deferred_sample is not None:
+        record_provider_reliability_signal("provider_outage")
         return deferred_sample
 
     if force_refresh:
@@ -216,11 +244,13 @@ def resolve_environment_snapshot(
         if late_cached is not None:
             honest = _honest_cached_snapshot(late_cached)
             if honest is not None:
+                record_provider_reliability_signal("stale_aqi")
                 return honest
 
     if not settings.environment_allow_sample_fallback:
         raise RuntimeError("Environmental data unavailable and sample fallback is disabled")
 
+    record_provider_reliability_signal("provider_outage")
     return build_sample_snapshot(lat, lon)
 
 
