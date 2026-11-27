@@ -5,6 +5,7 @@
 - Planning branch: `roadmap/weekly-ai-reconciliation-2026-11-10` @ `ad1bdcb1`
 - Implementation base: `origin/main` @ `48187c81`
 - Implementation branch: `cursor/ai-reconciliation-gaps-2026-11-27`
+- Implementation SHA: `9a5ca6d276192bccc03bb91d38ca3b74d892c172`
 - Open PRs reconciled: #104 (planning), #105 (growth measurement, treatment OFF; web infra partially on main via #106), #97/#90/#80 (docs/ops — not in scope)
 
 ## Commands
@@ -40,9 +41,16 @@ PYTHONPATH=. $PY scripts/benchmark_ai_explanation_guardrails.py
 ## Rollback
 
 ```bash
-git revert <implementation_sha>
+git revert 9a5ca6d276192bccc03bb91d38ca3b74d892c172
 # or reset branch to 48187c81 before merge
 ```
+
+## Test receipt
+
+- pytest targeted suite: **64 passed**
+- AI explanation offline benchmark: **4/4 ok**
+- Aikido scan (changed first-party paths): **0 issues**
+
 
 ## Explicit non-claims
 
