@@ -1,51 +1,61 @@
 # UX audit 2026-11-08 — status ledger
 
-Baseline audit: `design-audit-hiair-2026-11-08/HIAIR_DESIGN_UX_AUDIT_RU.md` against `/Users/alex/Projects/HIAir-main` @ `3ac1596e`.
-Working branch: `fix/ux-audit-2026-11-08` from remote main `460d61c3`.
-Dirty WIP in `/Users/alex/Projects/HIAir` left untouched.
-Prior reviewed HEAD `683bdc84` is **not** the release candidate after R1–R10 fixes.
+Baseline audit against `/Users/alex/Projects/HIAir-main` @ `3ac1596e`.
+PR96 merged: https://github.com/2qjckdknjf-ctrl/HiAir/pull/96  
+Feature HEAD: `688477f1` · Merge commit (main): `63923aa1` · trees equal.
 
-| ID | Status | Evidence |
-|---|---|---|
-| UX-01 Health required on onboarding | **Implemented** | Skip CTA; primary label matches action when Health unavailable; Skip stays during consentSaving |
-| UX-02 Premium before server confirm | **Implemented (code)** | Dismiss blocked only while `isSystemPurchaseSheetActive`; pending/verify do not trap Close; owner guard on purchase completion |
-| UX-03 Restore states | **Implemented (code)** | Final copy from latest response; already_active not frozen from pre-request flag |
-| UX-04 Insights partial catastrophe | **Implemented (code)** | Soft partial banner; failed-source retry; 402 does not auto-open paywall while activation pending |
-| UX-05 Dashboard hierarchy | **Partial** | Freshness pill honesty; compact action reorder still open |
-| UX-06 Live freshness | **Implemented (code)** | Pill uses Live/Cached/stale/no-data from `freshness` |
-| UX-07 Revoke retry → connect | **Implemented** | `retryPendingRemoteCleanup` repeats delete vs revoke by durable kind+owner; uploads blocked until resolved |
-| UX-08 Android fake chart | **Implemented** | Empty → no chart; trailing-gap fill flushed per segment |
-| UX-09 iOS chart timestamps | **Implemented (unit)** | Shared `HiAirChartTimeScale` timestamp→X for line/labels/window/marker; overnight window coordinate test |
-| UX-10 Dynamic Type / contrast | **Implemented (code)** | Semantic fonts; navy CTA; Reduce Motion skeleton — runtime VoiceOver/TalkBack not re-run here |
-| UX-11 Misleading CTAs | **Implemented** | location_later; single step indicator; planner.go_home |
-| UX-12 Settings / symptoms density | **Partial** | Premium CTAs + delete confirm; full Settings regroup / Symptoms reorder open |
-| UX-13 Auth field labels | **Implemented (code)** | Persistent labels; `auth.password_rules` shown; ES/IT/FR labels no longer embed rules |
+| ID | Implemented | Verified | Released |
+|---|---|---|---|
+| UX-01 Health skip onboarding | Yes | Unit/code | In TF build 304 |
+| UX-02 Premium pending / dismiss | Yes | Code | In TF build 304 |
+| UX-03 Restore states | Yes | Code | In TF build 304 |
+| UX-04 Insights partial | Yes | Unit + matrix tests added | In TF build 304 |
+| UX-05 Dashboard hierarchy | Partial | — | Partial in TF |
+| UX-06 Live freshness | Yes | Code | In TF build 304 |
+| UX-07 Health delete retry | Yes | Unit | In TF build 304 |
+| UX-08 Android chart honesty | Yes | Code | Source on main (Android device not run) |
+| UX-09 iOS chart timestamps | Yes | Unit coords | In TF build 304 |
+| UX-10 Dynamic Type / contrast | Yes (code) | Runtime VoiceOver/TalkBack not re-run | In TF build 304 |
+| UX-11 Misleading CTAs | Yes | Code | In TF build 304 |
+| UX-12 Settings / symptoms density | Partial | — | Partial in TF |
+| UX-13 Auth labels / rules | Yes | Code | In TF build 304 |
 
-## R1–R10 closure (source)
+## R1–R10
 
-| ID | Verdict | Before → After |
-|---|---|---|
-| R1 | Fixed (unit) | revokeFailed retry called revoke → `retryPendingRemoteCleanup` + durable kind/owner |
-| R2 | Fixed (code) | Close tied to purchaseBusy/verify → only `isSystemPurchaseSheetActive` |
-| R3 | Fixed (unit) | hour/24 highlight → absolute ISO timestamp scale + coordinate test |
-| R4 | Fixed (code) | purchase completion lacked owner check → guard `session.userId`/`status.userId` |
-| R5 | Fixed (code) | restore used pre-request `alreadyActive` → final entitlement response |
-| R6 | Fixed (unit) | full 4-source refresh on retry → `failedSources` selective retry |
-| R7 | Fixed (code) | 402 auto `showPaywall` on pending → `presentPaywallIfNeeded` |
-| R8 | Fixed (code) | Connect label + silent skip → Skip label when unavailable; Skip during save |
-| R9 | Fixed (code) | rules unused / ES-IT-FR on label → caption + clean labels |
-| R10 | Fixed (code) | Android trailing gap no fill → flush fill on each closed segment |
+| ID | Implemented | Verified | Released |
+|---|---|---|---|
+| R1 delete retry | Yes | Unit | TF 304 |
+| R2 paywall dismiss stages | Yes | Code | TF 304 |
+| R3 chart timestamp scale | Yes | Unit | TF 304 |
+| R4 purchase account switch | Yes | Code | TF 304 |
+| R5 restore alreadyActive | Yes | Code | TF 304 |
+| R6 insights failed-set retry | Yes | Unit | TF 304 |
+| R7 pending vs auto-paywall | Yes | Code | TF 304 |
+| R8 onboarding Connect/Skip honesty | Yes | Code | TF 304 |
+| R9 password_rules l10n | Yes | Code | TF 304 |
+| R10 Android trailing fill | Yes | Code | Source on main |
 
-## Verification
+## Delivery evidence
 
-- Unit helpers added/updated: chart coordinates, health delete retry/owner, insights selective retry
-- Screenshot matrix: success + partial insights assertions added (not yet re-run this pass)
-- Physical Sandbox purchase / TestFlight install / Android device: **NOT RUN**
-- Merge / upload: **blocked until** CI green on post-fix SHA and release guard
+| Item | Value |
+|---|---|
+| Source / PR | `688477f1` / #96 MERGED |
+| Merge SHA | `63923aa1` on `origin/main` |
+| CI on feature HEAD | android-build, ios-build, backend-smoke, Security Reviewer SUCCESS |
+| IPA path | `mobile/ios/build/releases/63923aa17bf9-kYbUjs/export/HiAir.ipa` |
+| IPA SHA256 | `f67e8513f9b064ee85e05f28e7911ce746af8f0726c76abb042c77991491d668` |
+| Manifest | clean_source=true, ios_source_sha=`63923aa1` |
+| Bundle | `com.hiair.app` 1.2 (304) |
+| Upload | submitted UUID `da39f9b4-e175-43de-b873-77b85ef730d7` |
+| ASC | processing → **VALID** |
+| TestFlight group | assigned to internal **«Первый»** |
+| Device install | **NOT confirmed** this session |
+| Sandbox purchase / Health delete on device | **NOT RUN** |
+| Android physical | **NOT RUN** |
+| Local api.hiair.io | timed out from this Mac; gate used fresh GHA readback `42513020960` (API SHA `3ac1596e`, backend tree match) |
 
-## Remaining for release
+## Remaining limitations
 
-1. Commit + push; wait required CI/review on new HEAD
-2. Build bump after ASC check; rebuild IPA from clean final SHA (do not reuse 683bdc84 IPA)
-3. UX-05 / UX-12 remain Partial unless separately closed
-4. TestFlight only after merge ancestry + guard; device QA for Health skip / purchase pending / revoke
+- UX-05 / UX-12 remain Partial.
+- On-device: Health skip, purchase pending/activation, restore, revoke/cleanup, large text/VoiceOver still need the phone.
+- Old IPA from `683bdc84` is obsolete; do not redistribute it.
