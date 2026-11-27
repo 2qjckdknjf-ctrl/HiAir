@@ -213,6 +213,19 @@
         "No new monthly/yearly purchase; no active restoration certified",
         "Physical Android and wider UX audit remain open"
       ]
+    },
+    {
+      "id": "HIAIR-WEB-GROWTH-001",
+      "scenario": "Prepare existing website experiment measurement integration, experiments OFF, no website release",
+      "owner": "web integration",
+      "status": "LOCAL_VERIFIED_DRAFT_NOT_RELEASED",
+      "existing_implementation": "web/js/growth-experiment-*.js; web/js/main.js",
+      "merged_sha": null,
+      "deployed_sha": null,
+      "artifact": "docs/audit/WEB_GROWTH_MEASUREMENT_2026-11-22.md",
+      "validation": "50 web tests; SEO and 28 routes plus404; independent38 focused checks; native local desktop/mobile measurement and rollback",
+      "release_gate": "No merge or website deployment authorized. Experiments remain false. Growth public projection and fresh experiment/evidence approval required before activation.",
+      "pull_request": 105
     }
   ],
   "archived_worktrees": 18,
