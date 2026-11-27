@@ -134,7 +134,19 @@ class SettingsViewModel(
     }
 
     fun setUserId(value: String) {
-        state = state.copy(userId = value)
+        bindProductAnalytics(value)
+        state = state.copy(
+            userId = value,
+            productAnalyticsEnabled = ProductAnalytics.analyticsConsentGranted,
+        )
+    }
+
+    private fun bindProductAnalytics(userId: String) {
+        if (userId.isBlank()) {
+            ProductAnalytics.clearAccountSession()
+        } else {
+            ProductAnalytics.bindAccount(userId)
+        }
     }
 
     fun setAccessToken(value: String) {
@@ -335,7 +347,15 @@ class SettingsViewModel(
 
     fun setProductAnalyticsEnabled(value: Boolean) {
         ProductAnalytics.setAnalyticsConsent(value)
-        state = state.copy(productAnalyticsEnabled = value)
+        state = state.copy(productAnalyticsEnabled = ProductAnalytics.analyticsConsentGranted)
+    }
+
+    /** Settings UI reads this snapshot; keep it aligned with the bound account's consent. */
+    fun refreshProductAnalyticsToggle() {
+        val granted = ProductAnalytics.analyticsConsentGranted
+        if (state.productAnalyticsEnabled != granted) {
+            state = state.copy(productAnalyticsEnabled = granted)
+        }
     }
 
     fun setAlertThreshold(value: String) {
@@ -513,11 +533,13 @@ class SettingsViewModel(
         state = state.copy(loading = true)
         try {
             val session = resolveEmailSession(signup)
+            bindProductAnalytics(session.userId)
             state = state.copy(
                 loading = false,
                 userId = session.userId,
                 accessToken = session.accessToken,
                 refreshToken = session.refreshToken,
+                productAnalyticsEnabled = ProductAnalytics.analyticsConsentGranted,
                 statusText = if (signup) l("settings.signed_up") else l("settings.logged_in"),
             )
             refreshEntitlement(onComplete)
@@ -600,6 +622,7 @@ class SettingsViewModel(
 
     fun resetSessionAfterLogout() {
         signOutSupabase()
+        ProductAnalytics.clearAccountSession()
         state = state.copy(
             userId = "",
             email = "",
@@ -613,6 +636,7 @@ class SettingsViewModel(
             subscriptionStatus = "inactive",
             showPaywall = false,
             paywallStatusText = "",
+            productAnalyticsEnabled = false,
         )
     }
 
@@ -729,6 +753,7 @@ class SettingsViewModel(
                 )
                 return false
             }
+            ProductAnalytics.clearAccountSession()
             state = state.copy(
                 loading = false,
                 email = "",
@@ -739,6 +764,7 @@ class SettingsViewModel(
                 privacyExportSummary = "-",
                 statusText = l("settings.account_deleted"),
                 accountDeletionDetail = "",
+                productAnalyticsEnabled = false,
             )
             ProductAnalytics.track("privacy_delete")
             true

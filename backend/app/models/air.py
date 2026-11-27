@@ -77,6 +77,9 @@ class EnvironmentalInput(BaseModel):
     source: str
     timestamp: str
     timezone: str = "UTC"
+    # Honesty label from the environment snapshot. Excluded from API payloads;
+    # explanation callers read it when forecast quality is absent.
+    data_quality: str | None = Field(default=None, exclude=True)
 
 
 class SafeWindow(BaseModel):

@@ -550,6 +550,7 @@ internal object SettingsScreenRenderer {
 
         fun sectionTitle(key: String): TextView = HiAirComponents.sectionTitle(activity, ctx.l(key))
 
+        rootShell.settingsViewModel.refreshProductAnalyticsToggle()
         val state = rootShell.settingsViewModel.state
         emailInput.setText(state.email)
         pushAlertsBox.isChecked = state.pushAlertsEnabled

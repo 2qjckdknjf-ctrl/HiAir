@@ -114,6 +114,7 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
                     health_context.append(f"{title}: {observation}")
     except Exception:
         health_context = []
+    llm_quality, llm_freshness = ai_explanation_service.explanation_quality_inputs(environment, forecast)
     explanation, _ = ai_explanation_service.generate_explanation(
         profile=profile,
         risk=risk,
@@ -121,6 +122,8 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         language=user_settings.preferred_language,
         risk_assessment_id=None,
         health_context=health_context[:4],
+        data_quality=llm_quality,
+        freshness=llm_freshness,
     )
     first_window = None
     window_label = "Best outdoor window"

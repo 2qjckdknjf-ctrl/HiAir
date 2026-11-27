@@ -268,6 +268,58 @@ def test_prompt_excludes_location_and_raw_health() -> None:
     assert build_profile().home_lat is not None
 
 
+def test_environment_labels_feed_llm_gate() -> None:
+    sample = SimpleNamespace(source="sample", data_quality="complete")
+    quality, fresh = ai_explanation_service.explanation_quality_inputs(sample, None)
+    assert (quality, fresh) == ("sample", None)
+    assert ai_explanation_service.llm_allowed_for_data_quality(data_quality=quality, freshness=fresh) is False
+
+    unavailable = SimpleNamespace(source="live", data_quality="unavailable")
+    quality, fresh = ai_explanation_service.explanation_quality_inputs(unavailable, None)
+    assert quality == "unavailable"
+    assert ai_explanation_service.llm_allowed_for_data_quality(data_quality=quality, freshness=fresh) is False
+
+    partial = SimpleNamespace(source="cached", data_quality="partial")
+    quality, fresh = ai_explanation_service.explanation_quality_inputs(partial, None)
+    assert (quality, fresh) == ("partial", None)
+    assert ai_explanation_service.llm_allowed_for_data_quality(data_quality=quality, freshness=fresh) is True
+
+    stale_forecast = SimpleNamespace(quality="complete", freshness="stale")
+    quality, fresh = ai_explanation_service.explanation_quality_inputs(partial, stale_forecast)
+    assert (quality, fresh) == ("complete", "stale")
+    assert ai_explanation_service.llm_allowed_for_data_quality(data_quality=quality, freshness=fresh) is False
+
+    overlaid = SimpleNamespace(source="live", data_quality=None)
+    quality, fresh = ai_explanation_service.explanation_quality_inputs(overlaid, stale_forecast)
+    assert (quality, fresh) == ("complete", "stale")
+
+    sample_with_forecast = SimpleNamespace(source="sample", data_quality="complete")
+    live_forecast = SimpleNamespace(quality="complete", freshness="live")
+    quality, fresh = ai_explanation_service.explanation_quality_inputs(sample_with_forecast, live_forecast)
+    assert (quality, fresh) == ("sample", "live")
+    assert ai_explanation_service.llm_allowed_for_data_quality(data_quality=quality, freshness=fresh) is False
+
+
+def test_sample_and_unavailable_quality_skip_openai(monkeypatch) -> None:
+    monkeypatch.setattr(ai_explanation_service, "settings", _llm_settings())
+    monkeypatch.setattr(ai_explanation_service, "ensure_prompt_version", lambda **kwargs: None)
+    monkeypatch.setattr(ai_explanation_service, "save_explanation_event", lambda **kwargs: "event-1")
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("OpenAI must not be called for sample or unavailable data")
+
+    monkeypatch.setattr(ai_explanation_service.httpx, "Client", _boom)
+    for quality in ("sample", "unavailable"):
+        text, source = ai_explanation_service.generate_explanation(
+            build_profile(),
+            build_risk(),
+            RecommendationCard(headline="h", summary="s", actions=["a"]),
+            data_quality=quality,
+        )
+        assert source == "template_fallback"
+        assert text
+
+
 def test_multilingual_fallback_es_it_fr() -> None:
     for language, needle in (("es", "riesgo"), ("it", "rischio"), ("fr", "risque")):
         text = ai_explanation_service._fallback_explanation(

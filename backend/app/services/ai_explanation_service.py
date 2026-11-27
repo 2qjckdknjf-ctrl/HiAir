@@ -89,10 +89,48 @@ def sanitize_health_observations(health_context: list[str] | None) -> list[str]:
     return cleaned
 
 
+_BLOCKED_LLM_QUALITIES = frozenset({"unavailable", "stale", "sample"})
+
+
+def _quality_label(value: object | None) -> str | None:
+    if value is None:
+        return None
+    raw = getattr(value, "value", value)
+    text = str(raw).strip().lower()
+    return text or None
+
+
+def _environment_quality(environment: object) -> str | None:
+    source = _quality_label(getattr(environment, "source", None)) or ""
+    if source in {"sample", "mock"}:
+        return "sample"
+    return _quality_label(getattr(environment, "data_quality", None))
+
+
+def explanation_quality_inputs(
+    environment: object,
+    forecast: object | None = None,
+) -> tuple[str | None, str | None]:
+    """Quality and freshness for the LLM honesty gate.
+
+    Forecast labels are used when a forecast was loaded. Sample/mock or
+    unavailable environment labels still block: overlay leaves that source in
+    place when forecast.current cannot replace the snapshot.
+    """
+    env_quality = _environment_quality(environment)
+    if forecast is None:
+        return env_quality, None
+    forecast_quality = _quality_label(getattr(forecast, "quality", None))
+    forecast_fresh = _quality_label(getattr(forecast, "freshness", None))
+    if env_quality in _BLOCKED_LLM_QUALITIES:
+        return env_quality, forecast_fresh
+    return forecast_quality, forecast_fresh
+
+
 def llm_allowed_for_data_quality(*, data_quality: str | None, freshness: str | None) -> bool:
     quality = (data_quality or "").strip().lower()
     fresh = (freshness or "").strip().lower()
-    if quality in {"unavailable", "stale"}:
+    if quality in _BLOCKED_LLM_QUALITIES:
         return False
     if fresh == "stale":
         return False

@@ -147,6 +147,8 @@ def _compute_and_persist(
         assessment_id = None
     # Dashboard GET must not wait on OpenAI (up to 8s). Morning report / Insights
     # still call the LLM; pull-to-refresh (recompute) may opt in.
+    # Forecast labels win; if forecast is missing, the snapshot quality/source still gates the model.
+    llm_quality, llm_freshness = ai_explanation_service.explanation_quality_inputs(environment, forecast)
     explanation, explanation_source = ai_explanation_service.generate_explanation(
         profile,
         risk,
@@ -155,8 +157,8 @@ def _compute_and_persist(
         risk_assessment_id=assessment_id,
         health_context=None,
         allow_llm=allow_llm,
-        data_quality=data_quality,
-        freshness=freshness,
+        data_quality=llm_quality,
+        freshness=llm_freshness,
     )
     if assessment_id is not None:
         air_repository.save_recommendation(

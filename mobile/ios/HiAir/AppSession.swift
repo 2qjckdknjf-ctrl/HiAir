@@ -62,7 +62,12 @@ final class AppSession: ObservableObject {
     }()
 
     @Published var onboardingCompleted = false { didSet { persist() } }
-    @Published var userId = "" { didSet { persist() } }
+    @Published var userId = "" {
+        didSet {
+            syncProductAnalyticsAccount(from: oldValue)
+            persist()
+        }
+    }
     @Published var email = "" { didSet { persist() } }
     @Published var accessToken = "" { didSet { persist() } }
     @Published var refreshToken = "" { didSet { persist() } }
@@ -427,6 +432,7 @@ final class AppSession: ObservableObject {
             guard let self, !Task.isCancelled else { return }
             self.syncAPIClientAuthFromPersist()
             if !self.userId.isEmpty {
+                ProductAnalytics.bindAccount(userId: self.userId)
                 HealthKitService.shared.bindAccount(userId: self.userId)
                 await PlaceGeocodingService.shared.bindAccount(userId: self.userId)
                 if let cached = await PlaceGeocodingService.shared.presentationPlaceName(for: self.userId) {
@@ -1252,6 +1258,20 @@ final class AppSession: ObservableObject {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let allowed = Set(["low", "medium", "high"])
         return allowed.contains(value) ? value : "medium"
+    }
+
+    /// Consent and first-use flags follow the signed-in account. Empty userId
+    /// unbinds only when this session still owns the analytics binding.
+    private func syncProductAnalyticsAccount(from previous: String) {
+        let next = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prior = previous.trimmingCharacters(in: .whitespacesAndNewlines)
+        if next.isEmpty {
+            ProductAnalytics.clearAccountSession(ifUserId: prior)
+            return
+        }
+        if next != prior || ProductAnalytics.boundUserId != next {
+            ProductAnalytics.bindAccount(userId: next)
+        }
     }
 
     /// Ownership policy for shared durable session fields:

@@ -40,6 +40,7 @@ def _snapshot_to_environmental(
         source=snapshot.source,
         timestamp=datetime.now(timezone.utc).isoformat(),
         timezone=snapshot.timezone or timezone_name,
+        data_quality=snapshot.data_quality,
     )
 
 

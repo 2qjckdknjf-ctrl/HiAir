@@ -26,19 +26,47 @@ object ProductAnalytics {
     @Volatile
     private var prefs: SharedPreferences? = null
 
-    /** In-memory override for JVM unit tests (no Android prefs). */
+    @Volatile
+    private var boundUserId: String = ""
+
+    /** In-memory consent for the bound account (false when logged out). */
     @Volatile
     var analyticsConsentGranted: Boolean = false
         private set
 
     fun bind(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        analyticsConsentGranted = prefs?.getBoolean(CONSENT_KEY, false) ?: false
+        discardLegacyGlobalKeys()
+        analyticsConsentGranted = readConsent()
+    }
+
+    /** Load this account's consent and first-use flags. Does not copy another account. */
+    fun bindAccount(userId: String) {
+        val trimmed = userId.trim()
+        if (trimmed.isEmpty()) {
+            clearAccountSession()
+            return
+        }
+        boundUserId = trimmed
+        discardLegacyGlobalKeys()
+        analyticsConsentGranted = readConsent()
+    }
+
+    /** Drop the in-memory binding. Persisted per-account flags stay for that user. */
+    fun clearAccountSession() {
+        boundUserId = ""
+        analyticsConsentGranted = false
+        discardLegacyGlobalKeys()
     }
 
     fun setAnalyticsConsent(granted: Boolean) {
+        val key = scopedKey(CONSENT_KEY)
+        if (key == null) {
+            analyticsConsentGranted = false
+            return
+        }
         analyticsConsentGranted = granted
-        prefs?.edit()?.putBoolean(CONSENT_KEY, granted)?.apply()
+        prefs?.edit()?.putBoolean(key, granted)?.commit()
     }
 
     fun trackRoadmapEvent(name: String, properties: Map<String, String> = emptyMap()) {
@@ -48,19 +76,21 @@ object ProductAnalytics {
 
     fun recordAppOpen(surface: String = "dashboard") {
         if (!analyticsConsentGranted) return
+        val firstKey = scopedKey(FIRST_OPEN_DAY_KEY) ?: return
+        val lastKey = scopedKey(LAST_OPEN_DAY_KEY) ?: return
         val day = LocalDate.now(ZoneOffset.UTC).toString()
         val store = prefs
-        val first = store?.getString(FIRST_OPEN_DAY_KEY, null)
+        val first = store?.getString(firstKey, null)
         if (first == null) {
             store?.edit()
-                ?.putString(FIRST_OPEN_DAY_KEY, day)
-                ?.putString(LAST_OPEN_DAY_KEY, day)
+                ?.putString(firstKey, day)
+                ?.putString(lastKey, day)
                 ?.apply()
             return
         }
-        val last = store?.getString(LAST_OPEN_DAY_KEY, null)
+        val last = store?.getString(lastKey, null)
         if (last == day) return
-        store?.edit()?.putString(LAST_OPEN_DAY_KEY, day)?.apply()
+        store?.edit()?.putString(lastKey, day)?.apply()
         trackRoadmapEvent(Event.REPEAT_USE, mapOf("surface" to surface))
         runCatching {
             val firstDate = LocalDate.parse(first)
@@ -76,10 +106,32 @@ object ProductAnalytics {
 
     fun recordUsefulRecommendation(surface: String) {
         if (!analyticsConsentGranted) return
+        val key = scopedKey(FIRST_USEFUL_SENT_KEY) ?: return
         val store = prefs
-        if (store?.getBoolean(FIRST_USEFUL_SENT_KEY, false) == true) return
-        store?.edit()?.putBoolean(FIRST_USEFUL_SENT_KEY, true)?.apply()
+        if (store?.getBoolean(key, false) == true) return
+        store?.edit()?.putBoolean(key, true)?.apply()
         trackRoadmapEvent(Event.FIRST_USEFUL_RECOMMENDATION, mapOf("surface" to surface))
+    }
+
+    private fun scopedKey(base: String): String? {
+        val userId = boundUserId
+        if (userId.isBlank()) return null
+        return "$base.$userId"
+    }
+
+    private fun readConsent(): Boolean {
+        val key = scopedKey(CONSENT_KEY) ?: return false
+        return prefs?.getBoolean(key, false) ?: false
+    }
+
+    private fun discardLegacyGlobalKeys() {
+        val store = prefs ?: return
+        store.edit()
+            .remove(CONSENT_KEY)
+            .remove(FIRST_OPEN_DAY_KEY)
+            .remove(LAST_OPEN_DAY_KEY)
+            .remove(FIRST_USEFUL_SENT_KEY)
+            .apply()
     }
 
     fun track(name: String, properties: Map<String, String> = emptyMap()) {

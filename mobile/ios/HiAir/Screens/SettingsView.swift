@@ -47,6 +47,13 @@ final class SettingsViewModel: ObservableObject {
     @Published var productAnalyticsEnabled = ProductAnalytics.analyticsConsentGranted {
         didSet { ProductAnalytics.setAnalyticsConsent(productAnalyticsEnabled) }
     }
+
+    /// Pull the signed-in account's saved consent into the toggle.
+    func adoptProductAnalyticsConsent() {
+        let granted = ProductAnalytics.analyticsConsentGranted
+        guard productAnalyticsEnabled != granted else { return }
+        productAnalyticsEnabled = granted
+    }
     @Published var riskThreshold = "high"
     @Published var quietHoursStart = 22
     @Published var quietHoursEnd = 7
@@ -1792,6 +1799,7 @@ struct SettingsView: View {
             if viewModel.preferredLanguage != session.preferredLanguage {
                 viewModel.preferredLanguage = session.preferredLanguage
             }
+            viewModel.adoptProductAnalyticsConsent()
             viewModel.onEntitlementChanged = { entitlement in
                 session.applyEntitlement(entitlement)
             }
@@ -1832,6 +1840,9 @@ struct SettingsView: View {
             }
         }
         #endif
+        .onChange(of: session.userId) { _ in
+            viewModel.adoptProductAnalyticsConsent()
+        }
         .onChange(of: viewModel.pushAlertsEnabled) { enabled in
             session.markChecklistItem("notifications", done: enabled)
         }

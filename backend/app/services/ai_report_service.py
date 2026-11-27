@@ -152,6 +152,7 @@ def build_ai_report(
 
     window_days = 7 if kind == "weekly" else 30
     health_context = _health_observations(user_id, profile_id, language, window_days)
+    llm_quality, llm_freshness = ai_explanation_service.explanation_quality_inputs(environment, forecast)
     explanation, source = ai_explanation_service.generate_explanation(
         profile,
         risk,
@@ -159,6 +160,8 @@ def build_ai_report(
         language=language,
         risk_assessment_id=None,
         health_context=health_context,
+        data_quality=llm_quality,
+        freshness=llm_freshness,
     )
 
     load_summary = None
