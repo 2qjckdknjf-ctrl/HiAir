@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import httpx
 
@@ -8,6 +9,7 @@ from app.models.air import RecommendationCard, RiskAssessmentResult, UserProfile
 from app.services.localization import normalize_language, t
 from app.services.ai_observability_repository import ensure_prompt_version, save_explanation_event
 from app.services.observability import record_ai_explanation
+from app.services.openai_provider_policy import is_approved_openai_base_url
 from app.services.request_rate_limiter import check_limit
 
 logger = logging.getLogger("hiair.ai.explanation")
@@ -23,6 +25,20 @@ FORBIDDEN_PHRASES = (
     "treatment",
 )
 PROMPT_KEY = "air_explanation_ru"
+_COORD_RE = re.compile(r"-?\d+\.\d{3,}")
+_FORBIDDEN_HEALTH_TOKENS = (
+    "@",
+    "lat",
+    "lon",
+    "email",
+    "token",
+    "diagnos",
+    "user_id",
+    "profile_id",
+    "heart_rate",
+    "steps_raw",
+    "sleep_raw",
+)
 
 
 def _classify_llm_failure(exc: Exception) -> str:
@@ -58,6 +74,60 @@ def _openai_rate_limit_allowed(profile_id: str) -> bool:
     return check_limit(f"openai:{profile_id}", limit, 60)
 
 
+def sanitize_health_observations(health_context: list[str] | None) -> list[str]:
+    """Keep only coarse wellness labels; drop location/raw health/PII."""
+    cleaned: list[str] = []
+    for item in (health_context or [])[:4]:
+        text = str(item).strip().lower()
+        if not text:
+            continue
+        if any(token in text for token in _FORBIDDEN_HEALTH_TOKENS):
+            continue
+        if _COORD_RE.search(text):
+            continue
+        cleaned.append(text[:64])
+    return cleaned
+
+
+def llm_allowed_for_data_quality(*, data_quality: str | None, freshness: str | None) -> bool:
+    quality = (data_quality or "").strip().lower()
+    fresh = (freshness or "").strip().lower()
+    if quality in {"unavailable", "stale"}:
+        return False
+    if fresh == "stale":
+        return False
+    return True
+
+
+def build_prompt_payload(
+    profile: UserProfileContext,
+    risk: RiskAssessmentResult,
+    recommendation: RecommendationCard,
+    *,
+    language: str,
+    health_context: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "profile_type": profile.profile_type.value,
+        "overall_risk": risk.overallRisk.value,
+        "heat_risk": risk.heatRisk.value,
+        "air_risk": risk.airRisk.value,
+        "recommendation_headline": recommendation.headline,
+        "recommendation_actions": recommendation.actions,
+        "personal_health_observations": sanitize_health_observations(health_context),
+        "guardrails": [
+            "No diagnosis",
+            "No treatment advice",
+            "No emergency claims",
+            "Action-first, calm tone",
+            "Max 3 short sentences",
+            "Do not invent metrics not present in facts",
+            "Never include precise location or raw health streams",
+        ],
+        "target_language": language,
+    }
+
+
 def _save_fallback_event(
     profile: UserProfileContext,
     risk_assessment_id: str | None,
@@ -91,10 +161,23 @@ def generate_explanation(
     risk_assessment_id: str | None = None,
     health_context: list[str] | None = None,
     allow_llm: bool = True,
+    data_quality: str | None = None,
+    freshness: str | None = None,
 ) -> tuple[str, str]:
     lang = normalize_language(language)
     if not allow_llm:
         return _fallback_explanation(risk, recommendation, lang), "template_fallback"
+
+    if not llm_allowed_for_data_quality(data_quality=data_quality, freshness=freshness):
+        fallback_text = _fallback_explanation(risk, recommendation, lang)
+        _save_fallback_event(
+            profile,
+            risk_assessment_id,
+            fallback_text,
+            guardrail_blocked=False,
+            failure_reason="stale_or_unavailable_data",
+        )
+        return fallback_text, "template_fallback"
 
     system_prompt = (
         "You are a wellness assistant for heat, air quality, and personal recovery context. "
@@ -125,6 +208,18 @@ def generate_explanation(
         )
         return fallback_text, "template_fallback"
 
+    if not is_approved_openai_base_url(settings.openai_base_url):
+        logger.warning("openai_base_url_not_approved host_blocked=1")
+        fallback_text = _fallback_explanation(risk, recommendation, lang)
+        _save_fallback_event(
+            profile,
+            risk_assessment_id,
+            fallback_text,
+            guardrail_blocked=False,
+            failure_reason="unapproved_inference_provider",
+        )
+        return fallback_text, "template_fallback"
+
     if not _openai_rate_limit_allowed(profile.profile_id):
         logger.warning("openai_rate_limit_exceeded profile_id=%s", profile.profile_id)
         fallback_text = _fallback_explanation(risk, recommendation, lang)
@@ -137,24 +232,13 @@ def generate_explanation(
         )
         return fallback_text, "template_fallback"
 
-    prompt_payload = {
-        "profile_type": profile.profile_type.value,
-        "overall_risk": risk.overallRisk.value,
-        "heat_risk": risk.heatRisk.value,
-        "air_risk": risk.airRisk.value,
-        "recommendation_headline": recommendation.headline,
-        "recommendation_actions": recommendation.actions,
-        "personal_health_observations": (health_context or [])[:4],
-        "guardrails": [
-            "No diagnosis",
-            "No treatment advice",
-            "No emergency claims",
-            "Action-first, calm tone",
-            "Max 3 short sentences",
-            "Do not invent metrics not present in facts",
-        ],
-        "target_language": lang,
-    }
+    prompt_payload = build_prompt_payload(
+        profile,
+        risk,
+        recommendation,
+        language=lang,
+        health_context=health_context,
+    )
 
     request_body = {
         "model": settings.openai_model,

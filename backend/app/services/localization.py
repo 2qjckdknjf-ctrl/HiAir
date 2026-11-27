@@ -1,22 +1,55 @@
-SUPPORTED_LANGUAGES = ("ru", "en")
+SUPPORTED_LANGUAGES = ("ru", "en", "es", "it", "fr")
 
 
 def normalize_language(value: str | None) -> str:
     if not value:
         return "ru"
     lowered = value.lower().strip()
-    if lowered.startswith("en"):
-        return "en"
-    if lowered.startswith("ru"):
-        return "ru"
+    for code in SUPPORTED_LANGUAGES:
+        if lowered.startswith(code):
+            return code
     return "ru"
 
 
 def t(language: str, key: str, **kwargs: object) -> str:
     lang = normalize_language(language)
-    template = MESSAGES.get(lang, MESSAGES["ru"]).get(key) or MESSAGES["ru"].get(key, key)
+    template = (
+        MESSAGES.get(lang, {}).get(key)
+        or MESSAGES.get("en", {}).get(key)
+        or MESSAGES["ru"].get(key, key)
+    )
     return template.format(**kwargs)
 
+
+_EN_BASE: dict[str, str] = {
+    "rec.low.headline": "Conditions are favorable for normal activity",
+    "rec.low.summary": "Heat and air risk is currently low, regular routine is acceptable.",
+    "rec.low.action": "Maintain normal activity and hydration.",
+    "rec.moderate.headline": "Choose safer hours for activity",
+    "rec.moderate.summary": "Conditions are moderately risky, outdoor plans should be time-aware.",
+    "rec.moderate.action1": "Shorten walk or workout duration.",
+    "rec.moderate.action2": "Avoid peak heat hours.",
+    "rec.moderate.action3": "Monitor symptoms during activity.",
+    "rec.high.headline": "It is better to limit outdoor activity now",
+    "rec.high.summary": "Heat and air quality create higher load for your profile.",
+    "rec.high.action1": "Delay longer activity to a safer window.",
+    "rec.high.action2": "Reduce high-intensity physical effort.",
+    "rec.high.action3": "Hydrate frequently and take breaks.",
+    "rec.windows.closed": "Keep windows closed until air quality improves.",
+    "rec.ventilate.window": "Ventilate during {start}-{end}.",
+    "rec.ventilate.later": "Ventilation is better postponed until pollution drops.",
+    "rec.profile.caution": "For sensitive profiles, reduce continuous outdoor exposure.",
+    "alert.disabled.title": "Alerts disabled",
+    "alert.disabled.body": "Push alerts are disabled by user preference.",
+    "alert.quiet.title": "Quiet hours",
+    "alert.quiet.body": "Quiet hours are active, push is suppressed.",
+    "alert.nochange.title": "No material change",
+    "alert.nochange.body": "Risk has not changed significantly.",
+    "alert.duplicate.title": "Duplicate blocked",
+    "alert.duplicate.body": "A similar alert was sent recently.",
+    "expl.fallback": "Your current risk level is {risk}. {summary} Start with: {action}",
+    "expl.prompt.language": "English",
+}
 
 MESSAGES: dict[str, dict[str, str]] = {
     "ru": {
@@ -48,33 +81,20 @@ MESSAGES: dict[str, dict[str, str]] = {
         "expl.fallback": "Сейчас для вас уровень риска: {risk}. {summary} Начните с действия: {action}",
         "expl.prompt.language": "Russian",
     },
-    "en": {
-        "rec.low.headline": "Conditions are favorable for normal activity",
-        "rec.low.summary": "Heat and air risk is currently low, regular routine is acceptable.",
-        "rec.low.action": "Maintain normal activity and hydration.",
-        "rec.moderate.headline": "Choose safer hours for activity",
-        "rec.moderate.summary": "Conditions are moderately risky, outdoor plans should be time-aware.",
-        "rec.moderate.action1": "Shorten walk or workout duration.",
-        "rec.moderate.action2": "Avoid peak heat hours.",
-        "rec.moderate.action3": "Monitor symptoms during activity.",
-        "rec.high.headline": "It is better to limit outdoor activity now",
-        "rec.high.summary": "Heat and air quality create higher load for your profile.",
-        "rec.high.action1": "Delay longer activity to a safer window.",
-        "rec.high.action2": "Reduce high-intensity physical effort.",
-        "rec.high.action3": "Hydrate frequently and take breaks.",
-        "rec.windows.closed": "Keep windows closed until air quality improves.",
-        "rec.ventilate.window": "Ventilate during {start}-{end}.",
-        "rec.ventilate.later": "Ventilation is better postponed until pollution drops.",
-        "rec.profile.caution": "For sensitive profiles, reduce continuous outdoor exposure.",
-        "alert.disabled.title": "Alerts disabled",
-        "alert.disabled.body": "Push alerts are disabled by user preference.",
-        "alert.quiet.title": "Quiet hours",
-        "alert.quiet.body": "Quiet hours are active, push is suppressed.",
-        "alert.nochange.title": "No material change",
-        "alert.nochange.body": "Risk has not changed significantly.",
-        "alert.duplicate.title": "Duplicate blocked",
-        "alert.duplicate.body": "A similar alert was sent recently.",
-        "expl.fallback": "Your current risk level is {risk}. {summary} Start with: {action}",
-        "expl.prompt.language": "English",
+    "en": dict(_EN_BASE),
+    "es": {
+        **_EN_BASE,
+        "expl.fallback": "Tu nivel de riesgo actual es {risk}. {summary} Empieza con: {action}",
+        "expl.prompt.language": "Spanish",
+    },
+    "it": {
+        **_EN_BASE,
+        "expl.fallback": "Il tuo livello di rischio attuale è {risk}. {summary} Inizia con: {action}",
+        "expl.prompt.language": "Italian",
+    },
+    "fr": {
+        **_EN_BASE,
+        "expl.fallback": "Votre niveau de risque actuel est {risk}. {summary} Commencez par : {action}",
+        "expl.prompt.language": "French",
     },
 }

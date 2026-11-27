@@ -59,9 +59,18 @@ def _with_meteo_wbgt_if_missing(snapshot: EnvironmentSnapshot) -> EnvironmentSna
     return snapshot.model_copy(update={"wbgt_c": wbgt_c, "wbgt_estimated": True})
 
 
+def _snapshot_data_quality(cached: EnvironmentSnapshot) -> str:
+    if cached.aqi is None and cached.pm25 is None and cached.ozone is None:
+        return "unavailable"
+    if cached.aqi is None or cached.pm25 is None or cached.ozone is None:
+        return "partial"
+    return "complete"
+
+
 def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot | None:
     """Return an honesty-labeled snapshot from a DB row, or None if unusable."""
     original_source = str(cached.source or "").strip().lower()
+    quality = _snapshot_data_quality(cached)
     # Never re-label persisted sample/mock rows as "cached" — that would
     # serve synthetic air data under a live/cache honesty label.
     if original_source in (SOURCE_SAMPLE, "mock"):
@@ -85,6 +94,10 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
                     wbgt_c=cached.wbgt_c,
                     wbgt_estimated=cached.wbgt_estimated,
                     shortwave_wm2=cached.shortwave_wm2,
+                    weather_provider=cached.weather_provider,
+                    aqi_provider=cached.aqi_provider,
+                    received_at=cached.received_at,
+                    data_quality=quality,
                 )
             )
         return None
@@ -107,6 +120,10 @@ def _honest_cached_snapshot(cached: EnvironmentSnapshot) -> EnvironmentSnapshot 
             wbgt_c=cached.wbgt_c,
             wbgt_estimated=cached.wbgt_estimated,
             shortwave_wm2=cached.shortwave_wm2,
+            weather_provider=cached.weather_provider,
+            aqi_provider=cached.aqi_provider,
+            received_at=cached.received_at,
+            data_quality=quality,
         )
     )
 
@@ -191,6 +208,10 @@ def resolve_environment_snapshot(
             wbgt_c=live.wbgt_c,
             wbgt_estimated=live.wbgt_estimated,
             shortwave_wm2=live.shortwave_wm2,
+            weather_provider=live.weather_provider,
+            aqi_provider=live.aqi_provider,
+            received_at=live.received_at or datetime.now(timezone.utc).isoformat(),
+            data_quality=live.data_quality,
         )
         try:
             air_repository.save_resolved_environment_snapshot(resolved, lat=lat, lon=lon)

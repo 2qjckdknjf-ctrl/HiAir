@@ -116,3 +116,110 @@
 
 1. Загрузить готовые артефакты в TestFlight/Internal Test (нужны доступы Apple/Google).
 2. Выполнить `docs/qa-checklist.md` на iOS/Android и зафиксировать баги по шаблону.
+
+## Weekly AI reconciliation — 2026-11-10
+
+**Period:** 2026-11-03 through 2026-11-10. **Status:** planning-only, not implementation or deployment. Existing canonical IDs, P0 gates and historical records take precedence. Reconcile with currently open PRs and exact HEAD before marking any item DONE. Evidence = reproducible tests + independent review + SHA + deployment/device receipt where applicable. Source ideas: OpenAI engineering/CAD and agent safety, GitHub Xcode and review telemetry, AI Engineer talks on durable SDLC, factual numeric provenance, adaptive worker economics, rollback, memory validity, and new Anthropic/Meta model announcements. Vendor benchmarks are not local acceptance evidence.
+
+| Priority | Existing workstream / ID | Incremental action and acceptance |
+|---|---|---|
+| P0 | HIAIR-REL-001 / existing release gates | Complete physical-device QA, UX-05/12, data freshness and store receipts on exact build; preserve current deterministic Risk Engine. |
+| P1 | Existing ingestion / provider-quality tests | Missing/stale provider readings must be unknown/blocked, not zero AQI; preserve timestamp, provider, units, source, fallback and alert evidence; test historical edge cases. |
+| P1 | Existing product analytics | Measure real usage, retention and user decisions for Best Time, Morning Briefing and AI explanations before adding AI chat; A/B with privacy protections. |
+| P2 | Local model / visualization research | Evaluate lightweight on-device explanations or maps only after release gates, benchmark latency, battery, accuracy and consent. |
+
+**Implementation order:** close existing P0 first; P1 in bounded non-production pilots; P2 only after evidence-based decision. Owner: project engineering lead (assignment TBD); independent reviewer: ROMA/security or domain QA (assignment TBD). No auto-merge, production writes, payments or live trading from this roadmap update.
+
+**Cross-project dependency:** Grow OS orchestrates; ROMA enforces independent policy/verification in Aistroyka-web; Sasha Memory OS stores permission-scoped evidence. Trading repository/runtime remains unverified; shared trading requirements are point-in-time market data, deterministic calculations, independent risk limits, exchange-state reconciliation, paper trading and kill switch, with no autonomous live orders.
+
+
+### AI feature delta — 2026-11-11
+
+These are **proposed additions to existing workstreams** from the November 11 intelligence review, not claims of shipped functionality or verified vendor capabilities. Validate official release/API/pricing availability before selecting any provider; independent exact-SHA acceptance and existing P0 gates remain mandatory.
+
+- **P1 / existing explanation UI:** benchmark Gemini 4 Carbon or a cheaper model for grounded multilingual explanations of deterministic Risk Engine outputs, with citations, uncertainty, stale-data blocking and privacy checks; do not change Risk Engine thresholds.
+- **P1 / voice accessibility research:** optional voice questions map to the same read-only recommendation and permission context; test interruptions, latency, battery and accessibility only after physical-device/release gates.
+- **P1 / supply-chain:** verify Dependabot alert coverage on inactive supporting repos and dependency snapshots; do not assume alerts disabled.
+
+**Acceptance rule:** record baseline, owner, independent reviewer, test corpus, security/privacy gates, cost per verified task and explicit decision (adopt / defer / reject). No autonomous production actions or merge authorized by this documentation.
+
+
+## Gap-only AI roadmap reconciliation — 2026-11-20
+
+**Review period:** 2026-11-12–2026-11-20. Compared this branch with `main` and the existing Nov 10/11 reconciliation. Only incremental acceptance conditions and candidate evaluations are recorded; pre-existing capabilities must not be rebuilt. **PLANNING ONLY / NOT IMPLEMENTED / NOT MERGED.** The owner and independent reviewer remain TBD until assigned. Recheck exact HEAD, CI and production receipts before any DONE status.
+
+| Priority | Existing owner / workstream | Newly identified gap / acceptance evidence |
+|---|---|---|
+| P0 | Existing HIAIR-REL-001 / delivery gates | Physical device/UX/release receipts and exact-build data freshness first. No new AI feature is a prerequisite. |
+| P1 | Existing provider reliability and monitoring | Performance Factory-inspired alert→investigate→independent validation→fix→post-release verification for stale AQI, missing API data, false zero readings and provider outages. Risk Engine remains deterministic. |
+| P1 | Existing optional AI explanation / voice | Benchmark low-cost cloud/local models only on grounded deterministic AQI recommendations, Spanish/Russian accessibility, latency and privacy; no raw health profile to unapproved provider. |
+| P2 | Existing marketing/analytics | Measure verified user action and retention before adding conversational interfaces; avoid claims of improved air-quality prediction without data. |
+
+**Source references:** [OpenAI Performance Factory](https://openai.com/index/how-openai-performance-factory-keeps-chatgpt-fast/), [Google Mirror Dimension](https://blog.google/security/mirror-dimension-for-agents/), [OpenAI frontier risk controls](https://openai.com/index/managing-frontier-ai-risk/). Other recent model/vendor announcements are *candidates requiring independent availability and price validation*, not approved dependencies. No new runtime privileges, model installation, migrations, payments, deployment, PR merge, or trading orders are authorized by this document.
+
+
+## Codex / Cursor execution delta — 2026-11-24
+
+Planning reconciliation for 21–24 November; incorporates previously unrecorded 21–22 November recommendations. Existing workstreams and IDs own these acceptance extensions; do not duplicate implemented features. Vendor names/releases are research candidates from daily digests, not independently verified dependencies. Before execution, read current main, this planning branch and active implementation PRs; reconcile against code and evidence. Main blob at review: `e4f2339c0a71a684787a138677f8e318798bf48b`. P0 existing blockers first; P1 bounded sandbox pilots; P2 research. Owner/reviewer TBD. No production changes, automatic merge, purchases or live trading authorized.
+
+- P0 existing release/privacy gates: verify API secrets absent from commits, prompts and logs; approved final inference providers, retention and user-data minimization; synthetic incident/revocation test.
+- P2 existing provider reliability: evaluate Strands Decider for classifying source failures and support events, not AQI forecasts or risk thresholds; benchmark against rules and abstain on uncertainty. Preserve deterministic Risk Engine and device/release priority.
+
+**Codex/Cursor execution contract:** produce gap matrix (implemented/partial/missing/blocked), map each item to existing task ID, implement only verified gaps on separate implementation branch, preserve existing tests and add negative/regression tests, report exact SHA, reproducible commands/results, independent reviewer verdict, cost and remaining blockers. Do not mark DONE on documentation or build alone. Validate candidate upstream documentation and licenses before installing or sending data. Stop on missing permissions or unsafe effects.
+
+
+## Cursor execution specification — 2026-11-26
+
+Planning-only delta for 25–26 November. Read current main and active implementation PRs first; map to existing IDs, implement only confirmed gaps. Vendor claims require primary-source verification. Existing P0 gates remain first. Proposed numerical thresholds are initial configurable test defaults, not measured results. No auto-merge, deployment, purchases, ad activation or live trading. Owner/reviewer TBD.
+
+### P1 — existing analytics and provider reliability
+Reconcile HiAir PR #105 and Growth PR #68 current HEAD/status before changes; existing disabled experiments remain disabled absent approval. Define privacy-minimized event contract for App Store click, first useful recommendation, repeat use and retention; dedupe, consent, schema compatibility, test synthetic events end-to-end. Evaluate Google Ads iOS measurement/target ROAS only after verifying availability and lawful data handling; never send precise location or health data to ad platforms. No activation or spend.
+Prototype two-stage anomaly research: detect unusual AQI/source behavior, independently verify with timestamped observations and deterministic rules, distinguish missing/stale data from actual pollution. Holdout test false positives/negatives; do not modify Risk Engine thresholds or release gates.
+
+### Cursor delivery contract
+Work in a separate implementation branch; report gap matrix, changed files, reproducible commands, test receipts, exact commit SHA, independent verdict, rollback and remaining blockers. Never mark DONE from documentation/build alone. Stop on missing authorization, hardware access or provider compatibility; report NOT_RUN rather than fabricate evidence.
+
+
+## Cursor / Codex execution delta — 2026-11-27
+
+Planning-only extension to November 26 specification. Reconcile current main, active PRs and actual code before execution; map to existing IDs, implement only confirmed gaps. P0 blockers first. Vendor claims from daily digest require primary-source verification before adoption. Numerical corpus sizes are proposed test defaults, not measured results. Owner/reviewer TBD.
+
+- P1 existing provider reliability/forecast validation: compare historical forecasts as issued at timestamp with subsequent observations, preserve provider/version/location granularity and availability timestamp; no future leakage, distinguish stale/missing data, evaluate MAE/bias and anomaly false positives on chronological holdout. Historical web providers optional for contextual research, not substitute for authoritative AQI observations. Keep deterministic Risk Engine and existing release gates unchanged.
+- P1 existing analytics: prioritize consented user feedback and verified outcomes, no sensitive location/health data in external research tools.
+
+Delivery: separate implementation branch, baseline and gap matrix, reproducible tests, exact SHA, independent verdict, rollback and blockers. No automatic merge, production deployment, purchases or live trading. Sources for verification: https://huggingface.co/nvidia/Nemotron-3.5-Parse ; https://onchainbench.ai/methodology ; https://www.perplexity.ai/en-GB/hub/blog/freeze-the-web-with-perplexity-time-machine ; https://openclaw.ai/blog/shellbench ; https://sakana.ai/marlin-update-2/ .
+
+
+
+## Cursor / Codex execution results — 2026-11-27
+
+**Branch:** `cursor/ai-reconciliation-gaps-2026-11-27` (from `origin/main`). Planning source: `roadmap/weekly-ai-reconciliation-2026-11-10` / PR #104. **No production deploy, merge, purchases, or live trading.**
+
+### Gap matrix (post-implementation)
+
+| ID | Status | Evidence |
+|---|---|---|
+| P0 HIAIR-REL-001 physical-device/store receipts | BLOCKED / external | Hardware + Sandbox Apple Account / Android device still required; not claimed DONE |
+| P0-SEC secrets/logs + allowlist + revocation | DONE (code) | `secret_redaction.py`, `openai_provider_policy.py`, `test_secret_redaction_and_revocation.py`, protected-env URL guard |
+| P1 provider-quality AQI honesty | DONE (code) | `_optional_aqi`, provenance fields, `test_provider_quality_aqi.py` + honesty suite |
+| P1 provider reliability loop | DONE (sandbox scaffold) | `provider_reliability.py` + tests; not wired to production alerts |
+| P1 forecast validation MAE/holdout | DONE (sandbox) | `forecast/validation.py` + future-leakage tests; synthetic corpus only |
+| P1 anomaly two-stage prototype | DONE (sandbox) | `anomaly_detector.py` + tests; Risk Engine untouched |
+| P1 product analytics contract | DONE (contract) / PARTIAL (emission) | Backend contract + mobile Event constants + consent gate; web App Store CTAs already exist (PR #105/#106); experiments remain disabled |
+| P1 AI explanation guardrails / multilingual | DONE (code) | stale/unavailable block, es/it/fr fallback, health sanitize, offline benchmark |
+| P1 Dependabot coverage | DONE | `.github/dependabot.yml` (pip/actions/gradle; no npm — web has no package.json) |
+| Vendor digest candidates (Nemotron/Time Machine/etc.) | DEFER | Primary-source research only; not adopted as runtime deps |
+
+### Independent verification
+
+- Targeted pytest + honesty/forecast regressions: PASS (see evidence doc).
+- Offline AI guardrail benchmark: PASS.
+- Aikido scan on changed first-party paths: 0 issues.
+- Independent review found then fixed: root-only log filter ineffective; `availability_at > target_at` leakage. Re-tested PASS.
+
+### Remaining blockers
+
+1. HIAIR-REL-001 physical-device QA / restore acceptance / Android unavailable.
+2. Product analytics: consent UX wiring + real mobile emission of roadmap events (constants ready; default consent=false).
+3. Provider reliability/anomaly: production alert sink and ops on-call assignment TBD.
+4. PR #104/#105 not merged by this work; experiments stay OFF absent approval.

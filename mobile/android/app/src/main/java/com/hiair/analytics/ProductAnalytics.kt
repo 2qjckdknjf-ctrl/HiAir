@@ -6,6 +6,21 @@ import android.util.Log
 object ProductAnalytics {
     private const val TAG = "HiAirProduct"
 
+    object Event {
+        const val APP_STORE_CLICK = "app_store_click"
+        const val FIRST_USEFUL_RECOMMENDATION = "first_useful_recommendation"
+        const val REPEAT_USE = "repeat_use"
+        const val RETENTION_WINDOW = "retention_window"
+    }
+
+    @Volatile
+    var analyticsConsentGranted: Boolean = false
+
+    fun trackRoadmapEvent(name: String, properties: Map<String, String> = emptyMap()) {
+        if (!analyticsConsentGranted) return
+        track(name, properties)
+    }
+
     fun track(name: String, properties: Map<String, String> = emptyMap()) {
         val sanitized = properties.filter { (key, value) ->
             !key.contains("email", ignoreCase = true)

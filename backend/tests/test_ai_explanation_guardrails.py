@@ -207,3 +207,72 @@ def test_classify_llm_failure_server_status() -> None:
     response = httpx.Response(status_code=503, request=request)
     exc = httpx.HTTPStatusError("status", request=request, response=response)
     assert ai_explanation_service._classify_llm_failure(exc) == "llm_server_error"
+
+
+def test_stale_data_blocks_llm(monkeypatch) -> None:
+    monkeypatch.setattr(ai_explanation_service, "settings", _llm_settings())
+    monkeypatch.setattr(ai_explanation_service, "ensure_prompt_version", lambda **kwargs: None)
+    monkeypatch.setattr(ai_explanation_service, "save_explanation_event", lambda **kwargs: "event-1")
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("OpenAI must not be called for stale data")
+
+    monkeypatch.setattr(ai_explanation_service.httpx, "Client", _boom)
+    text, source = ai_explanation_service.generate_explanation(
+        build_profile(),
+        build_risk(),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+        freshness="stale",
+    )
+    assert source == "template_fallback"
+    assert text
+
+
+def test_unapproved_provider_blocks_llm(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ai_explanation_service,
+        "settings",
+        _llm_settings(openai_base_url="https://evil.example/v1/chat/completions"),
+    )
+    monkeypatch.setattr(ai_explanation_service, "ensure_prompt_version", lambda **kwargs: None)
+    monkeypatch.setattr(ai_explanation_service, "save_explanation_event", lambda **kwargs: "event-1")
+    text, source = ai_explanation_service.generate_explanation(
+        build_profile(),
+        build_risk(),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+    )
+    assert source == "template_fallback"
+
+
+def test_prompt_excludes_location_and_raw_health() -> None:
+    payload = ai_explanation_service.build_prompt_payload(
+        build_profile(),
+        build_risk(),
+        RecommendationCard(headline="h", summary="s", actions=["a"]),
+        language="en",
+        health_context=[
+            "recovery_band_moderate",
+            "lat=41.387912",
+            "user_id=abc",
+            "heart_rate=72",
+            "sleep_raw=stream",
+        ],
+    )
+    encoded = str(payload)
+    assert "41.387912" not in encoded
+    assert "user_id" not in encoded
+    assert "heart_rate" not in encoded
+    assert "sleep_raw" not in encoded
+    assert payload["personal_health_observations"] == ["recovery_band_moderate"]
+    assert "home_lat" not in encoded
+    assert build_profile().home_lat is not None
+
+
+def test_multilingual_fallback_es_it_fr() -> None:
+    for language, needle in (("es", "riesgo"), ("it", "rischio"), ("fr", "risque")):
+        text = ai_explanation_service._fallback_explanation(
+            build_risk(),
+            RecommendationCard(headline="h", summary="summary", actions=["hydrate"]),
+            language,
+        )
+        assert needle in text.lower()

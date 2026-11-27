@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -11,7 +11,7 @@ from app.models.risk import EnvironmentSnapshot
 
 def build_sample_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
     """Deterministic fallback when live providers and cache are unavailable."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     base_temp = 24 + (now.hour % 10)
     return EnvironmentSnapshot(
         temperature_c=float(base_temp),
@@ -20,6 +20,10 @@ def build_sample_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         pm25=float(8 + (abs(int(lat * lon)) % 50)),
         ozone=float(50 + (now.hour * 2 % 75)),
         source="sample",
+        weather_provider="sample",
+        aqi_provider="sample",
+        received_at=now.isoformat(),
+        data_quality="complete",
     )
 
 
@@ -35,6 +39,32 @@ def _optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _optional_aqi(value: Any) -> int | None:
+    """Parse AQI honestly: missing/sentinel → None (never coerce to 0)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in {"", "-", "n/a", "na", "null", "none", "unknown", "--"}:
+            return None
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed < 0:
+        return None
+    return parsed
+
+
+def classify_snapshot_quality(*, aqi: int | None, pm25: float | None, ozone: float | None) -> str:
+    present = sum(value is not None for value in (aqi, pm25, ozone))
+    if present == 0:
+        return "unavailable"
+    if present < 3:
+        return "partial"
+    return "complete"
 
 
 def _iaqi(iaqi: dict[str, Any], key: str) -> float | None:
@@ -110,8 +140,7 @@ def _fetch_waqi(lat: float, lon: float) -> dict[str, Any]:
 
     data = payload.get("data") or {}
     iaqi = data.get("iaqi") or {}
-    aqi_value = data.get("aqi")
-    aqi = int(aqi_value) if aqi_value is not None and str(aqi_value).strip() != "" else None
+    aqi = _optional_aqi(data.get("aqi"))
     pm25 = _iaqi(iaqi, "pm25")
     ozone = _iaqi(iaqi, "o3")
     if aqi is None and pm25 is None and ozone is None:
@@ -159,13 +188,13 @@ def _fetch_openmeteo_aqi(lat: float, lon: float) -> dict[str, Any]:
         response.raise_for_status()
         payload = response.json()
     current = payload.get("current") or {}
-    aqi = _optional_float(current.get("us_aqi"))
+    aqi = _optional_aqi(current.get("us_aqi"))
     pm25 = _optional_float(current.get("pm2_5"))
     ozone = _optional_float(current.get("ozone"))
     if aqi is None and pm25 is None and ozone is None:
         raise ValueError("Open-Meteo AQI returned no air metrics")
     return {
-        "aqi": int(aqi) if aqi is not None else None,
+        "aqi": aqi,
         "pm25": pm25,
         "ozone": ozone,
         "pm10": _optional_float(current.get("pm10")),
@@ -221,12 +250,15 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         ),
     )
 
+    aqi = air.get("aqi")
+    pm25 = air.get("pm25")
+    ozone = air.get("ozone")
     return EnvironmentSnapshot(
         temperature_c=float(weather["temperature_c"]),
         humidity_percent=float(weather["humidity_percent"]),
-        aqi=air.get("aqi"),
-        pm25=air.get("pm25"),
-        ozone=air.get("ozone"),
+        aqi=aqi,
+        pm25=pm25,
+        ozone=ozone,
         source="live",
         pm10=air.get("pm10"),
         no2=air.get("no2"),
@@ -239,4 +271,8 @@ def fetch_live_snapshot(lat: float, lon: float) -> EnvironmentSnapshot:
         wbgt_c=wbgt_c,
         wbgt_estimated=wbgt_c is not None,
         shortwave_wm2=weather.get("shortwave_wm2"),
+        weather_provider=weather_provider,
+        aqi_provider=aqi_provider,
+        received_at=datetime.now(timezone.utc).isoformat(),
+        data_quality=classify_snapshot_quality(aqi=aqi, pm25=pm25, ozone=ozone),
     )

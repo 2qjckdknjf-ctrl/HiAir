@@ -4,6 +4,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from app.services.openai_provider_policy import is_approved_openai_base_url
+
 _backend_root = Path(__file__).resolve().parents[2]
 load_dotenv(_backend_root / ".env")
 load_dotenv(_backend_root / ".env.local")
@@ -156,3 +158,9 @@ def validate_runtime_settings(current: Settings) -> None:
             raise RuntimeError("GOOGLE_PLAY_VERIFIER_MODE must be live or disabled in protected environments.")
         if getattr(current, "subscription_provider", "stub").strip().lower() == "stub":
             raise RuntimeError("SUBSCRIPTION_PROVIDER=stub is forbidden in protected environments.")
+        openai_key = getattr(current, "openai_api_key", "").strip()
+        openai_url = getattr(current, "openai_base_url", "").strip()
+        if openai_key and openai_url and not is_approved_openai_base_url(openai_url):
+            raise RuntimeError(
+                "OPENAI_BASE_URL must use an approved inference host in protected environments."
+            )

@@ -61,6 +61,11 @@ def merge_points(
             product="normalized",
             observed_at=base.timestamp if kind == EnvironmentalDataKind.OBSERVED else None,
             forecast_for=base.timestamp if kind == EnvironmentalDataKind.FORECAST else None,
+            issued_at=(
+                (weather.provenance.issued_at if weather and weather.provenance else None)
+                or (air.provenance.issued_at if air and air.provenance else None)
+                or (fetched_at if kind == EnvironmentalDataKind.FORECAST else None)
+            ),
             fetched_at=fetched_at,
             kind=kind,
         ),

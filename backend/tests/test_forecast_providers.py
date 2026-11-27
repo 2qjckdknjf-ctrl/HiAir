@@ -27,7 +27,7 @@ def test_openmeteo_weather_normalizes_units_and_provenance() -> None:
     assert current.provenance.kind.value == "forecast"
     assert current.provenance.forecast_for == current.timestamp
     assert current.provenance.observed_at is None
-    assert current.provenance.issued_at is None
+    assert current.provenance.issued_at == current.provenance.fetched_at
     assert current.timezone == "Europe/Madrid"
     assert current.timestamp.endswith("+02:00")
     assert len(hourly) == 24
@@ -61,7 +61,7 @@ def test_openmeteo_air_keeps_null_metrics() -> None:
     assert current.provenance.kind.value == "forecast"
     assert current.provenance.forecast_for == current.timestamp
     assert current.provenance.observed_at is None
-    assert current.provenance.issued_at is None
+    assert current.provenance.issued_at == current.provenance.fetched_at
     assert "pm10_ugm3" in current.missing_metrics
     assert hourly[0].no2_ugm3 is None
     assert hourly[1].pm10_ugm3 == 20.0

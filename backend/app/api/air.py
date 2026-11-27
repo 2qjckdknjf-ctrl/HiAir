@@ -155,6 +155,8 @@ def _compute_and_persist(
         risk_assessment_id=assessment_id,
         health_context=None,
         allow_llm=allow_llm,
+        data_quality=data_quality,
+        freshness=freshness,
     )
     if assessment_id is not None:
         air_repository.save_recommendation(
