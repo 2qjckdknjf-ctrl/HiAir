@@ -179,3 +179,13 @@ Prototype two-stage anomaly research: detect unusual AQI/source behavior, indepe
 
 ### Cursor delivery contract
 Work in a separate implementation branch; report gap matrix, changed files, reproducible commands, test receipts, exact commit SHA, independent verdict, rollback and remaining blockers. Never mark DONE from documentation/build alone. Stop on missing authorization, hardware access or provider compatibility; report NOT_RUN rather than fabricate evidence.
+
+
+## Cursor / Codex execution delta — 2026-11-27
+
+Planning-only extension to November 26 specification. Reconcile current main, active PRs and actual code before execution; map to existing IDs, implement only confirmed gaps. P0 blockers first. Vendor claims from daily digest require primary-source verification before adoption. Numerical corpus sizes are proposed test defaults, not measured results. Owner/reviewer TBD.
+
+- P1 existing provider reliability/forecast validation: compare historical forecasts as issued at timestamp with subsequent observations, preserve provider/version/location granularity and availability timestamp; no future leakage, distinguish stale/missing data, evaluate MAE/bias and anomaly false positives on chronological holdout. Historical web providers optional for contextual research, not substitute for authoritative AQI observations. Keep deterministic Risk Engine and existing release gates unchanged.
+- P1 existing analytics: prioritize consented user feedback and verified outcomes, no sensitive location/health data in external research tools.
+
+Delivery: separate implementation branch, baseline and gap matrix, reproducible tests, exact SHA, independent verdict, rollback and blockers. No automatic merge, production deployment, purchases or live trading. Sources for verification: https://huggingface.co/nvidia/Nemotron-3.5-Parse ; https://onchainbench.ai/methodology ; https://www.perplexity.ai/en-GB/hub/blog/freeze-the-web-with-perplexity-time-machine ; https://openclaw.ai/blog/shellbench ; https://sakana.ai/marlin-update-2/ .
