@@ -202,10 +202,10 @@ Delivery: separate implementation branch, baseline and gap matrix, reproducible 
 | P0 HIAIR-REL-001 physical-device/store receipts | BLOCKED / external | Hardware + Sandbox Apple Account / Android device still required; not claimed DONE |
 | P0-SEC secrets/logs + allowlist + revocation | DONE (code) | `secret_redaction.py`, `openai_provider_policy.py`, `test_secret_redaction_and_revocation.py`, protected-env URL guard |
 | P1 provider-quality AQI honesty | DONE (code) | `_optional_aqi`, provenance fields, `test_provider_quality_aqi.py` + honesty suite |
-| P1 provider reliability loop | DONE (sandbox scaffold) | `provider_reliability.py` + tests; not wired to production alerts |
+| P1 provider reliability loop | DONE (code scaffold) | `provider_reliability.py` + observability counters wired from environment resolve; production on-call sink still TBD |
 | P1 forecast validation MAE/holdout | DONE (sandbox) | `forecast/validation.py` + future-leakage tests; synthetic corpus only |
 | P1 anomaly two-stage prototype | DONE (sandbox) | `anomaly_detector.py` + tests; Risk Engine untouched |
-| P1 product analytics contract | DONE (contract) / PARTIAL (emission) | Backend contract + mobile Event constants + consent gate; web App Store CTAs already exist (PR #105/#106); experiments remain disabled |
+| P1 product analytics contract | DONE (code) | Backend contract + Settings consent toggle (iOS/Android) + dashboard emission of first_useful/repeat/retention; web App Store CTAs already exist (PR #105/#106); experiments remain disabled |
 | P1 AI explanation guardrails / multilingual | DONE (code) | stale/unavailable block, es/it/fr fallback, health sanitize, offline benchmark |
 | P1 Dependabot coverage | DONE | `.github/dependabot.yml` (pip/actions/gradle; no npm — web has no package.json) |
 | Vendor digest candidates (Nemotron/Time Machine/etc.) | DEFER | Primary-source research only; not adopted as runtime deps |
@@ -220,6 +220,6 @@ Delivery: separate implementation branch, baseline and gap matrix, reproducible 
 ### Remaining blockers
 
 1. HIAIR-REL-001 physical-device QA / restore acceptance / Android unavailable.
-2. Product analytics: consent UX wiring + real mobile emission of roadmap events (constants ready; default consent=false).
-3. Provider reliability/anomaly: production alert sink and ops on-call assignment TBD.
-4. PR #104/#105 not merged by this work; experiments stay OFF absent approval.
+2. Provider reliability/anomaly: production pager/on-call sink still TBD (in-process metrics exist).
+3. PR #104/#105 not merged by this work; experiments stay OFF absent approval.
+4. iOS unit test `ProductAnalyticsConsentTests` requires Xcode project regen/build on CI (sources glob covers it).

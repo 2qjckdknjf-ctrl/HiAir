@@ -185,6 +185,10 @@ class DashboardViewModel(
                     "hours" to parsed.safeWindows.size.toString(),
                 ),
             )
+            ProductAnalytics.recordAppOpen(surface = "dashboard")
+            if (!parsed.headline.isNullOrBlank() || !parsed.explanation.isNullOrBlank()) {
+                ProductAnalytics.recordUsefulRecommendation(surface = "dashboard")
+            }
             onRiskReady?.invoke()
             state = withFamilyRisk(
                 withHazards(

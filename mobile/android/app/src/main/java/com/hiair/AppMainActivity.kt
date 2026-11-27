@@ -75,6 +75,7 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.hiair.analytics.ProductAnalytics.bind(this)
         sessionStore = SessionStore(this)
         onboardingStore = OnboardingStore(this)
         rootShell.symptomLogViewModel.attachFavoritesStore(SymptomFavoritesStore(this))

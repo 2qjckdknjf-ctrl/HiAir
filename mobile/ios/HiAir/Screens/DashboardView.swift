@@ -177,6 +177,10 @@ final class DashboardViewModel: ObservableObject {
                     "hours": String(result.risk.safeWindows.isEmpty ? 0 : 24),
                 ]
             )
+            ProductAnalytics.recordAppOpen(surface: "dashboard")
+            if !headline.isEmpty {
+                ProductAnalytics.recordUsefulRecommendation(surface: "dashboard")
+            }
 
             let client = apiClient
             enrichmentTask = Task { @MainActor [weak self] in

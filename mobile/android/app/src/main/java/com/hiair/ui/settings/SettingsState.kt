@@ -49,6 +49,7 @@ data class SettingsState(
     val refreshToken: String = "",
     val profileId: String = "",
     val pushAlertsEnabled: Boolean = true,
+    val productAnalyticsEnabled: Boolean = ProductAnalytics.analyticsConsentGranted,
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
     val quietHoursEnd: Int = 7,
@@ -330,6 +331,11 @@ class SettingsViewModel(
 
     fun setPushAlertsEnabled(value: Boolean) {
         state = state.copy(pushAlertsEnabled = value)
+    }
+
+    fun setProductAnalyticsEnabled(value: Boolean) {
+        ProductAnalytics.setAnalyticsConsent(value)
+        state = state.copy(productAnalyticsEnabled = value)
     }
 
     fun setAlertThreshold(value: String) {

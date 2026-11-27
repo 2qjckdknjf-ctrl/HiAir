@@ -5,6 +5,7 @@ from app.models.air import EnvironmentalInput, UserProfileContext
 from app.models.risk import EnvironmentSnapshot
 import app.services.air_repository as air_repository
 from app.services.environment_service import build_sample_snapshot, fetch_live_snapshot
+from app.services.observability import record_provider_reliability_signal
 from app.services.singleflight import SingleFlight
 
 _LIVE_ENV_FLIGHT = SingleFlight()
@@ -218,14 +219,20 @@ def resolve_environment_snapshot(
         except Exception:
             # Cache write must never fail the live response.
             pass
+        if resolved.data_quality == "unavailable":
+            record_provider_reliability_signal("missing_api_data", open_incident=True)
+        elif resolved.data_quality == "partial":
+            record_provider_reliability_signal("missing_api_data")
         return resolved
     except Exception:
-        pass
+        record_provider_reliability_signal("provider_outage", open_incident=True)
 
     if deferred_cached is not None:
+        record_provider_reliability_signal("stale_aqi")
         return deferred_cached
 
     if deferred_sample is not None:
+        record_provider_reliability_signal("provider_outage")
         return deferred_sample
 
     if force_refresh:
@@ -237,11 +244,13 @@ def resolve_environment_snapshot(
         if late_cached is not None:
             honest = _honest_cached_snapshot(late_cached)
             if honest is not None:
+                record_provider_reliability_signal("stale_aqi")
                 return honest
 
     if not settings.environment_allow_sample_fallback:
         raise RuntimeError("Environmental data unavailable and sample fallback is disabled")
 
+    record_provider_reliability_signal("provider_outage")
     return build_sample_snapshot(lat, lon)
 
 
