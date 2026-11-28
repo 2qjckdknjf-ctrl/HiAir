@@ -14,6 +14,9 @@ import org.mockito.ArgumentMatchers.*
 import org.mockito.Mockito.*
 
 class DashboardRequestOwnershipTest {
+    // Java Mockito eq returns null; Kotlin String parameters need a non-null placeholder.
+    private fun eqString(value: String): String = eq(value) ?: value
+
     private val owner = AtomicReference<String?>("user-a")
     private lateinit var api: ApiClient
     private lateinit var model: DashboardViewModel
@@ -112,21 +115,21 @@ class DashboardRequestOwnershipTest {
         load("user-a")
         assertEquals("user-b", model.state.headline)
         assertNull(model.state.wearableSteps)
-        verify(api, never()).fetchHealthSummary(eq("user-a"), anyString())
-        verify(api, never()).fetchHazards(eq("user-a"), anyString(), anyString())
+        verify(api, never()).fetchHealthSummary(eqString("user-a"), anyString())
+        verify(api, never()).fetchHazards(eqString("user-a"), anyString(), anyString())
     }
 
     @Test
     fun queuedOldAccountRequestCannotCancelTheNewAccountsInFlightLoad() {
         owner.set("user-b")
-        `when`(api.fetchCurrentRisk(eq("user-b"), anyString(), anyString())).thenAnswer {
+        `when`(api.fetchCurrentRisk(eqString("user-b"), anyString(), anyString())).thenAnswer {
             load("user-a")
             risk("account B")
         }
         load("user-b")
         assertEquals(DashboardStatus.SUCCESS, model.state.status)
         assertEquals("account B", model.state.headline)
-        verify(api, never()).fetchCurrentRisk(eq("user-a"), anyString(), anyString())
+        verify(api, never()).fetchCurrentRisk(eqString("user-a"), anyString(), anyString())
     }
 
     @Test
@@ -146,7 +149,7 @@ class DashboardRequestOwnershipTest {
             }
             snapshot?.let { ApiClient.AuthState(it, "token", "refresh") }
         }, updater = null)
-        `when`(api.fetchCurrentRisk(eq("user-b"), anyString(), anyString())).thenAnswer {
+        `when`(api.fetchCurrentRisk(eqString("user-b"), anyString(), anyString())).thenAnswer {
             newHttpStarted.countDown()
             check(releaseNewHttp.await(5, TimeUnit.SECONDS))
             risk("account B")

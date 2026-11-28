@@ -8,6 +8,9 @@ import org.mockito.ArgumentMatchers.*
 import org.mockito.Mockito.*
 
 class SettingsProfileOwnershipTest {
+    // Java Mockito eq returns null; Kotlin String parameters need a non-null placeholder.
+    private fun eqString(value: String): String = eq(value) ?: value
+
     private fun signIn(model: SettingsViewModel, user: String) {
         model.setUserId(user)
         model.setAccessToken("token-$user")
@@ -18,7 +21,7 @@ class SettingsProfileOwnershipTest {
         val api = mock(ApiClient::class.java)
         val model = SettingsViewModel(api)
         signIn(model, "a")
-        `when`(api.listProfiles(eq("a"), anyString())).thenAnswer {
+        `when`(api.listProfiles(eqString("a"), anyString())).thenAnswer {
             signIn(model, "b")
             model.setProfileId("profile-b")
             """[{"id":"profile-a","home_lat":41.39,"home_lon":2.17}]"""
@@ -35,7 +38,7 @@ class SettingsProfileOwnershipTest {
         val model = SettingsViewModel(api)
         signIn(model, "a")
         model.hydrateProfileLocation(JSONObject("""{"home_lat":41.39,"home_lon":2.17}"""))
-        `when`(api.listProfiles(eq("a"), anyString())).thenAnswer {
+        `when`(api.listProfiles(eqString("a"), anyString())).thenAnswer {
             signIn(model, "b")
             "[]"
         }
@@ -49,8 +52,8 @@ class SettingsProfileOwnershipTest {
         val model = SettingsViewModel(api)
         signIn(model, "a")
         model.hydrateProfileLocation(JSONObject("""{"home_lat":41.39,"home_lon":2.17}"""))
-        `when`(api.listProfiles(eq("a"), anyString())).thenReturn("[]")
-        `when`(api.createProfile(eq("a"), anyString(), anyString(), anyString(), anyDouble(), anyDouble())).thenAnswer {
+        `when`(api.listProfiles(eqString("a"), anyString())).thenReturn("[]")
+        `when`(api.createProfile(eqString("a"), anyString(), anyString(), anyString(), anyDouble(), anyDouble())).thenAnswer {
             signIn(model, "b")
             model.setProfileId("profile-b")
             """{"id":"profile-a"}"""
@@ -69,7 +72,7 @@ class SettingsProfileOwnershipTest {
         model.setProfileId("profile-a")
         signIn(model, "b")
         assertEquals("", model.state.profileId)
-        `when`(api.listProfiles(eq("b"), anyString())).thenReturn("""[{"id":"profile-b"}]""")
+        `when`(api.listProfiles(eqString("b"), anyString())).thenReturn("""[{"id":"profile-b"}]""")
         assertEquals("profile-b", model.ensureProfile())
         assertEquals("profile-b", model.state.profileId)
     }
