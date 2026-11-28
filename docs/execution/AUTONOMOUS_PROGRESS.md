@@ -5,7 +5,7 @@
 - Default base: `origin/main` @ `48187c81`
 - Implementation stack: PR #107 `cursor/ai-reconciliation-gaps-2026-11-27` → Draft PR #108 `fix/account-consent-and-freshness-2026-11-28`
 - Worktree: `/Users/alex/Projects/HIAir-weekly-ai-recon`
-- Current HEAD: `afc555424771ac6d71257b67704679475f8080c3`
+- Current HEAD (pre-push): local uncommitted iOS simulator boot retry on top of `fcd6407a`
 - Do not touch dirty `/Users/alex/Projects/HIAir` (`design/redesign-v4-deep-glass`)
 
 ## Queue (2026-11-28)
@@ -15,7 +15,7 @@
 3. [DONE] Risk Engine differential replay acceptance tests
 4. [DONE] Record Nov 28 planning + AdvMMN/Giga* as research/watch only
 5. [DONE] Push #108 update; convert #107 to Draft
-6. [NEXT] Wait hosted CI on `afc55542` + formal GitHub review / owner merge decision
+6. [IN_PROGRESS] Hosted CI green on current HEAD — iOS previously FAIL on simulator `bootstatus` TimeoutExpired (300s) at SHAs `fcd6407a` attempts 1–2; BUILD SUCCEEDED; unit tests NOT_RUN; boot retry added locally
 7. [BLOCKED] Physical-device HIAIR-REL-001
 8. [BLOCKED] Growth Content Factory video pilot coordination
 9. [WATCH] AdvMMN/GigaChat/d1.3-ultra — no install
@@ -24,8 +24,9 @@
 
 - Local backend targeted: PASS (differential replay + phase0)
 - Local Android `DashboardRequestOwnershipTest`: PASS (gradle testDebugUnitTest)
+- Local `scripts/ci/test_ios_runtime_gate.py`: PASS (9 tests, includes boot retry)
 - Hosted #108 @ `61e3a137`: Backend/Android/iOS PASS (pre-hardening)
-- Hosted CI on `afc55542`: PENDING after push
+- Hosted #108 @ `fcd6407a`: Backend PASS, Android PASS, iOS FAIL (infra boot timeout ×2; artifact `ios-runtime-46186561905-*`)
 - Merge/release: NOT authorized by this session
 
 ## Rollback

@@ -37,6 +37,48 @@ def create_fresh_device(inventory, selected):
     return {**selected, 'udid': identifier, 'state': 'Shutdown'}
 
 
+def _shutdown_delete(udid):
+    """Best-effort cleanup of a stuck disposable simulator."""
+    for command in (
+        ['xcrun', 'simctl', 'shutdown', udid],
+        ['xcrun', 'simctl', 'delete', udid],
+    ):
+        subprocess.run(command, stdout=sys.stderr, stderr=sys.stderr, timeout=30, check=False)
+
+
+def boot_device(device, *, boot_timeout=30, ready_timeout=300):
+    """Boot and wait until ready. Does not weaken unit-run certification."""
+    if device.get('state') != 'Booted':
+        subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True,
+            stdout=sys.stderr, stderr=sys.stderr, timeout=boot_timeout)
+    subprocess.run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b'], check=True,
+        stdout=sys.stderr, stderr=sys.stderr, timeout=ready_timeout)
+    return {**device, 'state': 'Booted'}
+
+
+def prepare_device(inventory, *, fresh=False, boot_attempts=2):
+    """Select (optionally create) a simulator and boot with one infrastructure retry."""
+    template = select_device(inventory)
+    last_error = None
+    for attempt in range(1, boot_attempts + 1):
+        device = create_fresh_device(inventory, template) if fresh else template
+        try:
+            return boot_device(device)
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+            last_error = error
+            print(f'simulator boot attempt {attempt}/{boot_attempts} failed: {error}', file=sys.stderr)
+            subprocess.run(['xcrun', 'simctl', 'list', 'devices', 'available'],
+                stdout=sys.stderr, stderr=sys.stderr, timeout=30, check=False)
+            if fresh:
+                _shutdown_delete(device['udid'])
+            if attempt >= boot_attempts:
+                raise
+            if not fresh:
+                # Existing device stuck: next attempt needs a disposable twin.
+                fresh = True
+    raise RuntimeError('simulator prepare exhausted without result')  # pragma: no cover
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', choices=['prepare', 'verify'])
@@ -52,20 +94,10 @@ def main():
         print(f'Certified full unit run: {verify_summary(summary)} passed, zero failed/skipped')
         return
     inventory = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))
-    device = select_device(inventory)
-    if not args.select_only:
-        if args.fresh:
-            device = create_fresh_device(inventory, device)
-        if device.get('state') != 'Booted':
-            subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True,
-                stdout=sys.stderr, stderr=sys.stderr, timeout=30)
-        try:
-            subprocess.run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b'], check=True,
-                stdout=sys.stderr, stderr=sys.stderr, timeout=300)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
-            subprocess.run(['xcrun', 'simctl', 'list', 'devices', 'available'],
-                stdout=sys.stderr, stderr=sys.stderr, timeout=30)
-            raise
+    if args.select_only:
+        device = select_device(inventory)
+    else:
+        device = prepare_device(inventory, fresh=args.fresh)
     print(f"platform=iOS Simulator,id={device['udid']}")
 
 
