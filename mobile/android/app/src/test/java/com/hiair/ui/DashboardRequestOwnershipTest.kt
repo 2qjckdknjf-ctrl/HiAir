@@ -42,6 +42,121 @@ class DashboardRequestOwnershipTest {
     }
 
     @Test
+    fun missingIdentityReleasesThePendingSpinnerToEmptyWithoutNetwork() {
+        val generation = model.markLoading()
+        // Explicit absence from the identity snapshot must not fall back to an
+        // older refresh-eligible snapshot for account A.
+        ApiClient.configureAuth(
+            provider = { ApiClient.AuthState("user-a", "token", "refresh") },
+            updater = null,
+            identityProvider = { null },
+        )
+        model.load("user-a", "token", "profile", "en", pendingGeneration = generation)
+        assertEquals(DashboardStatus.EMPTY, model.state.status)
+        assertTrue(model.ownsLoadGeneration(generation))
+        verifyNoInteractions(api)
+    }
+
+    @Test
+    fun usableIdentityWithoutRefreshTokenCanCompleteThePendingLoad() {
+        ApiClient.configureAuth(
+            provider = { null }, // Existing refresh policy still rejects this session.
+            updater = null,
+            identityProvider = { ApiClient.AuthState("user-a", "token", "") },
+        )
+        val generation = model.markLoading()
+        `when`(api.fetchCurrentRisk(anyString(), anyString(), anyString())).thenReturn(risk("account A"))
+        model.load("user-a", "token", "profile", "en", pendingGeneration = generation)
+        assertEquals(DashboardStatus.SUCCESS, model.state.status)
+        assertEquals("account A", model.state.headline)
+        verify(api).fetchCurrentRisk(eqString("user-a"), anyString(), anyString())
+    }
+
+    @Test
+    fun queuedOwnerRejectionReleasesItsSpinnerForTheCurrentAccount() {
+        val generation = model.markLoading()
+        owner.set("user-b")
+        model.load("user-a", "token", "profile", "en", pendingGeneration = generation)
+        assertEquals(DashboardStatus.INITIAL, model.state.status)
+        assertTrue(model.ownsLoadGeneration(generation))
+        verifyNoInteractions(api)
+    }
+
+    @Test
+    fun cancelledProfileLookupCanRestartForTheCurrentAccount() {
+        val generation = model.markLoading()
+        owner.set("user-b")
+        assertTrue(model.cancelLoad(generation))
+        assertEquals(DashboardStatus.INITIAL, model.state.status)
+        val replacement = model.markLoading()
+        `when`(api.fetchCurrentRisk(anyString(), anyString(), anyString())).thenReturn(risk("account B"))
+        model.load("user-b", "token", "profile", "en", pendingGeneration = replacement)
+        assertEquals(DashboardStatus.SUCCESS, model.state.status)
+        assertEquals("account B", model.state.headline)
+        assertFalse(model.ownsLoadGeneration(generation))
+    }
+
+    @Test
+    fun supersededPendingTicketCannotCancelOrReplaceTheNewAccountsLoad() {
+        val oldGeneration = model.markLoading()
+        owner.set("user-b")
+        val newGeneration = model.markLoading()
+        `when`(api.fetchCurrentRisk(eqString("user-b"), anyString(), anyString())).thenAnswer {
+            assertFalse(model.cancelLoad(oldGeneration))
+            model.load("user-a", "token", "profile", "en", pendingGeneration = oldGeneration)
+            assertEquals(DashboardStatus.LOADING, model.state.status)
+            risk("account B")
+        }
+        model.load("user-b", "token", "profile", "en", pendingGeneration = newGeneration)
+        assertEquals(DashboardStatus.SUCCESS, model.state.status)
+        assertEquals("account B", model.state.headline)
+        verify(api, never()).fetchCurrentRisk(eqString("user-a"), anyString(), anyString())
+    }
+
+    @Test
+    fun lostIdentityBeforePrimaryApplyEndsLoadingWithoutAnExplicitReset() {
+        var ready = 0
+        `when`(api.fetchCurrentRisk(anyString(), anyString(), anyString())).thenAnswer {
+            owner.set(null)
+            risk("account A")
+        }
+        load("user-a", ready = { ready++ })
+        assertEquals(DashboardStatus.EMPTY, model.state.status)
+        assertNull(model.state.headline)
+        assertEquals(0, ready)
+    }
+
+    @Test
+    fun accountSwitchBeforeQueuedFinalRenderClearsTheCompletedOldPayload() {
+        val generation = model.markLoading()
+        `when`(api.fetchCurrentRisk(anyString(), anyString(), anyString())).thenReturn(risk("account A"))
+        model.load("user-a", "token", "profile", "en", pendingGeneration = generation)
+        assertEquals("account A", model.state.headline)
+        owner.set("user-b")
+        // This is the same helper called by the queued final UI callback.
+        assertTrue(model.finishLoadForRender(generation, "user-a"))
+        assertEquals(DashboardStatus.INITIAL, model.state.status)
+        assertNull(model.state.headline)
+        assertNull(model.state.riskLevel)
+    }
+
+    @Test
+    fun oldQueuedFinalRenderCannotClearTheNewAccountsCompletedPayload() {
+        val oldGeneration = model.markLoading()
+        `when`(api.fetchCurrentRisk(anyString(), anyString(), anyString())).thenAnswer { call ->
+            risk(call.getArgument<String>(0))
+        }
+        model.load("user-a", "token", "profile", "en", pendingGeneration = oldGeneration)
+        owner.set("user-b")
+        val newGeneration = model.markLoading()
+        model.load("user-b", "token", "profile", "en", pendingGeneration = newGeneration)
+        assertFalse(model.finishLoadForRender(oldGeneration, "user-a"))
+        assertTrue(model.finishLoadForRender(newGeneration, "user-b"))
+        assertEquals(DashboardStatus.SUCCESS, model.state.status)
+        assertEquals("user-b", model.state.headline)
+    }
+
+    @Test
     fun latePrimaryResponseAfterLogoutDoesNotRestoreStateOrInvokeReady() {
         var ready = 0
         `when`(api.fetchCurrentRisk(anyString(), anyString(), anyString())).thenAnswer {
@@ -64,7 +179,7 @@ class DashboardRequestOwnershipTest {
             risk("account A")
         }
         load("user-a", ready = { ready++ })
-        assertNotEquals(DashboardStatus.SUCCESS, model.state.status)
+        assertEquals(DashboardStatus.INITIAL, model.state.status)
         assertNull(model.state.headline)
         assertEquals(0, ready)
     }

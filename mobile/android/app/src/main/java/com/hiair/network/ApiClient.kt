@@ -22,6 +22,8 @@ open class ApiClient(private val baseUrl: String) {
         @Volatile
         private var authProvider: (() -> AuthState?)? = null
         @Volatile
+        private var identityProvider: (() -> AuthState?)? = null
+        @Volatile
         private var authUpdater: ((AuthState?) -> Unit)? = null
         @Volatile
         private var tokenRefresher: ((AuthState) -> AuthState?)? = null
@@ -29,18 +31,26 @@ open class ApiClient(private val baseUrl: String) {
         fun configureAuth(
             provider: (() -> AuthState?)?,
             updater: ((AuthState?) -> Unit)?,
-            refresher: ((AuthState) -> AuthState?)? = null
+            refresher: ((AuthState) -> AuthState?)? = null,
+            identityProvider: (() -> AuthState?)? = null,
         ) {
             authProvider = provider
             authUpdater = updater
             tokenRefresher = refresher
+            this.identityProvider = identityProvider
         }
 
         private fun currentAuthState(): AuthState? = authProvider?.invoke()
 
-        fun authenticatedUserId(): String? = currentAuthState()?.takeIf {
-            it.userId.isNotBlank() && it.accessToken.isNotBlank()
-        }?.userId
+        fun authenticatedUserId(): String? {
+            // A usable access token identifies the account even when automatic
+            // refresh is unavailable. Keep refresh eligibility in authProvider.
+            val provider = identityProvider
+            val state = if (provider != null) provider() else currentAuthState()
+            return state?.takeIf {
+                it.userId.isNotBlank() && it.accessToken.isNotBlank()
+            }?.userId
+        }
 
         fun isCurrentUser(userId: String): Boolean = authenticatedUserId() == userId
 

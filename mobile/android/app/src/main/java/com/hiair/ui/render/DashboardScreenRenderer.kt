@@ -40,9 +40,9 @@ internal object DashboardScreenRenderer {
 
         when (ctx.rootShell.dashboardViewModel.state.status) {
             DashboardStatus.INITIAL -> {
-                ctx.rootShell.dashboardViewModel.markLoading()
+                val generation = ctx.rootShell.dashboardViewModel.markLoading()
                 renderLoading(ctx)
-                triggerLoad(ctx, isRetry = false)
+                triggerLoad(ctx, isRetry = false, generation = generation)
             }
             DashboardStatus.LOADING -> renderLoading(ctx)
             DashboardStatus.SUCCESS -> renderSuccess(ctx, ctx.rootShell.dashboardViewModel.state)
@@ -52,27 +52,31 @@ internal object DashboardScreenRenderer {
         }
     }
 
-    private fun triggerLoad(ctx: RenderContext, isRetry: Boolean) {
+    private fun triggerLoad(ctx: RenderContext, isRetry: Boolean, generation: Long) {
         if (ctx.presentationOnly || com.hiair.StoreScreenshotMode.active) return
         val rootShell = ctx.rootShell
         val activity = ctx.activity
         val startLoad = Runnable {
             Thread {
+                if (!rootShell.dashboardViewModel.ownsLoadGeneration(generation)) return@Thread
                 val settings = rootShell.settingsViewModel.state
                 val profileId = rootShell.settingsViewModel.ensureProfile(
                     expectedUserId = settings.userId,
                     expectedAccessToken = settings.accessToken,
                 )
                 val current = rootShell.settingsViewModel.state
-                if (current.userId != settings.userId || current.accessToken != settings.accessToken) return@Thread
-                rootShell.dashboardViewModel.load(
+                if (current.userId != settings.userId || current.accessToken != settings.accessToken) {
+                    rootShell.dashboardViewModel.cancelLoad(generation)
+                } else rootShell.dashboardViewModel.load(
                     userId = settings.userId,
                     accessToken = settings.accessToken.ifBlank { null },
                     profileId = profileId,
                     preferredLanguage = settings.preferredLanguage,
                     isRetry = isRetry,
+                    pendingGeneration = generation,
                     onRiskReady = {
                         activity.runOnUiThread {
+                            if (!rootShell.dashboardViewModel.ownsLoadGeneration(generation)) return@runOnUiThread
                             if (!com.hiair.network.ApiClient.isCurrentUser(settings.userId)) return@runOnUiThread
                             ctx.persistSession()
                             ctx.rerender()
@@ -80,8 +84,10 @@ internal object DashboardScreenRenderer {
                     },
                 )
                 activity.runOnUiThread {
-                    if (!com.hiair.network.ApiClient.isCurrentUser(settings.userId)) return@runOnUiThread
-                    ctx.persistSession()
+                    // Repaint EMPTY/INITIAL after rejection even if auth is gone.
+                    // The generation check prevents an old callback touching B.
+                    if (!rootShell.dashboardViewModel.finishLoadForRender(generation, settings.userId)) return@runOnUiThread
+                    if (com.hiair.network.ApiClient.isCurrentUser(settings.userId)) ctx.persistSession()
                     ctx.rerender()
                 }
             }.start()
@@ -153,9 +159,9 @@ internal object DashboardScreenRenderer {
                 addView(
                     HiAirComponents.primaryButton(activity, ctx.l("dashboard.retry")).apply {
                         setOnClickListener {
-                            ctx.rootShell.dashboardViewModel.markLoading()
+                            val generation = ctx.rootShell.dashboardViewModel.markLoading()
                             ctx.rerender()
-                            triggerLoad(ctx, isRetry = true)
+                            triggerLoad(ctx, isRetry = true, generation = generation)
                         }
                     }
                 )
@@ -266,9 +272,9 @@ internal object DashboardScreenRenderer {
 
         canvas.addView(
             DashboardResponsiveLayout.boundedPrimaryCta(ctx, ctx.l("dashboard.recompute")) {
-                ctx.rootShell.dashboardViewModel.markLoading()
+                val generation = ctx.rootShell.dashboardViewModel.markLoading()
                 ctx.rerender()
-                triggerLoad(ctx, isRetry = false)
+                triggerLoad(ctx, isRetry = false, generation = generation)
             },
         )
         canvas.addView(
@@ -597,9 +603,9 @@ internal object DashboardScreenRenderer {
                             val host = activity as? WearableHealthHost
                             host?.requestWearableConnect {
                                 host.syncWearablesIfPermitted()
-                                ctx.rootShell.dashboardViewModel.markLoading()
+                                val generation = ctx.rootShell.dashboardViewModel.markLoading()
                                 ctx.rerender()
-                                triggerLoad(ctx, isRetry = false)
+                                triggerLoad(ctx, isRetry = false, generation = generation)
                             }
                         }
                     }

@@ -89,9 +89,10 @@ class DashboardViewModel(
      * the first one is still in flight.
      */
     @Synchronized
-    fun markLoading() {
-        loadGeneration.incrementAndGet()
+    fun markLoading(): Long {
+        val generation = loadGeneration.incrementAndGet()
         state = state.copy(status = DashboardStatus.LOADING)
+        return generation
     }
 
     /** Resets the screen to its initial state, e.g. after sign-out. */
@@ -101,20 +102,53 @@ class DashboardViewModel(
         state = DashboardState()
     }
 
-    private fun isCurrentLoad(generation: Long, userId: String): Boolean =
-        generation == loadGeneration.get() && ApiClient.isCurrentUser(userId)
+    fun ownsLoadGeneration(generation: Long): Boolean = generation == loadGeneration.get()
+
+    /** Release only this queued/in-flight load; a newer account's load wins. */
+    @Synchronized
+    fun cancelLoad(generation: Long): Boolean {
+        if (!ownsLoadGeneration(generation)) return false
+        state = DashboardState(
+            status = if (ApiClient.authenticatedUserId() == null) DashboardStatus.EMPTY else DashboardStatus.INITIAL,
+        )
+        return true
+    }
+
+    /** Reconcile the owner again when the queued completion reaches the UI. */
+    @Synchronized
+    fun finishLoadForRender(generation: Long, userId: String): Boolean {
+        if (!ownsLoadGeneration(generation)) return false
+        if (!ApiClient.isCurrentUser(userId)) return cancelLoad(generation)
+        return true
+    }
 
     @Synchronized
-    private fun beginCurrentLoad(userId: String, accessToken: String?, profileId: String?): Long? {
+    private fun isCurrentLoad(generation: Long, userId: String): Boolean {
+        if (!ownsLoadGeneration(generation)) return false
+        if (ApiClient.isCurrentUser(userId)) return true
+        cancelLoad(generation)
+        return false
+    }
+
+    @Synchronized
+    private fun beginCurrentLoad(userId: String, accessToken: String?, profileId: String?, pendingGeneration: Long?): Long? {
+        if (pendingGeneration != null && !ownsLoadGeneration(pendingGeneration)) return null
         val activeUserId = ApiClient.authenticatedUserId()
-        if (activeUserId != null && activeUserId != userId) return null
+        if (activeUserId != null && activeUserId != userId) {
+            if (pendingGeneration != null) cancelLoad(pendingGeneration)
+            return null
+        }
         if (userId.isBlank() || accessToken.isNullOrBlank() || profileId.isNullOrBlank()) {
-            loadGeneration.incrementAndGet()
+            if (pendingGeneration == null) loadGeneration.incrementAndGet()
             state = DashboardState(status = DashboardStatus.EMPTY)
             return null
         }
-        if (activeUserId != userId) return null
-        val generation = loadGeneration.incrementAndGet()
+        if (activeUserId == null) {
+            if (pendingGeneration == null) loadGeneration.incrementAndGet()
+            state = DashboardState(status = DashboardStatus.EMPTY)
+            return null
+        }
+        val generation = pendingGeneration ?: loadGeneration.incrementAndGet()
         state = state.copy(
             status = DashboardStatus.LOADING,
             exposureReducedMarked = false,
@@ -185,11 +219,12 @@ class DashboardViewModel(
         profileId: String?,
         preferredLanguage: String,
         isRetry: Boolean = false,
+        pendingGeneration: Long? = null,
         onRiskReady: (() -> Unit)? = null,
     ) {
         // Ownership, generation allocation and the initial state share the same
         // monitor as reset/apply, so an old start cannot invalidate a newer load.
-        val generation = beginCurrentLoad(userId, accessToken, profileId) ?: return
+        val generation = beginCurrentLoad(userId, accessToken, profileId, pendingGeneration) ?: return
         if (!isCurrentLoad(generation, userId)) return
         if (isRetry) {
             ProductAnalytics.track("dashboard_retry")
