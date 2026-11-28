@@ -135,17 +135,31 @@ class DashboardViewModel(
         if (pendingGeneration != null && !ownsLoadGeneration(pendingGeneration)) return null
         val activeUserId = ApiClient.authenticatedUserId()
         if (activeUserId != null && activeUserId != userId) {
-            if (pendingGeneration != null) cancelLoad(pendingGeneration)
+            // Always release a spinner owned by this rejected ticket (or the
+            // latest markLoading generation when callers omit pendingGeneration).
+            if (pendingGeneration != null) {
+                cancelLoad(pendingGeneration)
+            } else if (state.status == DashboardStatus.LOADING) {
+                cancelLoad(loadGeneration.get())
+            }
             return null
         }
         if (userId.isBlank() || accessToken.isNullOrBlank() || profileId.isNullOrBlank()) {
-            if (pendingGeneration == null) loadGeneration.incrementAndGet()
-            state = DashboardState(status = DashboardStatus.EMPTY)
+            if (pendingGeneration != null) {
+                cancelLoad(pendingGeneration)
+            } else {
+                loadGeneration.incrementAndGet()
+                state = DashboardState(status = DashboardStatus.EMPTY)
+            }
             return null
         }
         if (activeUserId == null) {
-            if (pendingGeneration == null) loadGeneration.incrementAndGet()
-            state = DashboardState(status = DashboardStatus.EMPTY)
+            if (pendingGeneration != null) {
+                cancelLoad(pendingGeneration)
+            } else {
+                loadGeneration.incrementAndGet()
+                state = DashboardState(status = DashboardStatus.EMPTY)
+            }
             return null
         }
         val generation = pendingGeneration ?: loadGeneration.incrementAndGet()
@@ -231,7 +245,11 @@ class DashboardViewModel(
         }
         // beginCurrentLoad has validated the nullable input; keep local non-null
         // values for the API calls below without changing request ownership.
-        val requestProfileId = profileId ?: return
+        val requestProfileId = profileId
+        if (requestProfileId.isNullOrBlank()) {
+            cancelLoad(generation)
+            return
+        }
         ProductAnalytics.track("dashboard_loading")
         ProductAnalytics.track("forecast_fetch_started", mapOf("surface" to "dashboard"))
         try {

@@ -83,6 +83,25 @@ class DashboardRequestOwnershipTest {
     }
 
     @Test
+    fun ownerMismatchWithoutPendingTicketStillClearsMarkLoadingSpinner() {
+        model.markLoading()
+        owner.set("user-b")
+        // Callers that forget pendingGeneration must not leave LOADING forever.
+        model.load("user-a", "token", "profile", "en", pendingGeneration = null)
+        assertEquals(DashboardStatus.INITIAL, model.state.status)
+        verifyNoInteractions(api)
+    }
+
+    @Test
+    fun blankProfileWithPendingTicketClearsSpinnerWithoutNetwork() {
+        val generation = model.markLoading()
+        model.load("user-a", "token", profileId = null, preferredLanguage = "en", pendingGeneration = generation)
+        assertEquals(DashboardStatus.EMPTY, model.state.status)
+        assertTrue(model.ownsLoadGeneration(generation))
+        verifyNoInteractions(api)
+    }
+
+    @Test
     fun cancelledProfileLookupCanRestartForTheCurrentAccount() {
         val generation = model.markLoading()
         owner.set("user-b")
