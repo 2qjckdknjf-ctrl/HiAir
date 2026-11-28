@@ -1,6 +1,7 @@
+import subprocess
 import unittest
 from unittest.mock import patch
-from ios_runtime_gate import create_fresh_device, select_device, verify_summary
+from ios_runtime_gate import create_fresh_device, prepare_device, select_device, verify_summary
 
 
 class RuntimeGateTests(unittest.TestCase):
@@ -43,6 +44,73 @@ class RuntimeGateTests(unittest.TestCase):
         with patch('ios_runtime_gate.subprocess.check_output', return_value='not-a-device'):
             with self.assertRaises(ValueError):
                 create_fresh_device({'devices':{'runtime':[phone]}}, phone)
+
+    def test_prepare_retries_once_after_bootstatus_timeout(self):
+        phone = {'name':'iPhone 17', 'udid':'existing', 'state':'Shutdown', 'isAvailable':True,
+                 'deviceTypeIdentifier':'com.apple.CoreSimulator.SimDeviceType.iPhone-17'}
+        runtime = 'com.apple.CoreSimulator.SimRuntime.iOS-27-0'
+        inventory = {'devices':{runtime:[phone]}}
+        first = '11111111-2222-4333-8444-555555555555'
+        second = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+        timeout = subprocess.TimeoutExpired(['xcrun', 'simctl', 'bootstatus', first, '-b'], 300)
+
+        def create_side_effect(command, **_kwargs):
+            if command[:3] == ['xcrun', 'simctl', 'create']:
+                create_side_effect.n += 1
+                return (first if create_side_effect.n == 1 else second) + '\n'
+            raise AssertionError(command)
+        create_side_effect.n = 0
+
+        def run_side_effect(command, **_kwargs):
+            if command[:3] == ['xcrun', 'simctl', 'boot']:
+                return subprocess.CompletedProcess(command, 0)
+            if command[:3] == ['xcrun', 'simctl', 'bootstatus']:
+                if command[3] == first:
+                    raise timeout
+                return subprocess.CompletedProcess(command, 0)
+            if command[:3] == ['xcrun', 'simctl', 'list']:
+                return subprocess.CompletedProcess(command, 0)
+            if command[:3] == ['xcrun', 'simctl', 'shutdown']:
+                return subprocess.CompletedProcess(command, 0)
+            if command[:3] == ['xcrun', 'simctl', 'delete']:
+                return subprocess.CompletedProcess(command, 0)
+            raise AssertionError(command)
+
+        with patch('ios_runtime_gate.subprocess.check_output', side_effect=create_side_effect), \
+             patch('ios_runtime_gate.subprocess.run', side_effect=run_side_effect) as run:
+            device = prepare_device(inventory, fresh=True, boot_attempts=2)
+        self.assertEqual(device['udid'], second)
+        self.assertEqual(device['state'], 'Booted')
+        delete_calls = [c.args[0] for c in run.call_args_list if c.args[0][:3] == ['xcrun', 'simctl', 'delete']]
+        self.assertEqual(delete_calls, [['xcrun', 'simctl', 'delete', first]])
+
+    def test_prepare_exhausted_retries_still_fail(self):
+        phone = {'name':'iPhone 17', 'udid':'existing', 'state':'Shutdown', 'isAvailable':True,
+                 'deviceTypeIdentifier':'com.apple.CoreSimulator.SimDeviceType.iPhone-17'}
+        runtime = 'com.apple.CoreSimulator.SimRuntime.iOS-27-0'
+        inventory = {'devices':{runtime:[phone]}}
+        udids = ['11111111-2222-4333-8444-555555555555', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee']
+
+        def create_output(command, **_kwargs):
+            if command[:3] == ['xcrun', 'simctl', 'create']:
+                value = udids[create_output.n]
+                create_output.n += 1
+                return value + '\n'
+            raise AssertionError(command)
+        create_output.n = 0
+
+        def run_side_effect(command, **_kwargs):
+            if command[:3] in (['xcrun', 'simctl', 'boot'], ['xcrun', 'simctl', 'list'],
+                               ['xcrun', 'simctl', 'shutdown'], ['xcrun', 'simctl', 'delete']):
+                return subprocess.CompletedProcess(command, 0)
+            if command[:3] == ['xcrun', 'simctl', 'bootstatus']:
+                raise subprocess.TimeoutExpired(command, 300)
+            raise AssertionError(command)
+
+        with patch('ios_runtime_gate.subprocess.check_output', side_effect=create_output), \
+             patch('ios_runtime_gate.subprocess.run', side_effect=run_side_effect):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                prepare_device(inventory, fresh=True, boot_attempts=2)
 
     def test_missing_skipped_or_failed_run_cannot_certify(self):
         for value in ({}, {'totalTestCount':0,'passedTests':0,'failedTests':0,'skippedTests':0},

@@ -67,6 +67,8 @@ def test_fallback_when_api_key_missing(monkeypatch) -> None:
         build_risk(),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
         risk_assessment_id="assessment-1",
+        data_quality="complete",
+        freshness="live",
     )
     assert source == "template_fallback"
     assert "уровень риска" in text
@@ -106,6 +108,8 @@ def test_guardrail_blocks_unsafe_text(monkeypatch) -> None:
         build_risk(),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
         risk_assessment_id="assessment-1",
+        data_quality="complete",
+        freshness="live",
     )
     assert source == "template_fallback"
     assert "диагноз" not in text.lower()
@@ -145,6 +149,8 @@ def test_llm_success_when_api_returns_safe_text(monkeypatch) -> None:
         build_risk(),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
         risk_assessment_id="assessment-1",
+        data_quality="complete",
+        freshness="live",
     )
     assert source == "llm"
     assert "улице" in text
@@ -164,6 +170,8 @@ def test_rate_limit_falls_back(monkeypatch) -> None:
         build_risk(),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
         risk_assessment_id="assessment-1",
+        data_quality="complete",
+        freshness="live",
     )
     assert source == "template_fallback"
     assert text
@@ -185,6 +193,8 @@ def test_allow_llm_false_skips_openai(monkeypatch) -> None:
         build_risk(),
         RecommendationCard(headline="Stay indoors now", summary="s", actions=["a"]),
         allow_llm=False,
+        data_quality="complete",
+        freshness="live",
     )
     assert source == "template_fallback"
     assert text
@@ -223,6 +233,7 @@ def test_stale_data_blocks_llm(monkeypatch) -> None:
         build_risk(),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
         freshness="stale",
+        data_quality="complete",
     )
     assert source == "template_fallback"
     assert text
@@ -240,6 +251,8 @@ def test_unapproved_provider_blocks_llm(monkeypatch) -> None:
         build_profile(),
         build_risk(),
         RecommendationCard(headline="h", summary="s", actions=["a"]),
+        data_quality="complete",
+        freshness="live",
     )
     assert source == "template_fallback"
 

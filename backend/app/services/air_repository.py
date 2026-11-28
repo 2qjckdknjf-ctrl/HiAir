@@ -147,6 +147,9 @@ def get_latest_environment_snapshot(
         wbgt_c=None if row.get("wbgt_c") is None else float(row["wbgt_c"]),
         wbgt_estimated=bool(row.get("wbgt_estimated") or False),
         shortwave_wm2=None if row.get("shortwave_wm2") is None else float(row["shortwave_wm2"]),
+        received_at=row["timestamp_utc"].isoformat() if isinstance(row.get("timestamp_utc"), datetime) else (
+            str(row["timestamp_utc"]) if row.get("timestamp_utc") is not None else None
+        ),
     )
 
 

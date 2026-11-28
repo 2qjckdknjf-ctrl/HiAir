@@ -15,6 +15,21 @@ SOURCE_CACHED = "cached"
 SOURCE_SAMPLE = "sample"
 
 
+def _snapshot_freshness(snapshot: EnvironmentSnapshot) -> str:
+    if snapshot.source not in {SOURCE_LIVE, SOURCE_CACHED} or not snapshot.received_at:
+        return "stale"
+    try:
+        received = datetime.fromisoformat(snapshot.received_at.replace("Z", "+00:00"))
+        if received.tzinfo is None:
+            return "stale"
+        age = (datetime.now(timezone.utc) - received).total_seconds()
+    except (TypeError, ValueError, OverflowError):
+        return "stale"
+    if not 0 <= age <= settings.environment_cache_ttl_seconds:
+        return "stale"
+    return "live" if snapshot.source == SOURCE_LIVE else "cached"
+
+
 def _snapshot_to_environmental(
     snapshot: EnvironmentSnapshot,
     lat: float,
@@ -22,6 +37,11 @@ def _snapshot_to_environmental(
     timezone_name: str,
 ) -> EnvironmentalInput:
     feels_like = snapshot.feels_like if snapshot.feels_like is not None else snapshot.temperature_c
+    quality = _snapshot_data_quality(snapshot)
+    if snapshot.source not in {SOURCE_LIVE, SOURCE_CACHED} or snapshot.data_quality not in {"complete", "partial"}:
+        quality = "unavailable"
+    elif quality == "complete" and snapshot.data_quality == "partial":
+        quality = "partial"
     return EnvironmentalInput(
         lat=lat,
         lon=lon,
@@ -38,8 +58,11 @@ def _snapshot_to_environmental(
         pollen_grains_m3=snapshot.pollen_grains_m3,
         wildfire_pm10=snapshot.wildfire_pm10,
         source=snapshot.source,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        # A cache read must not renew the age of the observation when persisted again.
+        timestamp=snapshot.received_at or datetime.now(timezone.utc).isoformat(),
         timezone=snapshot.timezone or timezone_name,
+        data_quality=quality,
+        freshness=_snapshot_freshness(snapshot),
     )
 
 

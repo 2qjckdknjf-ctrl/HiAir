@@ -120,15 +120,15 @@ def _compute_and_persist(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Environmental data unavailable") from exc
     hourly_points = []
-    freshness = None
-    data_quality = None
+    freshness = environment.freshness
+    data_quality = environment.data_quality
     sources = None
     generated_at = None
     if forecast is not None:
         environment = overlay_forecast_current(environment, forecast)
         hourly_points = forecast_to_hourly_inputs(forecast)
-        freshness = forecast.freshness.value
-        data_quality = forecast.quality.value
+        freshness = environment.freshness
+        data_quality = environment.data_quality
         sources = forecast.sources
         generated_at = forecast.generated_at
     personal_load = wearable_service.build_personal_load_input(user_id, environment)
@@ -136,7 +136,9 @@ def _compute_and_persist(
     recommendation = air_recommendation_engine.generate_recommendation(profile, risk, language=language)
     snapshot_id = None
     if (
-        environment.aqi is not None
+        environment.freshness in {"live", "cached"}
+        and environment.data_quality in {"complete", "partial"}
+        and environment.aqi is not None
         and environment.pm25 is not None
         and environment.ozone is not None
         and environment.humidity is not None

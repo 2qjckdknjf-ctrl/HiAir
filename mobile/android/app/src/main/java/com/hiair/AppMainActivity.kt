@@ -103,6 +103,10 @@ class AppMainActivity : AppCompatActivity(), WearableHealthHost, LocationBootstr
             )
         }
         ApiClient.configureAuth(
+            identityProvider = {
+                val state = rootShell.settingsViewModel.state
+                ApiClient.AuthState(state.userId, state.accessToken, state.refreshToken)
+            },
             provider = {
                 val state = rootShell.settingsViewModel.state
                 if (state.userId.isBlank() || state.accessToken.isBlank() || state.refreshToken.isBlank()) {

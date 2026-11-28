@@ -26,42 +26,71 @@ object ProductAnalytics {
     @Volatile
     private var prefs: SharedPreferences? = null
 
-    /** In-memory override for JVM unit tests (no Android prefs). */
-    @Volatile
-    var analyticsConsentGranted: Boolean = false
-        private set
+    private var accountId: String? = null
+    internal var testEventSink: ((String, Map<String, String>) -> Unit)? = null
 
+    val analyticsConsentGranted: Boolean
+        @Synchronized get() = consentGranted()
+
+    @Synchronized
     fun bind(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        analyticsConsentGranted = prefs?.getBoolean(CONSENT_KEY, false) ?: false
+        accountId = null
     }
 
-    fun setAnalyticsConsent(granted: Boolean) {
-        analyticsConsentGranted = granted
-        prefs?.edit()?.putBoolean(CONSENT_KEY, granted)?.apply()
+    @Synchronized
+    fun bindAccount(userId: String?, accessToken: String?) {
+        accountId = if (accessToken.isNullOrBlank()) null else userId?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
     }
 
-    fun trackRoadmapEvent(name: String, properties: Map<String, String> = emptyMap()) {
-        if (!analyticsConsentGranted) return
+    private fun authorizedAccount(userId: String?): String? {
+        val owner = accountId ?: return null
+        if (userId != null && userId.trim().lowercase() != owner) return null
+        return owner
+    }
+
+    private fun scopedKey(key: String, owner: String) = "$key.account.$owner"
+
+    @Synchronized
+    fun consentGranted(userId: String? = null): Boolean {
+        val owner = authorizedAccount(userId) ?: return false
+        // Device-wide legacy values cannot prove consent for any account.
+        return prefs?.getBoolean(scopedKey(CONSENT_KEY, owner), false) ?: false
+    }
+
+    @Synchronized
+    fun setAnalyticsConsent(granted: Boolean, userId: String? = null): Boolean {
+        val owner = authorizedAccount(userId) ?: return false
+        prefs?.edit()?.putBoolean(scopedKey(CONSENT_KEY, owner), granted)?.apply()
+        return prefs != null
+    }
+
+    @Synchronized
+    fun trackRoadmapEvent(name: String, properties: Map<String, String> = emptyMap(), userId: String? = null) {
+        if (!consentGranted(userId)) return
         track(name, properties)
     }
 
-    fun recordAppOpen(surface: String = "dashboard") {
-        if (!analyticsConsentGranted) return
+    @Synchronized
+    fun recordAppOpen(surface: String = "dashboard", userId: String? = null) {
+        val owner = authorizedAccount(userId) ?: return
+        if (!consentGranted(owner)) return
+        val firstOpenKey = scopedKey(FIRST_OPEN_DAY_KEY, owner)
+        val lastOpenKey = scopedKey(LAST_OPEN_DAY_KEY, owner)
         val day = LocalDate.now(ZoneOffset.UTC).toString()
         val store = prefs
-        val first = store?.getString(FIRST_OPEN_DAY_KEY, null)
+        val first = store?.getString(firstOpenKey, null)
         if (first == null) {
             store?.edit()
-                ?.putString(FIRST_OPEN_DAY_KEY, day)
-                ?.putString(LAST_OPEN_DAY_KEY, day)
+                ?.putString(firstOpenKey, day)
+                ?.putString(lastOpenKey, day)
                 ?.apply()
             return
         }
-        val last = store?.getString(LAST_OPEN_DAY_KEY, null)
+        val last = store?.getString(lastOpenKey, null)
         if (last == day) return
-        store?.edit()?.putString(LAST_OPEN_DAY_KEY, day)?.apply()
-        trackRoadmapEvent(Event.REPEAT_USE, mapOf("surface" to surface))
+        store?.edit()?.putString(lastOpenKey, day)?.apply()
+        trackRoadmapEvent(Event.REPEAT_USE, mapOf("surface" to surface), userId = owner)
         runCatching {
             val firstDate = LocalDate.parse(first)
             val nowDate = LocalDate.parse(day)
@@ -69,17 +98,21 @@ object ProductAnalytics {
                 trackRoadmapEvent(
                     Event.RETENTION_WINDOW,
                     mapOf("window" to "7d", "surface" to surface),
+                    userId = owner,
                 )
             }
         }
     }
 
-    fun recordUsefulRecommendation(surface: String) {
-        if (!analyticsConsentGranted) return
+    @Synchronized
+    fun recordUsefulRecommendation(surface: String, userId: String? = null) {
+        val owner = authorizedAccount(userId) ?: return
+        if (!consentGranted(owner)) return
         val store = prefs
-        if (store?.getBoolean(FIRST_USEFUL_SENT_KEY, false) == true) return
-        store?.edit()?.putBoolean(FIRST_USEFUL_SENT_KEY, true)?.apply()
-        trackRoadmapEvent(Event.FIRST_USEFUL_RECOMMENDATION, mapOf("surface" to surface))
+        val key = scopedKey(FIRST_USEFUL_SENT_KEY, owner)
+        if (store?.getBoolean(key, false) == true) return
+        store?.edit()?.putBoolean(key, true)?.apply()
+        trackRoadmapEvent(Event.FIRST_USEFUL_RECOMMENDATION, mapOf("surface" to surface), userId = owner)
     }
 
     fun track(name: String, properties: Map<String, String> = emptyMap()) {
@@ -89,6 +122,7 @@ object ProductAnalytics {
                 && !key.contains("user", ignoreCase = true)
                 && !value.contains("@")
         }
+        testEventSink?.invoke(name, sanitized)
         val payload = if (sanitized.isEmpty()) {
             name
         } else {

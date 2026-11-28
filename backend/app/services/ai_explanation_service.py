@@ -92,11 +92,8 @@ def sanitize_health_observations(health_context: list[str] | None) -> list[str]:
 def llm_allowed_for_data_quality(*, data_quality: str | None, freshness: str | None) -> bool:
     quality = (data_quality or "").strip().lower()
     fresh = (freshness or "").strip().lower()
-    if quality in {"unavailable", "stale"}:
-        return False
-    if fresh == "stale":
-        return False
-    return True
+    # Absent or unknown provenance cannot authorize an external explanation.
+    return quality in {"complete", "partial"} and fresh in {"live", "cached"}
 
 
 def build_prompt_payload(

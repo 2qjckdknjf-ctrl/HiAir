@@ -15,6 +15,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.ZoneId
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 
 /**
@@ -77,6 +78,8 @@ data class DashboardState(
 class DashboardViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
+    private val loadGeneration = AtomicLong()
+    @Volatile
     var state: DashboardState = DashboardState()
         private set
 
@@ -85,13 +88,95 @@ class DashboardViewModel(
      * starts. This prevents a re-render from spawning a duplicate request while
      * the first one is still in flight.
      */
-    fun markLoading() {
+    @Synchronized
+    fun markLoading(): Long {
+        val generation = loadGeneration.incrementAndGet()
         state = state.copy(status = DashboardStatus.LOADING)
+        return generation
     }
 
     /** Resets the screen to its initial state, e.g. after sign-out. */
+    @Synchronized
     fun reset() {
+        loadGeneration.incrementAndGet()
         state = DashboardState()
+    }
+
+    fun ownsLoadGeneration(generation: Long): Boolean = generation == loadGeneration.get()
+
+    /** Release only this queued/in-flight load; a newer account's load wins. */
+    @Synchronized
+    fun cancelLoad(generation: Long): Boolean {
+        if (!ownsLoadGeneration(generation)) return false
+        state = DashboardState(
+            status = if (ApiClient.authenticatedUserId() == null) DashboardStatus.EMPTY else DashboardStatus.INITIAL,
+        )
+        return true
+    }
+
+    /** Reconcile the owner again when the queued completion reaches the UI. */
+    @Synchronized
+    fun finishLoadForRender(generation: Long, userId: String): Boolean {
+        if (!ownsLoadGeneration(generation)) return false
+        if (!ApiClient.isCurrentUser(userId)) return cancelLoad(generation)
+        return true
+    }
+
+    @Synchronized
+    private fun isCurrentLoad(generation: Long, userId: String): Boolean {
+        if (!ownsLoadGeneration(generation)) return false
+        if (ApiClient.isCurrentUser(userId)) return true
+        cancelLoad(generation)
+        return false
+    }
+
+    @Synchronized
+    private fun beginCurrentLoad(userId: String, accessToken: String?, profileId: String?, pendingGeneration: Long?): Long? {
+        if (pendingGeneration != null && !ownsLoadGeneration(pendingGeneration)) return null
+        val activeUserId = ApiClient.authenticatedUserId()
+        if (activeUserId != null && activeUserId != userId) {
+            // Always release a spinner owned by this rejected ticket (or the
+            // latest markLoading generation when callers omit pendingGeneration).
+            if (pendingGeneration != null) {
+                cancelLoad(pendingGeneration)
+            } else if (state.status == DashboardStatus.LOADING) {
+                cancelLoad(loadGeneration.get())
+            }
+            return null
+        }
+        if (userId.isBlank() || accessToken.isNullOrBlank() || profileId.isNullOrBlank()) {
+            // Incomplete identity must settle EMPTY so the renderer does not
+            // restart from INITIAL while the account is still signed in.
+            if (pendingGeneration != null && !ownsLoadGeneration(pendingGeneration)) return null
+            if (pendingGeneration == null) loadGeneration.incrementAndGet()
+            state = DashboardState(status = DashboardStatus.EMPTY)
+            return null
+        }
+        if (activeUserId == null) {
+            if (pendingGeneration != null) {
+                if (!ownsLoadGeneration(pendingGeneration)) return null
+            } else {
+                loadGeneration.incrementAndGet()
+            }
+            state = DashboardState(status = DashboardStatus.EMPTY)
+            return null
+        }
+        val generation = pendingGeneration ?: loadGeneration.incrementAndGet()
+        state = state.copy(
+            status = DashboardStatus.LOADING,
+            exposureReducedMarked = false,
+            highRiskAvoidedMarked = false,
+            protectedDayStatus = "",
+        )
+        return generation
+    }
+
+    @Synchronized
+    private fun applyCurrentLoad(generation: Long, userId: String, next: DashboardState, onReady: (() -> Unit)? = null): Boolean {
+        if (!isCurrentLoad(generation, userId)) return false
+        state = next
+        onReady?.invoke()
+        return true
     }
 
     /** DEBUG-only deterministic demo payload for store screenshot captures. */
@@ -147,32 +232,36 @@ class DashboardViewModel(
         profileId: String?,
         preferredLanguage: String,
         isRetry: Boolean = false,
+        pendingGeneration: Long? = null,
         onRiskReady: (() -> Unit)? = null,
     ) {
+        // Ownership, generation allocation and the initial state share the same
+        // monitor as reset/apply, so an old start cannot invalidate a newer load.
+        val generation = beginCurrentLoad(userId, accessToken, profileId, pendingGeneration) ?: return
+        if (!isCurrentLoad(generation, userId)) return
         if (isRetry) {
             ProductAnalytics.track("dashboard_retry")
         }
-        if (userId.isBlank() || accessToken.isNullOrBlank() || profileId.isNullOrBlank()) {
-            state = DashboardState(status = DashboardStatus.EMPTY)
+        // beginCurrentLoad has validated the nullable input; keep local non-null
+        // values for the API calls below without changing request ownership.
+        val requestProfileId = profileId
+        if (requestProfileId.isNullOrBlank()) {
+            if (ownsLoadGeneration(generation)) {
+                state = DashboardState(status = DashboardStatus.EMPTY)
+            }
             return
         }
-        state = state.copy(
-            status = DashboardStatus.LOADING,
-            exposureReducedMarked = false,
-            highRiskAvoidedMarked = false,
-            protectedDayStatus = "",
-        )
         ProductAnalytics.track("dashboard_loading")
         ProductAnalytics.track("forecast_fetch_started", mapOf("surface" to "dashboard"))
         try {
             val raw = apiClient.fetchCurrentRisk(
                 userId = userId,
                 accessToken = accessToken,
-                profileId = profileId,
+                profileId = requestProfileId,
             )
             val parsed = parseCurrentRisk(raw, preferredLanguage)
             // Paint risk immediately; wearable/health enrich without blocking SUCCESS.
-            state = parsed
+            if (!applyCurrentLoad(generation, userId, parsed, onRiskReady)) return
             ProductAnalytics.track(
                 "dashboard_loaded",
                 mapOf("source" to (parsed.dataSource ?: "unknown")),
@@ -185,27 +274,24 @@ class DashboardViewModel(
                     "hours" to parsed.safeWindows.size.toString(),
                 ),
             )
-            ProductAnalytics.recordAppOpen(surface = "dashboard")
+            ProductAnalytics.recordAppOpen(surface = "dashboard", userId = userId)
             if (!parsed.headline.isNullOrBlank() || !parsed.explanation.isNullOrBlank()) {
-                ProductAnalytics.recordUsefulRecommendation(surface = "dashboard")
+                ProductAnalytics.recordUsefulRecommendation(surface = "dashboard", userId = userId)
             }
-            onRiskReady?.invoke()
-            state = withFamilyRisk(
-                withHazards(
-                    withWearable(parsed, userId, accessToken),
-                    userId,
-                    accessToken,
-                    profileId,
-                ),
-                userId,
-                accessToken,
-            )
-            state = withTravel(state, userId, accessToken)
+            if (!isCurrentLoad(generation, userId)) return
+            var enriched = withWearable(parsed, userId, accessToken, generation)
+            if (!isCurrentLoad(generation, userId)) return
+            enriched = withHazards(enriched, userId, accessToken, requestProfileId)
+            if (!isCurrentLoad(generation, userId)) return
+            enriched = withFamilyRisk(enriched, userId, accessToken)
+            if (!isCurrentLoad(generation, userId)) return
+            enriched = withTravel(enriched, userId, accessToken)
+            applyCurrentLoad(generation, userId, enriched)
         } catch (error: Exception) {
             val offline = isOffline(error)
-            state = DashboardState(
+            if (!applyCurrentLoad(generation, userId, DashboardState(
                 status = if (offline) DashboardStatus.OFFLINE else DashboardStatus.ERROR,
-            )
+            ))) return
             ProductAnalytics.track(
                 "dashboard_failed",
                 mapOf("offline" to offline.toString()),
@@ -255,7 +341,7 @@ class DashboardViewModel(
         }
     }
 
-    private fun withWearable(base: DashboardState, userId: String, accessToken: String?): DashboardState {
+    private fun withWearable(base: DashboardState, userId: String, accessToken: String?, generation: Long): DashboardState {
         return try {
             val wearableJson = JSONObject(apiClient.fetchWearableToday(userId, accessToken))
             val daily = wearableJson.optJSONObject("dailySummary")
@@ -267,7 +353,7 @@ class DashboardViewModel(
                 ?.optString(0)
                 ?.takeIf { it.isNotBlank() }
             val connected = wearableJson.optJSONObject("consent")?.optBoolean("isActive") == true
-            val healthSummaryRaw = if (connected) {
+            val healthSummaryRaw = if (connected && isCurrentLoad(generation, userId)) {
                 runCatching {
                     apiClient.fetchHealthSummary(userId, accessToken)
                 }.getOrNull()

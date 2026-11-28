@@ -49,7 +49,7 @@ data class SettingsState(
     val refreshToken: String = "",
     val profileId: String = "",
     val pushAlertsEnabled: Boolean = true,
-    val productAnalyticsEnabled: Boolean = ProductAnalytics.analyticsConsentGranted,
+    val productAnalyticsEnabled: Boolean = false,
     val alertThreshold: String = "high",
     val quietHoursStart: Int = 22,
     val quietHoursEnd: Int = 7,
@@ -120,8 +120,19 @@ class SettingsViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
     private var supabaseAuthService: SupabaseAuthService? = null
+    private val sessionStateLock = Any()
+    @Volatile
     var state: SettingsState = SettingsState()
-        private set
+        private set(value) {
+            synchronized(sessionStateLock) {
+                // A profile carried by a copy of A's state is not B's profile.
+                val next = if (field.userId != value.userId && field.profileId == value.profileId) {
+                    value.copy(profileId = "")
+                } else value
+                ProductAnalytics.bindAccount(next.userId, next.accessToken)
+                field = next.copy(productAnalyticsEnabled = ProductAnalytics.consentGranted(next.userId))
+            }
+        }
     @Volatile
     private var aiSummaryRequestId: Int = 0
 
@@ -257,17 +268,19 @@ class SettingsViewModel(
      * Resolves the active personalization profile. Creates one only when valid
      * device coordinates are available — never with null island (0,0).
      */
-    fun ensureProfile(): String? {
-        if (state.profileId.isNotBlank()) {
-            return state.profileId
-        }
+    fun ensureProfile(expectedUserId: String? = null, expectedAccessToken: String? = null): String? {
         val current = state
+        if ((expectedUserId != null && current.userId != expectedUserId) ||
+            (expectedAccessToken != null && current.accessToken != expectedAccessToken)) return null
         if (current.userId.isBlank() || current.accessToken.isBlank()) {
             return null
         }
+        if (current.profileId.isNotBlank()) return current.profileId
+        fun stillOwnsRequest(): Boolean = state.userId == current.userId && state.accessToken == current.accessToken
         return try {
             val token = current.accessToken.ifBlank { null }
             val profilesRaw = apiClient.listProfiles(current.userId, token)
+            if (!stillOwnsRequest()) return null
             val array = JSONArray(profilesRaw)
             if (array.length() > 0) {
                 val profile = array.getJSONObject(0)
@@ -275,12 +288,16 @@ class SettingsViewModel(
                 if (resolved.isNullOrBlank()) {
                     null
                 } else {
-                    hydrateProfileLocation(profile)
-                    state = state.copy(profileId = resolved)
-                    resolved
+                    synchronized(sessionStateLock) {
+                        if (!stillOwnsRequest()) null else {
+                            hydrateProfileLocation(profile)
+                            state = state.copy(profileId = resolved)
+                            resolved
+                        }
+                    }
                 }
             } else {
-                if (!hasValidLocation()) {
+                if (!stillOwnsRequest() || !GeoCoordinates.isValid(current.latitude, current.longitude)) {
                     return null
                 }
                 val resolved = parseProfileId(
@@ -289,15 +306,19 @@ class SettingsViewModel(
                         accessToken = token,
                         personaType = current.defaultPersona,
                         sensitivityLevel = "medium",
-                        homeLat = state.latitude,
-                        homeLon = state.longitude,
+                        homeLat = current.latitude,
+                        homeLon = current.longitude,
                     )
                 )
                 if (resolved.isNullOrBlank()) {
                     null
                 } else {
-                    state = state.copy(profileId = resolved, locationRevision = state.locationRevision + 1)
-                    resolved
+                    synchronized(sessionStateLock) {
+                        if (!stillOwnsRequest()) null else {
+                            state = state.copy(profileId = resolved, locationRevision = state.locationRevision + 1)
+                            resolved
+                        }
+                    }
                 }
             }
         } catch (_: Exception) {
@@ -333,9 +354,9 @@ class SettingsViewModel(
         state = state.copy(pushAlertsEnabled = value)
     }
 
-    fun setProductAnalyticsEnabled(value: Boolean) {
-        ProductAnalytics.setAnalyticsConsent(value)
-        state = state.copy(productAnalyticsEnabled = value)
+    fun setProductAnalyticsEnabled(value: Boolean, userId: String) {
+        if (userId != state.userId || !ProductAnalytics.setAnalyticsConsent(value, userId = userId)) return
+        state = state.copy(productAnalyticsEnabled = ProductAnalytics.consentGranted(state.userId))
     }
 
     fun setAlertThreshold(value: String) {

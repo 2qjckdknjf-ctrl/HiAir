@@ -45,6 +45,7 @@ def forecast_point_to_environmental(point: EnvironmentalForecastPoint) -> Enviro
         source=source,
         timestamp=point.timestamp,
         timezone=point.timezone,
+        data_quality=point.quality.value,
     )
 
 
@@ -84,8 +85,18 @@ def overlay_forecast_current(
         if hasattr(forecast.freshness, "value")
         else str(forecast.freshness)
     )
+    quality_order = {"complete": 0, "partial": 1, "unavailable": 2}
+    qualities = [mapped.data_quality, forecast.quality.value]
+    # Retained pollen/smoke still contributes to risk; a fresh forecast cannot
+    # make stale live-only metrics eligible for an external explanation.
+    if any(getattr(mapped, key) is None and getattr(live, key) is not None
+           for key in ("pollen_grains_m3", "wildfire_pm10")):
+        qualities.append(live.data_quality)
+        freshness_order = {"live": 0, "cached": 1, "stale": 2}
+        freshness = max((freshness, live.freshness), key=lambda value: freshness_order.get(value, 2))
+    quality = max(qualities, key=lambda value: quality_order.get(value, 2))
     return apply_freshness_source(
-        retain_live_only_metrics(mapped, live),
+        retain_live_only_metrics(mapped, live).model_copy(update={"data_quality": quality}),
         freshness,
     )
 
@@ -115,6 +126,7 @@ def forecast_point_to_snapshot(point: EnvironmentalForecastPoint, source: str) -
 
 
 def apply_freshness_source(environment: EnvironmentalInput, freshness: str) -> EnvironmentalInput:
+    environment = environment.model_copy(update={"freshness": freshness})
     if freshness in ("cached", "stale"):
         return environment.model_copy(update={"source": "cached"})
     if freshness == "live":

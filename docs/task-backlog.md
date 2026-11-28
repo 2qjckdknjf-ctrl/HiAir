@@ -191,6 +191,16 @@ Delivery: separate implementation branch, baseline and gap matrix, reproducible 
 
 
 
+## Cursor / Codex execution delta — 2026-11-28
+
+PLANNING ONLY. Owner requested incorporation of daily AI review. Reconcile current main, exact HEAD, active PRs and existing task IDs before execution; implement only verified gaps, existing P0 release blockers first. Numerical corpus sizes are proposed, not measured. Verify upstream release/license/runtime/privacy before adoption. Owner/reviewer TBD. No automatic merge, deployment, production mutation, purchases, external publication or live trading.
+
+- P0 existing release/privacy and analytics gates remain first; differential replay of existing provider/Risk Engine behavior, stale/missing data and deterministic recommendations; no weakened tests or changed thresholds, independent reviewer.
+- P2 AdvMMN research only: obtain full Scientific Reports paper and verify method/data/license, compare image+weather model with current provider and authoritative Spanish station observations on chronological/location holdouts; evaluate PM2.5/PM10/NO2/O3 MAE/bias, fog/light/humidity confounding, missing images, uncertainty and privacy. No claims of accuracy or medical advice, no change to deterministic Risk Engine. If full text unavailable, BLOCKED_RESEARCH.
+- P1 coordinate three synthetic video versioning pilot with Growth Content Factory; no publication/experiment activation. Monitor GigaChat/Decision Models only; no deployment.
+
+Delivery: separate implementation branch; gap matrix IMPLEMENTED/PARTIAL/MISSING/BLOCKED, unchanged tests plus negative/regression tests, exact SHA, reproducible commands/results, independent verdict, rollback and blockers. Never mark DONE from docs/build alone. Stop on missing authority or unsafe effects.
+
 ## Cursor / Codex execution results — 2026-11-27
 
 **Branch:** `cursor/ai-reconciliation-gaps-2026-11-27` (from `origin/main`). Planning source: `roadmap/weekly-ai-reconciliation-2026-11-10` / PR #104. **No production deploy, merge, purchases, or live trading.**
@@ -223,3 +233,20 @@ Delivery: separate implementation branch, baseline and gap matrix, reproducible 
 2. Provider reliability/anomaly: production pager/on-call sink still TBD (in-process metrics exist).
 3. PR #104/#105 not merged by this work; experiments stay OFF absent approval.
 4. iOS unit test `ProductAnalyticsConsentTests` requires Xcode project regen/build on CI (sources glob covers it).
+
+
+## Cursor / Codex execution results — 2026-11-28
+
+**Stacked delivery:** Draft PR #108 (`fix/account-consent-and-freshness-2026-11-28`) on top of PR #107 @ `67c9d827`. Continues account-scoped analytics consent, explanation freshness/quality fail-closed, dashboard ownership recovery, and protected-env fixture fix (CI green on #108).
+
+| ID | Status | Evidence |
+|---|---|---|
+| P0 analytics/privacy gates + CI fixture | DONE (code on #108) | Account-scoped consent; phase0 openai redaction fixture; hosted Backend/Android/iOS PASS on `61e3a137` |
+| P0 Risk Engine differential replay | DONE (tests) | `backend/tests/test_risk_engine_differential_replay.py` — identical replay, missing≠zero, source label does not change thresholds |
+| P0 dashboard LOADING recovery | DONE (hardening) | Owner mismatch / blank profile always clear spinner; regression tests added |
+| P2 AdvMMN | BLOCKED_RESEARCH | Open-access abstract available (Scientific Reports 2026-11-26); no product adoption; no Spanish-station holdout pilot run; Risk Engine unchanged |
+| P1 Growth Content Factory synthetic video | BLOCKED | Cross-repo coordination; no publication/experiment activation authorized |
+| P1 GigaChat / d1.3-ultra / GigaAM / v2.video | WATCH only | Digest candidates; not installed; adapters unchanged |
+| HIAIR-REL-001 physical device | BLOCKED | External hardware / Sandbox Apple Account |
+
+Independent formal GitHub APPROVED: not present. Assistant source reviews on #108 reported CLEAR (not formal approval).

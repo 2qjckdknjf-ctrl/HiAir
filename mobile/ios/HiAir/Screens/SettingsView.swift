@@ -44,8 +44,23 @@ final class SettingsViewModel: ObservableObject {
     @Published var userId = ""
     @Published var accessToken = ""
     @Published var pushAlertsEnabled = true
-    @Published var productAnalyticsEnabled = ProductAnalytics.analyticsConsentGranted {
-        didSet { ProductAnalytics.setAnalyticsConsent(productAnalyticsEnabled) }
+    @Published var productAnalyticsEnabled = false
+
+    func refreshProductAnalyticsConsent(userId: String) {
+        productAnalyticsEnabled = ProductAnalytics.consentGranted(for: userId)
+    }
+
+    func setProductAnalyticsEnabled(_ enabled: Bool, userId: String) {
+        guard ProductAnalytics.setAnalyticsConsent(enabled, userId: userId) else { return }
+        refreshProductAnalyticsConsent(userId: userId)
+    }
+
+    func productAnalyticsBinding(userId: String) -> Binding<Bool> {
+        // Capture the account rendered by this control, not a later session value.
+        Binding(
+            get: { ProductAnalytics.consentGranted(for: userId) },
+            set: { [weak self] enabled in self?.setProductAnalyticsEnabled(enabled, userId: userId) }
+        )
     }
     @Published var riskThreshold = "high"
     @Published var quietHoursStart = 22
@@ -1714,7 +1729,7 @@ struct SettingsView: View {
                             .font(AuroraTokens.Typography.bodyMD)
                             .foregroundStyle(HiAirV2Theme.secondaryText)
                     }
-                    Toggle(session.l("settings.product_analytics"), isOn: $viewModel.productAnalyticsEnabled)
+                    Toggle(session.l("settings.product_analytics"), isOn: viewModel.productAnalyticsBinding(userId: session.userId))
                     Text(session.l("settings.product_analytics_hint"))
                         .font(AuroraTokens.Typography.caption)
                         .foregroundStyle(HiAirV2Theme.tertiaryText)
@@ -1773,7 +1788,11 @@ struct SettingsView: View {
         }
         .hiAirPageBackground()
         .accessibilityIdentifier(HiAirAccessibilityID.Settings.root)
+        .onChange(of: session.userId) { userId in
+            viewModel.refreshProductAnalyticsConsent(userId: userId)
+        }
         .onAppear {
+            viewModel.refreshProductAnalyticsConsent(userId: session.userId)
             if viewModel.userId.isEmpty {
                 viewModel.userId = session.userId
             }
