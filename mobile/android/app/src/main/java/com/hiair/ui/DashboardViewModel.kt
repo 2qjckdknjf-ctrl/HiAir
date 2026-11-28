@@ -145,21 +145,20 @@ class DashboardViewModel(
             return null
         }
         if (userId.isBlank() || accessToken.isNullOrBlank() || profileId.isNullOrBlank()) {
-            if (pendingGeneration != null) {
-                cancelLoad(pendingGeneration)
-            } else {
-                loadGeneration.incrementAndGet()
-                state = DashboardState(status = DashboardStatus.EMPTY)
-            }
+            // Incomplete identity must settle EMPTY so the renderer does not
+            // restart from INITIAL while the account is still signed in.
+            if (pendingGeneration != null && !ownsLoadGeneration(pendingGeneration)) return null
+            if (pendingGeneration == null) loadGeneration.incrementAndGet()
+            state = DashboardState(status = DashboardStatus.EMPTY)
             return null
         }
         if (activeUserId == null) {
             if (pendingGeneration != null) {
-                cancelLoad(pendingGeneration)
+                if (!ownsLoadGeneration(pendingGeneration)) return null
             } else {
                 loadGeneration.incrementAndGet()
-                state = DashboardState(status = DashboardStatus.EMPTY)
             }
+            state = DashboardState(status = DashboardStatus.EMPTY)
             return null
         }
         val generation = pendingGeneration ?: loadGeneration.incrementAndGet()
@@ -247,7 +246,9 @@ class DashboardViewModel(
         // values for the API calls below without changing request ownership.
         val requestProfileId = profileId
         if (requestProfileId.isNullOrBlank()) {
-            cancelLoad(generation)
+            if (ownsLoadGeneration(generation)) {
+                state = DashboardState(status = DashboardStatus.EMPTY)
+            }
             return
         }
         ProductAnalytics.track("dashboard_loading")
