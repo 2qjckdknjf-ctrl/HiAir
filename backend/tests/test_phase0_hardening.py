@@ -40,6 +40,10 @@ def test_create_app_hides_docs_in_protected_env(monkeypatch) -> None:
         SimpleNamespace(
             app_env="production",
             jwt_secret="test-secret",
+            openai_api_key="",
+            supabase_service_role_key="",
+            supabase_anon_key="",
+            subscription_webhook_secret="",
             allow_legacy_user_header_auth=False,
             allow_insecure_local_dev=False,
             hiair_auth_provider="legacy",

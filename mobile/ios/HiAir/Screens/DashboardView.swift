@@ -177,9 +177,9 @@ final class DashboardViewModel: ObservableObject {
                     "hours": String(result.risk.safeWindows.isEmpty ? 0 : 24),
                 ]
             )
-            ProductAnalytics.recordAppOpen(surface: "dashboard")
+            ProductAnalytics.recordAppOpen(surface: "dashboard", userId: userId)
             if !headline.isEmpty {
-                ProductAnalytics.recordUsefulRecommendation(surface: "dashboard")
+                ProductAnalytics.recordUsefulRecommendation(surface: "dashboard", userId: userId)
             }
 
             let client = apiClient

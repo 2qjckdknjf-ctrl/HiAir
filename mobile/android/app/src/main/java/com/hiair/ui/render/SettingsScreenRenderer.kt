@@ -663,11 +663,12 @@ internal object SettingsScreenRenderer {
             rootShell.settingsViewModel.refreshWearableStatus()
         }
 
+        val analyticsOwner = state.userId
         val productAnalyticsBox = CheckBox(activity).apply {
             text = ctx.l("settings.product_analytics")
             isChecked = state.productAnalyticsEnabled
             setOnCheckedChangeListener { _, checked ->
-                rootShell.settingsViewModel.setProductAnalyticsEnabled(checked)
+                rootShell.settingsViewModel.setProductAnalyticsEnabled(checked, userId = analyticsOwner)
             }
         }
         val securityCard = HiAirComponents.cardContainer(activity).apply {

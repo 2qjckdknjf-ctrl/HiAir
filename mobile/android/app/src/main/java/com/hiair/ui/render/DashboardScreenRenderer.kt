@@ -58,8 +58,13 @@ internal object DashboardScreenRenderer {
         val activity = ctx.activity
         val startLoad = Runnable {
             Thread {
-                val profileId = rootShell.settingsViewModel.ensureProfile()
                 val settings = rootShell.settingsViewModel.state
+                val profileId = rootShell.settingsViewModel.ensureProfile(
+                    expectedUserId = settings.userId,
+                    expectedAccessToken = settings.accessToken,
+                )
+                val current = rootShell.settingsViewModel.state
+                if (current.userId != settings.userId || current.accessToken != settings.accessToken) return@Thread
                 rootShell.dashboardViewModel.load(
                     userId = settings.userId,
                     accessToken = settings.accessToken.ifBlank { null },
@@ -68,12 +73,14 @@ internal object DashboardScreenRenderer {
                     isRetry = isRetry,
                     onRiskReady = {
                         activity.runOnUiThread {
+                            if (!com.hiair.network.ApiClient.isCurrentUser(settings.userId)) return@runOnUiThread
                             ctx.persistSession()
                             ctx.rerender()
                         }
                     },
                 )
                 activity.runOnUiThread {
+                    if (!com.hiair.network.ApiClient.isCurrentUser(settings.userId)) return@runOnUiThread
                     ctx.persistSession()
                     ctx.rerender()
                 }

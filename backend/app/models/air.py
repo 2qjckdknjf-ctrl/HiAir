@@ -77,6 +77,9 @@ class EnvironmentalInput(BaseModel):
     source: str
     timestamp: str
     timezone: str = "UTC"
+    # Explanation eligibility follows the actual input, including the no-forecast path.
+    data_quality: str = "unavailable"
+    freshness: str = "stale"
 
 
 class SafeWindow(BaseModel):

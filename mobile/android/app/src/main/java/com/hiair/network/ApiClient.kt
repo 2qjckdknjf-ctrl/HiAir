@@ -38,6 +38,12 @@ open class ApiClient(private val baseUrl: String) {
 
         private fun currentAuthState(): AuthState? = authProvider?.invoke()
 
+        fun authenticatedUserId(): String? = currentAuthState()?.takeIf {
+            it.userId.isNotBlank() && it.accessToken.isNotBlank()
+        }?.userId
+
+        fun isCurrentUser(userId: String): Boolean = authenticatedUserId() == userId
+
         private fun updateAuthState(state: AuthState?) {
             authUpdater?.invoke(state)
         }

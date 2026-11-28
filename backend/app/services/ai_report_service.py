@@ -159,6 +159,8 @@ def build_ai_report(
         language=language,
         risk_assessment_id=None,
         health_context=health_context,
+        data_quality=environment.data_quality,
+        freshness=environment.freshness,
     )
 
     load_summary = None

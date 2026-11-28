@@ -121,6 +121,8 @@ def compose_briefing(user_id: str) -> tuple[str, str | None, str]:
         language=user_settings.preferred_language,
         risk_assessment_id=None,
         health_context=health_context[:4],
+        data_quality=environment.data_quality,
+        freshness=environment.freshness,
     )
     first_window = None
     window_label = "Best outdoor window"
