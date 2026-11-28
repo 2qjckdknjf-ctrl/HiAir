@@ -79,6 +79,8 @@ class DashboardViewModel(
     private val apiClient: ApiClient = ApiClient(AppConfig.apiBaseUrl)
 ) {
     private val loadGeneration = AtomicLong()
+    /** Generation accepted by [beginCurrentLoad]. [markLoading] alone does not accept one. */
+    private var acceptedGeneration = 0L
     @Volatile
     var state: DashboardState = DashboardState()
         private set
@@ -101,20 +103,52 @@ class DashboardViewModel(
         state = DashboardState()
     }
 
+    /**
+     * Drops a spinner when the dashboard request will not start.
+     * An accepted in-flight load keeps the screen.
+     */
+    @Synchronized
+    fun cancelUnstartedLoading() {
+        releaseLoadingIfAbandoned(null)
+    }
+
     private fun isCurrentLoad(generation: Long, userId: String): Boolean =
         generation == loadGeneration.get() && ApiClient.isCurrentUser(userId)
+
+    /**
+     * A rejected start or a refused result must not leave the spinner up.
+     * A newer accepted load owns the screen and is left untouched.
+     */
+    @Synchronized
+    private fun releaseLoadingIfAbandoned(generation: Long?) {
+        if (state.status != DashboardStatus.LOADING) return
+        val current = loadGeneration.get()
+        if (generation == null) {
+            if (acceptedGeneration == current) return
+        } else if (generation != current) {
+            return
+        }
+        state = DashboardState(status = DashboardStatus.ERROR)
+    }
 
     @Synchronized
     private fun beginCurrentLoad(userId: String, accessToken: String?, profileId: String?): Long? {
         val activeUserId = ApiClient.authenticatedUserId()
-        if (activeUserId != null && activeUserId != userId) return null
+        if (activeUserId != null && activeUserId != userId) {
+            releaseLoadingIfAbandoned(null)
+            return null
+        }
         if (userId.isBlank() || accessToken.isNullOrBlank() || profileId.isNullOrBlank()) {
             loadGeneration.incrementAndGet()
             state = DashboardState(status = DashboardStatus.EMPTY)
             return null
         }
-        if (activeUserId != userId) return null
+        if (activeUserId != userId) {
+            releaseLoadingIfAbandoned(null)
+            return null
+        }
         val generation = loadGeneration.incrementAndGet()
+        acceptedGeneration = generation
         state = state.copy(
             status = DashboardStatus.LOADING,
             exposureReducedMarked = false,
@@ -126,7 +160,10 @@ class DashboardViewModel(
 
     @Synchronized
     private fun applyCurrentLoad(generation: Long, userId: String, next: DashboardState, onReady: (() -> Unit)? = null): Boolean {
-        if (!isCurrentLoad(generation, userId)) return false
+        if (!isCurrentLoad(generation, userId)) {
+            releaseLoadingIfAbandoned(generation)
+            return false
+        }
         state = next
         onReady?.invoke()
         return true
@@ -190,7 +227,10 @@ class DashboardViewModel(
         // Ownership, generation allocation and the initial state share the same
         // monitor as reset/apply, so an old start cannot invalidate a newer load.
         val generation = beginCurrentLoad(userId, accessToken, profileId) ?: return
-        if (!isCurrentLoad(generation, userId)) return
+        if (!isCurrentLoad(generation, userId)) {
+            releaseLoadingIfAbandoned(generation)
+            return
+        }
         if (isRetry) {
             ProductAnalytics.track("dashboard_retry")
         }

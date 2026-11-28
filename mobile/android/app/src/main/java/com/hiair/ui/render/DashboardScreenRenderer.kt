@@ -52,6 +52,19 @@ internal object DashboardScreenRenderer {
         }
     }
 
+    private fun rerenderIfLoadFinished(ctx: RenderContext) {
+        ctx.activity.runOnUiThread {
+            when (ctx.rootShell.dashboardViewModel.state.status) {
+                DashboardStatus.EMPTY,
+                DashboardStatus.ERROR,
+                DashboardStatus.OFFLINE -> ctx.rerender()
+                DashboardStatus.INITIAL,
+                DashboardStatus.LOADING,
+                DashboardStatus.SUCCESS -> Unit
+            }
+        }
+    }
+
     private fun triggerLoad(ctx: RenderContext, isRetry: Boolean) {
         if (ctx.presentationOnly || com.hiair.StoreScreenshotMode.active) return
         val rootShell = ctx.rootShell
@@ -64,7 +77,11 @@ internal object DashboardScreenRenderer {
                     expectedAccessToken = settings.accessToken,
                 )
                 val current = rootShell.settingsViewModel.state
-                if (current.userId != settings.userId || current.accessToken != settings.accessToken) return@Thread
+                if (current.userId != settings.userId || current.accessToken != settings.accessToken) {
+                    rootShell.dashboardViewModel.cancelUnstartedLoading()
+                    rerenderIfLoadFinished(ctx)
+                    return@Thread
+                }
                 rootShell.dashboardViewModel.load(
                     userId = settings.userId,
                     accessToken = settings.accessToken.ifBlank { null },
@@ -79,10 +96,13 @@ internal object DashboardScreenRenderer {
                         }
                     },
                 )
-                activity.runOnUiThread {
-                    if (!com.hiair.network.ApiClient.isCurrentUser(settings.userId)) return@runOnUiThread
-                    ctx.persistSession()
-                    ctx.rerender()
+                if (com.hiair.network.ApiClient.isCurrentUser(settings.userId)) {
+                    activity.runOnUiThread {
+                        ctx.persistSession()
+                        ctx.rerender()
+                    }
+                } else {
+                    rerenderIfLoadFinished(ctx)
                 }
             }.start()
         }

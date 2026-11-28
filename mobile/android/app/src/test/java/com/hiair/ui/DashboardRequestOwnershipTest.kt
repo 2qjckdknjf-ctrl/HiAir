@@ -64,9 +64,52 @@ class DashboardRequestOwnershipTest {
             risk("account A")
         }
         load("user-a", ready = { ready++ })
-        assertNotEquals(DashboardStatus.SUCCESS, model.state.status)
+        assertEquals(DashboardStatus.ERROR, model.state.status)
         assertNull(model.state.headline)
         assertEquals(0, ready)
+    }
+
+    @Test
+    fun loadingSessionWithoutAuthenticatedUserEndsInError() {
+        model.markLoading()
+        owner.set(null)
+        load("user-a")
+        assertEquals(DashboardStatus.ERROR, model.state.status)
+        verify(api, never()).fetchCurrentRisk(anyString(), anyString(), anyString())
+    }
+
+    @Test
+    fun loadingSessionForAnotherAccountEndsInError() {
+        model.markLoading()
+        owner.set("user-b")
+        load("user-a")
+        assertEquals(DashboardStatus.ERROR, model.state.status)
+        verify(api, never()).fetchCurrentRisk(anyString(), anyString(), anyString())
+    }
+
+    @Test
+    fun markLoadingThenMissingProfileEndsEmpty() {
+        model.markLoading()
+        load("user-a", profile = "")
+        assertEquals(DashboardStatus.EMPTY, model.state.status)
+        verify(api, never()).fetchCurrentRisk(anyString(), anyString(), anyString())
+    }
+
+    @Test
+    fun cancelUnstartedLoadingEndsTheSpinnerWithoutDroppingAnAcceptedLoad() {
+        model.markLoading()
+        model.cancelUnstartedLoading()
+        assertEquals(DashboardStatus.ERROR, model.state.status)
+
+        owner.set("user-b")
+        val accepted = DashboardViewModel(api)
+        `when`(api.fetchCurrentRisk(eqString("user-b"), anyString(), anyString())).thenAnswer {
+            accepted.cancelUnstartedLoading()
+            risk("account B")
+        }
+        accepted.load("user-b", "token", "profile", "en")
+        assertEquals(DashboardStatus.SUCCESS, accepted.state.status)
+        assertEquals("account B", accepted.state.headline)
     }
 
     @Test
